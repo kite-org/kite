@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Outlet, useSearchParams } from 'react-router-dom'
 
 import { AppSidebar } from './components/app-sidebar'
+import { FloatingTerminal } from './components/floating-terminal'
 import { GlobalSearch } from './components/global-search'
 import {
   GlobalSearchProvider,
@@ -14,6 +15,7 @@ import { SiteHeader } from './components/site-header'
 import { SidebarInset, SidebarProvider } from './components/ui/sidebar'
 import { Toaster } from './components/ui/sonner'
 import { ClusterProvider } from './contexts/cluster-context'
+import { TerminalProvider } from './contexts/terminal-context'
 import { useCluster } from './hooks/use-cluster'
 import { apiClient } from './lib/api-client'
 
@@ -76,6 +78,7 @@ function AppContent() {
         </SidebarInset>
       </SidebarProvider>
       <GlobalSearch open={isOpen} onOpenChange={closeSearch} />
+      <FloatingTerminal />
       <Toaster />
     </>
   )
@@ -83,11 +86,13 @@ function AppContent() {
 
 function App() {
   return (
-    <ClusterProvider>
-      <GlobalSearchProvider>
-        <ClusterAwareApp />
-      </GlobalSearchProvider>
-    </ClusterProvider>
+    <TerminalProvider>
+      <ClusterProvider>
+        <GlobalSearchProvider>
+          <ClusterAwareApp />
+        </GlobalSearchProvider>
+      </ClusterProvider>
+    </TerminalProvider>
   )
 }
 

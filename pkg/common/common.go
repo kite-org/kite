@@ -11,7 +11,8 @@ import (
 const (
 	JWTExpirationSeconds = 24 * 60 * 60 // 24 hours
 
-	NodeTerminalPodName = "kite-node-terminal-agent"
+	NodeTerminalPodName    = "kite-node-terminal-agent"
+	KubectlTerminalPodName = "kite-kubectl-agent"
 
 	KubectlAnnotation = "kubectl.kubernetes.io/last-applied-configuration"
 
@@ -28,9 +29,10 @@ var (
 	Host            = ""
 	Base            = ""
 
-	NodeTerminalImage = "busybox:latest"
-	DBType            = "sqlite"
-	DBDSN             = "dev.db"
+	NodeTerminalImage    = "busybox:latest"
+	KubectlTerminalImage = "zzde/kubectl:latest"
+	DBType               = "sqlite"
+	DBDSN                = "dev.db"
 
 	KiteEncryptKey = "kite-default-encryption-key-change-in-production"
 
@@ -59,6 +61,10 @@ func LoadEnvs() {
 
 	if nodeTerminalImage := os.Getenv("NODE_TERMINAL_IMAGE"); nodeTerminalImage != "" {
 		NodeTerminalImage = nodeTerminalImage
+	}
+
+	if kubectlTerminalImage := os.Getenv("KUBECTL_TERMINAL_IMAGE"); kubectlTerminalImage != "" {
+		KubectlTerminalImage = kubectlTerminalImage
 	}
 
 	if dbDSN := os.Getenv("DB_DSN"); dbDSN != "" {

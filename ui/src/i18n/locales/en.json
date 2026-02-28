@@ -86,6 +86,7 @@
     "storageclasses": "Storage Classes",
     "events": "Events",
     "crds": "CRDs",
+    "kubectl": "Kubectl Terminal",
     "serviceaccounts": "Service Accounts",
     "roles": "Roles",
     "rolebindings": "Role Bindings",

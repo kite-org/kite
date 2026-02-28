@@ -43,13 +43,15 @@ import { ContainerSelector } from './selector/container-selector'
 import { PodSelector } from './selector/pod-selector'
 
 interface TerminalProps {
-  type?: 'node' | 'pod'
+  type?: 'node' | 'pod' | 'kubectl'
   namespace?: string
   podName?: string
   nodeName?: string
   pods?: Pod[]
   containers?: Container[]
   initContainers?: Container[]
+  /** When true, hides the internal toolbar and fills parent container */
+  embedded?: boolean
 }
 
 export function Terminal({
@@ -60,6 +62,7 @@ export function Terminal({
   containers: _containers = [],
   initContainers = [],
   type = 'pod',
+  embedded = false,
 }: TerminalProps) {
   const containers = useMemo(() => {
     return toSimpleContainer(initContainers, _containers)
@@ -225,6 +228,9 @@ export function Terminal({
       if (!selectedContainer) return
     }
     if (type === 'node' && !nodeName) return
+    if (type === 'kubectl') {
+      // kubectl type needs no pod/container selection
+    }
     if (!terminalRef.current) return
 
     if (xtermRef.current) xtermRef.current.dispose()
@@ -295,7 +301,9 @@ export function Terminal({
     const wsPath =
       type === 'pod'
         ? `/api/v1/terminal/${namespace}/${selectedPod}/ws?container=${selectedContainer}&x-cluster-name=${currentCluster}`
-        : `/api/v1/node-terminal/${nodeName}/ws?x-cluster-name=${currentCluster}`
+        : type === 'node'
+          ? `/api/v1/node-terminal/${nodeName}/ws?x-cluster-name=${currentCluster}`
+          : `/api/v1/kubectl-terminal/ws?x-cluster-name=${currentCluster}`
     const wsUrl = getWebSocketUrl(wsPath)
     const websocket = new WebSocket(wsUrl)
     wsRef.current = websocket
@@ -345,7 +353,9 @@ export function Terminal({
         }
       }, 30000)
 
-      terminal.writeln(`\x1b[32mConnected to ${type} terminal!\x1b[0m`)
+      terminal.writeln(
+        `\x1b[32mConnected to ${type === 'kubectl' ? 'kubectl' : type} terminal!\x1b[0m`
+      )
       terminal.writeln('')
     }
 
@@ -412,19 +422,27 @@ export function Terminal({
       }
     })
 
+    let resizeDebounceTimer: ReturnType<typeof setTimeout> | null = null
     const handleTerminalResize = () => {
-      if (fitAddonRef.current && websocket.readyState === WebSocket.OPEN) {
-        const { cols, rows } = terminal
-        const message = JSON.stringify({ type: 'resize', cols, rows })
-        websocket.send(message)
-        updateNetworkStats(new Blob([message]).size, true)
-      }
+      // Debounce: wait for CSS transition to finish before fitting/resizing
+      if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer)
+      resizeDebounceTimer = setTimeout(() => {
+        if (fitAddonRef.current) {
+          fitAddonRef.current.fit()
+        }
+        if (fitAddonRef.current && websocket.readyState === WebSocket.OPEN) {
+          const { cols, rows } = terminal
+          const message = JSON.stringify({ type: 'resize', cols, rows })
+          websocket.send(message)
+          updateNetworkStats(new Blob([message]).size, true)
+        }
+      }, 150)
     }
 
     let resizeObserver: ResizeObserver | null = null
-    if (fitAddonRef.current && terminal.element) {
+    if (terminalRef.current) {
       resizeObserver = new ResizeObserver(handleTerminalResize)
-      resizeObserver.observe(terminal.element)
+      resizeObserver.observe(terminalRef.current)
     }
 
     const handleWheelEvent = (e: WheelEvent | TouchEvent) => {
@@ -473,6 +491,29 @@ export function Terminal({
       xtermRef.current.clear()
     }
   }, [])
+
+  // Shared terminal div (the actual xterm canvas)
+  const terminalDiv = (
+    <div
+      ref={terminalRef}
+      className="flex-1 h-full min-h-0 w-full"
+      style={{
+        maxHeight: '100%',
+        overflow: 'hidden',
+        overscrollBehavior: 'none',
+        touchAction: 'none',
+        position: 'relative',
+        isolation: 'isolate',
+      }}
+    />
+  )
+
+  // Embedded mode: no header, fills parent completely
+  if (embedded) {
+    return (
+      <div className="flex flex-col h-full w-full min-h-0">{terminalDiv}</div>
+    )
+  }
 
   return (
     <Card
@@ -682,18 +723,7 @@ export function Terminal({
       </CardHeader>
 
       <CardContent className="p-0 flex h-full min-h-0">
-        <div
-          ref={terminalRef}
-          className="flex-1 h-full min-h-0"
-          style={{
-            maxHeight: '100%',
-            overflow: 'hidden',
-            overscrollBehavior: 'none',
-            touchAction: 'none',
-            position: 'relative',
-            isolation: 'isolate',
-          }}
-        />
+        {terminalDiv}
       </CardContent>
     </Card>
   )

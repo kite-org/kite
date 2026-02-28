@@ -58,3 +58,26 @@ func GenerateNodeAgentName(nodeName string) string {
 	}
 	return fmt.Sprintf("%s-%s-%s", common.NodeTerminalPodName, truncateNodeName, RandomString(5))
 }
+
+func GenerateKubectlAgentName(username string) string {
+	sanitized := strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			return r
+		}
+		if r >= 'A' && r <= 'Z' {
+			return r + ('a' - 'A')
+		}
+		return '-'
+	}, username)
+	sanitized = strings.Trim(sanitized, "-.")
+	if sanitized == "" {
+		sanitized = "user"
+	}
+	prefix := common.KubectlTerminalPodName
+	if len(sanitized)+len(prefix)+7 > 63 {
+		maxLength := 63 - len(prefix) - 7
+		sanitized = sanitized[:maxLength]
+		sanitized = strings.TrimRight(sanitized, "-.")
+	}
+	return fmt.Sprintf("%s-%s-%s", prefix, sanitized, RandomString(5))
+}

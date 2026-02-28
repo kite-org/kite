@@ -188,6 +188,9 @@ func setupAPIRouter(r *gin.RouterGroup, cm *cluster.ClusterManager) {
 		nodeTerminalHandler := handlers.NewNodeTerminalHandler()
 		api.GET("/node-terminal/:nodeName/ws", nodeTerminalHandler.HandleNodeTerminalWebSocket)
 
+		kubectlTerminalHandler := handlers.NewKubectlTerminalHandler()
+		api.GET("/kubectl-terminal/ws", kubectlTerminalHandler.HandleKubectlTerminalWebSocket)
+
 		searchHandler := handlers.NewSearchHandler()
 		api.GET("/search", searchHandler.GlobalSearch)
 
