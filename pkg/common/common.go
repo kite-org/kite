@@ -44,6 +44,8 @@ var (
 	DisableVersionCheck = false
 
 	APIKeyProvider = "api_key"
+
+	AgentPodNamespace = "kube-system"
 )
 
 func LoadEnvs() {
@@ -57,6 +59,9 @@ func LoadEnvs() {
 
 	if analytics := os.Getenv("ENABLE_ANALYTICS"); analytics == "true" {
 		EnableAnalytics = true
+	}
+	if ns := os.Getenv("NAMESPACE"); ns != "" {
+		AgentPodNamespace = ns
 	}
 
 	if nodeTerminalImage := os.Getenv("NODE_TERMINAL_IMAGE"); nodeTerminalImage != "" {

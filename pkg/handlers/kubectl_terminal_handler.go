@@ -24,8 +24,7 @@ import (
 )
 
 const (
-	kubectlAdminSA          = "kite-kubectl-admin"
-	kubectlAdminSANamespace = "kube-system"
+	kubectlAdminSA = "kite-kubectl-admin"
 )
 
 type KubectlTerminalHandler struct {
@@ -83,7 +82,7 @@ func (h *KubectlTerminalHandler) HandleKubectlTerminalWebSocket(c *gin.Context) 
 			return
 		}
 
-		session := kube.NewTerminalSession(cs.K8sClient, conn, kubectlAdminSANamespace, podName, common.KubectlTerminalPodName)
+		session := kube.NewTerminalSession(cs.K8sClient, conn, common.AgentPodNamespace, podName, common.KubectlTerminalPodName)
 		if err := session.Start(ctx, "attach"); err != nil {
 			klog.Errorf("Kubectl terminal session error: %v", err)
 		}
@@ -100,7 +99,7 @@ func (h *KubectlTerminalHandler) ensureAdminServiceAccount(ctx context.Context, 
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kubectlAdminSA,
-			Namespace: kubectlAdminSANamespace,
+			Namespace: common.AgentPodNamespace,
 			Labels:    labels,
 		},
 	}
@@ -117,7 +116,7 @@ func (h *KubectlTerminalHandler) ensureAdminServiceAccount(ctx context.Context, 
 			{
 				Kind:      "ServiceAccount",
 				Name:      kubectlAdminSA,
-				Namespace: kubectlAdminSANamespace,
+				Namespace: common.AgentPodNamespace,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -140,7 +139,7 @@ func (h *KubectlTerminalHandler) createKubectlAgent(ctx context.Context, cs *clu
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,
-			Namespace: kubectlAdminSANamespace,
+			Namespace: common.AgentPodNamespace,
 			Labels: map[string]string{
 				"app.kubernetes.io/managed-by": "kite",
 				"kite.io/component":            "kubectl-terminal",
@@ -161,14 +160,7 @@ func (h *KubectlTerminalHandler) createKubectlAgent(ctx context.Context, cs *clu
 					Stdin:           true,
 					StdinOnce:       true,
 					TTY:             true,
-					Command: []string{"bash", "-c", `cat > /tmp/.kube-bashrc <<'BASHRC'
-# Welcome
-echo -e "\033[32m--- Kubectl Terminal Ready ---\033[0m"
-
-# Aliases
-alias k=kubectl
-BASHRC
-exec bash --rcfile /tmp/.kube-bashrc`},
+					Command:         []string{"bash", "-c", `exec bash`},
 				},
 			},
 		},
@@ -198,8 +190,8 @@ func (h *KubectlTerminalHandler) waitForPodReady(ctx context.Context, cs *cluste
 			h.sendErrorMessage(conn, utils.GetPodErrorMessage(pod))
 			return fmt.Errorf("timeout waiting for kubectl agent pod %s to be ready", podName)
 		case <-ticker.C:
-			pod, err = cs.K8sClient.ClientSet.CoreV1().Pods(kubectlAdminSANamespace).Get(
-				context.TODO(),
+			pod, err = cs.K8sClient.ClientSet.CoreV1().Pods(common.AgentPodNamespace).Get(
+				ctx,
 				podName,
 				metav1.GetOptions{},
 			)
@@ -219,7 +211,7 @@ func (h *KubectlTerminalHandler) waitForPodReady(ctx context.Context, cs *cluste
 func (h *KubectlTerminalHandler) cleanupPod(cs *cluster.ClientSet, instanceID string) error {
 	ctx := context.TODO()
 	opts := []client.DeleteAllOfOption{
-		client.InNamespace(kubectlAdminSANamespace),
+		client.InNamespace(common.AgentPodNamespace),
 		client.MatchingLabels{"kite.io/kubectl-session": instanceID},
 		client.PropagationPolicy(metav1.DeletePropagationBackground),
 	}

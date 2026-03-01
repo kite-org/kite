@@ -44,6 +44,7 @@ export function SiteHeader() {
               <button
                 onClick={toggleTerminal}
                 title="Kubectl Terminal"
+                aria-label="Toggle Kubectl Terminal"
                 className={`flex items-center justify-center rounded-sm p-1 transition-colors ${
                   isOpen
                     ? 'text-green-500 hover:text-green-600'

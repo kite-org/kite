@@ -84,7 +84,7 @@ func (h *NodeTerminalHandler) HandleNodeTerminalWebSocket(c *gin.Context) {
 			return
 		}
 
-		session := kube.NewTerminalSession(cs.K8sClient, conn, "kube-system", nodeAgentName, common.NodeTerminalPodName)
+		session := kube.NewTerminalSession(cs.K8sClient, conn, common.AgentPodNamespace, nodeAgentName, common.NodeTerminalPodName)
 		if err := session.Start(ctx, "attach"); err != nil {
 			klog.Errorf("Terminal session error: %v", err)
 		}
@@ -97,7 +97,7 @@ func (h *NodeTerminalHandler) createNodeAgent(ctx context.Context, cs *cluster.C
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,
-			Namespace: "kube-system",
+			Namespace: common.AgentPodNamespace,
 			Labels: map[string]string{
 				"app": podName,
 			},
@@ -146,7 +146,7 @@ func (h *NodeTerminalHandler) createNodeAgent(ctx context.Context, cs *cluster.C
 	}
 
 	object := &corev1.Pod{}
-	namespacedName := types.NamespacedName{Name: podName, Namespace: "kube-system"}
+	namespacedName := types.NamespacedName{Name: podName, Namespace: common.AgentPodNamespace}
 	if err := cs.K8sClient.Get(ctx, namespacedName, object); err == nil {
 		if utils.IsPodErrorOrSuccess(object) {
 			if err := cs.K8sClient.Delete(ctx, object); err != nil {
@@ -184,7 +184,7 @@ func (h *NodeTerminalHandler) waitForPodReady(ctx context.Context, cs *cluster.C
 			h.sendErrorMessage(conn, utils.GetPodErrorMessage(pod))
 			return fmt.Errorf("timeout waiting for pod %s to be ready", podName)
 		case <-ticker.C:
-			pod, err = cs.K8sClient.ClientSet.CoreV1().Pods("kube-system").Get(
+			pod, err = cs.K8sClient.ClientSet.CoreV1().Pods(common.AgentPodNamespace).Get(
 				context.TODO(),
 				podName,
 				metav1.GetOptions{},
@@ -202,7 +202,7 @@ func (h *NodeTerminalHandler) waitForPodReady(ctx context.Context, cs *cluster.C
 }
 
 func (h *NodeTerminalHandler) cleanupNodeAgentPod(cs *cluster.ClientSet, podName string) error {
-	return cs.K8sClient.ClientSet.CoreV1().Pods("kube-system").Delete(
+	return cs.K8sClient.ClientSet.CoreV1().Pods(common.AgentPodNamespace).Delete(
 		context.TODO(),
 		podName,
 		metav1.DeleteOptions{},

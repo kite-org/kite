@@ -427,15 +427,14 @@ export function Terminal({
       // Debounce: wait for CSS transition to finish before fitting/resizing
       if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer)
       resizeDebounceTimer = setTimeout(() => {
-        if (fitAddonRef.current) {
-          fitAddonRef.current.fit()
+        if (!fitAddonRef.current || websocket.readyState !== WebSocket.OPEN) {
+          return
         }
-        if (fitAddonRef.current && websocket.readyState === WebSocket.OPEN) {
-          const { cols, rows } = terminal
-          const message = JSON.stringify({ type: 'resize', cols, rows })
-          websocket.send(message)
-          updateNetworkStats(new Blob([message]).size, true)
-        }
+        fitAddonRef.current.fit()
+        const { cols, rows } = terminal
+        const message = JSON.stringify({ type: 'resize', cols, rows })
+        websocket.send(message)
+        updateNetworkStats(new Blob([message]).size, true)
       }, 150)
     }
 

@@ -77,7 +77,7 @@
     "cronjobs": "定时任务",
     "storageclasses": "存储类",
     "events": "事件",
-    "crds": "自定资源定义",
+    "crds": "自定义资源定义",
     "kubectl": "Kubectl 终端",
     "settings": "设置",
     "serviceaccounts": "服务账户",
