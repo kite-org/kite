@@ -126,6 +126,18 @@ export const globalSearch = async (
   return fetchAPI<SearchResponse>(endpoint)
 }
 
+export const getAIStatus = async (): Promise<{ enabled: boolean }> => {
+  return fetchAPI<{ enabled: boolean }>('/ai/status')
+}
+
+export const useAIStatus = () => {
+  return useQuery({
+    queryKey: ['ai-status'],
+    queryFn: getAIStatus,
+    retry: false,
+  })
+}
+
 // Scale deployment API
 export const scaleDeployment = async (
   namespace: string,
@@ -1728,6 +1740,47 @@ export const useResourceHistory = (
 // API Key Management
 export interface APIKeyCreateRequest {
   name: string
+}
+
+export interface GeneralSetting {
+  aiAgentEnabled: boolean
+  aiModel: string
+  aiApiKey: string
+  aiApiKeyConfigured: boolean
+  aiBaseUrl: string
+  kubectlEnabled: boolean
+  kubectlImage: string
+}
+
+export interface GeneralSettingUpdateRequest {
+  aiAgentEnabled: boolean
+  aiModel: string
+  aiApiKey?: string
+  aiBaseUrl: string
+  kubectlEnabled: boolean
+  kubectlImage: string
+}
+
+export const fetchGeneralSetting = async (): Promise<GeneralSetting> => {
+  return fetchAPI<GeneralSetting>('/admin/general-setting/')
+}
+
+export const useGeneralSetting = (options?: {
+  staleTime?: number
+  enabled?: boolean
+}) => {
+  return useQuery({
+    queryKey: ['general-setting'],
+    queryFn: fetchGeneralSetting,
+    enabled: options?.enabled ?? true,
+    staleTime: options?.staleTime || 30000,
+  })
+}
+
+export const updateGeneralSetting = async (
+  data: GeneralSettingUpdateRequest
+): Promise<GeneralSetting> => {
+  return await apiClient.put<GeneralSetting>('/admin/general-setting/', data)
 }
 
 export const fetchAPIKeyList = async (): Promise<APIKey[]> => {

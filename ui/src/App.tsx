@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Outlet, useSearchParams } from 'react-router-dom'
 
+import { AIChatbox } from './components/ai-chat/ai-chatbox'
 import { AppSidebar } from './components/app-sidebar'
 import { FloatingTerminal } from './components/floating-terminal'
 import { GlobalSearch } from './components/global-search'
@@ -14,6 +15,7 @@ import {
 import { SiteHeader } from './components/site-header'
 import { SidebarInset, SidebarProvider } from './components/ui/sidebar'
 import { Toaster } from './components/ui/sonner'
+import { AIChatProvider } from './contexts/ai-chat-context'
 import { ClusterProvider } from './contexts/cluster-context'
 import { TerminalProvider } from './contexts/terminal-context'
 import { useCluster } from './hooks/use-cluster'
@@ -79,6 +81,7 @@ function AppContent() {
       </SidebarProvider>
       <GlobalSearch open={isOpen} onOpenChange={closeSearch} />
       <FloatingTerminal />
+      <AIChatbox />
       <Toaster />
     </>
   )
@@ -89,7 +92,9 @@ function App() {
     <TerminalProvider>
       <ClusterProvider>
         <GlobalSearchProvider>
-          <ClusterAwareApp />
+          <AIChatProvider>
+            <ClusterAwareApp />
+          </AIChatProvider>
         </GlobalSearchProvider>
       </ClusterProvider>
     </TerminalProvider>

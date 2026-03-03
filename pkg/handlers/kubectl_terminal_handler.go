@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -49,6 +50,20 @@ func (h *KubectlTerminalHandler) HandleKubectlTerminalWebSocket(c *gin.Context) 
 			return
 		}
 
+		setting, err := model.GetGeneralSetting()
+		if err != nil {
+			h.sendErrorMessage(conn, fmt.Sprintf("Failed to load settings: %v", err))
+			return
+		}
+		if !setting.KubectlEnabled {
+			h.sendErrorMessage(conn, "kubectl terminal is disabled")
+			return
+		}
+		kubectlImage := strings.TrimSpace(setting.KubectlImage)
+		if kubectlImage == "" {
+			kubectlImage = common.KubectlTerminalImage
+		}
+
 		ctx, cancel := context.WithCancel(c.Request.Context())
 		defer cancel()
 
@@ -61,7 +76,7 @@ func (h *KubectlTerminalHandler) HandleKubectlTerminalWebSocket(c *gin.Context) 
 
 		instanceID := utils.GenerateKubectlAgentName(user.Key())
 
-		podName, err := h.createKubectlAgent(ctx, cs, instanceID)
+		podName, err := h.createKubectlAgent(ctx, cs, instanceID, kubectlImage)
 		if err != nil {
 			log.Printf("Failed to create kubectl agent pod: %v", err)
 			h.sendErrorMessage(conn, fmt.Sprintf("Failed to create kubectl agent pod: %v", err))
@@ -132,7 +147,7 @@ func (h *KubectlTerminalHandler) ensureAdminServiceAccount(ctx context.Context, 
 	return nil
 }
 
-func (h *KubectlTerminalHandler) createKubectlAgent(ctx context.Context, cs *cluster.ClientSet, instanceID string) (string, error) {
+func (h *KubectlTerminalHandler) createKubectlAgent(ctx context.Context, cs *cluster.ClientSet, instanceID, image string) (string, error) {
 	podName := instanceID
 
 	gracePeriod := int64(0)
@@ -155,7 +170,7 @@ func (h *KubectlTerminalHandler) createKubectlAgent(ctx context.Context, cs *clu
 			Containers: []corev1.Container{
 				{
 					Name:            common.KubectlTerminalPodName,
-					Image:           common.KubectlTerminalImage,
+					Image:           image,
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					Stdin:           true,
 					StdinOnce:       true,

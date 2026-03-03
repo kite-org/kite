@@ -293,10 +293,40 @@
     "description": "管理集群、角色和权限",
     "tabs": {
       "clusters": "集群",
+      "general": "通用",
       "oauth": "OAuth",
       "rbac": "权限控制",
       "users": "用户",
       "apikeys": "API 密钥"
+    }
+  },
+  "generalManagement": {
+    "title": "通用",
+    "description": "管理全局功能开关和相关配置。",
+    "aiAgent": {
+      "title": "AI Agent",
+      "description": "启用 AI 助手并配置模型与接口地址。",
+      "form": {
+        "model": "模型",
+        "apiKey": "API Key",
+        "apiKeyPlaceholder": "留空将保持当前 API Key",
+        "baseUrl": "Base URL"
+      }
+    },
+    "kubectl": {
+      "title": "Kubectl",
+      "description": "启用 kubectl 终端并配置运行镜像。",
+      "form": {
+        "image": "镜像"
+      }
+    },
+    "errors": {
+      "modelRequired": "模型不能为空",
+      "apiKeyRequired": "启用 AI Agent 时必须填写 API Key",
+      "kubectlImageRequired": "启用 kubectl 时必须填写镜像"
+    },
+    "messages": {
+      "updated": "通用设置已更新"
     }
   },
   "settingsHint": {
@@ -573,6 +603,32 @@
     "forceDelete": "强制删除（将宽限期设置为 0）",
     "finalizerNote": "如果存在 finalizer，3 秒后如果还未被删除，将会自动清理 finalizer",
     "deleting": "删除中..."
+  },
+  "aiChat": {
+    "disclaimer": "AI 可能会出错，使用时请仔细确认。",
+    "suggestedPrompts": {
+      "hint": "你可以问我任何与集群相关的问题",
+      "overview": {
+        "clusterHealth": "当前集群整体健康状态怎么样？",
+        "errorPods": "是否有处于错误状态的 Pod？",
+        "listNamespaces": "列出所有命名空间"
+      },
+      "podDetail": {
+        "showLogs": "查看这个 Pod 的日志",
+        "status": "这个 Pod 的状态怎么样？",
+        "issues": "这个 Pod 是否存在问题？"
+      },
+      "deploymentDetail": {
+        "rolloutStatus": "当前 rollout 状态如何？",
+        "runningReplicas": "现在有多少副本在运行？",
+        "recentEvents": "查看最近事件"
+      },
+      "default": {
+        "clusterOverview": "展示集群概览",
+        "listPods": "列出所有 Pod",
+        "issues": "当前是否有异常问题？"
+      }
+    }
   },
   "templateManagement": {
     "title": "模板管理",

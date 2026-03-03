@@ -270,9 +270,39 @@
     "description": "Manage clusters, roles and permissions",
     "tabs": {
       "clusters": "Cluster",
+      "general": "General",
       "oauth": "OAuth",
       "rbac": "RBAC",
       "users": "User"
+    }
+  },
+  "generalManagement": {
+    "title": "General",
+    "description": "Manage global feature switches and related configuration.",
+    "aiAgent": {
+      "title": "AI Agent",
+      "description": "Enable AI assistant and configure model endpoint.",
+      "form": {
+        "model": "Model",
+        "apiKey": "API Key",
+        "apiKeyPlaceholder": "Leave empty to keep current API Key",
+        "baseUrl": "Base URL"
+      }
+    },
+    "kubectl": {
+      "title": "Kubectl",
+      "description": "Enable kubectl terminal and configure runtime image.",
+      "form": {
+        "image": "Image"
+      }
+    },
+    "errors": {
+      "modelRequired": "Model is required",
+      "apiKeyRequired": "API Key is required when AI Agent is enabled",
+      "kubectlImageRequired": "Kubectl image is required when kubectl is enabled"
+    },
+    "messages": {
+      "updated": "General settings updated"
     }
   },
   "settingsHint": {
@@ -608,6 +638,32 @@
       "readyReplicas": "Ready Replicas",
       "desiredScheduled": "Desired Scheduled",
       "currentScheduled": "Current Scheduled"
+    }
+  },
+  "aiChat": {
+    "disclaimer": "AI may make mistakes. Please verify carefully before use.",
+    "suggestedPrompts": {
+      "hint": "Ask me anything about your cluster",
+      "overview": {
+        "clusterHealth": "What is the overall cluster health?",
+        "errorPods": "Are there any pods in error state?",
+        "listNamespaces": "List all namespaces"
+      },
+      "podDetail": {
+        "showLogs": "Show me the logs for this pod",
+        "status": "What is the status of this pod?",
+        "issues": "Are there any issues with this pod?"
+      },
+      "deploymentDetail": {
+        "rolloutStatus": "What is the rollout status?",
+        "runningReplicas": "How many replicas are running?",
+        "recentEvents": "Show recent events"
+      },
+      "default": {
+        "clusterOverview": "Show cluster overview",
+        "listPods": "List all pods",
+        "issues": "Are there any issues?"
+      }
     }
   },
   "deleteConfirmation": {

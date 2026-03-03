@@ -4,6 +4,7 @@ import { useTerminal } from '@/contexts/terminal-context'
 import { Plus, Settings, TerminalSquare } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
+import { useGeneralSetting } from '@/lib/api'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -22,6 +23,11 @@ export function SiteHeader() {
   const { user } = useAuth()
   const { toggleTerminal, isOpen } = useTerminal()
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const isAdmin = user?.isAdmin() ?? false
+  const { data: generalSetting } = useGeneralSetting({
+    enabled: isAdmin,
+  })
+  const kubectlEnabled = generalSetting?.kubectlEnabled ?? true
 
   return (
     <>
@@ -40,7 +46,7 @@ export function SiteHeader() {
               onClick={() => setCreateDialogOpen(true)}
               aria-label="Create new resource"
             />
-            {user?.isAdmin() && (
+            {isAdmin && kubectlEnabled && (
               <button
                 onClick={toggleTerminal}
                 title="Kubectl Terminal"
@@ -60,7 +66,7 @@ export function SiteHeader() {
                   orientation="vertical"
                   className="mx-2 data-[orientation=vertical]:h-4"
                 />
-                {user?.isAdmin() && (
+                {isAdmin && (
                   <Button
                     variant="ghost"
                     size="icon"

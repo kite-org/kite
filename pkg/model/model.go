@@ -93,6 +93,7 @@ func InitDB() {
 	models := []interface{}{
 		User{},
 		Cluster{},
+		GeneralSetting{},
 		OAuthProvider{},
 		Role{},
 		RoleAssignment{},

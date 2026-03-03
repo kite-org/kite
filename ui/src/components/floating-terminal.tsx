@@ -1,7 +1,9 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useAuth } from '@/contexts/auth-context'
 import { useTerminal } from '@/contexts/terminal-context'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
 
+import { useGeneralSetting } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -15,8 +17,14 @@ const MIN_HEIGHT = 120
 const DEFAULT_HEIGHT_VH = 40
 
 export function FloatingTerminal() {
+  const { user } = useAuth()
   const { isOpen, isMinimized, closeTerminal, minimizeTerminal, openTerminal } =
     useTerminal()
+  const isAdmin = user?.isAdmin() ?? false
+  const { data: generalSetting } = useGeneralSetting({
+    enabled: isAdmin && isOpen,
+  })
+  const kubectlEnabled = generalSetting?.kubectlEnabled ?? true
   const [height, setHeight] = useState(
     () => (window.innerHeight * DEFAULT_HEIGHT_VH) / 100
   )
@@ -49,6 +57,13 @@ export function FloatingTerminal() {
     dragging.current = false
   }, [])
 
+  useEffect(() => {
+    if (isOpen && !kubectlEnabled) {
+      closeTerminal()
+    }
+  }, [closeTerminal, isOpen, kubectlEnabled])
+
+  if (!kubectlEnabled) return null
   if (!isOpen) return null
 
   return (

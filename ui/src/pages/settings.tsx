@@ -5,6 +5,7 @@ import { ResponsiveTabs } from '@/components/ui/responsive-tabs'
 import { APIKeyManagement } from '@/components/settings/apikey-management'
 import { AuditLog } from '@/components/settings/audit-log'
 import { ClusterManagement } from '@/components/settings/cluster-management'
+import { GeneralManagement } from '@/components/settings/general-management'
 import { OAuthProviderManagement } from '@/components/settings/oauth-provider-management'
 import { RBACManagement } from '@/components/settings/rbac-management'
 import { TemplateManagement } from '@/components/settings/template-management'
@@ -28,6 +29,11 @@ export function SettingsPage() {
 
       <ResponsiveTabs
         tabs={[
+          {
+            value: 'general',
+            label: t('settings.tabs.general', 'General'),
+            content: <GeneralManagement />,
+          },
           {
             value: 'clusters',
             label: t('settings.tabs.clusters', 'Cluster'),

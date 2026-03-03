@@ -1,0 +1,143 @@
+import {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react'
+import { useLocation, useParams } from 'react-router-dom'
+
+interface PageContext {
+  page: string
+  namespace: string
+  resourceName: string
+  resourceKind: string
+}
+
+interface AIChatContextType {
+  isOpen: boolean
+  isMinimized: boolean
+  openChat: () => void
+  closeChat: () => void
+  minimizeChat: () => void
+  toggleChat: () => void
+  pageContext: PageContext
+}
+
+const AIChatContext = createContext<AIChatContextType | undefined>(undefined)
+
+const singularResourceMap: Record<string, string> = {
+  pods: 'pod',
+  services: 'service',
+  configmaps: 'configmap',
+  secrets: 'secret',
+  namespaces: 'namespace',
+  nodes: 'node',
+  persistentvolumeclaims: 'persistentvolumeclaim',
+  persistentvolumes: 'persistentvolume',
+  serviceaccounts: 'serviceaccount',
+  deployments: 'deployment',
+  statefulsets: 'statefulset',
+  daemonsets: 'daemonset',
+  replicasets: 'replicaset',
+  jobs: 'job',
+  cronjobs: 'cronjob',
+  ingresses: 'ingress',
+  networkpolicies: 'networkpolicy',
+  storageclasses: 'storageclass',
+  events: 'event',
+}
+
+function toSingularResource(resource: string) {
+  if (!resource) return resource
+  const normalized = resource.toLowerCase()
+  if (singularResourceMap[normalized]) {
+    return singularResourceMap[normalized]
+  }
+  if (normalized.endsWith('s')) {
+    return normalized.slice(0, -1)
+  }
+  return normalized
+}
+
+export function AIChatProvider({ children }: { children: ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [isMinimized, setIsMinimized] = useState(false)
+  const location = useLocation()
+  const params = useParams()
+
+  const openChat = useCallback(() => {
+    setIsOpen(true)
+    setIsMinimized(false)
+  }, [])
+
+  const closeChat = useCallback(() => {
+    setIsOpen(false)
+    setIsMinimized(false)
+  }, [])
+
+  const minimizeChat = useCallback(() => {
+    setIsMinimized(true)
+  }, [])
+
+  const toggleChat = useCallback(() => {
+    if (!isOpen) {
+      setIsOpen(true)
+      setIsMinimized(false)
+    } else if (isMinimized) {
+      setIsMinimized(false)
+    } else {
+      setIsMinimized(true)
+    }
+  }, [isOpen, isMinimized])
+
+  const pageContext = useMemo<PageContext>(() => {
+    const path = location.pathname
+    const resource = params.resource || ''
+    const name = params.name || ''
+    const namespace = params.namespace || ''
+    const normalizedKind = toSingularResource(resource)
+
+    let page = 'overview'
+    if (path === '/' || path === '/dashboard') {
+      page = 'overview'
+    } else if (name) {
+      page = `${normalizedKind}-detail`
+    } else if (resource) {
+      page = `${resource}-list`
+    }
+
+    return {
+      page,
+      namespace,
+      resourceName: name,
+      resourceKind: normalizedKind,
+    }
+  }, [location.pathname, params.resource, params.name, params.namespace])
+
+  return (
+    <AIChatContext.Provider
+      value={{
+        isOpen,
+        isMinimized,
+        openChat,
+        closeChat,
+        minimizeChat,
+        toggleChat,
+        pageContext,
+      }}
+    >
+      {children}
+    </AIChatContext.Provider>
+  )
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function useAIChatContext() {
+  const context = useContext(AIChatContext)
+  if (context === undefined) {
+    throw new Error('useAIChatContext must be used within an AIChatProvider')
+  }
+  return context
+}

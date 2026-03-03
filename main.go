@@ -19,6 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/zxh326/kite/internal"
+	"github.com/zxh326/kite/pkg/ai"
 	"github.com/zxh326/kite/pkg/auth"
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/common"
@@ -160,6 +161,12 @@ func setupAPIRouter(r *gin.RouterGroup, cm *cluster.ClusterManager) {
 			apiKeyAPI.DELETE("/:id", handlers.DeleteAPIKey)
 		}
 
+		generalSettingAPI := adminAPI.Group("/general-setting")
+		{
+			generalSettingAPI.GET("/", ai.HandleGetGeneralSetting)
+			generalSettingAPI.PUT("/", ai.HandleUpdateGeneralSetting)
+		}
+
 		templateAPI := adminAPI.Group("/templates")
 		{
 			templateAPI.POST("/", handlers.CreateTemplate)
@@ -202,6 +209,11 @@ func setupAPIRouter(r *gin.RouterGroup, cm *cluster.ClusterManager) {
 
 		proxyHandler := handlers.NewProxyHandler()
 		proxyHandler.RegisterRoutes(api)
+
+		// AI chat routes
+		api.GET("/ai/status", ai.HandleAIStatus)
+		api.POST("/ai/chat", ai.HandleChat)
+		api.POST("/ai/execute", ai.HandleExecute)
 
 		api.Use(middleware.RBACMiddleware())
 		resources.RegisterRoutes(api)
