@@ -388,8 +388,6 @@ export function AIChatbox() {
 
   // Don't render if AI is not enabled
   if (aiEnabled === false) return null
-  // Still loading AI status
-  if (aiEnabled === null) return null
 
   // FAB button when chat is closed
   if (!isOpen) {

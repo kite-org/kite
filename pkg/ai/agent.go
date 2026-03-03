@@ -414,7 +414,7 @@ func consumeStreamingResponse(
 
 			if delta.Content != "" {
 				contentBuilder.WriteString(delta.Content)
-				sendEvent(SSEEvent{Event: "message", Data: map[string]string{"content": contentBuilder.String()}})
+				sendEvent(SSEEvent{Event: "message", Data: map[string]string{"content": delta.Content}})
 			}
 			if delta.Refusal != "" {
 				refusalBuilder.WriteString(delta.Refusal)

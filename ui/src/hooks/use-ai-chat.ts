@@ -104,7 +104,9 @@ export function useAIChat() {
             const existing = prev.find((m) => m.id === assistantMsgId)
             if (existing) {
               return prev.map((m) =>
-                m.id === assistantMsgId ? { ...m, content } : m
+                m.id === assistantMsgId
+                  ? { ...m, content: `${m.content}${content}` }
+                  : m
               )
             }
             return [

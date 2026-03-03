@@ -474,7 +474,6 @@ func AuthorizeTool(c *gin.Context, cs *cluster.ClientSet, toolName string, args 
 	}
 
 	for _, permission := range permissions {
-		klog.Infof("permission %+v", permission)
 		if rbac.CanAccess(user, permission.Resource, permission.Verb, cs.Name, permission.Namespace) {
 			continue
 		}
