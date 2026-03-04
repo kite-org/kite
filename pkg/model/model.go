@@ -31,7 +31,7 @@ type Model struct {
 func InitDB() {
 	dsn := common.DBDSN
 	level := logger.Silent
-	if klog.V(2).Enabled() {
+	if klog.V(10).Enabled() {
 		level = logger.Info
 	}
 	newLogger := logger.New(

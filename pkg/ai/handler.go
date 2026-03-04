@@ -18,8 +18,9 @@ func HandleAIStatus(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"enabled": cfg.Enabled,
-		"model":   cfg.Model,
+		"enabled":  cfg.Enabled,
+		"provider": cfg.Provider,
+		"model":    cfg.Model,
 	})
 }
 
@@ -147,6 +148,7 @@ func HandleGetGeneralSetting(c *gin.Context) {
 	hasAIAPIKey := strings.TrimSpace(string(setting.AIAPIKey)) != ""
 	c.JSON(http.StatusOK, gin.H{
 		"aiAgentEnabled":     setting.AIAgentEnabled,
+		"aiProvider":         setting.AIProvider,
 		"aiModel":            setting.AIModel,
 		"aiApiKey":           "",
 		"aiApiKeyConfigured": hasAIAPIKey,
@@ -158,6 +160,7 @@ func HandleGetGeneralSetting(c *gin.Context) {
 
 type UpdateGeneralSettingRequest struct {
 	AIAgentEnabled bool    `json:"aiAgentEnabled"`
+	AIProvider     string  `json:"aiProvider"`
 	AIModel        string  `json:"aiModel"`
 	AIAPIKey       *string `json:"aiApiKey"`
 	AIBaseURL      string  `json:"aiBaseUrl"`
@@ -177,9 +180,19 @@ func HandleUpdateGeneralSetting(c *gin.Context) {
 		return
 	}
 
+	aiProvider := strings.ToLower(strings.TrimSpace(req.AIProvider))
+	if aiProvider == "" {
+		aiProvider = currentSetting.AIProvider
+	}
+	if !model.IsGeneralAIProviderSupported(aiProvider) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported aiProvider"})
+		return
+	}
+	aiProvider = normalizeProvider(aiProvider)
+
 	aiModel := strings.TrimSpace(req.AIModel)
 	if aiModel == "" {
-		aiModel = model.DefaultGeneralAIModel
+		aiModel = model.DefaultGeneralAIModelByProvider(aiProvider)
 	}
 	aiAPIKey := strings.TrimSpace(string(currentSetting.AIAPIKey))
 	shouldUpdateAIAPIKey := false
@@ -206,6 +219,7 @@ func HandleUpdateGeneralSetting(c *gin.Context) {
 
 	updates := map[string]interface{}{
 		"ai_agent_enabled": req.AIAgentEnabled,
+		"ai_provider":      aiProvider,
 		"ai_model":         aiModel,
 		"ai_base_url":      strings.TrimSpace(req.AIBaseURL),
 		"kubectl_enabled":  req.KubectlEnabled,
@@ -224,6 +238,7 @@ func HandleUpdateGeneralSetting(c *gin.Context) {
 	hasAIAPIKey := strings.TrimSpace(string(updated.AIAPIKey)) != ""
 	c.JSON(http.StatusOK, gin.H{
 		"aiAgentEnabled":     updated.AIAgentEnabled,
+		"aiProvider":         updated.AIProvider,
 		"aiModel":            updated.AIModel,
 		"aiApiKey":           "",
 		"aiApiKeyConfigured": hasAIAPIKey,

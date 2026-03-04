@@ -175,6 +175,8 @@ function MessageBubble({
   onConfirm?: (id: string) => void
   onDeny?: (id: string) => void
 }) {
+  const [thinkingExpanded, setThinkingExpanded] = useState(true)
+
   if (message.role === 'tool') {
     return (
       <ToolCallMessage
@@ -186,6 +188,13 @@ function MessageBubble({
   }
 
   const isUser = message.role === 'user'
+  const hasThinking =
+    !isUser && typeof message.thinking === 'string' && message.thinking !== ''
+  const hasContent = message.content !== ''
+
+  if (!isUser && !hasThinking && !hasContent) {
+    return null
+  }
 
   return (
     <div
@@ -201,11 +210,35 @@ function MessageBubble({
         {isUser ? (
           message.content
         ) : (
-          <div className="ai-markdown">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {message.content}
-            </ReactMarkdown>
-          </div>
+          <>
+            {hasThinking && (
+              <div className="mb-2">
+                <button
+                  className="mb-1 flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setThinkingExpanded((prev) => !prev)}
+                >
+                  <ChevronRight
+                    className={`h-3 w-3 transition-transform ${thinkingExpanded ? 'rotate-90' : ''}`}
+                  />
+                  Thinking
+                </button>
+                {thinkingExpanded && (
+                  <div className="rounded border border-dashed bg-background/60 p-2 text-xs text-muted-foreground">
+                    <div className="whitespace-pre-wrap break-words">
+                      {message.thinking || ''}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {hasContent && (
+              <div className="ai-markdown">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {message.content}
+                </ReactMarkdown>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

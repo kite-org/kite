@@ -2,16 +2,23 @@ package model
 
 import (
 	"errors"
+	"strings"
 
 	"gorm.io/gorm"
 )
 
 const DefaultGeneralAIModel = "gpt-4o-mini"
+const DefaultGeneralAnthropicModel = "claude-sonnet-4-5"
 const DefaultGeneralKubectlImage = "zzde/kubectl:latest"
+
+const GeneralAIProviderOpenAI = "openai"
+const GeneralAIProviderAnthropic = "anthropic"
+const DefaultGeneralAIProvider = GeneralAIProviderOpenAI
 
 type GeneralSetting struct {
 	Model
 	AIAgentEnabled bool         `json:"aiAgentEnabled" gorm:"column:ai_agent_enabled;type:boolean;not null;default:false"`
+	AIProvider     string       `json:"aiProvider" gorm:"column:ai_provider;type:varchar(50);not null;default:'openai'"`
 	AIModel        string       `json:"aiModel" gorm:"column:ai_model;type:varchar(255);not null;default:'gpt-4o-mini'"`
 	AIAPIKey       SecretString `json:"aiApiKey" gorm:"column:ai_api_key;type:text"`
 	AIBaseURL      string       `json:"aiBaseUrl" gorm:"column:ai_base_url;type:varchar(500)"`
@@ -19,14 +26,47 @@ type GeneralSetting struct {
 	KubectlImage   string       `json:"kubectlImage" gorm:"column:kubectl_image;type:varchar(255);not null;default:'zzde/kubectl:latest'"`
 }
 
+func NormalizeGeneralAIProvider(provider string) string {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case GeneralAIProviderAnthropic:
+		return GeneralAIProviderAnthropic
+	default:
+		return GeneralAIProviderOpenAI
+	}
+}
+
+func IsGeneralAIProviderSupported(provider string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(provider))
+	return normalized == GeneralAIProviderOpenAI || normalized == GeneralAIProviderAnthropic
+}
+
+func DefaultGeneralAIModelByProvider(provider string) string {
+	switch NormalizeGeneralAIProvider(provider) {
+	case GeneralAIProviderAnthropic:
+		return DefaultGeneralAnthropicModel
+	default:
+		return DefaultGeneralAIModel
+	}
+}
+
 func GetGeneralSetting() (*GeneralSetting, error) {
 	var setting GeneralSetting
 	err := DB.First(&setting, 1).Error
 	if err == nil {
 		updates := map[string]interface{}{}
+		if setting.AIProvider == "" {
+			setting.AIProvider = DefaultGeneralAIProvider
+			updates["ai_provider"] = DefaultGeneralAIProvider
+		} else {
+			normalizedProvider := NormalizeGeneralAIProvider(setting.AIProvider)
+			if setting.AIProvider != normalizedProvider {
+				setting.AIProvider = normalizedProvider
+				updates["ai_provider"] = normalizedProvider
+			}
+		}
 		if setting.AIModel == "" {
-			setting.AIModel = DefaultGeneralAIModel
-			updates["ai_model"] = DefaultGeneralAIModel
+			setting.AIModel = DefaultGeneralAIModelByProvider(setting.AIProvider)
+			updates["ai_model"] = setting.AIModel
 		}
 		if setting.KubectlImage == "" {
 			setting.KubectlImage = DefaultGeneralKubectlImage
@@ -44,6 +84,7 @@ func GetGeneralSetting() (*GeneralSetting, error) {
 	setting = GeneralSetting{
 		Model:          Model{ID: 1},
 		AIAgentEnabled: false,
+		AIProvider:     DefaultGeneralAIProvider,
 		AIModel:        DefaultGeneralAIModel,
 		KubectlEnabled: true,
 		KubectlImage:   DefaultGeneralKubectlImage,

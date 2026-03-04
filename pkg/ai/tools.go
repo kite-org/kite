@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	anthropic "github.com/anthropics/anthropic-sdk-go"
 	"github.com/gin-gonic/gin"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/shared"
@@ -26,184 +27,195 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// ToolDefs returns OpenAI tool definitions for the AI agent.
-func ToolDefs() []openai.ChatCompletionToolParam {
-	return []openai.ChatCompletionToolParam{
+type agentToolDefinition struct {
+	Name        string
+	Description string
+	Properties  map[string]any
+	Required    []string
+}
+
+func toolDefinitions() []agentToolDefinition {
+	return []agentToolDefinition{
 		{
-			Function: shared.FunctionDefinitionParam{
-				Name:        "get_resource",
-				Description: openai.String("Get a specific Kubernetes resource by kind, name, and optionally namespace. Returns the resource details in YAML format."),
-				Parameters: shared.FunctionParameters{
-					"type": "object",
-					"properties": map[string]any{
-						"kind": map[string]any{
-							"type":        "string",
-							"description": "The resource kind, e.g. Pod, Deployment, Service, ConfigMap, Secret, Node, Namespace, StatefulSet, DaemonSet, Job, CronJob, Ingress, PersistentVolumeClaim, etc.",
-						},
-						"name": map[string]any{
-							"type":        "string",
-							"description": "The name of the resource.",
-						},
-						"namespace": map[string]any{
-							"type":        "string",
-							"description": "The namespace of the resource. Leave empty for cluster-scoped resources like Node, Namespace.",
-						},
-					},
-					"required": []string{"kind", "name"},
+			Name:        "get_resource",
+			Description: "Get a specific Kubernetes resource by kind, name, and optionally namespace. Returns the resource details in YAML format.",
+			Properties: map[string]any{
+				"kind": map[string]any{
+					"type":        "string",
+					"description": "The resource kind, e.g. Pod, Deployment, Service, ConfigMap, Secret, Node, Namespace, StatefulSet, DaemonSet, Job, CronJob, Ingress, PersistentVolumeClaim, etc.",
+				},
+				"name": map[string]any{
+					"type":        "string",
+					"description": "The name of the resource.",
+				},
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "The namespace of the resource. Leave empty for cluster-scoped resources like Node, Namespace.",
 				},
 			},
+			Required: []string{"kind", "name"},
 		},
 		{
-			Function: shared.FunctionDefinitionParam{
-				Name:        "list_resources",
-				Description: openai.String("List Kubernetes resources of a given kind, optionally filtered by namespace and label selector. Returns a summary of matching resources."),
-				Parameters: shared.FunctionParameters{
-					"type": "object",
-					"properties": map[string]any{
-						"kind": map[string]any{
-							"type":        "string",
-							"description": "The resource kind, e.g. Pod, Deployment, Service, ConfigMap, Node, Namespace, etc.",
-						},
-						"namespace": map[string]any{
-							"type":        "string",
-							"description": "The namespace to list resources in. Leave empty for all namespaces or cluster-scoped resources.",
-						},
-						"label_selector": map[string]any{
-							"type":        "string",
-							"description": "Optional label selector to filter resources, e.g. 'app=nginx' or 'environment=production'.",
-						},
-					},
-					"required": []string{"kind"},
+			Name:        "list_resources",
+			Description: "List Kubernetes resources of a given kind, optionally filtered by namespace and label selector. Returns a summary of matching resources.",
+			Properties: map[string]any{
+				"kind": map[string]any{
+					"type":        "string",
+					"description": "The resource kind, e.g. Pod, Deployment, Service, ConfigMap, Node, Namespace, etc.",
+				},
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "The namespace to list resources in. Leave empty for all namespaces or cluster-scoped resources.",
+				},
+				"label_selector": map[string]any{
+					"type":        "string",
+					"description": "Optional label selector to filter resources, e.g. 'app=nginx' or 'environment=production'.",
 				},
 			},
+			Required: []string{"kind"},
 		},
 		{
-			Function: shared.FunctionDefinitionParam{
-				Name:        "get_pod_logs",
-				Description: openai.String("Get recent logs from a pod. Useful for debugging issues or analyzing application behavior."),
-				Parameters: shared.FunctionParameters{
-					"type": "object",
-					"properties": map[string]any{
-						"name": map[string]any{
-							"type":        "string",
-							"description": "The name of the pod.",
-						},
-						"namespace": map[string]any{
-							"type":        "string",
-							"description": "The namespace of the pod.",
-						},
-						"container": map[string]any{
-							"type":        "string",
-							"description": "The container name. Leave empty for the default container.",
-						},
-						"tail_lines": map[string]any{
-							"type":        "integer",
-							"description": "Number of recent log lines to retrieve. Defaults to 100.",
-						},
-						"previous": map[string]any{
-							"type":        "boolean",
-							"description": "If true, return logs from the previous terminated container instance.",
-						},
-					},
-					"required": []string{"name", "namespace"},
+			Name:        "get_pod_logs",
+			Description: "Get recent logs from a pod. Useful for debugging issues or analyzing application behavior.",
+			Properties: map[string]any{
+				"name": map[string]any{
+					"type":        "string",
+					"description": "The name of the pod.",
+				},
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "The namespace of the pod.",
+				},
+				"container": map[string]any{
+					"type":        "string",
+					"description": "The container name. Leave empty for the default container.",
+				},
+				"tail_lines": map[string]any{
+					"type":        "integer",
+					"description": "Number of recent log lines to retrieve. Defaults to 100.",
+				},
+				"previous": map[string]any{
+					"type":        "boolean",
+					"description": "If true, return logs from the previous terminated container instance.",
 				},
 			},
+			Required: []string{"name", "namespace"},
 		},
 		{
-			Function: shared.FunctionDefinitionParam{
-				Name:        "get_cluster_overview",
-				Description: openai.String("Get an overview of the cluster status including node count, pod count, namespaces, and resource usage summary."),
-				Parameters: shared.FunctionParameters{
-					"type":       "object",
-					"properties": map[string]any{},
-				},
-			},
+			Name:        "get_cluster_overview",
+			Description: "Get an overview of the cluster status including node count, pod count, namespaces, and resource usage summary.",
+			Properties:  map[string]any{},
 		},
 		{
-			Function: shared.FunctionDefinitionParam{
-				Name:        "create_resource",
-				Description: openai.String("Create a Kubernetes resource from a YAML definition."),
-				Parameters: shared.FunctionParameters{
-					"type": "object",
-					"properties": map[string]any{
-						"yaml": map[string]any{
-							"type":        "string",
-							"description": "The YAML definition of the resource to create.",
-						},
-					},
-					"required": []string{"yaml"},
+			Name:        "create_resource",
+			Description: "Create a Kubernetes resource from a YAML definition.",
+			Properties: map[string]any{
+				"yaml": map[string]any{
+					"type":        "string",
+					"description": "The YAML definition of the resource to create.",
 				},
 			},
+			Required: []string{"yaml"},
 		},
 		{
-			Function: shared.FunctionDefinitionParam{
-				Name:        "update_resource",
-				Description: openai.String("Update an existing Kubernetes resource with a new YAML definition."),
-				Parameters: shared.FunctionParameters{
-					"type": "object",
-					"properties": map[string]any{
-						"yaml": map[string]any{
-							"type":        "string",
-							"description": "The updated YAML definition of the resource.",
-						},
-					},
-					"required": []string{"yaml"},
+			Name:        "update_resource",
+			Description: "Update an existing Kubernetes resource with a new YAML definition.",
+			Properties: map[string]any{
+				"yaml": map[string]any{
+					"type":        "string",
+					"description": "The updated YAML definition of the resource.",
 				},
 			},
+			Required: []string{"yaml"},
 		},
 		{
-			Function: shared.FunctionDefinitionParam{
-				Name:        "patch_resource",
-				Description: openai.String("Patch a Kubernetes resource using strategic merge patch. Useful for partial updates like scaling replicas, updating labels/annotations, restarting deployments (by patching pod template annotations), changing image versions, etc."),
-				Parameters: shared.FunctionParameters{
-					"type": "object",
-					"properties": map[string]any{
-						"kind": map[string]any{
-							"type":        "string",
-							"description": "The resource kind (e.g. Deployment, StatefulSet, Service).",
-						},
-						"name": map[string]any{
-							"type":        "string",
-							"description": "The name of the resource.",
-						},
-						"namespace": map[string]any{
-							"type":        "string",
-							"description": "The namespace of the resource. Leave empty for cluster-scoped resources.",
-						},
-						"patch": map[string]any{
-							"type":        "string",
-							"description": "The JSON patch content (strategic merge patch). Example: {\"spec\":{\"replicas\":3}} to scale, or {\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"2024-01-01T00:00:00Z\"}}}}} to restart.",
-						},
-					},
-					"required": []string{"kind", "name", "patch"},
+			Name:        "patch_resource",
+			Description: "Patch a Kubernetes resource using strategic merge patch. Useful for partial updates like scaling replicas, updating labels/annotations, restarting deployments (by patching pod template annotations), changing image versions, etc.",
+			Properties: map[string]any{
+				"kind": map[string]any{
+					"type":        "string",
+					"description": "The resource kind (e.g. Deployment, StatefulSet, Service).",
+				},
+				"name": map[string]any{
+					"type":        "string",
+					"description": "The name of the resource.",
+				},
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "The namespace of the resource. Leave empty for cluster-scoped resources.",
+				},
+				"patch": map[string]any{
+					"type":        "string",
+					"description": "The JSON patch content (strategic merge patch). Example: {\"spec\":{\"replicas\":3}} to scale, or {\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"2024-01-01T00:00:00Z\"}}}}} to restart.",
 				},
 			},
+			Required: []string{"kind", "name", "patch"},
 		},
 		{
-			Function: shared.FunctionDefinitionParam{
-				Name:        "delete_resource",
-				Description: openai.String("Delete a Kubernetes resource."),
-				Parameters: shared.FunctionParameters{
-					"type": "object",
-					"properties": map[string]any{
-						"kind": map[string]any{
-							"type":        "string",
-							"description": "The resource kind.",
-						},
-						"name": map[string]any{
-							"type":        "string",
-							"description": "The name of the resource.",
-						},
-						"namespace": map[string]any{
-							"type":        "string",
-							"description": "The namespace of the resource. Leave empty for cluster-scoped resources.",
-						},
-					},
-					"required": []string{"kind", "name"},
+			Name:        "delete_resource",
+			Description: "Delete a Kubernetes resource.",
+			Properties: map[string]any{
+				"kind": map[string]any{
+					"type":        "string",
+					"description": "The resource kind.",
+				},
+				"name": map[string]any{
+					"type":        "string",
+					"description": "The name of the resource.",
+				},
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "The namespace of the resource. Leave empty for cluster-scoped resources.",
 				},
 			},
+			Required: []string{"kind", "name"},
 		},
 	}
+}
+
+func OpenAIToolDefs() []openai.ChatCompletionToolParam {
+	defs := toolDefinitions()
+	tools := make([]openai.ChatCompletionToolParam, 0, len(defs))
+
+	for _, def := range defs {
+		parameters := shared.FunctionParameters{
+			"type":       "object",
+			"properties": def.Properties,
+		}
+		if len(def.Required) > 0 {
+			parameters["required"] = def.Required
+		}
+
+		tools = append(tools, openai.ChatCompletionToolParam{
+			Function: shared.FunctionDefinitionParam{
+				Name:        def.Name,
+				Description: openai.String(def.Description),
+				Parameters:  parameters,
+			},
+		})
+	}
+
+	return tools
+}
+
+func AnthropicToolDefs() []anthropic.ToolUnionParam {
+	defs := toolDefinitions()
+	tools := make([]anthropic.ToolUnionParam, 0, len(defs))
+
+	for _, def := range defs {
+		tool := anthropic.ToolParam{
+			Name:        def.Name,
+			Description: anthropic.String(def.Description),
+			InputSchema: anthropic.ToolInputSchemaParam{
+				Type:       "object",
+				Properties: def.Properties,
+				Required:   def.Required,
+			},
+		}
+		tools = append(tools, anthropic.ToolUnionParam{OfTool: &tool})
+	}
+
+	return tools
 }
 
 type resourceInfo struct {

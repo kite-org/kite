@@ -4,16 +4,36 @@ import (
 	"fmt"
 	"strings"
 
+	anthropic "github.com/anthropics/anthropic-sdk-go"
+	anthropicoption "github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/option"
+	openaioption "github.com/openai/openai-go/option"
 	"github.com/zxh326/kite/pkg/model"
 )
 
 type RuntimeConfig struct {
-	Enabled bool
-	Model   string
-	APIKey  string
-	BaseURL string
+	Enabled  bool
+	Provider string
+	Model    string
+	APIKey   string
+	BaseURL  string
+}
+
+func normalizeProvider(provider string) string {
+	return model.NormalizeGeneralAIProvider(strings.ToLower(strings.TrimSpace(provider)))
+}
+
+func defaultModelForProvider(provider string) string {
+	return model.DefaultGeneralAIModelByProvider(provider)
+}
+
+func providerLabel(provider string) string {
+	switch provider {
+	case model.GeneralAIProviderAnthropic:
+		return "Anthropic"
+	default:
+		return "OpenAI"
+	}
 }
 
 func LoadRuntimeConfig() (*RuntimeConfig, error) {
@@ -23,13 +43,14 @@ func LoadRuntimeConfig() (*RuntimeConfig, error) {
 	}
 
 	cfg := &RuntimeConfig{
-		Enabled: setting.AIAgentEnabled,
-		Model:   strings.TrimSpace(setting.AIModel),
-		APIKey:  strings.TrimSpace(string(setting.AIAPIKey)),
-		BaseURL: strings.TrimSpace(setting.AIBaseURL),
+		Enabled:  setting.AIAgentEnabled,
+		Provider: normalizeProvider(setting.AIProvider),
+		Model:    strings.TrimSpace(setting.AIModel),
+		APIKey:   strings.TrimSpace(string(setting.AIAPIKey)),
+		BaseURL:  strings.TrimSpace(setting.AIBaseURL),
 	}
 	if cfg.Model == "" {
-		cfg.Model = model.DefaultGeneralAIModel
+		cfg.Model = defaultModelForProvider(cfg.Provider)
 	}
 	if !cfg.Enabled {
 		return cfg, nil
@@ -40,19 +61,43 @@ func LoadRuntimeConfig() (*RuntimeConfig, error) {
 	return cfg, nil
 }
 
-// NewLLMClient creates an OpenAI-compatible client from runtime configuration.
-func NewLLMClient(cfg *RuntimeConfig) (openai.Client, error) {
+func NewOpenAIClient(cfg *RuntimeConfig) (openai.Client, error) {
 	if cfg == nil || !cfg.Enabled {
 		return openai.Client{}, fmt.Errorf("AI is not enabled")
 	}
+	if normalizeProvider(cfg.Provider) != model.GeneralAIProviderOpenAI {
+		return openai.Client{}, fmt.Errorf("AI provider %s is not supported by OpenAI client", providerLabel(cfg.Provider))
+	}
 
-	opts := make([]option.RequestOption, 0, 2)
+	opts := make([]openaioption.RequestOption, 0, 2)
 	if cfg.APIKey != "" {
-		opts = append(opts, option.WithAPIKey(cfg.APIKey))
+		fmt.Printf("Using OpenAI API Key: %s\n", cfg.APIKey)
+		opts = append(opts, openaioption.WithAPIKey(cfg.APIKey))
 	}
 	if cfg.BaseURL != "" {
-		opts = append(opts, option.WithBaseURL(cfg.BaseURL))
+		opts = append(opts, openaioption.WithBaseURL(cfg.BaseURL))
 	}
 
 	return openai.NewClient(opts...), nil
+}
+
+func NewAnthropicClient(cfg *RuntimeConfig) (anthropic.Client, error) {
+	if cfg == nil || !cfg.Enabled {
+		return anthropic.Client{}, fmt.Errorf("AI is not enabled")
+	}
+	if normalizeProvider(cfg.Provider) != model.GeneralAIProviderAnthropic {
+		return anthropic.Client{}, fmt.Errorf("AI provider %s is not supported by Anthropic client", providerLabel(cfg.Provider))
+	}
+
+	opts := make([]anthropicoption.RequestOption, 0, 2)
+	if cfg.APIKey != "" {
+		fmt.Printf("Using Anthropic API Key: %s\n", cfg.APIKey)
+		opts = append(opts, anthropicoption.WithAuthToken(cfg.APIKey))
+		opts = append(opts, anthropicoption.WithAPIKey(cfg.APIKey))
+	}
+	if cfg.BaseURL != "" {
+		opts = append(opts, anthropicoption.WithBaseURL(cfg.BaseURL))
+	}
+
+	return anthropic.NewClient(opts...), nil
 }

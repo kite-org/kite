@@ -6,6 +6,7 @@ export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'tool'
   content: string
+  thinking?: string
   toolName?: string
   toolArgs?: Record<string, unknown>
   toolResult?: string
@@ -88,6 +89,9 @@ export function useAIChat() {
       switch (eventType) {
         case 'message': {
           const content = (data as { content: string }).content
+          if (typeof content !== 'string') {
+            break
+          }
           if (
             startNewAssistantSegmentRef.current ||
             !activeAssistantMsgIdRef.current
@@ -111,7 +115,50 @@ export function useAIChat() {
             }
             return [
               ...prev,
-              { id: assistantMsgId, role: 'assistant' as const, content },
+              {
+                id: assistantMsgId,
+                role: 'assistant' as const,
+                content,
+                thinking: '',
+              },
+            ]
+          })
+          break
+        }
+        case 'think': {
+          const thinking = (data as { content: string }).content
+          if (typeof thinking !== 'string') {
+            break
+          }
+          if (
+            startNewAssistantSegmentRef.current ||
+            !activeAssistantMsgIdRef.current
+          ) {
+            activeAssistantMsgIdRef.current = generateId()
+            startNewAssistantSegmentRef.current = false
+          }
+          const assistantMsgId = activeAssistantMsgIdRef.current
+          if (!assistantMsgId) {
+            break
+          }
+
+          updateMessages((prev) => {
+            const existing = prev.find((m) => m.id === assistantMsgId)
+            if (existing) {
+              return prev.map((m) =>
+                m.id === assistantMsgId
+                  ? { ...m, thinking: `${m.thinking || ''}${thinking}` }
+                  : m
+              )
+            }
+            return [
+              ...prev,
+              {
+                id: assistantMsgId,
+                role: 'assistant' as const,
+                content: '',
+                thinking,
+              },
             ]
           })
           break
