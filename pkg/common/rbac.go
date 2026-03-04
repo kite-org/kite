@@ -4,7 +4,6 @@ type Verb string
 
 const (
 	VerbGet    Verb = "get"
-	VerbList   Verb = "list"
 	VerbCreate Verb = "create"
 	VerbUpdate Verb = "update"
 	VerbDelete Verb = "delete"

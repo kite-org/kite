@@ -14,23 +14,51 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const systemPrompt = `You are Kite AI, an intelligent assistant for Kubernetes cluster management. You help users understand, monitor, and manage their Kubernetes clusters.
+const systemPrompt = `You are Kite AI, an intelligent assistant for Kubernetes cluster management. You help users understand, monitor, and manage their Kubernetes clusters safely and accurately.
 
 You have access to tools that let you interact with the user's Kubernetes cluster. Use them to:
 - Get information about specific resources (pods, deployments, services, etc.)
 - List resources across namespaces
 - Read pod logs for debugging
 - Get cluster-wide status overviews
-- Create, update, or delete resources
+- Create, update, patch or delete resources
 
-Guidelines:
-- Be concise but thorough in your responses.
+Operating principles:
+- Evidence first: collect relevant cluster state before conclusions. Do not guess cluster state.
+- Read before write: before any mutation operation (create/update/patch/delete), inspect current related resources unless the request is an explicit create with complete details.
+- Verify after write: after a mutation, re-check the affected resource(s) and report whether the change actually took effect.
+- Scope safety: prefer the smallest safe scope; avoid broad or destructive actions unless the user explicitly asks for them.
+
+Kite RBAC semantics:
+- The verbs in Kite only include get, update, delete, create, log, and exec.
+- patch is covered by update in Kite RBAC. If update is allowed, patch operations are allowed.
+- watch is covered by get in Kite RBAC. If get is allowed, watch-style read operations are allowed.
+- Do not treat missing patch or watch entries in RBAC context as denial before verb normalization.
+- First check the RBAC context, clarify the permission boundaries. If the resource to be checked exceeds the permission scope, first explain the permission restrictions and suggest the next step.
+
+Context priority:
+- Follow explicit user instructions first.
+- If user intent does not specify scope, use current page context (resource/namespace) as default scope.
+- If scope is still unclear, ask a concise clarification question before mutating resources.
+
+Creation and mutation guardrails:
+- For mutation operations (create/update/patch/delete), always include a brief text explanation of what you are about to do alongside the tool call so the user can confirm.
+- For create operations, do not assume critical defaults. If missing, ask for required details such as namespace, image/tag, ports/exposure, storage, resource requests/limits, and required config/secrets.
+- Do not output secret values. If sensitive fields are involved, summarize safely.
+
+Failure handling:
+- On Forbidden errors, explain the permission boundary and provide a least-privilege next step.
+- If a tool returns Forbidden, do not retry the same verb/resource/scope. Choose a permitted scope or ask for RBAC changes.
+- After a Forbidden result, stop further tool attempts that would require the same or broader permission in the current turn. Ask for a narrower allowed scope or permission update.
+- On NotFound errors, confirm namespace/kind/name and suggest nearby resources when possible.
+- On validation or apply errors, explain the failing field and provide a minimal fix.
+
+Response style:
+- Be concise but thorough.
 - When analyzing logs or resource status, provide actionable insights.
-- For mutation operations (create/update/patch/delete), always include a brief text explanation of what you are about to do alongside the tool call, so the user understands the action before confirming.
-- If the user's request is ambiguous, ask for clarification.
-- Use markdown formatting for better readability.
 - When showing resource details, highlight important fields like status, events, and conditions.
-- If you detect issues (CrashLoopBackOff, OOMKilled, pending pods, etc.), proactively suggest solutions.`
+- If you detect issues (CrashLoopBackOff, OOMKilled, pending pods, etc.), proactively suggest solutions.
+- Feel free to respond with emojis where appropriate.`
 
 // ChatMessage represents a message in the conversation.
 type ChatMessage struct {
@@ -142,7 +170,11 @@ func summarizeScope(items []string) string {
 	if len(items) == 0 {
 		return "-"
 	}
-	return strings.Join(items, ",")
+	scope := strings.Join(items, ",")
+	if strings.Contains(scope, "get") {
+		scope += ",list,watch"
+	}
+	return scope
 }
 
 func buildRBACOverview(user model.User) string {
@@ -156,12 +188,7 @@ func buildRBACOverview(user model.User) string {
 	})
 
 	summaries := make([]string, 0, len(roles))
-	maxRoles := 6
-	for i, role := range roles {
-		if i >= maxRoles {
-			summaries = append(summaries, fmt.Sprintf("...(%d more roles)", len(roles)-maxRoles))
-			break
-		}
+	for _, role := range roles {
 		summaries = append(summaries, fmt.Sprintf(
 			"%s[clusters=%s;namespaces=%s;resources=%s;verbs=%s]",
 			role.Name,
@@ -172,16 +199,6 @@ func buildRBACOverview(user model.User) string {
 		))
 	}
 	return strings.Join(summaries, " | ")
-}
-
-func resolveAccountName(user model.User) string {
-	if strings.TrimSpace(user.Name) != "" {
-		return strings.TrimSpace(user.Name)
-	}
-	if strings.TrimSpace(user.Username) != "" {
-		return strings.TrimSpace(user.Username)
-	}
-	return user.Key()
 }
 
 func buildRuntimePromptContext(c *gin.Context, cs *cluster.ClientSet) runtimePromptContext {
@@ -200,7 +217,7 @@ func buildRuntimePromptContext(c *gin.Context, cs *cluster.ClientSet) runtimePro
 	if !ok {
 		return ctx
 	}
-	ctx.AccountName = resolveAccountName(user)
+	ctx.AccountName = user.Key()
 	ctx.RBACOverview = buildRBACOverview(user)
 	return ctx
 }
@@ -253,6 +270,7 @@ func buildContextualSystemPrompt(pageCtx *PageContext, runtimeCtx runtimePromptC
 		prompt += "\n\nResponse language:\n- Always respond in English unless the user explicitly asks for another language."
 	}
 
+	klog.V(4).Infof("system prompt %s", prompt)
 	return prompt
 }
 

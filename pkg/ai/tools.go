@@ -367,7 +367,7 @@ func requiredToolPermissions(toolName string, args map[string]interface{}) ([]to
 		resource := resolveResourceInfo(kind)
 		return []toolPermission{{
 			Resource:  resource.Resource,
-			Verb:      string(common.VerbList),
+			Verb:      string(common.VerbGet),
 			Namespace: permissionNamespace(resource, namespace),
 		}}, nil
 	case "get_pod_logs":
@@ -385,10 +385,10 @@ func requiredToolPermissions(toolName string, args map[string]interface{}) ([]to
 		}}, nil
 	case "get_cluster_overview":
 		return []toolPermission{
-			{Resource: "nodes", Verb: string(common.VerbList), Namespace: ""},
-			{Resource: "pods", Verb: string(common.VerbList), Namespace: "_all"},
-			{Resource: "namespaces", Verb: string(common.VerbList), Namespace: ""},
-			{Resource: "services", Verb: string(common.VerbList), Namespace: "_all"},
+			{Resource: "nodes", Verb: string(common.VerbGet), Namespace: ""},
+			{Resource: "pods", Verb: string(common.VerbGet), Namespace: "_all"},
+			{Resource: "namespaces", Verb: string(common.VerbGet), Namespace: ""},
+			{Resource: "services", Verb: string(common.VerbGet), Namespace: "_all"},
 		}, nil
 	case "create_resource":
 		obj, err := parseResourceYAML(args)

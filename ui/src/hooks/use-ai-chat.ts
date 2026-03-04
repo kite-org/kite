@@ -212,6 +212,16 @@ export function useAIChat() {
       let eventType = ''
       let eventDataLines: string[] = []
 
+      const processLine = (line: string) => {
+        if (line.startsWith('event: ')) {
+          eventType = line.slice(7).trim()
+        } else if (line.startsWith('data: ')) {
+          eventDataLines.push(line.slice(6))
+        } else if (line === '') {
+          flushEvent()
+        }
+      }
+
       const flushEvent = () => {
         if (!eventType || eventDataLines.length === 0) {
           eventType = ''
@@ -241,23 +251,19 @@ export function useAIChat() {
         buffer = lines.pop() || ''
 
         for (const line of lines) {
-          if (line.startsWith('event: ')) {
-            eventType = line.slice(7).trim()
-          } else if (line.startsWith('data: ')) {
-            eventDataLines.push(line.slice(6))
-          } else if (line === '') {
-            flushEvent()
-          }
+          processLine(line)
         }
       }
 
+      buffer += decoder.decode()
+      const remainingLines = buffer.split('\n')
+      buffer = remainingLines.pop() || ''
+      for (const line of remainingLines) {
+        processLine(line)
+      }
+
       if (buffer.trim() !== '') {
-        const line = buffer.trim()
-        if (line.startsWith('event: ')) {
-          eventType = line.slice(7).trim()
-        } else if (line.startsWith('data: ')) {
-          eventDataLines.push(line.slice(6))
-        }
+        processLine(buffer.trim())
       }
       flushEvent()
     },
