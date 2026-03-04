@@ -71,7 +71,6 @@ func NewOpenAIClient(cfg *RuntimeConfig) (openai.Client, error) {
 
 	opts := make([]openaioption.RequestOption, 0, 2)
 	if cfg.APIKey != "" {
-		fmt.Printf("Using OpenAI API Key: %s\n", cfg.APIKey)
 		opts = append(opts, openaioption.WithAPIKey(cfg.APIKey))
 	}
 	if cfg.BaseURL != "" {
@@ -91,7 +90,6 @@ func NewAnthropicClient(cfg *RuntimeConfig) (anthropic.Client, error) {
 
 	opts := make([]anthropicoption.RequestOption, 0, 2)
 	if cfg.APIKey != "" {
-		fmt.Printf("Using Anthropic API Key: %s\n", cfg.APIKey)
 		opts = append(opts, anthropicoption.WithAuthToken(cfg.APIKey))
 		opts = append(opts, anthropicoption.WithAPIKey(cfg.APIKey))
 	}

@@ -175,7 +175,7 @@ function MessageBubble({
   onConfirm?: (id: string) => void
   onDeny?: (id: string) => void
 }) {
-  const [thinkingExpanded, setThinkingExpanded] = useState(true)
+  const [thinkingExpanded, setThinkingExpanded] = useState(false)
 
   if (message.role === 'tool') {
     return (
