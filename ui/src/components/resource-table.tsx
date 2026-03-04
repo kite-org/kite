@@ -143,6 +143,7 @@ export function ResourceTable<T>({
       ? undefined // No namespace for cluster scope
       : storedNamespace || 'default' // Default to 'default' if not set
   })
+  const effectiveNamespace = clusterScope ? undefined : selectedNamespace
   const [useSSE, setUseSSE] = useState(false)
   const {
     isLoading: queryLoading,
@@ -152,7 +153,7 @@ export function ResourceTable<T>({
     refetch: queryRefetch,
   } = useResources(
     resourceType ?? (resourceName.toLowerCase() as ResourceType),
-    selectedNamespace,
+    effectiveNamespace,
     {
       refreshInterval: useSSE ? 0 : refreshInterval, // disable polling when SSE
       reduce: true, // Fetch reduced data for performance
@@ -171,9 +172,19 @@ export function ResourceTable<T>({
   } = useResourcesWatch(
     (resourceType ??
       (resourceName.toLowerCase() as ResourceType)) as ResourceType,
-    selectedNamespace,
+    effectiveNamespace,
     { reduce: true, enabled: useSSE }
   )
+
+  useEffect(() => {
+    if (clusterScope || selectedNamespace !== undefined) {
+      return
+    }
+    const storedNamespace = localStorage.getItem(
+      localStorage.getItem('current-cluster') + 'selectedNamespace'
+    )
+    setSelectedNamespace(storedNamespace || 'default')
+  }, [clusterScope, selectedNamespace])
 
   // (moved below after error is defined)
 
