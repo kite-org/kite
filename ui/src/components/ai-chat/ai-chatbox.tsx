@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
+import { useLocation } from 'react-router-dom'
 import remarkGfm from 'remark-gfm'
 
 import { useAIStatus } from '@/lib/api'
@@ -364,6 +365,9 @@ export function AIChatbox() {
     stopGeneration,
   } = useAIChat()
 
+  const { pathname } = useLocation()
+  const shouldShowAIChatbox = !/^\/settings\/?$/.test(pathname)
+
   const [input, setInput] = useState('')
   const [height, setHeight] = useState(() =>
     Math.round(
@@ -529,6 +533,8 @@ export function AIChatbox() {
   const onWidthPointerUp = useCallback(() => {
     widthDragging.current = false
   }, [])
+
+  if (!shouldShowAIChatbox) return null
 
   // Don't render if AI is not enabled
   if (aiEnabled === false) return null
