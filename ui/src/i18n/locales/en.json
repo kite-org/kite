@@ -296,10 +296,26 @@
         "image": "Image"
       }
     },
+    "nodeTerminal": {
+      "title": "Node Terminal",
+      "description": "Configure runtime image used for node terminal sessions.",
+      "form": {
+        "image": "Image"
+      }
+    },
+    "runtime": {
+      "title": "Runtime",
+      "description": "Configure analytics and version checking behavior.",
+      "form": {
+        "enableAnalytics": "Enable analytics",
+        "enableVersionCheck": "Enable version check"
+      }
+    },
     "errors": {
       "modelRequired": "Model is required",
       "apiKeyRequired": "API Key is required when AI Agent is enabled",
-      "kubectlImageRequired": "Kubectl image is required when kubectl is enabled"
+      "kubectlImageRequired": "Kubectl image is required when kubectl is enabled",
+      "nodeTerminalImageRequired": "Node terminal image is required"
     },
     "messages": {
       "updated": "General settings updated"

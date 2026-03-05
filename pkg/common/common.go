@@ -40,8 +40,8 @@ var (
 
 	CookieExpirationSeconds = 2 * JWTExpirationSeconds // double jwt
 
-	DisableGZIP         = true
-	DisableVersionCheck = false
+	DisableGZIP        = true
+	EnableVersionCheck = true
 
 	APIKeyProvider = "api_key"
 
@@ -101,7 +101,7 @@ func LoadEnvs() {
 	}
 
 	if v := os.Getenv("DISABLE_VERSION_CHECK"); v == "true" {
-		DisableVersionCheck = true
+		EnableVersionCheck = false
 	}
 
 	if v := os.Getenv("KITE_BASE"); v != "" {

@@ -320,10 +320,26 @@
         "image": "镜像"
       }
     },
+    "nodeTerminal": {
+      "title": "Node Terminal",
+      "description": "配置 Node Terminal 会话使用的运行镜像。",
+      "form": {
+        "image": "镜像"
+      }
+    },
+    "runtime": {
+      "title": "运行时",
+      "description": "配置数据分析和版本检查行为。",
+      "form": {
+        "enableAnalytics": "启用数据分析",
+        "enableVersionCheck": "启用版本检查"
+      }
+    },
     "errors": {
       "modelRequired": "模型不能为空",
       "apiKeyRequired": "启用 AI Agent 时必须填写 API Key",
-      "kubectlImageRequired": "启用 kubectl 时必须填写镜像"
+      "kubectlImageRequired": "启用 kubectl 时必须填写镜像",
+      "nodeTerminalImageRequired": "Node Terminal 镜像不能为空"
     },
     "messages": {
       "updated": "通用设置已更新"

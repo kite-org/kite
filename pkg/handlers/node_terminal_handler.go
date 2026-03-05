@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -60,10 +61,20 @@ func (h *NodeTerminalHandler) HandleNodeTerminalWebSocket(c *gin.Context) {
 			h.sendErrorMessage(conn, fmt.Sprintf("Node %s not found", nodeName))
 			return
 		}
+		setting, err := model.GetGeneralSetting()
+		if err != nil {
+			log.Printf("Failed to load general setting: %v", err)
+			h.sendErrorMessage(conn, fmt.Sprintf("Failed to load settings: %v", err))
+			return
+		}
+		nodeTerminalImage := strings.TrimSpace(setting.NodeTerminalImage)
+		if nodeTerminalImage == "" {
+			nodeTerminalImage = common.NodeTerminalImage
+		}
 		ctx, cancel := context.WithCancel(c.Request.Context())
 		defer cancel()
 
-		nodeAgentName, err := h.createNodeAgent(ctx, cs, nodeName)
+		nodeAgentName, err := h.createNodeAgent(ctx, cs, nodeName, nodeTerminalImage)
 		if err != nil {
 			log.Printf("Failed to create node agent pod: %v", err)
 			h.sendErrorMessage(conn, fmt.Sprintf("Failed to create node agent pod: %v", err))
@@ -91,7 +102,7 @@ func (h *NodeTerminalHandler) HandleNodeTerminalWebSocket(c *gin.Context) {
 	}).ServeHTTP(c.Writer, c.Request)
 }
 
-func (h *NodeTerminalHandler) createNodeAgent(ctx context.Context, cs *cluster.ClientSet, nodeName string) (string, error) {
+func (h *NodeTerminalHandler) createNodeAgent(ctx context.Context, cs *cluster.ClientSet, nodeName, image string) (string, error) {
 	podName := utils.GenerateNodeAgentName(nodeName)
 	// Define the kite node agent pod spec
 	pod := &corev1.Pod{
@@ -125,12 +136,13 @@ func (h *NodeTerminalHandler) createNodeAgent(ctx context.Context, cs *cluster.C
 			},
 			Containers: []corev1.Container{
 				{
-					Name:      common.NodeTerminalPodName,
-					Image:     common.NodeTerminalImage,
-					Stdin:     true,
-					StdinOnce: true,
-					TTY:       true,
-					Command:   []string{"/bin/sh", "-c", "chroot /host || (exec /bin/zsh || exec /bin/bash || exec /bin/sh)"},
+					Name:            common.NodeTerminalPodName,
+					Image:           image,
+					ImagePullPolicy: corev1.PullIfNotPresent,
+					Stdin:           true,
+					StdinOnce:       true,
+					TTY:             true,
+					Command:         []string{"/bin/sh", "-c", "chroot /host || (exec /bin/zsh || exec /bin/bash || exec /bin/sh)"},
 					SecurityContext: &corev1.SecurityContext{
 						Privileged: &[]bool{true}[0],
 					},

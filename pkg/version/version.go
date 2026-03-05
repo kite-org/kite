@@ -28,7 +28,7 @@ func GetVersion(c *gin.Context) {
 		CommitID:  CommitID,
 	}
 
-	if !common.DisableVersionCheck {
+	if common.EnableVersionCheck {
 		r := checkForUpdate(c.Request.Context(), Version)
 		versionInfo.HasNew = r.hasNew
 		if versionInfo.HasNew {

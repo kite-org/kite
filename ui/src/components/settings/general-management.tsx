@@ -27,6 +27,7 @@ import { Switch } from '@/components/ui/switch'
 const DEFAULT_MODEL = 'gpt-4o-mini'
 const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-5'
 const DEFAULT_KUBECTL_IMAGE = 'zzde/kubectl:latest'
+const DEFAULT_NODE_TERMINAL_IMAGE = 'busybox:latest'
 
 export function GeneralManagement() {
   const { t } = useTranslation()
@@ -41,6 +42,9 @@ export function GeneralManagement() {
     aiBaseUrl: '',
     kubectlEnabled: true,
     kubectlImage: DEFAULT_KUBECTL_IMAGE,
+    nodeTerminalImage: DEFAULT_NODE_TERMINAL_IMAGE,
+    enableAnalytics: true,
+    enableVersionCheck: true,
   })
 
   useEffect(() => {
@@ -54,6 +58,9 @@ export function GeneralManagement() {
       aiBaseUrl: data.aiBaseUrl || '',
       kubectlEnabled: data.kubectlEnabled ?? true,
       kubectlImage: data.kubectlImage || DEFAULT_KUBECTL_IMAGE,
+      nodeTerminalImage: data.nodeTerminalImage || DEFAULT_NODE_TERMINAL_IMAGE,
+      enableAnalytics: data.enableAnalytics ?? false,
+      enableVersionCheck: data.enableVersionCheck ?? true,
     })
   }, [data])
 
@@ -109,6 +116,15 @@ export function GeneralManagement() {
       )
       return
     }
+    if (!formData.nodeTerminalImage.trim()) {
+      toast.error(
+        t(
+          'generalManagement.errors.nodeTerminalImageRequired',
+          'Node terminal image is required'
+        )
+      )
+      return
+    }
 
     const payload: GeneralSettingUpdateRequest = {
       aiAgentEnabled: formData.aiAgentEnabled,
@@ -117,6 +133,10 @@ export function GeneralManagement() {
       aiBaseUrl: formData.aiBaseUrl.trim(),
       kubectlEnabled: formData.kubectlEnabled,
       kubectlImage: formData.kubectlImage.trim() || DEFAULT_KUBECTL_IMAGE,
+      nodeTerminalImage:
+        formData.nodeTerminalImage.trim() || DEFAULT_NODE_TERMINAL_IMAGE,
+      enableAnalytics: formData.enableAnalytics,
+      enableVersionCheck: formData.enableVersionCheck,
     }
     if (formData.aiApiKey.trim()) {
       payload.aiApiKey = formData.aiApiKey.trim()
@@ -316,6 +336,87 @@ export function GeneralManagement() {
               />
             </div>
           )}
+        </div>
+
+        <div className="rounded-lg border p-3">
+          <div className="space-y-1">
+            <Label className="flex items-center gap-2 text-sm font-medium">
+              <IconTerminal2 className="h-4 w-4" />
+              {t('generalManagement.nodeTerminal.title', 'Node Terminal')}
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              {t(
+                'generalManagement.nodeTerminal.description',
+                'Configure runtime image used for node terminal sessions.'
+              )}
+            </p>
+          </div>
+
+          <div className="mt-3 space-y-2">
+            <Label htmlFor="general-node-terminal-image">
+              {t('generalManagement.nodeTerminal.form.image', 'Image')}
+            </Label>
+            <Input
+              id="general-node-terminal-image"
+              value={formData.nodeTerminalImage}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  nodeTerminalImage: e.target.value,
+                }))
+              }
+              placeholder={DEFAULT_NODE_TERMINAL_IMAGE}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-lg border">
+          <div className="p-3">
+            <Label className="text-sm font-medium">
+              {t('generalManagement.runtime.title', 'Runtime')}
+            </Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t(
+                'generalManagement.runtime.description',
+                'Configure analytics and version checking behavior.'
+              )}
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between border-t p-3">
+            <Label htmlFor="general-enable-analytics" className="text-sm">
+              {t(
+                'generalManagement.runtime.form.enableAnalytics',
+                'Enable analytics'
+              )}
+            </Label>
+            <Switch
+              id="general-enable-analytics"
+              checked={formData.enableAnalytics}
+              onCheckedChange={(checked) =>
+                setFormData((prev) => ({ ...prev, enableAnalytics: checked }))
+              }
+            />
+          </div>
+
+          <div className="flex items-center justify-between border-t p-3">
+            <Label htmlFor="general-enable-version-check" className="text-sm">
+              {t(
+                'generalManagement.runtime.form.enableVersionCheck',
+                'Enable version check'
+              )}
+            </Label>
+            <Switch
+              id="general-enable-version-check"
+              checked={formData.enableVersionCheck}
+              onCheckedChange={(checked) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  enableVersionCheck: checked,
+                }))
+              }
+            />
+          </div>
         </div>
 
         <div className="flex justify-end">

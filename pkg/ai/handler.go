@@ -155,17 +155,23 @@ func HandleGetGeneralSetting(c *gin.Context) {
 		"aiBaseUrl":          setting.AIBaseURL,
 		"kubectlEnabled":     setting.KubectlEnabled,
 		"kubectlImage":       setting.KubectlImage,
+		"nodeTerminalImage":  setting.NodeTerminalImage,
+		"enableAnalytics":    setting.EnableAnalytics,
+		"enableVersionCheck": setting.EnableVersionCheck,
 	})
 }
 
 type UpdateGeneralSettingRequest struct {
-	AIAgentEnabled bool    `json:"aiAgentEnabled"`
-	AIProvider     string  `json:"aiProvider"`
-	AIModel        string  `json:"aiModel"`
-	AIAPIKey       *string `json:"aiApiKey"`
-	AIBaseURL      string  `json:"aiBaseUrl"`
-	KubectlEnabled bool    `json:"kubectlEnabled"`
-	KubectlImage   string  `json:"kubectlImage"`
+	AIAgentEnabled     bool    `json:"aiAgentEnabled"`
+	AIProvider         string  `json:"aiProvider"`
+	AIModel            string  `json:"aiModel"`
+	AIAPIKey           *string `json:"aiApiKey"`
+	AIBaseURL          string  `json:"aiBaseUrl"`
+	KubectlEnabled     bool    `json:"kubectlEnabled"`
+	KubectlImage       string  `json:"kubectlImage"`
+	NodeTerminalImage  string  `json:"nodeTerminalImage"`
+	EnableAnalytics    bool    `json:"enableAnalytics"`
+	EnableVersionCheck bool    `json:"enableVersionCheck"`
 }
 
 func HandleUpdateGeneralSetting(c *gin.Context) {
@@ -216,14 +222,24 @@ func HandleUpdateGeneralSetting(c *gin.Context) {
 	if kubectlImage == "" {
 		kubectlImage = model.DefaultGeneralKubectlImage
 	}
+	nodeTerminalImage := strings.TrimSpace(req.NodeTerminalImage)
+	if nodeTerminalImage == "" {
+		nodeTerminalImage = strings.TrimSpace(currentSetting.NodeTerminalImage)
+	}
+	if nodeTerminalImage == "" {
+		nodeTerminalImage = model.DefaultGeneralNodeTerminalImageValue()
+	}
 
 	updates := map[string]interface{}{
-		"ai_agent_enabled": req.AIAgentEnabled,
-		"ai_provider":      aiProvider,
-		"ai_model":         aiModel,
-		"ai_base_url":      strings.TrimSpace(req.AIBaseURL),
-		"kubectl_enabled":  req.KubectlEnabled,
-		"kubectl_image":    kubectlImage,
+		"ai_agent_enabled":     req.AIAgentEnabled,
+		"ai_provider":          aiProvider,
+		"ai_model":             aiModel,
+		"ai_base_url":          strings.TrimSpace(req.AIBaseURL),
+		"kubectl_enabled":      req.KubectlEnabled,
+		"kubectl_image":        kubectlImage,
+		"node_terminal_image":  nodeTerminalImage,
+		"enable_analytics":     req.EnableAnalytics,
+		"enable_version_check": req.EnableVersionCheck,
 	}
 	if shouldUpdateAIAPIKey {
 		updates["ai_api_key"] = model.SecretString(aiAPIKey)
@@ -245,6 +261,9 @@ func HandleUpdateGeneralSetting(c *gin.Context) {
 		"aiBaseUrl":          updated.AIBaseURL,
 		"kubectlEnabled":     updated.KubectlEnabled,
 		"kubectlImage":       updated.KubectlImage,
+		"nodeTerminalImage":  updated.NodeTerminalImage,
+		"enableAnalytics":    updated.EnableAnalytics,
+		"enableVersionCheck": updated.EnableVersionCheck,
 	})
 }
 

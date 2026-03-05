@@ -1751,6 +1751,9 @@ export interface GeneralSetting {
   aiBaseUrl: string
   kubectlEnabled: boolean
   kubectlImage: string
+  nodeTerminalImage: string
+  enableAnalytics: boolean
+  enableVersionCheck: boolean
 }
 
 export interface GeneralSettingUpdateRequest {
@@ -1761,6 +1764,9 @@ export interface GeneralSettingUpdateRequest {
   aiBaseUrl: string
   kubectlEnabled: boolean
   kubectlImage: string
+  nodeTerminalImage: string
+  enableAnalytics: boolean
+  enableVersionCheck: boolean
 }
 
 export const fetchGeneralSetting = async (): Promise<GeneralSetting> => {
