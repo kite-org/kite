@@ -40,7 +40,7 @@ func (a *Agent) processChatOpenAI(c *gin.Context, req *ChatRequest, sendEvent fu
 
 	tools := OpenAIToolDefs()
 
-	maxIterations := 10
+	maxIterations := 100
 	for i := 0; i < maxIterations; i++ {
 		stream := a.openaiClient.Chat.Completions.NewStreaming(ctx, openai.ChatCompletionNewParams{
 			Model:    a.model,
@@ -99,8 +99,9 @@ func (a *Agent) processChatOpenAI(c *gin.Context, req *ChatRequest, sendEvent fu
 					sendEvent(SSEEvent{
 						Event: "tool_result",
 						Data: map[string]interface{}{
-							"tool":   toolName,
-							"result": result,
+							"tool":     toolName,
+							"result":   result,
+							"is_error": true,
 						},
 					})
 					messages = append(messages, openai.ToolMessage("Tool error: "+result, tc.ID))
@@ -121,8 +122,9 @@ func (a *Agent) processChatOpenAI(c *gin.Context, req *ChatRequest, sendEvent fu
 			sendEvent(SSEEvent{
 				Event: "tool_result",
 				Data: map[string]interface{}{
-					"tool":   toolName,
-					"result": result,
+					"tool":     toolName,
+					"result":   result,
+					"is_error": isError,
 				},
 			})
 

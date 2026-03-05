@@ -643,26 +643,45 @@
   "aiChat": {
     "disclaimer": "AI may make mistakes. Please verify carefully before use.",
     "suggestedPrompts": {
-      "hint": "Ask me anything about your cluster",
+      "hint": "Start with a focused check",
+      "fallback": {
+        "resource": "this resource",
+        "namespace": "this namespace"
+      },
       "overview": {
-        "clusterHealth": "What is the overall cluster health?",
-        "errorPods": "Are there any pods in error state?",
-        "listNamespaces": "List all namespaces"
+        "clusterHealth": "Run a cluster health check and highlight top risks",
+        "errorPods": "List error pods with probable causes and priority",
+        "namespaceSummary": "Summarize health and anomalies by namespace"
       },
       "podDetail": {
-        "showLogs": "Show me the logs for this pod",
-        "status": "What is the status of this pod?",
-        "issues": "Are there any issues with this pod?"
+        "rootCause": "Analyze {{resourceKind}}/{{resourceName}} using status, events, and logs",
+        "riskCheck": "Check restart, OOM, and probe failures for {{resourceKind}}/{{resourceName}}",
+        "troubleshoot": "Give a prioritized troubleshooting path for {{resourceKind}}/{{resourceName}} in {{namespace}}"
       },
       "deploymentDetail": {
-        "rolloutStatus": "What is the rollout status?",
-        "runningReplicas": "How many replicas are running?",
-        "recentEvents": "Show recent events"
+        "releaseCheck": "Check release progress and rollout blockers for {{resourceKind}}/{{resourceName}}",
+        "replicaGap": "Explain desired vs available replica gap for {{resourceKind}}/{{resourceName}}",
+        "recentEvents": "Review recent events for {{resourceKind}}/{{resourceName}} and suggest fixes"
+      },
+      "nodeDetail": {
+        "health": "Check node health, pressure conditions, and critical alerts",
+        "workloadRisk": "Analyze workload risks on {{resourceKind}}/{{resourceName}}",
+        "actions": "Provide prioritized remediation actions for {{resourceKind}}/{{resourceName}}"
+      },
+      "detail": {
+        "summary": "Summarize current status and key conditions for {{resourceKind}}/{{resourceName}}",
+        "anomaly": "Identify anomalies and likely root causes for {{resourceKind}}/{{resourceName}}",
+        "nextSteps": "Give minimal-impact next actions for {{resourceKind}}/{{resourceName}} in {{namespace}}"
+      },
+      "list": {
+        "anomalies": "Find abnormal resources on this page and sort by impact",
+        "namespaceHotspots": "Highlight namespaces with the most issues on this page",
+        "nextActions": "Give a short action list for the current resource list"
       },
       "default": {
-        "clusterOverview": "Show cluster overview",
-        "listPods": "List all pods",
-        "issues": "Are there any issues?"
+        "healthCheck": "Run a quick cluster check and list top 3 risks",
+        "workloadIssues": "List problematic workloads and probable root causes",
+        "runbook": "Provide a prioritized troubleshooting runbook"
       }
     }
   },

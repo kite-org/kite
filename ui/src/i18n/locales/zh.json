@@ -607,26 +607,45 @@
   "aiChat": {
     "disclaimer": "AI 可能会出错，使用时请仔细确认。",
     "suggestedPrompts": {
-      "hint": "你可以问我任何与集群相关的问题",
+      "hint": "从一个明确的检查开始",
+      "fallback": {
+        "resource": "当前资源",
+        "namespace": "当前命名空间"
+      },
       "overview": {
-        "clusterHealth": "当前集群整体健康状态怎么样？",
-        "errorPods": "是否有处于错误状态的 Pod？",
-        "listNamespaces": "列出所有命名空间"
+        "clusterHealth": "做一次集群健康检查，并标出最高风险项",
+        "errorPods": "列出处于异常状态的 Pod，并给出可能原因和优先级",
+        "namespaceSummary": "按命名空间汇总健康度和异常情况"
       },
       "podDetail": {
-        "showLogs": "查看这个 Pod 的日志",
-        "status": "这个 Pod 的状态怎么样？",
-        "issues": "这个 Pod 是否存在问题？"
+        "rootCause": "结合状态、事件和日志分析 {{resourceKind}}/{{resourceName}} 的根因",
+        "riskCheck": "检查 {{resourceKind}}/{{resourceName}} 的重启、OOM 和探针失败风险",
+        "troubleshoot": "给出 {{namespace}} 中 {{resourceKind}}/{{resourceName}} 的优先级排障路径"
       },
       "deploymentDetail": {
-        "rolloutStatus": "当前 rollout 状态如何？",
-        "runningReplicas": "现在有多少副本在运行？",
-        "recentEvents": "查看最近事件"
+        "releaseCheck": "检查 {{resourceKind}}/{{resourceName}} 的发布进度和阻塞点",
+        "replicaGap": "分析 {{resourceKind}}/{{resourceName}} 期望副本与可用副本差异",
+        "recentEvents": "梳理 {{resourceKind}}/{{resourceName}} 最近事件并给出修复建议"
+      },
+      "nodeDetail": {
+        "health": "检查节点健康状态、资源压力和关键告警",
+        "workloadRisk": "分析 {{resourceKind}}/{{resourceName}} 上工作负载风险",
+        "actions": "给出 {{resourceKind}}/{{resourceName}} 的优先级修复动作"
+      },
+      "detail": {
+        "summary": "汇总 {{resourceKind}}/{{resourceName}} 当前状态和关键条件",
+        "anomaly": "识别 {{resourceKind}}/{{resourceName}} 的异常与可能根因",
+        "nextSteps": "给出 {{namespace}} 中 {{resourceKind}}/{{resourceName}} 的最小影响下一步操作"
+      },
+      "list": {
+        "anomalies": "找出当前页面资源中的异常对象并按影响排序",
+        "namespaceHotspots": "指出当前页面中问题最集中的命名空间",
+        "nextActions": "给出当前资源列表的快速处理建议"
       },
       "default": {
-        "clusterOverview": "展示集群概览",
-        "listPods": "列出所有 Pod",
-        "issues": "当前是否有异常问题？"
+        "healthCheck": "做一次集群快速体检并列出 Top 3 风险",
+        "workloadIssues": "列出异常工作负载及可能根因",
+        "runbook": "给出按优先级排序的排障清单"
       }
     }
   },

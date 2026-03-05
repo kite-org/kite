@@ -182,11 +182,22 @@ export function useAIChat() {
           break
         }
         case 'tool_result': {
-          const { tool, result } = data as { tool: string; result: string }
+          const { tool, result, is_error } = data as {
+            tool: string
+            result: unknown
+            is_error?: boolean
+          }
+          const toolResult =
+            typeof result === 'string' ? result : JSON.stringify(result ?? '')
+          const inferredError =
+            typeof is_error === 'boolean'
+              ? is_error
+              : /^(error:|forbidden:|tool error:)/i.test(toolResult.trim())
           updateLatestToolMessage(tool, (message) => ({
             ...message,
-            content: `${tool} completed`,
-            toolResult: result,
+            content: `${tool} ${inferredError ? 'failed' : 'completed'}`,
+            toolResult,
+            actionStatus: inferredError ? 'error' : 'confirmed',
           }))
           break
         }

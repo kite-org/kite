@@ -36,7 +36,7 @@ func (a *Agent) processChatAnthropic(c *gin.Context, req *ChatRequest, sendEvent
 	messages := toAnthropicMessages(req.Messages)
 	tools := AnthropicToolDefs()
 
-	maxIterations := 10
+	maxIterations := 100
 	for i := 0; i < maxIterations; i++ {
 		stream := a.anthropicClient.Messages.NewStreaming(ctx, anthropic.MessageNewParams{
 			Model:    anthropic.Model(a.model),
@@ -91,8 +91,9 @@ func (a *Agent) processChatAnthropic(c *gin.Context, req *ChatRequest, sendEvent
 					sendEvent(SSEEvent{
 						Event: "tool_result",
 						Data: map[string]interface{}{
-							"tool":   toolName,
-							"result": result,
+							"tool":     toolName,
+							"result":   result,
+							"is_error": true,
 						},
 					})
 					toolResults = append(toolResults, anthropic.NewToolResultBlock(tc.ID, "Tool error: "+result, true))
@@ -113,8 +114,9 @@ func (a *Agent) processChatAnthropic(c *gin.Context, req *ChatRequest, sendEvent
 			sendEvent(SSEEvent{
 				Event: "tool_result",
 				Data: map[string]interface{}{
-					"tool":   toolName,
-					"result": result,
+					"tool":     toolName,
+					"result":   result,
+					"is_error": isError,
 				},
 			})
 

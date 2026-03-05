@@ -20,6 +20,7 @@ import remarkGfm from 'remark-gfm'
 
 import { useAIStatus } from '@/lib/api'
 import { ChatMessage, useAIChat } from '@/hooks/use-ai-chat'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -29,9 +30,11 @@ import {
 } from '@/components/ui/tooltip'
 
 const MIN_HEIGHT = 200
-const DEFAULT_HEIGHT = 500
+const DESKTOP_DEFAULT_HEIGHT_RATIO = 0.62
 const MIN_WIDTH = 320
 const DEFAULT_WIDTH = 420
+const DESKTOP_MARGIN = 16
+const MOBILE_DEFAULT_HEIGHT_RATIO = 0.62
 
 /** Build a human-readable summary from tool name + args. */
 function describeAction(tool: string, args: Record<string, unknown>): string {
@@ -246,10 +249,15 @@ function MessageBubble({
 }
 
 function SuggestedPrompts({
-  page,
+  pageContext,
   onSelect,
 }: {
-  page: string
+  pageContext: {
+    page: string
+    namespace: string
+    resourceName: string
+    resourceKind: string
+  }
   onSelect: (prompt: string) => void
 }) {
   const { t } = useTranslation()
@@ -258,26 +266,61 @@ function SuggestedPrompts({
     overview: [
       'aiChat.suggestedPrompts.overview.clusterHealth',
       'aiChat.suggestedPrompts.overview.errorPods',
-      'aiChat.suggestedPrompts.overview.listNamespaces',
+      'aiChat.suggestedPrompts.overview.namespaceSummary',
     ],
     'pod-detail': [
-      'aiChat.suggestedPrompts.podDetail.showLogs',
-      'aiChat.suggestedPrompts.podDetail.status',
-      'aiChat.suggestedPrompts.podDetail.issues',
+      'aiChat.suggestedPrompts.podDetail.rootCause',
+      'aiChat.suggestedPrompts.podDetail.riskCheck',
+      'aiChat.suggestedPrompts.podDetail.troubleshoot',
     ],
     'deployment-detail': [
-      'aiChat.suggestedPrompts.deploymentDetail.rolloutStatus',
-      'aiChat.suggestedPrompts.deploymentDetail.runningReplicas',
+      'aiChat.suggestedPrompts.deploymentDetail.releaseCheck',
+      'aiChat.suggestedPrompts.deploymentDetail.replicaGap',
       'aiChat.suggestedPrompts.deploymentDetail.recentEvents',
     ],
+    'node-detail': [
+      'aiChat.suggestedPrompts.nodeDetail.health',
+      'aiChat.suggestedPrompts.nodeDetail.workloadRisk',
+      'aiChat.suggestedPrompts.nodeDetail.actions',
+    ],
+    detail: [
+      'aiChat.suggestedPrompts.detail.summary',
+      'aiChat.suggestedPrompts.detail.anomaly',
+      'aiChat.suggestedPrompts.detail.nextSteps',
+    ],
+    list: [
+      'aiChat.suggestedPrompts.list.anomalies',
+      'aiChat.suggestedPrompts.list.namespaceHotspots',
+      'aiChat.suggestedPrompts.list.nextActions',
+    ],
     default: [
-      'aiChat.suggestedPrompts.default.clusterOverview',
-      'aiChat.suggestedPrompts.default.listPods',
-      'aiChat.suggestedPrompts.default.issues',
+      'aiChat.suggestedPrompts.default.healthCheck',
+      'aiChat.suggestedPrompts.default.workloadIssues',
+      'aiChat.suggestedPrompts.default.runbook',
     ],
   }
 
-  const pagePrompts = prompts[page] || prompts['default']
+  const promptSetKey =
+    prompts[pageContext.page] != null
+      ? pageContext.page
+      : pageContext.page.endsWith('-detail')
+        ? 'detail'
+        : pageContext.page.endsWith('-list')
+          ? 'list'
+          : 'default'
+
+  const templateValues = {
+    resourceKind:
+      pageContext.resourceKind ||
+      t('aiChat.suggestedPrompts.fallback.resource'),
+    resourceName:
+      pageContext.resourceName ||
+      t('aiChat.suggestedPrompts.fallback.resource'),
+    namespace:
+      pageContext.namespace || t('aiChat.suggestedPrompts.fallback.namespace'),
+  }
+
+  const pagePrompts = prompts[promptSetKey]
 
   return (
     <div className="flex flex-col items-center gap-2 p-4">
@@ -290,9 +333,9 @@ function SuggestedPrompts({
           <button
             key={promptKey}
             className="rounded-full border bg-background px-3 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            onClick={() => onSelect(t(promptKey))}
+            onClick={() => onSelect(t(promptKey, templateValues))}
           >
-            {t(promptKey)}
+            {t(promptKey, templateValues)}
           </button>
         ))}
       </div>
@@ -302,6 +345,7 @@ function SuggestedPrompts({
 
 export function AIChatbox() {
   const { i18n, t } = useTranslation()
+  const isMobile = useIsMobile()
   const {
     isOpen,
     isMinimized,
@@ -321,7 +365,12 @@ export function AIChatbox() {
   } = useAIChat()
 
   const [input, setInput] = useState('')
-  const [height, setHeight] = useState(DEFAULT_HEIGHT)
+  const [height, setHeight] = useState(() =>
+    Math.round(
+      (window.visualViewport?.height ?? window.innerHeight) *
+        DESKTOP_DEFAULT_HEIGHT_RATIO
+    )
+  )
   const [width, setWidth] = useState(DEFAULT_WIDTH)
   const { data: { enabled: aiEnabled } = { enabled: false } } = useAIStatus()
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -332,6 +381,56 @@ export function AIChatbox() {
   const startH = useRef(0)
   const startX = useRef(0)
   const startW = useRef(0)
+
+  const getViewportSize = useCallback(() => {
+    return {
+      width: window.visualViewport?.width ?? window.innerWidth,
+      height: window.visualViewport?.height ?? window.innerHeight,
+    }
+  }, [])
+
+  const [{ width: viewportWidth, height: viewportHeight }, setViewportSize] =
+    useState(() => getViewportSize())
+
+  const getDesktopBounds = useCallback((vw: number, vh: number) => {
+    const maxWidth = Math.max(MIN_WIDTH, Math.min(720, vw - DESKTOP_MARGIN))
+    const minWidth = Math.min(MIN_WIDTH, maxWidth)
+    const maxHeight = Math.max(MIN_HEIGHT, vh * 0.85)
+    const minHeight = Math.min(MIN_HEIGHT, maxHeight)
+    return { minWidth, maxWidth, minHeight, maxHeight }
+  }, [])
+
+  useEffect(() => {
+    const updateViewport = () => setViewportSize(getViewportSize())
+    updateViewport()
+    window.addEventListener('resize', updateViewport)
+    window.visualViewport?.addEventListener('resize', updateViewport)
+    return () => {
+      window.removeEventListener('resize', updateViewport)
+      window.visualViewport?.removeEventListener('resize', updateViewport)
+    }
+  }, [getViewportSize])
+
+  useEffect(() => {
+    if (isMobile) return
+    const bounds = getDesktopBounds(viewportWidth, viewportHeight)
+    setWidth((prev) =>
+      Math.min(bounds.maxWidth, Math.max(bounds.minWidth, prev))
+    )
+    setHeight((prev) =>
+      Math.min(bounds.maxHeight, Math.max(bounds.minHeight, prev))
+    )
+  }, [getDesktopBounds, isMobile, viewportHeight, viewportWidth])
+
+  const desktopBounds = getDesktopBounds(viewportWidth, viewportHeight)
+  const desktopWidth = Math.min(
+    desktopBounds.maxWidth,
+    Math.max(desktopBounds.minWidth, width)
+  )
+  const desktopHeight = Math.min(
+    desktopBounds.maxHeight,
+    Math.max(desktopBounds.minHeight, height)
+  )
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -371,24 +470,30 @@ export function AIChatbox() {
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (isMinimized) return
+      if (isMinimized || isMobile) return
       heightDragging.current = true
       startY.current = e.clientY
       startH.current = height
       ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
     },
-    [height, isMinimized]
+    [height, isMinimized, isMobile]
   )
 
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!heightDragging.current) return
-    const maxHeight = window.innerHeight * 0.8
-    const newH = Math.min(
-      maxHeight,
-      Math.max(MIN_HEIGHT, startH.current + (startY.current - e.clientY))
-    )
-    setHeight(newH)
-  }, [])
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!heightDragging.current || isMobile) return
+      const { minHeight, maxHeight } = getDesktopBounds(
+        window.innerWidth,
+        window.innerHeight
+      )
+      const newH = Math.min(
+        maxHeight,
+        Math.max(minHeight, startH.current + (startY.current - e.clientY))
+      )
+      setHeight(newH)
+    },
+    [getDesktopBounds, isMobile]
+  )
 
   const onPointerUp = useCallback(() => {
     heightDragging.current = false
@@ -396,24 +501,30 @@ export function AIChatbox() {
 
   const onWidthPointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (isMinimized) return
+      if (isMinimized || isMobile) return
       widthDragging.current = true
       startX.current = e.clientX
       startW.current = width
       ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
     },
-    [isMinimized, width]
+    [isMinimized, isMobile, width]
   )
 
-  const onWidthPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!widthDragging.current) return
-    const maxWidth = window.innerWidth * 0.4
-    const newW = Math.min(
-      maxWidth,
-      Math.max(MIN_WIDTH, startW.current + (startX.current - e.clientX))
-    )
-    setWidth(newW)
-  }, [])
+  const onWidthPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!widthDragging.current || isMobile) return
+      const { minWidth, maxWidth } = getDesktopBounds(
+        window.innerWidth,
+        window.innerHeight
+      )
+      const newW = Math.min(
+        maxWidth,
+        Math.max(minWidth, startW.current + (startX.current - e.clientX))
+      )
+      setWidth(newW)
+    },
+    [getDesktopBounds, isMobile]
+  )
 
   const onWidthPointerUp = useCallback(() => {
     widthDragging.current = false
@@ -431,6 +542,9 @@ export function AIChatbox() {
             className="fixed bottom-6 right-6 z-50 h-12 w-12 rounded-full shadow-lg"
             size="icon"
             onClick={openChat}
+            style={{
+              bottom: `calc(env(safe-area-inset-bottom, 0px) + 1.5rem)`,
+            }}
           >
             <Bot className="h-5 w-5" />
           </Button>
@@ -442,14 +556,25 @@ export function AIChatbox() {
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-50 flex flex-col rounded-lg border bg-background shadow-2xl"
-      style={{
-        width,
-        height: isMinimized ? 44 : height,
-      }}
+      className={`fixed z-50 flex flex-col border bg-background shadow-2xl ${
+        isMobile ? 'left-2 right-2 rounded-lg' : 'bottom-4 right-4 rounded-lg'
+      }`}
+      style={
+        isMobile
+          ? {
+              bottom: `calc(env(safe-area-inset-bottom, 0px) + 0.5rem)`,
+              height: isMinimized
+                ? 44
+                : `${MOBILE_DEFAULT_HEIGHT_RATIO * 100}%`,
+            }
+          : {
+              width: desktopWidth,
+              height: isMinimized ? 44 : desktopHeight,
+            }
+      }
     >
       {/* Resize handle */}
-      {!isMinimized && (
+      {!isMinimized && !isMobile && (
         <div
           className="absolute -top-1 left-4 right-4 h-2 cursor-ns-resize z-10"
           onPointerDown={onPointerDown}
@@ -457,7 +582,7 @@ export function AIChatbox() {
           onPointerUp={onPointerUp}
         />
       )}
-      {!isMinimized && (
+      {!isMinimized && !isMobile && (
         <div
           className="absolute -left-1 top-11 bottom-0 w-2 cursor-ew-resize z-10"
           onPointerDown={onWidthPointerDown}
@@ -536,7 +661,7 @@ export function AIChatbox() {
           <div className="flex-1 overflow-y-auto min-h-0 scrollbar-hide">
             {messages.length === 0 ? (
               <SuggestedPrompts
-                page={pageContext.page}
+                pageContext={pageContext}
                 onSelect={(prompt) => {
                   setInput(prompt)
                   setTimeout(() => inputRef.current?.focus(), 50)
@@ -554,9 +679,13 @@ export function AIChatbox() {
                 ))}
                 {isLoading &&
                   !messages.find((m) => m.role === 'tool' && !m.toolResult) && (
-                    <div className="mx-3 my-2 flex items-center gap-2 text-xs text-muted-foreground">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Thinking...
+                    <div className="mx-3 my-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Bot className="h-3.5 w-3.5 animate-pulse" />
+                      <span className="ai-thinking-dots">
+                        <span />
+                        <span />
+                        <span />
+                      </span>
                     </div>
                   )}
                 <div ref={messagesEndRef} />
