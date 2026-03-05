@@ -3,7 +3,7 @@ import { defineConfig } from "vitepress";
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: "Kite",
-  description: "A modern, intuitive Kubernetes dashboard",
+  description: "A modern Kubernetes dashboard",
 
   sitemap: {
     hostname: "https://kite.zzde.me",
@@ -27,7 +27,7 @@ export default defineConfig({
       lang: "zh-CN",
       link: "/zh/",
       title: "Kite",
-      description: "一个现代的、直观的 Kubernetes 仪表盘",
+      description: "一个现代 Kubernetes 仪表盘",
       themeConfig: {
         nav: [
           { text: "首页", link: "/zh/" },

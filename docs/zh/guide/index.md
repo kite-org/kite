@@ -1,51 +1,61 @@
 # 什么是 Kite？
 
-Kite 是一个轻量级、现代化的 Kubernetes 仪表盘，为管理和监控 Kubernetes 集群提供了直观的界面。它提供了实时指标、全面的资源管理、多集群支持和优美的用户体验。
+Kite 是一个轻量级、现代化的 Kubernetes Dashboard，将实时可观测性、多集群与资源管理、企业级用户治理（OAuth、RBAC 和审计日志）以及 AI Agent 集成到同一个工作空间中。它不只是一个工具，更像一个平台。
 
 ![Dashboard Overview](/screenshots/overview.png)
 
 ## ✨ 功能特性
 
-### 🎯 **现代化的用户体验**
+### 用户界面
 
-- 🌓 **多主题支持** - 暗色/亮色/彩色主题，并能自动适应系统偏好
-- 🔍 **高级搜索** - 支持跨所有资源的全局搜索
-- 🌐 **国际化支持** - 支持英文和中文语言
-- 📱 **响应式设计** - 针对桌面、平板和移动设备优化
+- 暗色/亮色/彩色主题，支持自动跟随系统偏好
+- 跨所有资源的全局搜索
+- 适配桌面、平板和移动端的响应式设计
+- 国际化支持（中文和英文）
 
-### 🏘️ **多集群管理**
+### 多集群管理
 
-- 🔄 **无缝集群切换** - 可在多个 Kubernetes 集群之间切换
-- 📊 **分集群监控** - 每个集群可独立配置 Prometheus
-- 🔐 **集群访问控制** - 集群访问管理的细粒度权限控制
+- 在多个 Kubernetes 集群间切换
+- 按集群独立配置 Prometheus
+- 自动从 kubeconfig 发现集群
+- 细粒度的集群访问权限控制
 
-### 🔍 **全面的资源管理**
+### 资源管理
 
-- 📋 **全资源覆盖** - 支持 Pods, Deployments, Services, ConfigMaps, Secrets, PVs, PVCs, Nodes 等
-- 📄 **实时 YAML 编辑** - 内置 Monaco 编辑器，支持语法高亮和校验
-- 📊 **详细的资源视图** - 提供容器、卷、事件和状况等深入信息
-- 🔗 **资源关系可视化** - 可视化相关资源之间的连接（例如，Deployment → Pods）
-- ⚙️ **资源操作** - 直接从 UI 创建、更新、删除、扩缩容和重启资源
-- 🔄 **自定义资源** - 完全支持 CRD (Custom Resource Definitions)
-- 🏷️ **镜像标签快速选择器** - 基于 Docker 和容器镜像仓库 API，轻松选择和更改容器镜像标签
-- 🎨 **自定义侧边栏** - 自定义侧边栏的可见性和顺序，并添加 CRD 以方便快速访问
-- 🔌 **Kube Proxy** - 通过 Kite 直接访问 Pods 或 Services，无需 `kubectl port-forward`
+- 全面覆盖：Pods、Deployments、Services、ConfigMaps、Secrets、PVs、PVCs、Nodes 等
+- 基于 Monaco 编辑器的实时 YAML 编辑（语法高亮和校验）
+- 提供容器、卷、事件和状态等详细视图
+- 资源关系展示（例如 Deployment -> Pods）
+- 支持创建、更新、删除、扩缩容和重启操作
+- 支持 CRD（Custom Resource Definitions）
+- 基于 Docker 和容器镜像仓库 API 的镜像标签快速选择器
+- 可自定义侧边栏并添加 CRD 快捷入口
+- 通过 Kube Proxy 直接访问 Pod/Service（无需 `kubectl port-forward`）
 
-### 📈 **监控与可观测性**
+### 监控与可观测性
 
-- 📊 **实时指标** - 由 Prometheus 驱动的 CPU、内存、磁盘 I/O 和网络使用情况图表
-- 📋 **集群概览** - 全面的集群健康状况和资源统计仪表板
-- 📝 **实时日志** - 实时流式传输 Pod 日志，支持过滤和搜索
-- 💻 **网页终端** - 直接在浏览器中进入 Pod/Node 执行命令
-- 📈 **节点监控** - 详细的节点级别性能指标和利用率
-- 📊 **Pod 监控** - 单个 Pod 资源使用情况和性能跟踪
+- 实时 CPU、内存和网络图表（Prometheus）
+- 支持过滤和搜索的实时 Pod 日志
+- 面向 Pod 和 Node 的 Web 终端
+- 内置 kubectl 控制台
+- AI 助手
 
-### 🔐 **安全**
+### 安全
 
-- 🛡️ **OAuth 集成** - 支持在 UI 管理 OAuth
-- 🔒 **基于角色的访问控制** - 支持在 UI 管理用户的权限
-- 👥 **用户管理** - 完整的用户管理和角色分配
-- 🔐 **权限粒度** - 资源级别的精确访问控制权限
+- OAuth 集成
+- 基于角色的访问控制
+- 用户管理和角色分配
+
+## Kite 与 Headlamp / Kubernetes Dashboard 的差异
+
+Headlamp 和 Kubernetes Dashboard 都是优秀的集群操作工具，核心侧重在资源查看与控制。Kite 具备这些 Dashboard 能力，但定位是面向团队协作的运维平台：
+
+- 在同一个工作空间整合可观测性、多集群运维、治理能力与 AI 助手
+- 内置团队治理能力：OAuth、RBAC、用户角色映射与审计日志
+- 不止资源视图，还覆盖运维工作流：Web 终端、内置 kubectl 控制台、Kube Proxy
+- 让运维、开发和管理员在同一套系统中协作，而不是拼接多个工具
+
+一句话：它们更像 Dashboard 工具，Kite 更像 Kubernetes 日常运维与协作平台。
 
 ## 开始使用
 

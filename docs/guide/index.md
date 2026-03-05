@@ -1,51 +1,61 @@
 # What is Kite?
 
-Kite is a lightweight, modern Kubernetes dashboard that provides an intuitive interface for managing and monitoring Kubernetes clusters. It offers real-time metrics, comprehensive resource management, multi-cluster support, and a beautiful user experience.
+Kite is a lightweight, modern Kubernetes dashboard that unifies real-time observability, multi-cluster and resource management, enterprise-grade user governance (OAuth, RBAC, and audit logs), and AI agents in one workspace. Not just a tool, but more like a platform.
 
 ![Dashboard Overview](/screenshots/overview.png)
 
 ## ✨ Features
 
-### 🎯 **Modern User Experience**
+### User Interface
 
-- 🌓 **Multi-Theme Support** - Dark/light/color themes with system preference detection
-- 🔍 **Advanced Search** - Global search across all resources
-- 🌐 **Internationalization** - Support for English and Chinese languages
-- 📱 **Responsive Design** - Optimized for desktop, tablet, and mobile devices
+- Dark/light/color themes with system preference detection
+- Global search across all resources
+- Responsive design for desktop, tablet, and mobile
+- i18n support (English and Chinese)
 
-### 🏘️ **Multi-Cluster Management**
+### Multi-Cluster Management
 
-- 🔄 **Seamless Cluster Switching** - Switch between multiple Kubernetes clusters
-- 📊 **Per-Cluster Monitoring** - Independent Prometheus configuration for each cluster
-- ⚙️ **Kubeconfig Integration** - Automatic discovery of clusters from your kubeconfig file
-- 🔐 **Cluster Access Control** - Fine-grained permissions for cluster access management
+- Switch between multiple Kubernetes clusters
+- Independent Prometheus configuration per cluster
+- Automatic discovery from kubeconfig
+- Fine-grained cluster access permissions
 
-### 🔍 **Comprehensive Resource Management**
+### Resource Management
 
-- 📋 **Full Resource Coverage** - Pods, Deployments, Services, ConfigMaps, Secrets, PVs, PVCs, Nodes, and more
-- 📄 **Live YAML Editing** - Built-in Monaco editor with syntax highlighting and validation
-- 📊 **Detailed Resource Views** - In-depth information with containers, volumes, events, and conditions
-- 🔗 **Resource Relationships** - Visualize connections between related resources (e.g., Deployment → Pods)
-- ⚙️ **Resource Operations** - Create, update, delete, scale, and restart resources directly from the UI
-- 🔄 **Custom Resources** - Full support for CRDs (Custom Resource Definitions)
-- 🏷️ **Quick Image Tag Selector** - Easily select and change container image tags based on Docker and container registry APIs
-- 🎨 **Customizable Sidebar** - Customize sidebar visibility and order, and add CRDs for quick access
-- 🔌 **Kube Proxy** - Access pods or services directly through Kite, no more `kubectl port-forward`
+- Full coverage: Pods, Deployments, Services, ConfigMaps, Secrets, PVs, PVCs, Nodes, and more
+- Live YAML editing with Monaco editor (syntax highlighting and validation)
+- Detailed views with containers, volumes, events, and conditions
+- Resource relationships (e.g., Deployment -> Pods)
+- Create, update, delete, scale, and restart operations
+- Custom Resource Definitions (CRDs) support
+- Quick image tag selector using Docker and container registry APIs
+- Customizable sidebar with CRD shortcuts
+- Kube proxy for direct pod/service access (no more `kubectl port-forward`)
 
-### 📈 **Monitoring & Observability**
+### Monitoring & Observability
 
-- 📊 **Real-time Metrics** - CPU, memory, and network usage charts powered by Prometheus
-- 📋 **Cluster Overview** - Comprehensive cluster health and resource statistics
-- 📝 **Live Logs** - Stream pod logs in real-time with filtering and search capabilities
-- 💻 **Web/Node Terminal** - Execute commands directly in pods/nodes through the browser
-- 📈 **Node Monitoring** - Detailed node-level performance metrics and utilization
-- 📊 **Pod Monitoring** - Individual pod resource usage and performance tracking
+- Real-time CPU, memory, and network charts (Prometheus)
+- Live pod logs with filtering and search
+- Web terminal for pods and nodes
+- Built-in kubectl console
+- AI assistant
 
-### 🔐 **Security**
+### Security
 
-- 🛡️ **OAuth Integration** - Supports OAuth management in the UI
-- 🔒 **Role-Based Access Control** - Supports user permission management in the UI
-- 👥 **User Management** - Comprehensive user management and role allocation in the UI
+- OAuth integration
+- Role-based access control
+- User management and role allocation
+
+## Kite vs Headlamp / Kubernetes Dashboard
+
+Headlamp and Kubernetes Dashboard are strong cluster operation tools focused on resource inspection and control. Kite includes those dashboard capabilities, but is designed as a team platform:
+
+- Unified workspace for observability, multi-cluster operations, governance, and AI assistance
+- Built-in team governance with OAuth, RBAC, user-role mapping, and audit logs
+- Operational workflows beyond resource views: web terminal, built-in kubectl console, and kube proxy
+- One system for operators, developers, and admins, instead of stitching separate tools
+
+In short: those products are dashboard tools; Kite is a platform for daily Kubernetes operations and collaboration.
 
 ## Getting Started
 

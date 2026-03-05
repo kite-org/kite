@@ -4,8 +4,8 @@ layout: home
 
 hero:
   name: "Kite"
-  text: "A modern, intuitive Kubernetes dashboard"
-  tagline: "Lightweight, powerful cluster management and monitoring tool"
+  text: "A modern Kubernetes dashboard"
+  tagline: "Unify observability, multi-cluster operations, user governance, and AI agents in one workspace"
   image:
     src: /logo.svg
     alt: Kite Logo
@@ -21,22 +21,22 @@ hero:
       link: https://kite-demo.zzde.me
 
 features:
-  - icon: 🎯
-    title: Modern User Experience
-    details: Enjoy a clean, intuitive interface with dark/light themes, advanced search, and a beautiful design
-  - icon: 🏘️
+  - icon: 🖥️
+    title: User Interface
+    details: Dark/light/color themes, global search, responsive design, and i18n support
+  - icon: 🏘
     title: Multi-Cluster Management
-    details: Seamlessly switch between multiple Kubernetes clusters with independent configuration
+    details: Switch clusters quickly with per-cluster Prometheus setup, kubeconfig discovery, and fine-grained access control
   - icon: 🔍
-    title: Comprehensive Resource Management
-    details: Full resource coverage with live YAML editing, detailed views, and resource relationships
+    title: Resource Management
+    details: Full resource coverage, live YAML editing, relationship view, CRD support, and kube proxy access
   - icon: 📈
     title: Monitoring & Observability
-    details: Logs, web terminal, monitoring, and complete resource update history and audit
+    details: Real-time metrics, live logs, pod/node web terminal, and built-in kubectl console
   - icon: 🔐
-    title: Advanced Authentication
-    details: Password login or custom OIDC integration, user management, role-based access control
-  - icon: 🚀
-    title: Lightweight & Fast & Minimal Dependencies
-    details: Extremely fast response, minimal dependencies, just one binary
+    title: Security
+    details: OAuth integration, RBAC, user management, role mapping, and audit logs
+  - icon: 🤖
+    title: AI Assistant
+    details: Built-in AI assistant to speed up cluster operations and troubleshooting
 ---
