@@ -41,7 +41,7 @@ export function SettingsPage() {
           },
           {
             value: 'oauth',
-            label: t('settings.tabs.oauth', 'OAuth'),
+            label: t('settings.tabs.oauth', '第三方认证'),
             content: <OAuthProviderManagement />,
           },
           {

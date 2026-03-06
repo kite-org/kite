@@ -26,7 +26,7 @@ interface AuthContextType {
   isLoading: boolean
   providers: string[]
   login: (provider?: string) => Promise<void>
-  loginWithPassword: (username: string, password: string) => Promise<void>
+  loginWithPassword: (username: string, password: string, provider?: string) => Promise<void>
   logout: () => Promise<void>
   checkAuth: () => Promise<void>
   refreshToken: () => Promise<void>
@@ -112,14 +112,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
-  const loginWithPassword = async (username: string, password: string) => {
+  const loginWithPassword = async (username: string, password: string, provider?: string) => {
     try {
       const response = await fetch(withSubPath('/api/auth/login/password'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, provider }),
         credentials: 'include',
       })
 

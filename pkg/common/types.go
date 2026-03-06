@@ -34,6 +34,25 @@ type ResourceMetric struct {
 type PasswordLoginRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
+	Provider string `json:"provider" binding:"omitempty"`
+}
+
+type LDAPTestRequest struct {
+	ServerURL    string `json:"serverUrl" binding:"required"`
+	BindDN       string `json:"bindDn"`
+	BindPassword string `json:"bindPassword"`
+	BaseDN       string `json:"baseDn" binding:"required"`
+	UserFilter   string `json:"userFilter" binding:"required"`
+	GroupFilter  string `json:"groupFilter"`
+	UsernameAttr string `json:"usernameAttr"`
+	TestUsername string `json:"testUsername"`
+	TestPassword string `json:"testPassword"`
+}
+
+type LDAPTestResponse struct {
+	Success bool     `json:"success"`
+	Message string   `json:"message"`
+	Groups  []string `json:"groups,omitempty"`
 }
 
 type ImportClustersRequest struct {

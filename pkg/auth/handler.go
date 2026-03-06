@@ -1,9 +1,11 @@
 package auth
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/common"
@@ -69,6 +71,13 @@ func (h *AuthHandler) PasswordLogin(c *gin.Context) {
 		return
 	}
 
+	// Check if this is an LDAP login attempt
+	if req.Provider != "" && strings.Contains(strings.ToLower(req.Provider), "ldap") {
+		h.handleLDAPLogin(c, req)
+		return
+	}
+
+	// Default password login
 	user, err := model.GetUserByUsername(req.Username)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
@@ -105,6 +114,134 @@ func (h *AuthHandler) PasswordLogin(c *gin.Context) {
 	setCookieSecure(c, "auth_token", jwtToken, common.CookieExpirationSeconds)
 
 	c.Status(http.StatusNoContent)
+}
+
+func (h *AuthHandler) handleLDAPLogin(c *gin.Context, req common.PasswordLoginRequest) {
+	// Get LDAP provider
+	ldapProvider, err := h.manager.GetProvider(c, req.Provider)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "LDAP provider not found"})
+		return
+	}
+
+	// For LDAP, we pass username:password as the access token
+	user, err := ldapProvider.GetUserInfo(req.Username + ":" + req.Password)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		return
+	}
+
+	// Find or create user in database
+	if err := model.FindWithSubOrUpsertUser(user); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		return
+	}
+
+	// Check if user is enabled
+	if !user.Enabled {
+		c.JSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
+		return
+	}
+
+	// Small delay to ensure RBAC sync completes
+	time.Sleep(100 * time.Millisecond)
+
+	// Check if user has roles
+	roles := rbac.GetUserRoles(*user)
+	if len(roles) == 0 {
+		// Try to assign viewer role directly if no roles found
+		if err := model.AddRoleAssignment("viewer", model.SubjectTypeUser, user.Username); err != nil {
+			klog.Warningf("Failed to assign viewer role to user %s: %v", user.Username, err)
+		} else {
+			klog.Infof("Assigned viewer role to user %s", user.Username)
+			rbac.SyncNow <- struct{}{}
+			time.Sleep(100 * time.Millisecond)
+			roles = rbac.GetUserRoles(*user)
+		}
+		if len(roles) == 0 {
+			c.JSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
+			return
+		}
+	}
+
+	// Generate JWT
+	jwtToken, err := h.manager.GenerateJWT(user, "")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate JWT"})
+		return
+	}
+
+	setCookieSecure(c, "auth_token", jwtToken, common.CookieExpirationSeconds)
+
+	c.Status(http.StatusNoContent)
+}
+
+// TestLDAPConnection tests LDAP connection and optionally verifies user authentication
+func (h *AuthHandler) TestLDAPConnection(c *gin.Context) {
+	var req common.LDAPTestRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request payload"})
+		return
+	}
+
+	// Set default values
+	if req.UsernameAttr == "" {
+		req.UsernameAttr = "uid"
+	}
+	if req.UserFilter == "" {
+		req.UserFilter = "(uid=%s)"
+	}
+
+	// Create a temporary LDAP provider for testing
+	testProvider := &LDAPProvider{
+		Config: LDAPConfig{
+			ServerURL:    req.ServerURL,
+			BindDN:       req.BindDN,
+			BindPassword: req.BindPassword,
+			BaseDN:       req.BaseDN,
+			UserFilter:   req.UserFilter,
+			GroupFilter:  req.GroupFilter,
+			UsernameAttr: req.UsernameAttr,
+			EmailAttr:    "mail",
+			NameAttr:     "cn",
+		},
+		Name: "test",
+	}
+
+	// Test basic connection
+	conn, err := testProvider.TestConnection()
+	if err != nil {
+		c.JSON(http.StatusOK, common.LDAPTestResponse{
+			Success: false,
+			Message: fmt.Sprintf("Connection failed: %v", err),
+		})
+		return
+	}
+	defer conn.Close()
+
+	// If test credentials provided, try to authenticate
+	if req.TestUsername != "" && req.TestPassword != "" {
+		user, err := testProvider.GetUserInfo(req.TestUsername + ":" + req.TestPassword)
+		if err != nil {
+			c.JSON(http.StatusOK, common.LDAPTestResponse{
+				Success: false,
+				Message: fmt.Sprintf("Authentication failed: %v", err),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, common.LDAPTestResponse{
+			Success: true,
+			Message: fmt.Sprintf("Connection and authentication successful. User: %s (%s)", user.Name, user.Username),
+			Groups:  user.OIDCGroups,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, common.LDAPTestResponse{
+		Success: true,
+		Message: "Connection successful",
+	})
 }
 
 func (h *AuthHandler) Callback(c *gin.Context) {

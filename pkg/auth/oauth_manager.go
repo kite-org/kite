@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -50,6 +51,12 @@ func (om *OAuthManager) GetProvider(c *gin.Context, name string) (OAuthProvider,
 		return nil, err
 	}
 	dbProvider.RedirectURL, _ = url.JoinPath(getRequestHost(c), common.Base+"/api/auth/callback")
+
+	// Check if this is an LDAP provider
+	if strings.Contains(strings.ToLower(name), "ldap") {
+		return NewLDAPProvider(dbProvider)
+	}
+
 	return NewGenericProvider(dbProvider)
 }
 

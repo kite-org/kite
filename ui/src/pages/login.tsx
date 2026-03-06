@@ -18,6 +18,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Footer } from '@/components/footer'
 import { LanguageToggle } from '@/components/language-toggle'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs'
 
 export function LoginPage() {
   const { t } = useTranslation()
@@ -27,6 +33,7 @@ export function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState('local')
 
   const error = searchParams.get('error')
 
@@ -49,7 +56,7 @@ export function LoginPage() {
     setLoginLoading('password')
     setPasswordError(null)
     try {
-      await loginWithPassword(username, password)
+      await loginWithPassword(username, password, activeTab === 'ldap' ? providers.find(p => p.toLowerCase().includes('ldap')) : undefined)
     } catch (err) {
       if (err instanceof Error) {
         setPasswordError(
@@ -209,94 +216,160 @@ export function LoginPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {providers.includes('password') && (
-                    <form onSubmit={handlePasswordLogin} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="username">{t('login.username')}</Label>
-                        <Input
-                          id="username"
-                          type="text"
-                          placeholder={t('login.enterUsername')}
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="password">{t('login.password')}</Label>
-                        <Input
-                          id="password"
-                          type="password"
-                          placeholder={t('login.enterPassword')}
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          required
-                        />
-                      </div>
-                      {passwordError && (
-                        <Alert variant="destructive">
-                          <AlertDescription>{passwordError}</AlertDescription>
-                        </Alert>
-                      )}
-                      <Button
-                        type="submit"
-                        disabled={loginLoading !== null}
-                        className="w-full"
-                      >
-                        {loginLoading === 'password' ? (
-                          <div className="flex items-center space-x-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2"></div>
-                            <span>{t('login.signingIn')}</span>
-                          </div>
-                        ) : (
-                          t('login.signInWithPassword')
+                      {(providers.includes('password') || providers.some(p => p.toLowerCase().includes('ldap')) || providers.filter(p => p !== 'password' && !p.toLowerCase().includes('ldap')).length > 0) && (
+                    <Tabs defaultValue="local" value={activeTab} onValueChange={setActiveTab}>
+                      <TabsList className="w-full">
+                        {providers.includes('password') && (
+                          <TabsTrigger value="local" className="flex-1">
+                            本地账号
+                          </TabsTrigger>
                         )}
-                      </Button>
-                    </form>
+                        {providers.some(p => p.toLowerCase().includes('ldap')) && (
+                          <TabsTrigger value="ldap" className="flex-1">
+                            LDAP账号
+                          </TabsTrigger>
+                        )}
+                        {providers.filter(p => p !== 'password' && !p.toLowerCase().includes('ldap')).length > 0 && (
+                          <TabsTrigger value="oauth" className="flex-1">
+                            第三方认证
+                          </TabsTrigger>
+                        )}
+                      </TabsList>
+                      
+                      {providers.includes('password') && (
+                        <TabsContent value="local">
+                          <form onSubmit={handlePasswordLogin} className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="username">{t('login.username')}</Label>
+                              <Input
+                                id="username"
+                                type="text"
+                                placeholder={t('login.enterUsername')}
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                required
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="password">{t('login.password')}</Label>
+                              <Input
+                                id="password"
+                                type="password"
+                                placeholder={t('login.enterPassword')}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                              />
+                            </div>
+                            {passwordError && (
+                              <Alert variant="destructive">
+                                <AlertDescription>{passwordError}</AlertDescription>
+                              </Alert>
+                            )}
+                            <Button
+                              type="submit"
+                              disabled={loginLoading !== null}
+                              className="w-full"
+                            >
+                              {loginLoading === 'password' ? (
+                                <div className="flex items-center space-x-2">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2"></div>
+                                  <span>{t('login.signingIn')}</span>
+                                </div>
+                              ) : (
+                                t('login.signInWithPassword')
+                              )}
+                            </Button>
+                          </form>
+                        </TabsContent>
+                      )}
+                      
+                      {providers.some(p => p.toLowerCase().includes('ldap')) && (
+                        <TabsContent value="ldap">
+                          <form onSubmit={handlePasswordLogin} className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="username">{t('login.username')}</Label>
+                              <Input
+                                id="username"
+                                type="text"
+                                placeholder="LDAP用户名"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                required
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="password">{t('login.password')}</Label>
+                              <Input
+                                id="password"
+                                type="password"
+                                placeholder="LDAP密码"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                              />
+                            </div>
+                            {passwordError && (
+                              <Alert variant="destructive">
+                                <AlertDescription>{passwordError}</AlertDescription>
+                              </Alert>
+                            )}
+                            <Button
+                              type="submit"
+                              disabled={loginLoading !== null}
+                              className="w-full"
+                            >
+                              {loginLoading === 'password' ? (
+                                <div className="flex items-center space-x-2">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2"></div>
+                                  <span>{t('login.signingIn')}</span>
+                                </div>
+                              ) : (
+                                '使用LDAP登录'
+                              )}
+                            </Button>
+                          </form>
+                        </TabsContent>
+                      )}
+                      
+                      {providers.filter(p => p !== 'password' && !p.toLowerCase().includes('ldap')).length > 0 && (
+                        <TabsContent value="oauth">
+                          <div className="space-y-4">
+                            {providers
+                              .filter((p) => p !== 'password' && !p.toLowerCase().includes('ldap'))
+                              .map((provider) => (
+                                <Button
+                                  key={provider}
+                                  onClick={() => handleLogin(provider)}
+                                  disabled={loginLoading !== null}
+                                  className="w-full h-10"
+                                  variant="outline"
+                                >
+                                  {loginLoading === provider ? (
+                                    <div className="flex items-center space-x-2">
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2"></div>
+                                      <span>{t('login.signingIn')}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center space-x-2">
+                                      <span>
+                                        {t('login.signInWith', {
+                                          provider:
+                                            provider.charAt(0).toUpperCase() +
+                                            provider.slice(1),
+                                        })}
+                                      </span>
+                                    </div>
+                                  )}
+                                </Button>
+                              ))}
+                          </div>
+                        </TabsContent>
+                      )}
+                    </Tabs>
                   )}
 
-                  {providers.filter((p) => p !== 'password').length > 0 &&
-                    providers.includes('password') && (
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                          <span className="w-full border-t" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                          <span className="px-2 text-muted-foreground bg-card rounded">
-                            {t('login.orContinueWith')}
-                          </span>
-                        </div>
-                      </div>
-                    )}
 
-                  {providers
-                    .filter((p) => p !== 'password')
-                    .map((provider) => (
-                      <Button
-                        key={provider}
-                        onClick={() => handleLogin(provider)}
-                        disabled={loginLoading !== null}
-                        className="w-full h-10"
-                        variant="outline"
-                      >
-                        {loginLoading === provider ? (
-                          <div className="flex items-center space-x-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2"></div>
-                            <span>{t('login.signingIn')}</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center space-x-2">
-                            <span>
-                              {t('login.signInWith', {
-                                provider:
-                                  provider.charAt(0).toUpperCase() +
-                                  provider.slice(1),
-                              })}
-                            </span>
-                          </div>
-                        )}
-                      </Button>
-                    ))}
                 </div>
               )}
             </CardContent>

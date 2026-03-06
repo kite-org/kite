@@ -8,6 +8,7 @@ import (
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/utils"
 	"gorm.io/gorm"
+	"k8s.io/klog/v2"
 )
 
 type User struct {
@@ -84,7 +85,16 @@ func FindWithSubOrUpsertUser(user *User) error {
 	user.LastLoginAt = &now
 	if err := DB.Where("sub = ?", user.Sub).First(&existingUser).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return DB.Create(user).Error
+			if err := DB.Create(user).Error; err != nil {
+				return err
+			}
+			// Assign default viewer role to new user
+			if err := AddRoleAssignment("viewer", SubjectTypeUser, user.Username); err != nil {
+				klog.Warningf("Failed to assign default viewer role to user %s: %v", user.Username, err)
+			} else {
+				klog.Infof("Assigned default viewer role to user %s", user.Username)
+			}
+			return nil
 		}
 		return err
 	}

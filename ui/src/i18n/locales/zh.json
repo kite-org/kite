@@ -294,7 +294,7 @@
     "tabs": {
       "clusters": "集群",
       "general": "通用",
-      "oauth": "OAuth",
+      "oauth": "第三方认证",
       "rbac": "权限控制",
       "users": "用户",
       "apikeys": "API 密钥"
@@ -414,7 +414,7 @@
     }
   },
   "oauthManagement": {
-    "title": "OAuth 提供商管理",
+    "title": "第三方认证管理",
     "actions": {
       "add": "添加提供商",
       "edit": "编辑",
@@ -432,30 +432,30 @@
       "disabled": "已禁用"
     },
     "empty": {
-      "title": "暂无 OAuth 提供商配置",
-      "description": "添加您的第一个 OAuth 提供商"
+      "title": "暂无第三方认证配置",
+      "description": "添加您的第一个第三方认证"
     },
     "messages": {
-      "created": "OAuth 提供商创建成功",
-      "updated": "OAuth 提供商更新成功",
-      "deleted": "OAuth 提供商删除成功",
-      "createError": "创建 OAuth 提供商失败",
-      "updateError": "更新 OAuth 提供商失败",
-      "deleteError": "删除 OAuth 提供商失败"
+      "created": "第三方认证创建成功",
+      "updated": "第三方认证更新成功",
+      "deleted": "第三方认证删除成功",
+      "createError": "创建第三方认证失败",
+      "updateError": "更新第三方认证失败",
+      "deleteError": "删除第三方认证失败"
     },
     "errors": {
-      "loadFailed": "加载 OAuth 提供商失败"
+      "loadFailed": "加载第三方认证失败"
     },
-    "deleteConfirmation": "此操作将移除 OAuth 提供商配置，用户将无法再使用该提供商登录。",
+    "deleteConfirmation": "此操作将移除第三方认证配置，用户将无法再使用该认证方式登录。",
     "dialog": {
-      "createTitle": "添加 OAuth 提供商",
-      "editTitle": "编辑 OAuth 提供商",
+      "createTitle": "添加第三方认证",
+      "editTitle": "编辑第三方认证",
       "name": "名称",
       "namePlaceholder": "例如：github, google",
       "clientId": "客户端 ID",
-      "clientIdPlaceholder": "OAuth 客户端 ID",
+      "clientIdPlaceholder": "客户端 ID",
       "clientSecret": "客户端密钥",
-      "clientSecretRequired": "OAuth 客户端密钥",
+      "clientSecretRequired": "客户端密钥",
       "clientSecretPlaceholder": "留空以保持当前密钥",
       "authUrl": "授权 URL",
       "tokenUrl": "令牌 URL",

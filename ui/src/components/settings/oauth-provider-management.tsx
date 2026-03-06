@@ -66,6 +66,15 @@ export function OAuthProviderManagement() {
         ),
       },
       {
+        id: 'type',
+        header: '认证类型',
+        cell: ({ row: { original: provider } }) => (
+          <div>
+            {provider.name.toLowerCase().includes('ldap') ? 'LDAP' : 'OAuth'}
+          </div>
+        ),
+      },
+      {
         id: 'clientId',
         header: t('oauthManagement.table.clientId', 'Client ID'),
         cell: ({ row: { original: provider } }) => (
@@ -260,7 +269,7 @@ export function OAuthProviderManagement() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <IconKey className="h-5 w-5" />
-                {t('oauthManagement.title', 'OAuth Provider Management')}
+                {t('oauthManagement.title', '第三方认证管理')}
               </CardTitle>
             </div>
             <Button
@@ -317,10 +326,10 @@ export function OAuthProviderManagement() {
         onOpenChange={() => setDeletingProvider(null)}
         onConfirm={handleDeleteProvider}
         resourceName={deletingProvider?.name || ''}
-        resourceType="OAuth provider"
+        resourceType="第三方认证"
         additionalNote={t(
           'oauthManagement.deleteConfirmation',
-          'This action will remove the OAuth provider configuration. Users will no longer be able to login using this provider.'
+          '此操作将移除第三方认证配置，用户将无法再使用该认证方式登录。'
         )}
       />
     </div>

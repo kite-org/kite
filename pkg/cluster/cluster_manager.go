@@ -193,6 +193,16 @@ func ImportClustersFromKubeconfig(kubeconfig *clientcmdapi.Config) int64 {
 
 	importedCount := 0
 	for contextName, context := range kubeconfig.Contexts {
+		// Check if cluster and auth info exist
+		if _, ok := kubeconfig.Clusters[context.Cluster]; !ok {
+			klog.Warningf("Cluster %s not found for context %s, skipping", context.Cluster, contextName)
+			continue
+		}
+		if _, ok := kubeconfig.AuthInfos[context.AuthInfo]; !ok {
+			klog.Warningf("Auth info %s not found for context %s, skipping", context.AuthInfo, contextName)
+			continue
+		}
+		
 		config := clientcmdapi.NewConfig()
 		config.Contexts = map[string]*clientcmdapi.Context{
 			contextName: context,
@@ -206,6 +216,7 @@ func ImportClustersFromKubeconfig(kubeconfig *clientcmdapi.Config) int64 {
 		}
 		configStr, err := clientcmd.Write(*config)
 		if err != nil {
+			klog.Warningf("Failed to write kubeconfig for context %s: %v", contextName, err)
 			continue
 		}
 		cluster := model.Cluster{
@@ -216,6 +227,7 @@ func ImportClustersFromKubeconfig(kubeconfig *clientcmdapi.Config) int64 {
 		if _, err := model.GetClusterByName(contextName); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				if err := model.AddCluster(&cluster); err != nil {
+					klog.Warningf("Failed to add cluster %s: %v", contextName, err)
 					continue
 				}
 				importedCount++

@@ -34,7 +34,7 @@ import (
 	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
-//go:embed static
+//go:embed all:static
 var static embed.FS
 
 func setupStatic(r *gin.Engine) {
@@ -99,6 +99,7 @@ func setupAPIRouter(r *gin.RouterGroup, cm *cluster.ClusterManager) {
 		authGroup.POST("/logout", authHandler.Logout)
 		authGroup.POST("/refresh", authHandler.RefreshToken)
 		authGroup.GET("/user", authHandler.RequireAuth(), authHandler.GetUser)
+		authGroup.POST("/ldap/test", authHandler.TestLDAPConnection)
 	}
 
 	userGroup := r.Group("/api/users")

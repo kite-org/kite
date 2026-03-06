@@ -43,6 +43,13 @@ func loadClusters() error {
 	if err != nil || cc > 0 {
 		return err
 	}
+	
+	// Check if KITE_IMPORT_KUBECONFIG is set to false
+	if importKubeconfig := os.Getenv("KITE_IMPORT_KUBECONFIG"); importKubeconfig == "false" {
+		klog.Infof("Skipping kubeconfig import as KITE_IMPORT_KUBECONFIG is set to false")
+		return nil
+	}
+	
 	kubeconfigpath := ""
 	if home := homedir.HomeDir(); home != "" {
 		kubeconfigpath = filepath.Join(home, ".kube", "config")
@@ -52,14 +59,26 @@ func loadClusters() error {
 		kubeconfigpath = envKubeconfig
 	}
 
-	config, _ := os.ReadFile(kubeconfigpath)
-
-	if len(config) == 0 {
+	config, err := os.ReadFile(kubeconfigpath)
+	if err != nil {
+		klog.Warningf("Failed to read kubeconfig file: %v", err)
 		return nil
 	}
+
+	if len(config) == 0 {
+		klog.Infof("Kubeconfig file is empty, skipping import")
+		return nil
+	}
+	
 	kubeconfig, err := clientcmd.Load(config)
 	if err != nil {
-		return err
+		klog.Warningf("Failed to load kubeconfig: %v", err)
+		return nil
+	}
+
+	if len(kubeconfig.Contexts) == 0 {
+		klog.Infof("No contexts found in kubeconfig, skipping import")
+		return nil
 	}
 
 	klog.Infof("Importing clusters from kubeconfig: %s", kubeconfigpath)

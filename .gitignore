@@ -46,3 +46,5 @@ kite
 
 
 .gocache/
+.trae/
+dev.db
