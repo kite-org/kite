@@ -38,7 +38,11 @@ install: deps ## Install all dependencies
 
 deps: ## Install frontend and backend dependencies
 	@echo "📦 Installing frontend dependencies..."
-	cd $(UI_DIR) && pnpm install
+	@if command -v pnpm &> /dev/null; then \
+		cd $(UI_DIR) && pnpm install; \
+	else \
+		cd $(UI_DIR) && yarn install; \
+	fi
 	@echo "📦 Installing backend dependencies..."
 	go mod download
 
@@ -85,7 +89,11 @@ frontend: static ## Build frontend only
 
 static: ui/src/**/*.tsx ui/src/**/*.ts ui/index.html ui/**/*.css ui/package.json ui/vite.config.ts
 	@echo "📦 Ensuring static files are built..."
-	cd $(UI_DIR) && pnpm run build
+	@if command -v pnpm &> /dev/null; then \
+		cd $(UI_DIR) && pnpm run build; \
+	else \
+		cd $(UI_DIR) && yarn build; \
+	fi
 
 backend: ${BINARY_NAME} ## Build backend only
 
@@ -107,7 +115,11 @@ dev: ## Run in development mode
 	echo "Backend PID: $$BACKEND_PID"; \
 	trap 'echo "🛑 Stopping backend server..."; kill $$BACKEND_PID 2>/dev/null; exit' INT TERM; \
 	echo "🔄 Starting development server..."; \
-	cd $(UI_DIR) && pnpm run dev; \
+	@if command -v pnpm &> /dev/null; then \
+		cd $(UI_DIR) && pnpm run dev; \
+	else \
+		cd $(UI_DIR) && yarn dev; \
+	fi; \
 	echo "🛑 Stopping backend server..."; \
 	kill $$BACKEND_PID 2>/dev/null
 
@@ -117,7 +129,11 @@ lint: golangci-lint ## Run linters
 	go vet ./...
 	$(GOLANGCI_LINT) run
 	@echo "Frontend linting..."
-	cd $(UI_DIR) && pnpm run lint
+	@if command -v pnpm &> /dev/null; then \
+		cd $(UI_DIR) && pnpm run lint; \
+	else \
+		cd $(UI_DIR) && yarn lint; \
+	fi
 
 golangci-lint: ## Download golangci-lint locally if necessary.
 	test -f $(GOLANGCI_LINT) || curl -sSfL https://golangci-lint.run/install.sh | sh -s v2.7.2
@@ -125,7 +141,11 @@ golangci-lint: ## Download golangci-lint locally if necessary.
 format: ## Format code
 	@echo "✨ Formatting code..."
 	go fmt ./...
-	cd $(UI_DIR) && pnpm run format
+	@if command -v pnpm &> /dev/null; then \
+		cd $(UI_DIR) && pnpm run format; \
+	else \
+		cd $(UI_DIR) && yarn format; \
+	fi
 
 # Pre-commit checks
 pre-commit: format lint ## Run pre-commit checks
@@ -137,7 +157,16 @@ test: ## Run tests
 
 docs-dev: ## Start documentation server in development mode
 	@echo "📚 Starting documentation server..."
-	cd docs && pnpm run docs:dev
+	@if command -v pnpm &> /dev/null; then \
+		cd docs && pnpm run docs:dev; \
+	else \
+		cd docs && yarn docs:dev; \
+	fi
+
 docs-build: ## Build documentation
 	@echo "📚 Building documentation..."
-	cd docs && pnpm run docs:build
+	@if command -v pnpm &> /dev/null; then \
+		cd docs && pnpm run docs:build; \
+	else \
+		cd docs && yarn docs:build; \
+	fi
