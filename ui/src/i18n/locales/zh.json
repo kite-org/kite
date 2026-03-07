@@ -118,7 +118,9 @@
     "recentEvents": "最近事件",
     "resourceCharts": "资源图表",
     "failedToLoad": "加载概览数据失败",
-    "unknownError": "发生未知错误"
+    "unknownError": "发生未知错误",
+    "podsIncludeCompletedHint": "包含 Completed 状态的 Pods。",
+    "podsIncludeCompletedHintAria": "Pods 统计说明"
   },
   "pods": {
     "title": "Pods",

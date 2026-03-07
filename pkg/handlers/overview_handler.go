@@ -79,6 +79,9 @@ func GetOverview(c *gin.Context) {
 		}
 		if utils.IsPodReady(&pod) {
 			runningPods++
+		} else if pod.Status.Phase == v1.PodSucceeded {
+			// Treat completed pods as healthy for overview "Not Ready" calculation.
+			runningPods++
 		}
 	}
 

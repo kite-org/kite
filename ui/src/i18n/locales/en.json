@@ -100,7 +100,9 @@
     "recentEvents": "Recent Events",
     "resourceCharts": "Resource Charts",
     "failedToLoad": "Failed to load overview data",
-    "unknownError": "Unknown error occurred"
+    "unknownError": "Unknown error occurred",
+    "podsIncludeCompletedHint": "Includes pods in Completed state.",
+    "podsIncludeCompletedHintAria": "Pods count hint"
   },
   "pods": {
     "title": "Pods",

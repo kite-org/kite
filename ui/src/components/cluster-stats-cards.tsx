@@ -3,6 +3,7 @@ import {
   IconBox,
   IconCircleCheckFilled,
   IconFolders,
+  IconInfoCircle,
   IconNetwork,
   IconServer,
 } from '@tabler/icons-react'
@@ -16,6 +17,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface ClusterStatsCardsProps {
   stats?: OverviewData
@@ -122,6 +128,22 @@ export function ClusterStatsCards({
                     </div>
                   </div>
                 </div>
+                {stat.routePath === '/pods' && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={t('overview.podsIncludeCompletedHintAria')}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <IconInfoCircle className="size-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      {t('overview.podsIncludeCompletedHint')}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
             </CardHeader>
           </Card>
