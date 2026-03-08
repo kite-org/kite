@@ -5,6 +5,9 @@
 *.so
 *.dylib
 
+#SQLite dev.db
+dev.db
+
 # Test binary, built with `go test -c`
 *.test
 
