@@ -77,7 +77,7 @@ func GetOverview(c *gin.Context) {
 				}
 			}
 		}
-		if utils.IsPodReady(&pod) {
+		if utils.IsPodReady(&pod) || pod.Status.Phase == v1.PodSucceeded {
 			runningPods++
 		}
 	}
