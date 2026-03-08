@@ -40,6 +40,7 @@ export function GeneralManagement() {
     aiApiKey: '',
     aiApiKeyConfigured: false,
     aiBaseUrl: '',
+    aiMaxTokens: 4096,
     kubectlEnabled: true,
     kubectlImage: DEFAULT_KUBECTL_IMAGE,
     nodeTerminalImage: DEFAULT_NODE_TERMINAL_IMAGE,
@@ -56,6 +57,7 @@ export function GeneralManagement() {
       aiApiKey: '',
       aiApiKeyConfigured: data.aiApiKeyConfigured ?? false,
       aiBaseUrl: data.aiBaseUrl || '',
+      aiMaxTokens: data.aiMaxTokens || 4096,
       kubectlEnabled: data.kubectlEnabled ?? true,
       kubectlImage: data.kubectlImage || DEFAULT_KUBECTL_IMAGE,
       nodeTerminalImage: data.nodeTerminalImage || DEFAULT_NODE_TERMINAL_IMAGE,
@@ -131,6 +133,7 @@ export function GeneralManagement() {
       aiProvider: formData.aiProvider,
       aiModel: formData.aiModel.trim() || defaultModel,
       aiBaseUrl: formData.aiBaseUrl.trim(),
+      aiMaxTokens: formData.aiMaxTokens || 4096,
       kubectlEnabled: formData.kubectlEnabled,
       kubectlImage: formData.kubectlImage.trim() || DEFAULT_KUBECTL_IMAGE,
       nodeTerminalImage:
@@ -290,6 +293,26 @@ export function GeneralManagement() {
                       ? 'https://api.anthropic.com'
                       : 'https://api.openai.com/v1'
                   }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="general-ai-max-tokens">
+                  {t('generalManagement.aiAgent.form.maxTokens', 'Max Tokens')}
+                </Label>
+                <Input
+                  id="general-ai-max-tokens"
+                  type="number"
+                  min="1"
+                  max="128000"
+                  value={formData.aiMaxTokens}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      aiMaxTokens: parseInt(e.target.value) || 4096,
+                    }))
+                  }
+                  placeholder="4096"
                 />
               </div>
             </div>

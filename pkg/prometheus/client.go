@@ -201,6 +201,16 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 	return err
 }
 
+// Query executes an instant query against Prometheus
+func (c *Client) Query(ctx context.Context, query string, ts time.Time) (model.Value, v1.Warnings, error) {
+	return c.client.Query(ctx, query, ts)
+}
+
+// QueryRange executes a range query against Prometheus
+func (c *Client) QueryRange(ctx context.Context, query string, r v1.Range) (model.Value, v1.Warnings, error) {
+	return c.client.QueryRange(ctx, query, r)
+}
+
 func (c *Client) GetCPUUsage(ctx context.Context, namespace, podNamePrefix, container string, timeRange, step time.Duration) ([]UsageDataPoint, error) {
 	now := time.Now()
 	start := now.Add(-timeRange)

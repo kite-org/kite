@@ -49,7 +49,7 @@ func (a *Agent) processChatOpenAI(c *gin.Context, req *ChatRequest, sendEvent fu
 			ToolChoice: openai.ChatCompletionToolChoiceOptionUnionParam{
 				OfAuto: openai.String("auto"),
 			},
-			MaxCompletionTokens: openai.Int(4096),
+			MaxCompletionTokens: openai.Int(int64(a.maxTokens)),
 		})
 		messageContent, refusal, thinkingContent, streamedToolCalls, err := consumeStreamingResponse(stream, sendEvent)
 		if err != nil {

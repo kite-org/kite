@@ -153,6 +153,7 @@ func HandleGetGeneralSetting(c *gin.Context) {
 		"aiApiKey":           "",
 		"aiApiKeyConfigured": hasAIAPIKey,
 		"aiBaseUrl":          setting.AIBaseURL,
+		"aiMaxTokens":        setting.AIMaxTokens,
 		"kubectlEnabled":     setting.KubectlEnabled,
 		"kubectlImage":       setting.KubectlImage,
 		"nodeTerminalImage":  setting.NodeTerminalImage,
@@ -167,6 +168,7 @@ type UpdateGeneralSettingRequest struct {
 	AIModel            string  `json:"aiModel"`
 	AIAPIKey           *string `json:"aiApiKey"`
 	AIBaseURL          string  `json:"aiBaseUrl"`
+	AIMaxTokens        int     `json:"aiMaxTokens"`
 	KubectlEnabled     bool    `json:"kubectlEnabled"`
 	KubectlImage       string  `json:"kubectlImage"`
 	NodeTerminalImage  string  `json:"nodeTerminalImage"`
@@ -230,11 +232,17 @@ func HandleUpdateGeneralSetting(c *gin.Context) {
 		nodeTerminalImage = model.DefaultGeneralNodeTerminalImageValue()
 	}
 
+	aiMaxTokens := req.AIMaxTokens
+	if aiMaxTokens <= 0 {
+		aiMaxTokens = 4096
+	}
+
 	updates := map[string]interface{}{
 		"ai_agent_enabled":     req.AIAgentEnabled,
 		"ai_provider":          aiProvider,
 		"ai_model":             aiModel,
 		"ai_base_url":          strings.TrimSpace(req.AIBaseURL),
+		"ai_max_tokens":        aiMaxTokens,
 		"kubectl_enabled":      req.KubectlEnabled,
 		"kubectl_image":        kubectlImage,
 		"node_terminal_image":  nodeTerminalImage,
@@ -259,6 +267,7 @@ func HandleUpdateGeneralSetting(c *gin.Context) {
 		"aiApiKey":           "",
 		"aiApiKeyConfigured": hasAIAPIKey,
 		"aiBaseUrl":          updated.AIBaseURL,
+		"aiMaxTokens":        updated.AIMaxTokens,
 		"kubectlEnabled":     updated.KubectlEnabled,
 		"kubectlImage":       updated.KubectlImage,
 		"nodeTerminalImage":  updated.NodeTerminalImage,

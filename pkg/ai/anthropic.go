@@ -39,10 +39,11 @@ func (a *Agent) processChatAnthropic(c *gin.Context, req *ChatRequest, sendEvent
 	maxIterations := 100
 	for i := 0; i < maxIterations; i++ {
 		stream := a.anthropicClient.Messages.NewStreaming(ctx, anthropic.MessageNewParams{
-			Model:    anthropic.Model(a.model),
-			Messages: messages,
-			System:   []anthropic.TextBlockParam{{Text: sysPrompt}},
-			Tools:    tools,
+			Model:     anthropic.Model(a.model),
+			Messages:  messages,
+			System:    []anthropic.TextBlockParam{{Text: sysPrompt}},
+			Tools:     tools,
+			MaxTokens: int64(a.maxTokens),
 			ToolChoice: anthropic.ToolChoiceUnionParam{
 				OfAuto: &anthropic.ToolChoiceAutoParam{},
 			},

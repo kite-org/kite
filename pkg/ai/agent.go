@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	anthropic "github.com/anthropics/anthropic-sdk-go"
 	"github.com/gin-gonic/gin"
@@ -22,6 +23,7 @@ You have access to tools that let you interact with the user's Kubernetes cluste
 - List resources across namespaces
 - Read pod logs for debugging
 - Get cluster-wide status overviews
+- Query Prometheus metrics for monitoring data (requires cluster-wide read access)
 - Create, update, patch or delete resources
 
 Operating principles:
@@ -95,6 +97,7 @@ type Agent struct {
 	anthropicClient anthropic.Client
 	cs              *cluster.ClientSet
 	model           string
+	maxTokens       int
 }
 
 type runtimePromptContext struct {
@@ -118,10 +121,16 @@ func NewAgent(cs *cluster.ClientSet, cfg *RuntimeConfig) (*Agent, error) {
 		modelName = cfg.Model
 	}
 
+	maxTokens := 4096
+	if cfg != nil && cfg.MaxTokens > 0 {
+		maxTokens = cfg.MaxTokens
+	}
+
 	agent := &Agent{
-		provider: provider,
-		cs:       cs,
-		model:    modelName,
+		provider:  provider,
+		cs:        cs,
+		model:     modelName,
+		maxTokens: maxTokens,
 	}
 
 	switch provider {
@@ -228,6 +237,9 @@ func buildRuntimePromptContext(c *gin.Context, cs *cluster.ClientSet) runtimePro
 // buildContextualSystemPrompt augments the system prompt with runtime/page context.
 func buildContextualSystemPrompt(pageCtx *PageContext, runtimeCtx runtimePromptContext, language string) string {
 	prompt := systemPrompt
+
+	// Add current system time
+	prompt += fmt.Sprintf("\n\nCurrent system time: %s", time.Now().Format("2006-01-02 15:04:05 MST"))
 
 	if runtimeCtx.ClusterName != "" || runtimeCtx.AccountName != "" || runtimeCtx.RBACOverview != "" {
 		prompt += "\n\nCurrent runtime context:"

@@ -310,7 +310,8 @@
         "model": "模型",
         "apiKey": "API Key",
         "apiKeyPlaceholder": "留空将保持当前 API Key",
-        "baseUrl": "Base URL"
+        "baseUrl": "Base URL",
+        "maxTokens": "最大 Token 数"
       }
     },
     "kubectl": {

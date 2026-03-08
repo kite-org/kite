@@ -286,7 +286,8 @@
         "model": "Model",
         "apiKey": "API Key",
         "apiKeyPlaceholder": "Leave empty to keep current API Key",
-        "baseUrl": "Base URL"
+        "baseUrl": "Base URL",
+        "maxTokens": "Max Tokens"
       }
     },
     "kubectl": {

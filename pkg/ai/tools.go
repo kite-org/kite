@@ -7,14 +7,17 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"time"
 
 	anthropic "github.com/anthropics/anthropic-sdk-go"
 	"github.com/gin-gonic/gin"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/shared"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/model"
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/common"
-	"github.com/zxh326/kite/pkg/model"
+	pkgmodel "github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/rbac"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -171,6 +174,26 @@ func toolDefinitions() []agentToolDefinition {
 				},
 			},
 			Required: []string{"kind", "name"},
+		},
+		{
+			Name:        "query_prometheus",
+			Description: "Execute a PromQL query against Prometheus to retrieve metrics data. Use this to get monitoring information like CPU usage, memory usage, network traffic, custom application metrics, etc. Returns time series data or instant values. Note: Requires cluster-wide read access as metrics can span multiple namespaces.",
+			Properties: map[string]any{
+				"query": map[string]any{
+					"type":        "string",
+					"description": "The PromQL query expression. Examples: 'up', 'rate(container_cpu_usage_seconds_total[5m])', 'node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100'",
+				},
+				"query_type": map[string]any{
+					"type":        "string",
+					"description": "Type of query: 'instant' for current values or 'range' for time series data over a period. Defaults to 'instant'.",
+					"enum":        []string{"instant", "range"},
+				},
+				"duration": map[string]any{
+					"type":        "string",
+					"description": "Time range for range queries. Examples: '30m', '1h', '24h'. Only used when query_type is 'range'. Defaults to '1h'.",
+				},
+			},
+			Required: []string{"query"},
 		},
 	}
 }
@@ -582,17 +605,26 @@ func requiredToolPermissions(ctx context.Context, cs *cluster.ClientSet, toolNam
 			Verb:      string(common.VerbDelete),
 			Namespace: permissionNamespace(resource, namespace),
 		}}, nil
+	case "query_prometheus":
+		// Prometheus queries can access metrics from any namespace
+		// Require at least read permission on pods in all namespaces
+		// This ensures users can only query metrics if they have cluster-wide read access
+		return []toolPermission{{
+			Resource:  "pods",
+			Verb:      string(common.VerbGet),
+			Namespace: "_all",
+		}}, nil
 	default:
 		return nil, nil
 	}
 }
 
-func currentUserFromGin(c *gin.Context) (model.User, bool) {
+func currentUserFromGin(c *gin.Context) (pkgmodel.User, bool) {
 	rawUser, ok := c.Get("user")
 	if !ok {
-		return model.User{}, false
+		return pkgmodel.User{}, false
 	}
-	user, ok := rawUser.(model.User)
+	user, ok := rawUser.(pkgmodel.User)
 	return user, ok
 }
 
@@ -645,6 +677,8 @@ func ExecuteTool(ctx context.Context, c *gin.Context, cs *cluster.ClientSet, too
 		return executePatchResource(ctx, cs, args)
 	case "delete_resource":
 		return executeDeleteResource(ctx, cs, args)
+	case "query_prometheus":
+		return executeQueryPrometheus(ctx, cs, args)
 	default:
 		return fmt.Sprintf("Unknown tool: %s", toolName), true
 	}
@@ -1255,4 +1289,185 @@ func executeDeleteResource(ctx context.Context, cs *cluster.ClientSet, args map[
 
 	klog.Infof("AI Agent deleted resource: %s/%s in namespace %s", resource.Kind, name, normalizeNamespace(resource, namespace))
 	return fmt.Sprintf("Successfully deleted %s/%s", resource.Kind, name), false
+}
+
+func executeQueryPrometheus(ctx context.Context, cs *cluster.ClientSet, args map[string]interface{}) (string, bool) {
+	query, err := getRequiredString(args, "query")
+	if err != nil {
+		return "Error: " + err.Error(), true
+	}
+
+	// Check if Prometheus client is available
+	if cs.PromClient == nil {
+		return "Error: Prometheus is not configured for this cluster. Please configure Prometheus URL in cluster settings.", true
+	}
+
+	queryType, _ := args["query_type"].(string)
+	if queryType == "" {
+		queryType = "instant"
+	}
+
+	duration, _ := args["duration"].(string)
+	if duration == "" {
+		duration = "1h"
+	}
+
+	var result string
+	var queryErr error
+
+	switch queryType {
+	case "instant":
+		result, queryErr = executeInstantQuery(ctx, cs, query)
+	case "range":
+		result, queryErr = executeRangeQuery(ctx, cs, query, duration)
+	default:
+		return fmt.Sprintf("Error: unsupported query_type '%s'. Use 'instant' or 'range'.", queryType), true
+	}
+
+	if queryErr != nil {
+		return fmt.Sprintf("Error executing Prometheus query: %v", queryErr), true
+	}
+
+	return result, false
+}
+
+func executeInstantQuery(ctx context.Context, cs *cluster.ClientSet, query string) (string, error) {
+	result, warnings, err := cs.PromClient.Query(ctx, query, time.Now())
+	if err != nil {
+		return "", err
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Prometheus Query: %s\n\n", query))
+
+	if len(warnings) > 0 {
+		sb.WriteString(fmt.Sprintf("Warnings: %v\n\n", warnings))
+	}
+
+	switch result.Type() {
+	case model.ValVector:
+		vector := result.(model.Vector)
+		if len(vector) == 0 {
+			sb.WriteString("No data returned.\n")
+		} else {
+			sb.WriteString(fmt.Sprintf("Results (%d series):\n", len(vector)))
+			for _, sample := range vector {
+				sb.WriteString(fmt.Sprintf("- %s: %v\n", sample.Metric, sample.Value))
+			}
+		}
+	case model.ValScalar:
+		scalar := result.(*model.Scalar)
+		sb.WriteString(fmt.Sprintf("Scalar value: %v at %v\n", scalar.Value, scalar.Timestamp.Time()))
+	case model.ValString:
+		str := result.(*model.String)
+		sb.WriteString(fmt.Sprintf("String value: %s at %v\n", str.Value, str.Timestamp.Time()))
+	default:
+		sb.WriteString(fmt.Sprintf("Unexpected result type: %s\n", result.Type()))
+	}
+
+	return sb.String(), nil
+}
+
+func executeRangeQuery(ctx context.Context, cs *cluster.ClientSet, query string, duration string) (string, error) {
+	var timeRange time.Duration
+	var step time.Duration
+
+	switch duration {
+	case "30m":
+		timeRange = 30 * time.Minute
+		step = 1 * time.Minute
+	case "1h":
+		timeRange = 1 * time.Hour
+		step = 2 * time.Minute
+	case "24h":
+		timeRange = 24 * time.Hour
+		step = 30 * time.Minute
+	default:
+		return "", fmt.Errorf("unsupported duration: %s. Use '30m', '1h', or '24h'", duration)
+	}
+
+	now := time.Now()
+	start := now.Add(-timeRange)
+
+	r := v1.Range{
+		Start: start,
+		End:   now,
+		Step:  step,
+	}
+
+	result, warnings, err := cs.PromClient.QueryRange(ctx, query, r)
+	if err != nil {
+		return "", err
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Prometheus Range Query: %s\n", query))
+	sb.WriteString(fmt.Sprintf("Time Range: %s to %s (duration: %s, step: %v)\n\n", start.Format("15:04:05"), now.Format("15:04:05"), duration, step))
+
+	if len(warnings) > 0 {
+		sb.WriteString(fmt.Sprintf("Warnings: %v\n\n", warnings))
+	}
+
+	switch result.Type() {
+	case model.ValMatrix:
+		matrix := result.(model.Matrix)
+		if len(matrix) == 0 {
+			sb.WriteString("No data returned.\n")
+		} else {
+			sb.WriteString(fmt.Sprintf("Results (%d series):\n\n", len(matrix)))
+			for seriesIdx, series := range matrix {
+				sb.WriteString(fmt.Sprintf("Series %d: %s\n", seriesIdx+1, series.Metric))
+
+				// Show summary statistics
+				if len(series.Values) > 0 {
+					var sum, min, max float64
+					min = float64(series.Values[0].Value)
+					max = float64(series.Values[0].Value)
+
+					for _, sample := range series.Values {
+						val := float64(sample.Value)
+						sum += val
+						if val < min {
+							min = val
+						}
+						if val > max {
+							max = val
+						}
+					}
+					avg := sum / float64(len(series.Values))
+
+					sb.WriteString(fmt.Sprintf("  Data points: %d\n", len(series.Values)))
+					sb.WriteString(fmt.Sprintf("  Min: %.2f, Max: %.2f, Avg: %.2f\n", min, max, avg))
+
+					// Show first and last few values
+					showCount := 3
+					if len(series.Values) <= showCount*2 {
+						showCount = len(series.Values) / 2
+					}
+
+					if showCount > 0 {
+						sb.WriteString("  First values:\n")
+						for i := 0; i < showCount && i < len(series.Values); i++ {
+							sample := series.Values[i]
+							sb.WriteString(fmt.Sprintf("    %s: %.2f\n", sample.Timestamp.Time().Format("15:04:05"), sample.Value))
+						}
+
+						if len(series.Values) > showCount*2 {
+							sb.WriteString("  ...\n")
+							sb.WriteString("  Last values:\n")
+							for i := len(series.Values) - showCount; i < len(series.Values); i++ {
+								sample := series.Values[i]
+								sb.WriteString(fmt.Sprintf("    %s: %.2f\n", sample.Timestamp.Time().Format("15:04:05"), sample.Value))
+							}
+						}
+					}
+				}
+				sb.WriteString("\n")
+			}
+		}
+	default:
+		sb.WriteString(fmt.Sprintf("Unexpected result type: %s\n", result.Type()))
+	}
+
+	return sb.String(), nil
 }
