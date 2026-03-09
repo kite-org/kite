@@ -35,3 +35,26 @@ func (h *DeploymentHandler) Restart(c *gin.Context, namespace, name string) erro
 	deployment.Spec.Template.Annotations["kite.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	return cs.K8sClient.Update(c.Request.Context(), &deployment)
 }
+
+func (h *DeploymentHandler) registerCustomRoutes(group *gin.RouterGroup) {
+	// Register restart route for cluster-scoped resources
+	group.POST("/_all/:name/restart", func(c *gin.Context) {
+		name := c.Param("name")
+		if err := h.Restart(c, "", name); err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, gin.H{"message": "Deployment restarted successfully"})
+	})
+
+	// Register restart route for namespace-scoped resources
+	group.POST("/:namespace/:name/restart", func(c *gin.Context) {
+		namespace := c.Param("namespace")
+		name := c.Param("name")
+		if err := h.Restart(c, namespace, name); err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, gin.H{"message": "Deployment restarted successfully"})
+	})
+}

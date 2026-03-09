@@ -294,7 +294,22 @@ export const deleteResource = async <T extends ResourceType>(
     params.append('wait', 'false')
   }
   const endpoint = `/${resource}/${namespace || '_all'}/${name}?${params.toString()}`
-  await apiClient.delete(endpoint)
+  
+  try {
+    await apiClient.delete(endpoint)
+  } catch (error) {
+    throw error
+  }
+}
+
+// Restart resource (Deployment, StatefulSet, DaemonSet)
+export const restartResource = async <T extends ResourceType>(
+  resource: T,
+  name: string,
+  namespace: string | undefined
+): Promise<void> => {
+  const endpoint = `/${resource}/${namespace || '_all'}/${name}/restart`
+  await apiClient.post(endpoint)
 }
 
 // Apply resource from YAML

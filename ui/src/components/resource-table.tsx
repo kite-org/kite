@@ -14,8 +14,10 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import {
+  AlertTriangle,
   Box,
   Database,
+  Loader2,
   Plus,
   RefreshCw,
   Search,
@@ -27,7 +29,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { ResourceType } from '@/types/api'
-import { deleteResource, useResources, useResourcesWatch } from '@/lib/api'
+import { deleteResource, restartResource, useResources, useResourcesWatch } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -97,7 +99,10 @@ export function ResourceTable<T>({
   })
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [restartDialogOpen, setRestartDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isRestarting, setIsRestarting] = useState(false)
+  const [confirmInput, setConfirmInput] = useState('')
   const [searchQuery, setSearchQuery] = useState<string>(() => {
     const currentCluster = localStorage.getItem('current-cluster')
     const storageKey = `${currentCluster}-${resourceName}-searchQuery`
@@ -395,20 +400,44 @@ export function ResourceTable<T>({
 
   // Handle batch delete - must be after table is defined
   const handleBatchDelete = useCallback(async () => {
+    // Validate input
+    const selectedRows = table.getSelectedRowModel().rows
+    
+    const selectedNames = selectedRows.map(row => {
+      const metadata = (row.original as { metadata?: { name?: string } }).metadata
+      return metadata?.name || ''
+    }).filter(Boolean)
+
+    const inputNames = confirmInput
+      .split(/[,，]\s*/)
+      .map(name => name.trim())
+      .filter(Boolean)
+
+    // Check if input names match selected names
+    if (inputNames.length !== selectedNames.length) {
+      toast.error('Number of resource names entered does not match selected resources')
+      return
+    }
+
+    // Check if all selected names are in input
+    for (const name of selectedNames) {
+      if (!inputNames.includes(name)) {
+        toast.error(`Resource name "${name}" not found in input`)
+        return
+      }
+    }
     setIsDeleting(true)
-    const selectedRows = table
-      .getSelectedRowModel()
-      .rows.map((row) => row.original)
 
     const deletePromises = selectedRows.map((row) => {
+      const originalData = row.original
       const metadata = (
-        row as { metadata?: { name?: string; namespace?: string } }
+        originalData as { metadata?: { name?: string; namespace?: string } }
       )?.metadata
       const name = metadata?.name
       const namespace = clusterScope ? undefined : metadata?.namespace
 
       if (!name) {
-        return Promise.resolve()
+        return Promise.resolve({ name, success: true, error: null })
       }
 
       return deleteResource(
@@ -417,30 +446,106 @@ export function ResourceTable<T>({
         namespace
       )
         .then(() => {
-          toast.success(t('resourceTable.deleteSuccess', { name }))
+          return { name, success: true, error: null }
         })
         .catch((error) => {
-          console.error(`Failed to delete ${name}:`, error)
-          toast.error(
-            t('resourceTable.deleteFailed', { name, error: error.message })
-          )
-          throw error
+          return { name, success: false, error: error.message }
         })
     })
 
     try {
-      await Promise.allSettled(deletePromises)
-      // Reset selection and close dialog
+      const results = await Promise.all(deletePromises)
+      
+      // Count successes and failures
+      const successCount = results.filter(r => r.success).length
+      const failedCount = results.filter(r => !r.success).length
+      
+      // Show only summary toast
+      if (failedCount === 0) {
+        toast.success(`成功删除 ${successCount} 个资源`)
+      } else if (successCount === 0) {
+        toast.error(`删除失败，共 ${failedCount} 个资源删除失败`)
+      } else {
+        toast.warning(`部分删除成功：${successCount} 个成功，${failedCount} 个失败`)
+      }
+      
+      // Reset selection, input, and close dialog
       setRowSelection({})
+      setConfirmInput('')
       setDeleteDialogOpen(false)
+      
       // Refetch data
       if (!useSSE) {
         refetch()
       }
+    } catch (error) {
+      toast.error('删除过程中发生错误')
     } finally {
       setIsDeleting(false)
     }
-  }, [table, clusterScope, resourceType, resourceName, t, useSSE, refetch])
+  }, [table, clusterScope, resourceType, resourceName, t, useSSE, refetch, confirmInput])
+
+  // Handle batch restart - must be after table is defined
+  const handleBatchRestart = useCallback(async () => {
+    setIsRestarting(true)
+    const selectedRows = table
+      .getSelectedRowModel()
+      .rows
+
+    const restartPromises = selectedRows.map((row) => {
+      const originalData = row.original
+      const metadata = (
+        originalData as { metadata?: { name?: string; namespace?: string } }
+      )?.metadata
+      const name = metadata?.name
+      const namespace = clusterScope ? undefined : metadata?.namespace
+
+      if (!name) {
+        return Promise.resolve({ name, success: true, error: null })
+      }
+
+      return restartResource(
+        resourceType ?? (resourceName.toLowerCase() as ResourceType),
+        name,
+        namespace
+      )
+        .then(() => {
+          return { name, success: true, error: null }
+        })
+        .catch((error) => {
+          return { name, success: false, error: error.message }
+        })
+    })
+
+    try {
+      const results = await Promise.all(restartPromises)
+      
+      // Count successes and failures
+      const successCount = results.filter(r => r.success).length
+      const failedCount = results.filter(r => !r.success).length
+      
+      // Show only summary toast
+      if (failedCount === 0) {
+        toast.success(`成功重启 ${successCount} 个资源`)
+      } else if (successCount === 0) {
+        toast.error(`重启失败，共 ${failedCount} 个资源重启失败`)
+      } else {
+        toast.warning(`部分重启成功：${successCount} 个成功，${failedCount} 个失败`)
+      }
+      
+      // Reset selection and close dialog
+      setRowSelection({})
+      setRestartDialogOpen(false)
+      // Refetch data
+      if (!useSSE) {
+        refetch()
+      }
+    } catch (error) {
+      toast.error('重启过程中发生错误')
+    } finally {
+      setIsRestarting(false)
+    }
+  }, [table, clusterScope, resourceType, resourceName, useSSE, refetch])
   // Calculate total and filtered row counts
   const totalRowCount = useMemo(
     () => (data as T[] | undefined)?.length || 0,
@@ -680,18 +785,29 @@ export function ResourceTable<T>({
               </Button>
             )}
           </div>
-          {/* Batch delete button */}
+          {/* Batch operations */}
           {table.getSelectedRowModel().rows.length > 0 && (
-            <Button
-              variant="destructive"
-              onClick={() => setDeleteDialogOpen(true)}
-              className="gap-2"
-            >
-              <Trash2 className="h-4 w-4" />
-              {t('resourceTable.deleteSelected', {
-                count: table.getSelectedRowModel().rows.length,
-              })}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="default"
+                onClick={() => setRestartDialogOpen(true)}
+                className="gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Restart Selected
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setConfirmInput('');
+                  setDeleteDialogOpen(true);
+                }}
+                className="gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Selected
+              </Button>
+            </div>
           )}
           {showCreateButton && onCreateClick && (
             <Button onClick={onCreateClick} className="gap-1">
@@ -751,17 +867,57 @@ export function ResourceTable<T>({
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{t('resourceTable.confirmDeletion')}</DialogTitle>
-            <DialogDescription>
-              {t('resourceTable.confirmDeletionMessage', {
-                count: table.getSelectedRowModel().rows.length,
-                resourceName: resourceName.toLowerCase(),
-              })}
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              {t('resourceTable.confirmDeletion')}
+            </DialogTitle>
+            <DialogDescription className="text-base">
+              You are about to delete <strong>{table.getSelectedRowModel().rows.length}</strong> {resourceName.toLowerCase()}. 
+              This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <div className="space-y-4">
+            {/* List of selected resources */}
+            <div className="border border-destructive/20 rounded-lg p-4 bg-destructive/5">
+              <h4 className="font-semibold mb-3 text-destructive">Resources to be deleted:</h4>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {table.getSelectedRowModel().rows.map((row, index) => {
+                  const metadata = (row.original as { metadata?: { name?: string; namespace?: string } }).metadata;
+                  return (
+                    <div key={index} className="flex items-center gap-2 text-sm">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                      <span className="font-medium">{metadata?.name || 'Unknown'}</span>
+                      {metadata?.namespace && (
+                        <span className="text-muted-foreground">(namespace: {metadata.namespace})</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            {/* Confirmation input */}
+            <div className="space-y-2">
+              <Label htmlFor="confirm-input" className="font-medium">
+                To confirm, type the resource names below (comma-separated):
+              </Label>
+              <Input
+                id="confirm-input"
+                placeholder={`e.g., ${table.getSelectedRowModel().rows.slice(0, 2).map(row => {
+                  const metadata = (row.original as { metadata?: { name?: string } }).metadata;
+                  return metadata?.name || 'resource';
+                }).join(', ')}`}
+                className="w-full"
+                value={confirmInput}
+                onChange={(e) => setConfirmInput(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter all resource names exactly as shown above to proceed with deletion.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
             <Button
               variant="outline"
               onClick={() => setDeleteDialogOpen(false)}
@@ -771,10 +927,52 @@ export function ResourceTable<T>({
             </Button>
             <Button
               variant="destructive"
-              onClick={handleBatchDelete}
+              onClick={() => {
+                handleBatchDelete()
+              }}
               disabled={isDeleting}
+              className="gap-2"
+              style={{ opacity: isDeleting ? 0.5 : 1 }}
             >
-              {isDeleting ? t('resourceTable.deleting') : t('common.delete')}
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" />
+                  {t('common.delete')}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Restart Confirmation Dialog */}
+      <Dialog open={restartDialogOpen} onOpenChange={setRestartDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Restart</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to restart {table.getSelectedRowModel().rows.length} {resourceName.toLowerCase()}?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRestartDialogOpen(false)}
+              disabled={isRestarting}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="default"
+              onClick={handleBatchRestart}
+              disabled={isRestarting}
+            >
+              {isRestarting ? 'Restarting...' : 'Restart'}
             </Button>
           </DialogFooter>
         </DialogContent>

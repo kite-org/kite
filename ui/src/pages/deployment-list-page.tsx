@@ -100,6 +100,7 @@ export function DeploymentListPage() {
     <>
       <ResourceTable
         resourceName="Deployments"
+        resourceType="deployments"
         columns={columns}
         searchQueryFilter={deploymentSearchFilter}
         showCreateButton={true}

@@ -65,7 +65,7 @@ func RegisterRoutes(group *gin.RouterGroup) {
 		"events":                   NewEventHandler(),
 		"deployments":              NewDeploymentHandler(),
 		"replicasets":              NewGenericResourceHandler[*appsv1.ReplicaSet, *appsv1.ReplicaSetList]("replicasets", false, false),
-		"statefulsets":             NewGenericResourceHandler[*appsv1.StatefulSet, *appsv1.StatefulSetList]("statefulsets", false, false),
+		"statefulsets":             NewStatefulSetHandler(),
 		"daemonsets":               NewGenericResourceHandler[*appsv1.DaemonSet, *appsv1.DaemonSetList]("daemonsets", false, true),
 		"jobs":                     NewGenericResourceHandler[*batchv1.Job, *batchv1.JobList]("jobs", false, false),
 		"cronjobs":                 NewGenericResourceHandler[*batchv1.CronJob, *batchv1.CronJobList]("cronjobs", false, false),
