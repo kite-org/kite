@@ -19,6 +19,8 @@ interface User {
   sidebar_preference?: string
 
   isAdmin(): boolean
+
+  Key(): string
 }
 
 interface AuthContextType {
@@ -78,6 +80,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
               (role: { name: string }) => role.name === 'admin'
             ) || false
           )
+        }
+        user.Key = function () {
+          return this.username || this.id
         }
         setUser(user)
       } else {

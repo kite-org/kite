@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useAuth } from '@/contexts/auth-context'
 
 import { withSubPath } from '@/lib/subpath'
 
@@ -38,12 +39,13 @@ const defaultPageContext: PageContext = {
   resourceKind: '',
 }
 
-const HISTORY_STORAGE_KEY = 'ai-chat-history'
+const HISTORY_STORAGE_KEY_PREFIX = 'ai-chat-history-'
 const MAX_HISTORY_SESSIONS = 50
 
-function loadHistoryFromStorage(): ChatSession[] {
+function loadHistoryFromStorage(username: string): ChatSession[] {
   try {
-    const stored = localStorage.getItem(HISTORY_STORAGE_KEY)
+    const key = `${HISTORY_STORAGE_KEY_PREFIX}${username || 'anonymous'}`
+    const stored = localStorage.getItem(key)
     if (!stored) return []
     return JSON.parse(stored)
   } catch {
@@ -51,9 +53,10 @@ function loadHistoryFromStorage(): ChatSession[] {
   }
 }
 
-function saveHistoryToStorage(sessions: ChatSession[]) {
+function saveHistoryToStorage(username: string, sessions: ChatSession[]) {
   try {
-    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(sessions))
+    const key = `${HISTORY_STORAGE_KEY_PREFIX}${username || 'anonymous'}`
+    localStorage.setItem(key, JSON.stringify(sessions))
   } catch {
     // ignore storage errors
   }
@@ -68,18 +71,27 @@ function generateSessionTitle(messages: ChatMessage[]): string {
 }
 
 export function useAIChat() {
+  const { user } = useAuth()
+  const username = user?.Key() || 'anonymous'
+
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
-  const [history, setHistory] = useState<ChatSession[]>(() =>
-    loadHistoryFromStorage()
-  )
+  const [history, setHistory] = useState<ChatSession[]>([])
   const messagesRef = useRef<ChatMessage[]>([])
   const abortControllerRef = useRef<AbortController | null>(null)
   const activeAssistantMsgIdRef = useRef<string | null>(null)
   const startNewAssistantSegmentRef = useRef(false)
   const lastPageContextRef = useRef<PageContext>(defaultPageContext)
   const lastLanguageRef = useRef('en')
+
+  // Load history when username becomes available or changes
+  // TODO: save in backend.
+  useEffect(() => {
+    if (username) {
+      setHistory(loadHistoryFromStorage(username))
+    }
+  }, [username])
 
   const generateId = () =>
     `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -125,12 +137,12 @@ export function useAIChat() {
         updated = updated.slice(0, MAX_HISTORY_SESSIONS)
       }
 
-      saveHistoryToStorage(updated)
+      saveHistoryToStorage(username, updated)
       return updated
     })
 
     setCurrentSessionId(sessionId)
-  }, [currentSessionId])
+  }, [currentSessionId, username])
 
   const appendAssistantError = useCallback(
     (message: string) => {
@@ -626,7 +638,7 @@ export function useAIChat() {
     (sessionId: string) => {
       setHistory((prev) => {
         const updated = prev.filter((s) => s.id !== sessionId)
-        saveHistoryToStorage(updated)
+        saveHistoryToStorage(username, updated)
         return updated
       })
 
@@ -634,7 +646,7 @@ export function useAIChat() {
         clearMessages()
       }
     },
-    [clearMessages, currentSessionId]
+    [clearMessages, currentSessionId, username]
   )
 
   const newSession = useCallback(() => {
