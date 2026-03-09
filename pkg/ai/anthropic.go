@@ -56,14 +56,13 @@ func (a *Agent) continueChatAnthropic(c *gin.Context, session pendingSession, se
 		toolResult = "Tool error: " + result
 	}
 
-	messages := append([]anthropic.MessageParam(nil), session.AnthropicMessages...)
-	messages = append(
-		messages,
+	session.AnthropicMessages = append(
+		session.AnthropicMessages,
 		anthropic.NewUserMessage(
 			anthropic.NewToolResultBlock(session.ToolCall.ID, toolResult, isError),
 		),
 	)
-	a.runAnthropicConversation(ctx, c, session.SystemPrompt, messages, sendEvent)
+	a.runAnthropicConversation(ctx, c, session.SystemPrompt, session.AnthropicMessages, sendEvent)
 	return nil
 }
 

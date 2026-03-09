@@ -58,9 +58,8 @@ func (a *Agent) continueChatOpenAI(c *gin.Context, session pendingSession, sendE
 		result = "Tool error: " + result
 	}
 
-	messages := append([]openai.ChatCompletionMessageParamUnion(nil), session.OpenAIMessages...)
-	messages = append(messages, openai.ToolMessage(result, session.ToolCall.ID))
-	a.runOpenAIConversation(ctx, c, messages, sendEvent)
+	session.OpenAIMessages = append(session.OpenAIMessages, openai.ToolMessage(result, session.ToolCall.ID))
+	a.runOpenAIConversation(ctx, c, session.OpenAIMessages, sendEvent)
 	return nil
 }
 
