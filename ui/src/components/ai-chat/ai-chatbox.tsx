@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAIChatContext } from '@/contexts/ai-chat-context'
+import * as yaml from 'js-yaml'
 import {
   Bot,
   CheckCircle2,
@@ -92,6 +93,63 @@ function describeAction(tool: string, args: Record<string, unknown>): string {
   }
 }
 
+function buildToolYamlPreview(
+  tool: string | undefined,
+  args: Record<string, unknown> | undefined
+): string | null {
+  if (!tool || !args) {
+    return null
+  }
+
+  switch (tool) {
+    case 'create_resource':
+    case 'update_resource': {
+      const resourceYaml = args.yaml
+      return typeof resourceYaml === 'string' && resourceYaml.trim()
+        ? resourceYaml.trim()
+        : null
+    }
+    case 'patch_resource': {
+      const patch = args.patch
+      if (typeof patch !== 'string' || !patch.trim()) {
+        return null
+      }
+
+      try {
+        const metadata: Record<string, string> = {}
+        if (typeof args.name === 'string' && args.name.trim()) {
+          metadata.name = args.name.trim()
+        }
+        if (typeof args.namespace === 'string' && args.namespace.trim()) {
+          metadata.namespace = args.namespace.trim()
+        }
+
+        const preview: Record<string, unknown> = {
+          patch: JSON.parse(patch),
+        }
+        if (typeof args.kind === 'string' && args.kind.trim()) {
+          preview.kind = args.kind.trim()
+        }
+        if (Object.keys(metadata).length > 0) {
+          preview.metadata = metadata
+        }
+
+        return yaml
+          .dump(preview, {
+            indent: 2,
+            lineWidth: -1,
+            noRefs: true,
+          })
+          .trim()
+      } catch {
+        return patch.trim()
+      }
+    }
+    default:
+      return null
+  }
+}
+
 function ToolCallMessage({
   message,
   onConfirm,
@@ -101,6 +159,10 @@ function ToolCallMessage({
   onConfirm?: (id: string) => void
   onDeny?: (id: string) => void
 }) {
+  const toolYamlPreview = buildToolYamlPreview(
+    message.toolName,
+    message.toolArgs
+  )
   const [expanded, setExpanded] = useState(false)
   const isPending = message.actionStatus === 'pending'
   const isConfirmed = message.actionStatus === 'confirmed'
@@ -131,7 +193,17 @@ function ToolCallMessage({
           className={`h-3 w-3 transition-transform ${expanded ? 'rotate-90' : ''}`}
         />
       </button>
-      {expanded && message.toolResult && (
+      {expanded && toolYamlPreview && (
+        <div className="mt-1 rounded border bg-muted/40 p-2">
+          <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            YAML
+          </div>
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all text-xs">
+            {toolYamlPreview}
+          </pre>
+        </div>
+      )}
+      {message.toolResult && (
         <pre className="mt-1 max-h-40 overflow-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap break-all">
           {message.toolResult}
         </pre>
@@ -205,7 +277,7 @@ function MessageBubble({
       className={`flex ${isUser ? 'justify-end' : 'justify-start'} mx-3 my-2`}
     >
       <div
-        className={`max-w-[85%] rounded-lg px-3 py-2 text-sm break-words ${
+        className={`max-w-[85%] rounded-lg px-3 py-2 text-sm wrap-break-word ${
           isUser
             ? 'bg-primary text-primary-foreground whitespace-pre-wrap'
             : 'bg-muted text-foreground'
@@ -228,7 +300,7 @@ function MessageBubble({
                 </button>
                 {thinkingExpanded && (
                   <div className="rounded border border-dashed bg-background/60 p-2 text-xs text-muted-foreground">
-                    <div className="whitespace-pre-wrap break-words">
+                    <div className="whitespace-pre-wrap wrap-break-word">
                       {message.thinking || ''}
                     </div>
                   </div>

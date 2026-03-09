@@ -11,7 +11,11 @@ export interface ChatMessage {
   toolName?: string
   toolArgs?: Record<string, unknown>
   toolResult?: string
-  pendingAction?: { tool: string; args: Record<string, unknown> }
+  pendingAction?: {
+    sessionId: string
+    tool: string
+    args: Record<string, unknown>
+  }
   actionStatus?: 'pending' | 'confirmed' | 'denied' | 'error'
 }
 
@@ -292,14 +296,21 @@ export function useAIChat() {
           break
         }
         case 'action_required': {
-          const { tool, args } = data as {
+          const { tool, args, session_id } = data as {
             tool: string
             args: Record<string, unknown>
+            session_id: string
+          }
+          if (!session_id) {
+            appendAssistantError(
+              `Missing session id for pending action ${tool}`
+            )
+            break
           }
           updateLatestToolMessage(tool, (message) => ({
             ...message,
             content: `${tool} requires confirmation`,
-            pendingAction: { tool, args },
+            pendingAction: { tool, args, sessionId: session_id },
             actionStatus: 'pending' as const,
           }))
           break
@@ -314,44 +325,8 @@ export function useAIChat() {
     [appendAssistantError, updateLatestToolMessage, updateMessages]
   )
 
-  const streamChat = useCallback(
-    async (
-      apiMessages: APIChatMessage[],
-      pageContext: PageContext,
-      language: string,
-      abortSignal?: AbortSignal
-    ) => {
-      const clusterName = localStorage.getItem('current-cluster') || ''
-      const requestLanguage = (language || '').trim() || 'en'
-
-      const response = await fetch(withSubPath('/api/v1/ai/chat'), {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept-Language': requestLanguage,
-          'x-cluster-name': clusterName,
-        },
-        body: JSON.stringify({
-          messages: apiMessages,
-          language: requestLanguage,
-          page_context: {
-            page: pageContext.page,
-            namespace: pageContext.namespace,
-            resource_name: pageContext.resourceName,
-            resource_kind: pageContext.resourceKind,
-          },
-        }),
-        signal: abortSignal,
-      })
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}))
-        throw new Error(
-          errData.error || `HTTP error! status: ${response.status}`
-        )
-      }
-
+  const readSSEStream = useCallback(
+    async (response: Response) => {
       const reader = response.body?.getReader()
       if (!reader) throw new Error('No response body')
 
@@ -416,6 +391,49 @@ export function useAIChat() {
       flushEvent()
     },
     [handleSSEEvent]
+  )
+
+  const streamChat = useCallback(
+    async (
+      apiMessages: APIChatMessage[],
+      pageContext: PageContext,
+      language: string,
+      abortSignal?: AbortSignal
+    ) => {
+      const clusterName = localStorage.getItem('current-cluster') || ''
+      const requestLanguage = (language || '').trim() || 'en'
+
+      const response = await fetch(withSubPath('/api/v1/ai/chat'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept-Language': requestLanguage,
+          'x-cluster-name': clusterName,
+        },
+        body: JSON.stringify({
+          messages: apiMessages,
+          language: requestLanguage,
+          page_context: {
+            page: pageContext.page,
+            namespace: pageContext.namespace,
+            resource_name: pageContext.resourceName,
+            resource_kind: pageContext.resourceKind,
+          },
+        }),
+        signal: abortSignal,
+      })
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(
+          errData.error || `HTTP error! status: ${response.status}`
+        )
+      }
+
+      await readSSEStream(response)
+    },
+    [readSSEStream]
   )
 
   const buildAPIMessagesFromCurrentState = useCallback(
@@ -499,35 +517,36 @@ export function useAIChat() {
       const msg = messagesRef.current.find((m) => m.id === messageId)
       if (!msg?.pendingAction) return
 
-      const clusterName = localStorage.getItem('current-cluster') || ''
-
-      try {
-        const response = await fetch(withSubPath('/api/v1/ai/execute'), {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-cluster-name': clusterName,
-          },
-          body: JSON.stringify(msg.pendingAction),
-        })
-
-        const result = await response.json()
-        const resultMessage =
-          typeof result.message === 'string' ? result.message : 'unknown error'
-
+      const sessionId = msg.pendingAction.sessionId?.trim()
+      if (!sessionId) {
         updateMessages((prev) =>
           prev.map((m) =>
             m.id === messageId
               ? {
                   ...m,
-                  actionStatus: response.ok
-                    ? ('confirmed' as const)
-                    : ('error' as const),
-                  toolResult: resultMessage,
-                  content: response.ok
-                    ? `${msg.toolName} completed`
-                    : `${msg.toolName} failed`,
+                  actionStatus: 'error' as const,
+                  pendingAction: undefined,
+                  toolResult:
+                    'This pending action has expired. Please ask the AI to generate the action again.',
+                  content: `${msg.toolName} failed`,
+                }
+              : m
+          )
+        )
+        return
+      }
+
+      const clusterName = localStorage.getItem('current-cluster') || ''
+
+      try {
+        updateMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId
+              ? {
+                  ...m,
+                  actionStatus: 'pending' as const,
+                  pendingAction: undefined,
+                  content: `${msg.toolName} executing`,
                 }
               : m
           )
@@ -539,28 +558,43 @@ export function useAIChat() {
           startNewAssistantSegmentRef.current = false
           abortControllerRef.current = new AbortController()
 
-          const continuationMessages = buildAPIMessagesFromCurrentState([
+          const response = await fetch(
+            withSubPath('/api/v1/ai/execute/continue'),
             {
-              role: 'assistant',
-              content: resultMessage,
-            },
-            {
-              role: 'user',
-              content: response.ok
-                ? 'The confirmed action has been executed successfully. Continue with the remaining steps and call tools as needed until the task is complete.'
-                : 'The action failed with the error above. Please analyze the error, fix the issue, and retry the operation.',
-            },
-          ])
-
-          await streamChat(
-            continuationMessages,
-            lastPageContextRef.current || defaultPageContext,
-            lastLanguageRef.current,
-            abortControllerRef.current.signal
+              method: 'POST',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-cluster-name': clusterName,
+              },
+              body: JSON.stringify({ sessionId }),
+              signal: abortControllerRef.current.signal,
+            }
           )
+
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}))
+            throw new Error(
+              errData.error || `HTTP error! status: ${response.status}`
+            )
+          }
+
+          await readSSEStream(response)
         } catch (error) {
           if ((error as Error).name !== 'AbortError') {
             appendAssistantError((error as Error).message)
+            updateMessages((prev) =>
+              prev.map((m) =>
+                m.id === messageId
+                  ? {
+                      ...m,
+                      actionStatus: 'error' as const,
+                      toolResult: (error as Error).message,
+                      content: `${msg.toolName} failed`,
+                    }
+                  : m
+              )
+            )
           }
         } finally {
           setIsLoading(false)
@@ -584,13 +618,7 @@ export function useAIChat() {
         )
       }
     },
-    [
-      appendAssistantError,
-      buildAPIMessagesFromCurrentState,
-      saveCurrentSession,
-      streamChat,
-      updateMessages,
-    ]
+    [appendAssistantError, readSSEStream, saveCurrentSession, updateMessages]
   )
 
   const denyAction = useCallback(

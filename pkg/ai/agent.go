@@ -280,9 +280,9 @@ func buildContextualSystemPrompt(pageCtx *PageContext, runtimeCtx runtimePromptC
 	}
 
 	if language == "zh" {
-		prompt += "\n\nResponse language:\n- Always respond in Simplified Chinese unless the user explicitly asks for another language."
+		prompt += "\n\nResponse language:\n- Prefer replying in the same language as the user's latest message.\n- If the user's latest message language is unclear, respond in Simplified Chinese unless the user explicitly asks for another language."
 	} else {
-		prompt += "\n\nResponse language:\n- Always respond in English unless the user explicitly asks for another language."
+		prompt += "\n\nResponse language:\n- Prefer replying in the same language as the user's latest message.\n- If the user's latest message language is unclear, respond in English unless the user explicitly asks for another language."
 	}
 
 	klog.V(4).Infof("system prompt %s", prompt)
@@ -296,6 +296,20 @@ func (a *Agent) ProcessChat(c *gin.Context, req *ChatRequest, sendEvent func(SSE
 		a.processChatAnthropic(c, req, sendEvent)
 	default:
 		a.processChatOpenAI(c, req, sendEvent)
+	}
+}
+
+func (a *Agent) ContinuePendingAction(c *gin.Context, sessionID string, sendEvent func(SSEEvent)) error {
+	session, err := agentPendingSessions.take(sessionID)
+	if err != nil {
+		return err
+	}
+
+	switch session.Provider {
+	case model.GeneralAIProviderAnthropic:
+		return a.continueChatAnthropic(c, session, sendEvent)
+	default:
+		return a.continueChatOpenAI(c, session, sendEvent)
 	}
 }
 

@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -37,7 +38,38 @@ func (a *Agent) processChatOpenAI(c *gin.Context, req *ChatRequest, sendEvent fu
 	}
 	sysPrompt := buildContextualSystemPrompt(req.PageContext, runtimeCtx, language)
 	messages := toOpenAIMessages(sysPrompt, req.Messages)
+	a.runOpenAIConversation(ctx, c, messages, sendEvent)
+}
 
+func (a *Agent) continueChatOpenAI(c *gin.Context, session pendingSession, sendEvent func(SSEEvent)) error {
+	ctx := c.Request.Context()
+	result, isError := ExecuteTool(ctx, c, a.cs, session.ToolCall.Name, session.ToolCall.Args)
+
+	sendEvent(SSEEvent{
+		Event: "tool_result",
+		Data: map[string]interface{}{
+			"tool":     session.ToolCall.Name,
+			"result":   result,
+			"is_error": isError,
+		},
+	})
+
+	if isError {
+		result = "Tool error: " + result
+	}
+
+	messages := append([]openai.ChatCompletionMessageParamUnion(nil), session.OpenAIMessages...)
+	messages = append(messages, openai.ToolMessage(result, session.ToolCall.ID))
+	a.runOpenAIConversation(ctx, c, messages, sendEvent)
+	return nil
+}
+
+func (a *Agent) runOpenAIConversation(
+	ctx context.Context,
+	c *gin.Context,
+	messages []openai.ChatCompletionMessageParamUnion,
+	sendEvent func(SSEEvent),
+) {
 	tools := OpenAIToolDefs()
 
 	maxIterations := 100
@@ -107,11 +139,21 @@ func (a *Agent) processChatOpenAI(c *gin.Context, req *ChatRequest, sendEvent fu
 					messages = append(messages, openai.ToolMessage("Tool error: "+result, tc.ID))
 					continue
 				}
+				sessionID := agentPendingSessions.save(pendingSession{
+					Provider:       a.provider,
+					OpenAIMessages: append([]openai.ChatCompletionMessageParamUnion(nil), messages...),
+					ToolCall: pendingToolCall{
+						ID:   tc.ID,
+						Name: toolName,
+						Args: args,
+					},
+				})
 				sendEvent(SSEEvent{
 					Event: "action_required",
 					Data: map[string]interface{}{
-						"tool": toolName,
-						"args": args,
+						"tool":       toolName,
+						"args":       args,
+						"session_id": sessionID,
 					},
 				})
 				return

@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -34,6 +35,45 @@ func (a *Agent) processChatAnthropic(c *gin.Context, req *ChatRequest, sendEvent
 	}
 	sysPrompt := buildContextualSystemPrompt(req.PageContext, runtimeCtx, language)
 	messages := toAnthropicMessages(req.Messages)
+	a.runAnthropicConversation(ctx, c, sysPrompt, messages, sendEvent)
+}
+
+func (a *Agent) continueChatAnthropic(c *gin.Context, session pendingSession, sendEvent func(SSEEvent)) error {
+	ctx := c.Request.Context()
+	result, isError := ExecuteTool(ctx, c, a.cs, session.ToolCall.Name, session.ToolCall.Args)
+
+	sendEvent(SSEEvent{
+		Event: "tool_result",
+		Data: map[string]interface{}{
+			"tool":     session.ToolCall.Name,
+			"result":   result,
+			"is_error": isError,
+		},
+	})
+
+	toolResult := result
+	if isError {
+		toolResult = "Tool error: " + result
+	}
+
+	messages := append([]anthropic.MessageParam(nil), session.AnthropicMessages...)
+	messages = append(
+		messages,
+		anthropic.NewUserMessage(
+			anthropic.NewToolResultBlock(session.ToolCall.ID, toolResult, isError),
+		),
+	)
+	a.runAnthropicConversation(ctx, c, session.SystemPrompt, messages, sendEvent)
+	return nil
+}
+
+func (a *Agent) runAnthropicConversation(
+	ctx context.Context,
+	c *gin.Context,
+	sysPrompt string,
+	messages []anthropic.MessageParam,
+	sendEvent func(SSEEvent),
+) {
 	tools := AnthropicToolDefs()
 
 	maxIterations := 100
@@ -100,11 +140,25 @@ func (a *Agent) processChatAnthropic(c *gin.Context, req *ChatRequest, sendEvent
 					toolResults = append(toolResults, anthropic.NewToolResultBlock(tc.ID, "Tool error: "+result, true))
 					continue
 				}
+				if len(toolResults) > 0 {
+					messages = append(messages, anthropic.NewUserMessage(toolResults...))
+				}
+				sessionID := agentPendingSessions.save(pendingSession{
+					Provider:          a.provider,
+					SystemPrompt:      sysPrompt,
+					AnthropicMessages: append([]anthropic.MessageParam(nil), messages...),
+					ToolCall: pendingToolCall{
+						ID:   tc.ID,
+						Name: toolName,
+						Args: args,
+					},
+				})
 				sendEvent(SSEEvent{
 					Event: "action_required",
 					Data: map[string]interface{}{
-						"tool": toolName,
-						"args": args,
+						"tool":       toolName,
+						"args":       args,
+						"session_id": sessionID,
 					},
 				})
 				return

@@ -76,15 +76,12 @@ func HandleChat(c *gin.Context) {
 	sendEvent(SSEEvent{Event: "done", Data: map[string]string{}})
 }
 
-// ExecuteRequest is the request body for the stateless execute endpoint.
-type ExecuteRequest struct {
-	Tool string                 `json:"tool"`
-	Args map[string]interface{} `json:"args"`
+type ContinueRequest struct {
+	SessionID string `json:"sessionId"`
 }
 
-// HandleExecute executes a confirmed mutation action. Stateless — the client
-// sends the full tool name and args, no server-side session needed.
-func HandleExecute(c *gin.Context) {
+// HandleExecuteContinue resumes a pending AI action after user confirmation.
+func HandleExecuteContinue(c *gin.Context) {
 	cfg, err := LoadRuntimeConfig()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to load AI config: %v", err)})
@@ -95,14 +92,13 @@ func HandleExecute(c *gin.Context) {
 		return
 	}
 
-	var req ExecuteRequest
+	var req ContinueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid request: %v", err)})
 		return
 	}
-
-	if !MutationTools[req.Tool] {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Tool %s is not a mutation tool", req.Tool)})
+	if strings.TrimSpace(req.SessionID) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "sessionId is required"})
 		return
 	}
 
@@ -112,25 +108,28 @@ func HandleExecute(c *gin.Context) {
 		return
 	}
 
-	result, isError := ExecuteTool(c.Request.Context(), c, clientSet, req.Tool, req.Args)
-	if isError {
-		statusCode := http.StatusInternalServerError
-		if strings.HasPrefix(result, "Forbidden: ") {
-			statusCode = http.StatusForbidden
-		} else if strings.HasPrefix(result, "Error: ") || strings.HasPrefix(result, "Unknown tool: ") {
-			statusCode = http.StatusBadRequest
-		}
-		c.JSON(statusCode, gin.H{
-			"status":  "error",
-			"message": result,
-		})
+	agent, err := NewAgent(clientSet, cfg)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create AI agent: %v", err)})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"status":  "ok",
-		"message": result,
-	})
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	sendEvent := func(event SSEEvent) {
+		data := MarshalSSEEvent(event)
+		_, _ = fmt.Fprint(c.Writer, data)
+		c.Writer.Flush()
+	}
+
+	if err := agent.ContinuePendingAction(c, req.SessionID, sendEvent); err != nil {
+		sendEvent(SSEEvent{Event: "error", Data: map[string]string{"message": err.Error()}})
+	}
+
+	sendEvent(SSEEvent{Event: "done", Data: map[string]string{}})
 }
 
 func HandleGetGeneralSetting(c *gin.Context) {

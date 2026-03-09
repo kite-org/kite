@@ -213,7 +213,7 @@ func setupAPIRouter(r *gin.RouterGroup, cm *cluster.ClusterManager) {
 		// AI chat routes
 		api.GET("/ai/status", ai.HandleAIStatus)
 		api.POST("/ai/chat", ai.HandleChat)
-		api.POST("/ai/execute", ai.HandleExecute)
+		api.POST("/ai/execute/continue", ai.HandleExecuteContinue)
 
 		api.Use(middleware.RBACMiddleware())
 		resources.RegisterRoutes(api)
