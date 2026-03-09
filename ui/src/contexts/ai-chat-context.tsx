@@ -17,10 +17,8 @@ interface PageContext {
 
 interface AIChatContextType {
   isOpen: boolean
-  isMinimized: boolean
   openChat: () => void
   closeChat: () => void
-  minimizeChat: () => void
   toggleChat: () => void
   pageContext: PageContext
 }
@@ -63,34 +61,20 @@ function toSingularResource(resource: string) {
 
 export function AIChatProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false)
-  const [isMinimized, setIsMinimized] = useState(false)
   const location = useLocation()
   const params = useParams()
 
   const openChat = useCallback(() => {
     setIsOpen(true)
-    setIsMinimized(false)
   }, [])
 
   const closeChat = useCallback(() => {
     setIsOpen(false)
-    setIsMinimized(false)
-  }, [])
-
-  const minimizeChat = useCallback(() => {
-    setIsMinimized(true)
   }, [])
 
   const toggleChat = useCallback(() => {
-    if (!isOpen) {
-      setIsOpen(true)
-      setIsMinimized(false)
-    } else if (isMinimized) {
-      setIsMinimized(false)
-    } else {
-      setIsMinimized(true)
-    }
-  }, [isOpen, isMinimized])
+    setIsOpen((prev) => !prev)
+  }, [])
 
   const pageContext = useMemo<PageContext>(() => {
     const path = location.pathname
@@ -120,10 +104,8 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
     <AIChatContext.Provider
       value={{
         isOpen,
-        isMinimized,
         openChat,
         closeChat,
-        minimizeChat,
         toggleChat,
         pageContext,
       }}

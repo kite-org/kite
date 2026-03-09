@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 import { Namespace } from 'kubernetes-types/core/v1'
+import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 
 import { useResources } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -52,7 +52,7 @@ export function NamespaceSelector({
           <span className="truncate">
             {selectedNamespace === '_all'
               ? 'All Namespaces'
-              : (selectedNamespace || "Select namespace...")}
+              : selectedNamespace || 'Select namespace...'}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -79,7 +79,14 @@ export function NamespaceSelector({
                         setOpen(false)
                       }}
                     >
-                      <Check className={cn("mr-2 h-4 w-4 shrink-0", selectedNamespace === '_all' ? "opacity-100" : "opacity-0")} />
+                      <Check
+                        className={cn(
+                          'mr-2 h-4 w-4 shrink-0',
+                          selectedNamespace === '_all'
+                            ? 'opacity-100'
+                            : 'opacity-0'
+                        )}
+                      />
                       <span className="truncate">All Namespaces</span>
                     </CommandItem>
                   )}
@@ -96,7 +103,14 @@ export function NamespaceSelector({
                         }}
                         className="flex items-center"
                       >
-                        <Check className={cn("mr-2 h-4 w-4 shrink-0", selectedNamespace === name ? "opacity-100" : "opacity-0")} />
+                        <Check
+                          className={cn(
+                            'mr-2 h-4 w-4 shrink-0',
+                            selectedNamespace === name
+                              ? 'opacity-100'
+                              : 'opacity-0'
+                          )}
+                        />
                         <span className="truncate flex-1 min-w-0" title={name}>
                           {name}
                         </span>

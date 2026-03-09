@@ -65,16 +65,10 @@ func HandleChat(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
 
-	flusher, ok := c.Writer.(http.Flusher)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Streaming not supported"})
-		return
-	}
-
 	sendEvent := func(event SSEEvent) {
 		data := MarshalSSEEvent(event)
 		_, _ = fmt.Fprint(c.Writer, data)
-		flusher.Flush()
+		c.Writer.Flush()
 	}
 
 	agent.ProcessChat(c, &req, sendEvent)
