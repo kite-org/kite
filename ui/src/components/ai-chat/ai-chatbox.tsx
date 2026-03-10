@@ -416,6 +416,12 @@ function HistoryPanel({
                     <span>{formatDate(session.updatedAt)}</span>
                     <span>•</span>
                     <span>{session.messages.length} messages</span>
+                    {session.clusterName && (
+                      <>
+                        <span>•</span>
+                        <span className="truncate">{session.clusterName}</span>
+                      </>
+                    )}
                   </div>
                 </button>
                 <Button

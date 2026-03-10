@@ -99,6 +99,7 @@ func InitDB() {
 		RoleAssignment{},
 		ResourceHistory{},
 		ResourceTemplate{},
+		PendingSession{},
 	}
 	for _, model := range models {
 		err = DB.AutoMigrate(model)

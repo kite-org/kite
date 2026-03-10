@@ -148,6 +148,11 @@ export function AuditLog() {
                 apikey
               </span>
             )}
+            {row.original.operationSource === 'ai' && (
+              <span className="ml-2 text-xs text-muted-foreground italic">
+                AI
+              </span>
+            )}
           </div>
         ),
       },

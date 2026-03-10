@@ -69,7 +69,7 @@ func (a *Agent) runOpenAIConversation(
 	messages []openai.ChatCompletionMessageParamUnion,
 	sendEvent func(SSEEvent),
 ) {
-	tools := OpenAIToolDefs()
+	tools := OpenAIToolDefs(a.cs)
 
 	maxIterations := 100
 	for i := 0; i < maxIterations; i++ {

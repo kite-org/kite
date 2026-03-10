@@ -39,8 +39,8 @@ type agentToolDefinition struct {
 	Required    []string
 }
 
-func toolDefinitions() []agentToolDefinition {
-	return []agentToolDefinition{
+func toolDefinitions(cs *cluster.ClientSet) []agentToolDefinition {
+	tools := []agentToolDefinition{
 		{
 			Name:        "get_resource",
 			Description: "Get a specific Kubernetes resource by kind, name, and optionally namespace. Returns the resource details in YAML format.",
@@ -175,7 +175,11 @@ func toolDefinitions() []agentToolDefinition {
 			},
 			Required: []string{"kind", "name"},
 		},
-		{
+	}
+
+	// Only add Prometheus tool if Prometheus client is available
+	if cs != nil && cs.PromClient != nil {
+		tools = append(tools, agentToolDefinition{
 			Name:        "query_prometheus",
 			Description: "Execute a PromQL query against Prometheus to retrieve metrics data. Use this to get monitoring information like CPU usage, memory usage, network traffic, custom application metrics, etc. Returns time series data or instant values. Note: Requires cluster-wide read access as metrics can span multiple namespaces.",
 			Properties: map[string]any{
@@ -194,12 +198,14 @@ func toolDefinitions() []agentToolDefinition {
 				},
 			},
 			Required: []string{"query"},
-		},
+		})
 	}
+
+	return tools
 }
 
-func OpenAIToolDefs() []openai.ChatCompletionToolParam {
-	defs := toolDefinitions()
+func OpenAIToolDefs(cs *cluster.ClientSet) []openai.ChatCompletionToolParam {
+	defs := toolDefinitions(cs)
 	tools := make([]openai.ChatCompletionToolParam, 0, len(defs))
 
 	for _, def := range defs {
@@ -223,8 +229,8 @@ func OpenAIToolDefs() []openai.ChatCompletionToolParam {
 	return tools
 }
 
-func AnthropicToolDefs() []anthropic.ToolUnionParam {
-	defs := toolDefinitions()
+func AnthropicToolDefs(cs *cluster.ClientSet) []anthropic.ToolUnionParam {
+	defs := toolDefinitions(cs)
 	tools := make([]anthropic.ToolUnionParam, 0, len(defs))
 
 	for _, def := range defs {
@@ -660,6 +666,8 @@ func ExecuteTool(ctx context.Context, c *gin.Context, cs *cluster.ClientSet, too
 		return result, true
 	}
 
+	user, _ := currentUserFromGin(c)
+
 	switch toolName {
 	case "get_resource":
 		return executeGetResource(ctx, cs, args)
@@ -670,18 +678,54 @@ func ExecuteTool(ctx context.Context, c *gin.Context, cs *cluster.ClientSet, too
 	case "get_cluster_overview":
 		return executeGetClusterOverview(ctx, cs)
 	case "create_resource":
-		return executeCreateResource(ctx, cs, args)
+		return executeCreateResource(ctx, cs, user, args)
 	case "update_resource":
-		return executeUpdateResource(ctx, cs, args)
+		return executeUpdateResource(ctx, cs, user, args)
 	case "patch_resource":
-		return executePatchResource(ctx, cs, args)
+		return executePatchResource(ctx, cs, user, args)
 	case "delete_resource":
-		return executeDeleteResource(ctx, cs, args)
+		return executeDeleteResource(ctx, cs, user, args)
 	case "query_prometheus":
 		return executeQueryPrometheus(ctx, cs, args)
 	default:
 		return fmt.Sprintf("Unknown tool: %s", toolName), true
 	}
+}
+
+func recordResourceHistory(cs *cluster.ClientSet, user pkgmodel.User, kind, name, namespace, opType, resourceYAML, previousYAML string, success bool, err error) {
+	errMsg := ""
+	if err != nil {
+		errMsg = err.Error()
+	}
+
+	history := pkgmodel.ResourceHistory{
+		ClusterName:     cs.Name,
+		ResourceType:    kind,
+		ResourceName:    name,
+		Namespace:       namespace,
+		OperationType:   opType,
+		OperationSource: "AI",
+		ResourceYAML:    resourceYAML,
+		PreviousYAML:    previousYAML,
+		Success:         success,
+		ErrorMessage:    errMsg,
+		OperatorID:      user.ID,
+	}
+	if dbErr := pkgmodel.DB.Create(&history).Error; dbErr != nil {
+		klog.Errorf("Failed to create resource history: %v", dbErr)
+	}
+}
+
+func objectToYAML(obj *unstructured.Unstructured) string {
+	if obj == nil {
+		return ""
+	}
+	obj.SetManagedFields(nil)
+	yamlBytes, err := yaml.Marshal(obj)
+	if err != nil {
+		return ""
+	}
+	return string(yamlBytes)
 }
 
 func executeGetResource(ctx context.Context, cs *cluster.ClientSet, args map[string]interface{}) (string, bool) {
@@ -1188,13 +1232,19 @@ func executeGetClusterOverview(ctx context.Context, cs *cluster.ClientSet) (stri
 	return sb.String(), false
 }
 
-func executeCreateResource(ctx context.Context, cs *cluster.ClientSet, args map[string]interface{}) (string, bool) {
+func executeCreateResource(ctx context.Context, cs *cluster.ClientSet, user pkgmodel.User, args map[string]interface{}) (string, bool) {
 	obj, err := parseResourceYAML(args)
 	if err != nil {
 		return "Error: " + err.Error(), true
 	}
 
-	if err := cs.K8sClient.Create(ctx, obj); err != nil {
+	yamlStr, _ := getRequiredString(args, "yaml")
+	resource := resolveResourceInfoForObject(ctx, cs, obj)
+	err = cs.K8sClient.Create(ctx, obj)
+
+	recordResourceHistory(cs, user, resource.Resource, obj.GetName(), obj.GetNamespace(), "create", yamlStr, "", err == nil, err)
+
+	if err != nil {
 		return fmt.Sprintf("Error creating %s/%s: %v", obj.GetKind(), obj.GetName(), err), true
 	}
 
@@ -1202,13 +1252,31 @@ func executeCreateResource(ctx context.Context, cs *cluster.ClientSet, args map[
 	return fmt.Sprintf("Successfully created %s/%s", obj.GetKind(), obj.GetName()), false
 }
 
-func executeUpdateResource(ctx context.Context, cs *cluster.ClientSet, args map[string]interface{}) (string, bool) {
+func executeUpdateResource(ctx context.Context, cs *cluster.ClientSet, user pkgmodel.User, args map[string]interface{}) (string, bool) {
 	obj, err := parseResourceYAML(args)
 	if err != nil {
 		return "Error: " + err.Error(), true
 	}
 
-	if err := cs.K8sClient.Update(ctx, obj); err != nil {
+	yamlStr, _ := getRequiredString(args, "yaml")
+
+	// Get previous state
+	resource := resolveResourceInfoForObject(ctx, cs, obj)
+	prevObj := buildObjectForResource(resource)
+	key := k8stypes.NamespacedName{
+		Name:      obj.GetName(),
+		Namespace: normalizeNamespace(resource, obj.GetNamespace()),
+	}
+	var previousYAML string
+	if getErr := cs.K8sClient.Get(ctx, key, prevObj); getErr == nil {
+		previousYAML = objectToYAML(prevObj)
+	}
+
+	err = cs.K8sClient.Update(ctx, obj)
+
+	recordResourceHistory(cs, user, resource.Resource, obj.GetName(), obj.GetNamespace(), "update", yamlStr, previousYAML, err == nil, err)
+
+	if err != nil {
 		return fmt.Sprintf("Error updating %s/%s: %v", obj.GetKind(), obj.GetName(), err), true
 	}
 
@@ -1216,7 +1284,7 @@ func executeUpdateResource(ctx context.Context, cs *cluster.ClientSet, args map[
 	return fmt.Sprintf("Successfully updated %s/%s", obj.GetKind(), obj.GetName()), false
 }
 
-func executePatchResource(ctx context.Context, cs *cluster.ClientSet, args map[string]interface{}) (string, bool) {
+func executePatchResource(ctx context.Context, cs *cluster.ClientSet, user pkgmodel.User, args map[string]interface{}) (string, bool) {
 	kind, err := getRequiredString(args, "kind")
 	if err != nil {
 		return "Error: " + err.Error(), true
@@ -1245,9 +1313,22 @@ func executePatchResource(ctx context.Context, cs *cluster.ClientSet, args map[s
 		return fmt.Sprintf("Error finding %s/%s: %v", resource.Kind, name, err), true
 	}
 
+	// Get previous state
+	previousYAML := objectToYAML(obj.DeepCopy())
+
 	patchBytes := []byte(patchStr)
 	patch := client.RawPatch(k8stypes.StrategicMergePatchType, patchBytes)
-	if err := cs.K8sClient.Patch(ctx, obj, patch); err != nil {
+	err = cs.K8sClient.Patch(ctx, obj, patch)
+
+	// Get current state after patch
+	currentYAML := ""
+	if err == nil {
+		currentYAML = objectToYAML(obj)
+	}
+
+	recordResourceHistory(cs, user, resource.Resource, name, normalizeNamespace(resource, namespace), "patch", currentYAML, previousYAML, err == nil, err)
+
+	if err != nil {
 		return fmt.Sprintf("Error patching %s/%s: %v", resource.Kind, name, err), true
 	}
 
@@ -1255,7 +1336,7 @@ func executePatchResource(ctx context.Context, cs *cluster.ClientSet, args map[s
 	return fmt.Sprintf("Successfully patched %s/%s", resource.Kind, name), false
 }
 
-func executeDeleteResource(ctx context.Context, cs *cluster.ClientSet, args map[string]interface{}) (string, bool) {
+func executeDeleteResource(ctx context.Context, cs *cluster.ClientSet, user pkgmodel.User, args map[string]interface{}) (string, bool) {
 	kind, err := getRequiredString(args, "kind")
 	if err != nil {
 		return "Error: " + err.Error(), true
@@ -1273,14 +1354,22 @@ func executeDeleteResource(ctx context.Context, cs *cluster.ClientSet, args map[
 		Name:      name,
 		Namespace: normalizeNamespace(resource, namespace),
 	}
-	if err := cs.K8sClient.Get(ctx, key, obj); err != nil {
-		if apierrors.IsNotFound(err) {
+
+	// Get previous state before deletion
+	var previousYAML string
+	if getErr := cs.K8sClient.Get(ctx, key, obj); getErr != nil {
+		if apierrors.IsNotFound(getErr) {
 			return fmt.Sprintf("%s/%s not found, already deleted", resource.Kind, name), false
 		}
-		return fmt.Sprintf("Error finding %s/%s: %v", resource.Kind, name, err), true
+		return fmt.Sprintf("Error finding %s/%s: %v", resource.Kind, name, getErr), true
 	}
 
-	if err := cs.K8sClient.Delete(ctx, obj); err != nil {
+	previousYAML = objectToYAML(obj)
+	err = cs.K8sClient.Delete(ctx, obj)
+
+	recordResourceHistory(cs, user, resource.Resource, name, normalizeNamespace(resource, namespace), "delete", "", previousYAML, err == nil || apierrors.IsNotFound(err), err)
+
+	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return fmt.Sprintf("%s/%s not found, already deleted", resource.Kind, name), false
 		}

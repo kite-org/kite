@@ -2,6 +2,7 @@ package model
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -101,4 +102,48 @@ func (s SliceString) Value() (driver.Value, error) {
 		return "", nil
 	}
 	return strings.Join(s, ","), nil
+}
+
+// JSONField stores arbitrary JSON data
+type JSONField []byte
+
+func (j *JSONField) Scan(value interface{}) error {
+	if value == nil {
+		*j = nil
+		return nil
+	}
+	switch v := value.(type) {
+	case string:
+		*j = []byte(v)
+	case []byte:
+		*j = v
+	default:
+		return fmt.Errorf("cannot scan %T into JSONField", value)
+	}
+	return nil
+}
+
+func (j JSONField) Value() (driver.Value, error) {
+	if j == nil {
+		return nil, nil
+	}
+	return string(j), nil
+}
+
+// Unmarshal deserializes the JSON data into the provided interface
+func (j JSONField) Unmarshal(v interface{}) error {
+	if j == nil {
+		return nil
+	}
+	return json.Unmarshal(j, v)
+}
+
+// Marshal serializes the provided interface into JSON
+func (j *JSONField) Marshal(v interface{}) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	*j = data
+	return nil
 }

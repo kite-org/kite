@@ -146,17 +146,25 @@ export function ResourceHistoryTable<T extends ResourceType>({
       },
       {
         header: t('resourceHistory.operator'),
-        accessor: (item: ResourceHistory) => item.operator,
-        cell: (value: unknown) => (
-          <div className="font-medium">
-            {(value as { username: string }).username}
-            {(value as { provider: string }).provider === 'api_key' && (
-              <span className="ml-2 text-xs text-muted-foreground italic">
-                apikey
-              </span>
-            )}
-          </div>
-        ),
+        accessor: (item: ResourceHistory) => item,
+        cell: (value: unknown) => {
+          const item = value as ResourceHistory
+          return (
+            <div className="font-medium">
+              {item.operator.username}
+              {item.operator.provider === 'api_key' && (
+                <span className="ml-2 text-xs text-muted-foreground italic">
+                  apikey
+                </span>
+              )}
+              {item.operationSource === 'ai' && (
+                <span className="ml-2 text-xs text-muted-foreground italic">
+                  AI
+                </span>
+              )}
+            </div>
+          )
+        },
       },
       {
         header: t('resourceHistory.operationTime'),

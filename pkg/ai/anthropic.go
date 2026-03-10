@@ -73,7 +73,7 @@ func (a *Agent) runAnthropicConversation(
 	messages []anthropic.MessageParam,
 	sendEvent func(SSEEvent),
 ) {
-	tools := AnthropicToolDefs()
+	tools := AnthropicToolDefs(a.cs)
 
 	maxIterations := 100
 	for i := 0; i < maxIterations; i++ {

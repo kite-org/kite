@@ -424,6 +424,7 @@ export interface ResourceHistory {
   resourceName: string
   namespace: string
   operationType: string
+  operationSource: string
   resourceYaml: string
   previousYaml: string
   success: boolean

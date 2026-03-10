@@ -32,6 +32,7 @@ export interface ChatSession {
   messages: ChatMessage[]
   createdAt: number
   updatedAt: number
+  clusterName?: string
 }
 
 type APIChatMessage = { role: 'user' | 'assistant'; content: string }
@@ -117,6 +118,7 @@ export function useAIChat() {
     const now = Date.now()
     const sessionId = currentSessionId || generateId()
     const title = generateSessionTitle(messagesRef.current)
+    const clusterName = localStorage.getItem('current-cluster') || ''
 
     setHistory((prev) => {
       const existingIndex = prev.findIndex((s) => s.id === sessionId)
@@ -126,6 +128,7 @@ export function useAIChat() {
         messages: messagesRef.current,
         createdAt: existingIndex >= 0 ? prev[existingIndex].createdAt : now,
         updatedAt: now,
+        clusterName,
       }
 
       let updated: ChatSession[]
