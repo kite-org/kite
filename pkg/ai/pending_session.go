@@ -96,14 +96,14 @@ func (s *pendingSessionStore) take(sessionID string) (pendingSession, error) {
 		},
 	}
 
-	// Unmarshal messages and args
-	if session.OpenAIMessages, err = dbSession.UnmarshalOpenAIMessages(); err != nil {
+	// Unmarshal messages and args directly in the AI package
+	if err = dbSession.OpenAIMessages.Unmarshal(&session.OpenAIMessages); err != nil {
 		return pendingSession{}, fmt.Errorf("failed to unmarshal OpenAI messages: %w", err)
 	}
-	if session.AnthropicMessages, err = dbSession.UnmarshalAnthropicMessages(); err != nil {
+	if err = dbSession.AnthropicMessages.Unmarshal(&session.AnthropicMessages); err != nil {
 		return pendingSession{}, fmt.Errorf("failed to unmarshal Anthropic messages: %w", err)
 	}
-	if session.ToolCall.Args, err = dbSession.UnmarshalToolCallArgs(); err != nil {
+	if err = dbSession.ToolCallArgs.Unmarshal(&session.ToolCall.Args); err != nil {
 		return pendingSession{}, fmt.Errorf("failed to unmarshal tool call args: %w", err)
 	}
 

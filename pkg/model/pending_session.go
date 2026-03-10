@@ -2,9 +2,6 @@ package model
 
 import (
 	"time"
-
-	anthropic "github.com/anthropics/anthropic-sdk-go"
-	"github.com/openai/openai-go"
 )
 
 type PendingSession struct {
@@ -38,31 +35,4 @@ func DeletePendingSession(sessionID string) error {
 
 func CleanupExpiredPendingSessions() error {
 	return DB.Where("expires_at <= ?", time.Now()).Delete(&PendingSession{}).Error
-}
-
-// UnmarshalOpenAIMessages deserializes OpenAI messages from the database
-func (ps *PendingSession) UnmarshalOpenAIMessages() ([]openai.ChatCompletionMessageParamUnion, error) {
-	var messages []openai.ChatCompletionMessageParamUnion
-	if err := ps.OpenAIMessages.Unmarshal(&messages); err != nil {
-		return nil, err
-	}
-	return messages, nil
-}
-
-// UnmarshalAnthropicMessages deserializes Anthropic messages from the database
-func (ps *PendingSession) UnmarshalAnthropicMessages() ([]anthropic.MessageParam, error) {
-	var messages []anthropic.MessageParam
-	if err := ps.AnthropicMessages.Unmarshal(&messages); err != nil {
-		return nil, err
-	}
-	return messages, nil
-}
-
-// UnmarshalToolCallArgs deserializes tool call arguments from the database
-func (ps *PendingSession) UnmarshalToolCallArgs() (map[string]interface{}, error) {
-	var args map[string]interface{}
-	if err := ps.ToolCallArgs.Unmarshal(&args); err != nil {
-		return nil, err
-	}
-	return args, nil
 }

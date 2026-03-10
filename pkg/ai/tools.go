@@ -704,7 +704,7 @@ func recordResourceHistory(cs *cluster.ClientSet, user pkgmodel.User, kind, name
 		ResourceName:    name,
 		Namespace:       namespace,
 		OperationType:   opType,
-		OperationSource: "AI",
+		OperationSource: "ai",
 		ResourceYAML:    resourceYAML,
 		PreviousYAML:    previousYAML,
 		Success:         success,
@@ -1248,7 +1248,7 @@ func executeCreateResource(ctx context.Context, cs *cluster.ClientSet, user pkgm
 		return fmt.Sprintf("Error creating %s/%s: %v", obj.GetKind(), obj.GetName(), err), true
 	}
 
-	klog.Infof("AI Agent created resource: %s/%s in namespace %s", obj.GetKind(), obj.GetName(), obj.GetNamespace())
+	klog.V(1).Infof("AI Agent created resource: %s/%s in namespace %s", obj.GetKind(), obj.GetName(), obj.GetNamespace())
 	return fmt.Sprintf("Successfully created %s/%s", obj.GetKind(), obj.GetName()), false
 }
 
@@ -1280,7 +1280,7 @@ func executeUpdateResource(ctx context.Context, cs *cluster.ClientSet, user pkgm
 		return fmt.Sprintf("Error updating %s/%s: %v", obj.GetKind(), obj.GetName(), err), true
 	}
 
-	klog.Infof("AI Agent updated resource: %s/%s in namespace %s", obj.GetKind(), obj.GetName(), obj.GetNamespace())
+	klog.V(1).Infof("AI Agent updated resource: %s/%s in namespace %s", obj.GetKind(), obj.GetName(), obj.GetNamespace())
 	return fmt.Sprintf("Successfully updated %s/%s", obj.GetKind(), obj.GetName()), false
 }
 
@@ -1332,7 +1332,7 @@ func executePatchResource(ctx context.Context, cs *cluster.ClientSet, user pkgmo
 		return fmt.Sprintf("Error patching %s/%s: %v", resource.Kind, name, err), true
 	}
 
-	klog.Infof("AI Agent patched resource: %s/%s in namespace %s", resource.Kind, name, normalizeNamespace(resource, namespace))
+	klog.V(1).Infof("AI Agent patched resource: %s/%s in namespace %s", resource.Kind, name, normalizeNamespace(resource, namespace))
 	return fmt.Sprintf("Successfully patched %s/%s", resource.Kind, name), false
 }
 
@@ -1376,7 +1376,7 @@ func executeDeleteResource(ctx context.Context, cs *cluster.ClientSet, user pkgm
 		return fmt.Sprintf("Error deleting %s/%s: %v", resource.Kind, name, err), true
 	}
 
-	klog.Infof("AI Agent deleted resource: %s/%s in namespace %s", resource.Kind, name, normalizeNamespace(resource, namespace))
+	klog.V(1).Infof("AI Agent deleted resource: %s/%s in namespace %s", resource.Kind, name, normalizeNamespace(resource, namespace))
 	return fmt.Sprintf("Successfully deleted %s/%s", resource.Kind, name), false
 }
 
