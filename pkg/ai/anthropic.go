@@ -152,6 +152,11 @@ func (a *Agent) runAnthropicConversation(
 						Args: args,
 					},
 				})
+				if sessionID == "" {
+					errorMsg := "Failed to save pending session"
+					toolResults = append(toolResults, anthropic.NewToolResultBlock(tc.ID, "Tool error: "+errorMsg, true))
+					continue
+				}
 				sendEvent(SSEEvent{
 					Event: "action_required",
 					Data: map[string]interface{}{

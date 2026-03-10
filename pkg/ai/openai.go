@@ -147,6 +147,11 @@ func (a *Agent) runOpenAIConversation(
 						Args: args,
 					},
 				})
+				if sessionID == "" {
+					errorMsg := "Failed to save pending session"
+					messages = append(messages, openai.ToolMessage("Tool error: "+errorMsg, tc.ID))
+					continue
+				}
 				sendEvent(SSEEvent{
 					Event: "action_required",
 					Data: map[string]interface{}{
