@@ -80,6 +80,50 @@ type ContinueRequest struct {
 	SessionID string `json:"sessionId"`
 }
 
+// HandleTitle generates a concise AI title for a chat session.
+func HandleTitle(c *gin.Context) {
+	cfg, err := LoadRuntimeConfig()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to load AI config: %v", err)})
+		return
+	}
+	if !cfg.Enabled {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "AI is not enabled"})
+		return
+	}
+
+	var req TitleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid request: %v", err)})
+		return
+	}
+	req.Language = detectRequestLanguage(req.Language, c.GetHeader("Accept-Language"))
+	if len(req.Messages) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No messages provided"})
+		return
+	}
+
+	clientSet, ok := getClusterClientSet(c)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No cluster selected"})
+		return
+	}
+
+	agent, err := NewAgent(clientSet, cfg)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create AI agent: %v", err)})
+		return
+	}
+
+	title, err := agent.GenerateTitle(c, &req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to generate AI title: %v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"title": title})
+}
+
 // HandleExecuteContinue resumes a pending AI action after user confirmation.
 func HandleExecuteContinue(c *gin.Context) {
 	cfg, err := LoadRuntimeConfig()

@@ -84,6 +84,12 @@ type ChatRequest struct {
 	PageContext *PageContext  `json:"page_context"`
 }
 
+// TitleRequest is the incoming title generation request.
+type TitleRequest struct {
+	Messages []ChatMessage `json:"messages"`
+	Language string        `json:"language,omitempty"`
+}
+
 // SSEEvent represents a Server-Sent Event to the client.
 type SSEEvent struct {
 	Event string      `json:"event"`

@@ -67,8 +67,7 @@ function saveHistoryToStorage(username: string, sessions: ChatSession[]) {
   }
 }
 
-// TODO: generate session title with AI to better summarize the conversation, instead of just using the first user message
-function generateSessionTitle(messages: ChatMessage[]): string {
+function generateFallbackSessionTitle(messages: ChatMessage[]): string {
   const firstUserMessage = messages.find((m) => m.role === 'user')
   if (!firstUserMessage) return 'New Chat'
   const content = firstUserMessage.content.trim()
@@ -85,6 +84,7 @@ export function useAIChat() {
   const [history, setHistory] = useState<ChatSession[]>([])
   const messagesRef = useRef<ChatMessage[]>([])
   const abortControllerRef = useRef<AbortController | null>(null)
+  const titleGeneratingSessionsRef = useRef<Set<string>>(new Set())
   const activeAssistantMsgIdRef = useRef<string | null>(null)
   const startNewAssistantSegmentRef = useRef(false)
   const lastPageContextRef = useRef<PageContext>(defaultPageContext)
@@ -112,12 +112,59 @@ export function useAIChat() {
     []
   )
 
+  const generateAITitle = useCallback(
+    async (sessionId: string, sessionMessages: ChatMessage[]) => {
+      if (titleGeneratingSessionsRef.current.has(sessionId)) return
+      const hasAssistantMessage = sessionMessages.some(
+        (m) => m.role === 'assistant' && m.content.trim()
+      )
+      if (!hasAssistantMessage) return
+
+      titleGeneratingSessionsRef.current.add(sessionId)
+      const clusterName = localStorage.getItem('current-cluster') || ''
+
+      try {
+        const response = await fetch(withSubPath('/api/v1/ai/title'), {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept-Language': lastLanguageRef.current || 'en',
+            'x-cluster-name': clusterName,
+          },
+          body: JSON.stringify({
+            messages: sessionMessages
+              .filter((m) => m.role === 'user' || m.role === 'assistant')
+              .map((m) => ({ role: m.role, content: m.content })),
+            language: lastLanguageRef.current || 'en',
+          }),
+        })
+
+        if (!response.ok) return
+        const data = (await response.json()) as { title?: string }
+        const title = data.title?.trim()
+        if (!title) return
+
+        setHistory((prev) => {
+          const updated = prev.map((session) =>
+            session.id === sessionId ? { ...session, title } : session
+          )
+          saveHistoryToStorage(username, updated)
+          return updated
+        })
+      } catch {
+        // ignore title generation failures
+      }
+    },
+    [username]
+  )
+
   const saveCurrentSession = useCallback(() => {
     if (messagesRef.current.length === 0) return
 
     const now = Date.now()
     const sessionId = currentSessionId || generateId()
-    const title = generateSessionTitle(messagesRef.current)
+    const title = generateFallbackSessionTitle(messagesRef.current)
     const clusterName = localStorage.getItem('current-cluster') || ''
 
     setHistory((prev) => {
@@ -149,7 +196,55 @@ export function useAIChat() {
     })
 
     setCurrentSessionId(sessionId)
-  }, [currentSessionId, username])
+    void generateAITitle(sessionId, messagesRef.current)
+  }, [currentSessionId, generateAITitle, username])
+
+  const generateAITitle = useCallback(
+    async (sessionId: string, sessionMessages: ChatMessage[]) => {
+      if (titleGeneratingSessionsRef.current.has(sessionId)) return
+      const hasAssistantMessage = sessionMessages.some(
+        (m) => m.role === 'assistant' && m.content.trim()
+      )
+      if (!hasAssistantMessage) return
+
+      titleGeneratingSessionsRef.current.add(sessionId)
+      const clusterName = localStorage.getItem('current-cluster') || ''
+
+      try {
+        const response = await fetch(withSubPath('/api/v1/ai/title'), {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept-Language': lastLanguageRef.current || 'en',
+            'x-cluster-name': clusterName,
+          },
+          body: JSON.stringify({
+            messages: sessionMessages
+              .filter((m) => m.role === 'user' || m.role === 'assistant')
+              .map((m) => ({ role: m.role, content: m.content })),
+            language: lastLanguageRef.current || 'en',
+          }),
+        })
+
+        if (!response.ok) return
+        const data = (await response.json()) as { title?: string }
+        const title = data.title?.trim()
+        if (!title) return
+
+        setHistory((prev) => {
+          const updated = prev.map((session) =>
+            session.id === sessionId ? { ...session, title } : session
+          )
+          saveHistoryToStorage(username, updated)
+          return updated
+        })
+      } catch {
+        // ignore title generation failures
+      }
+    },
+    [username]
+  )
 
   const appendAssistantError = useCallback(
     (message: string) => {
