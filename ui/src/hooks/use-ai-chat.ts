@@ -199,53 +199,6 @@ export function useAIChat() {
     void generateAITitle(sessionId, messagesRef.current)
   }, [currentSessionId, generateAITitle, username])
 
-  const generateAITitle = useCallback(
-    async (sessionId: string, sessionMessages: ChatMessage[]) => {
-      if (titleGeneratingSessionsRef.current.has(sessionId)) return
-      const hasAssistantMessage = sessionMessages.some(
-        (m) => m.role === 'assistant' && m.content.trim()
-      )
-      if (!hasAssistantMessage) return
-
-      titleGeneratingSessionsRef.current.add(sessionId)
-      const clusterName = localStorage.getItem('current-cluster') || ''
-
-      try {
-        const response = await fetch(withSubPath('/api/v1/ai/title'), {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept-Language': lastLanguageRef.current || 'en',
-            'x-cluster-name': clusterName,
-          },
-          body: JSON.stringify({
-            messages: sessionMessages
-              .filter((m) => m.role === 'user' || m.role === 'assistant')
-              .map((m) => ({ role: m.role, content: m.content })),
-            language: lastLanguageRef.current || 'en',
-          }),
-        })
-
-        if (!response.ok) return
-        const data = (await response.json()) as { title?: string }
-        const title = data.title?.trim()
-        if (!title) return
-
-        setHistory((prev) => {
-          const updated = prev.map((session) =>
-            session.id === sessionId ? { ...session, title } : session
-          )
-          saveHistoryToStorage(username, updated)
-          return updated
-        })
-      } catch {
-        // ignore title generation failures
-      }
-    },
-    [username]
-  )
-
   const appendAssistantError = useCallback(
     (message: string) => {
       updateMessages((prev) => [
