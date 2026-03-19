@@ -10,11 +10,13 @@ export function MetricCell({
   type,
   limitLabel = 'Limit',
   showPercentage = false,
+  mode = 'usage',
 }: {
   metrics?: MetricsData
   type: 'cpu' | 'memory'
   limitLabel?: string // e.g., "Limit" or "Capacity"
   showPercentage?: boolean // Whether to show percentage in the display
+  mode?: 'usage' | 'request' | 'limit'
 }) {
   const metricValue =
     type === 'cpu' ? metrics?.cpuUsage || 0 : metrics?.memoryUsage || 0
@@ -26,11 +28,21 @@ export function MetricCell({
 
   const formatValue = useCallback(
     (val?: number) => {
-      if (val === undefined || val === null) return '-'
-      return type === 'cpu' ? `${val}m` : formatMemory(val)
+      if (val === undefined || val === null || val === 0) {
+        if (mode !== 'usage' && (val === undefined || val === null)) return '-'
+        if (val === 0 && mode === 'usage') return '0'
+        if (val === 0) return '-'
+      }
+      return type === 'cpu' ? `${val}m` : formatMemory(val as number)
     },
-    [type]
+    [type, mode]
   )
+
+  const displayValue = useMemo(() => {
+    if (mode === 'usage') return metricValue
+    if (mode === 'request') return metricRequest
+    return metricLimit
+  }, [mode, metricValue, metricRequest, metricLimit])
 
   return useMemo(() => {
     const percentage = metricLimit
@@ -86,8 +98,8 @@ export function MetricCell({
         <span
           className={`${type === 'cpu' ? 'w-[4ch]' : 'w-[10ch]'} text-right inline-block text-xs text-muted-foreground whitespace-nowrap tabular-nums`}
         >
-          {formatValue(metricValue)}
-          {showPercentage && metricLimit && metricValue > 0 && (
+          {formatValue(displayValue)}
+          {mode === 'usage' && showPercentage && metricLimit && metricValue > 0 && (
             <span className="hidden 2xl:inline text-[10px] opacity-70">
               ({percentage.toFixed(0)}%)
             </span>
@@ -100,6 +112,8 @@ export function MetricCell({
     metricValue,
     metricRequest,
     formatValue,
+    displayValue,
+    mode,
     limitLabel,
     type,
     showPercentage,

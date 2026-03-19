@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { Pod } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
@@ -16,11 +16,42 @@ import {
 import { MetricCell } from '@/components/metrics-cell'
 import { PodStatusIcon } from '@/components/pod-status-icon'
 import { ResourceTable } from '@/components/resource-table'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 export function PodListPage() {
   const { t } = useTranslation()
+  const [metricMode, setMetricMode] = useState<'usage' | 'request' | 'limit'>(
+    'usage'
+  )
+
   // Define column helper outside of any hooks
   const columnHelper = createColumnHelper<PodWithMetrics>()
+
+  const MetricModeSelector = useMemo(
+    () => (
+      <ToggleGroup
+        type="single"
+        value={metricMode}
+        onValueChange={(value) => {
+          if (value) setMetricMode(value as 'usage' | 'request' | 'limit')
+        }}
+        variant="outline"
+        size="sm"
+        className="bg-background"
+      >
+        <ToggleGroupItem value="usage" className="px-3">
+          Usage
+        </ToggleGroupItem>
+        <ToggleGroupItem value="request" className="px-3">
+          Request
+        </ToggleGroupItem>
+        <ToggleGroupItem value="limit" className="px-3">
+          Limit
+        </ToggleGroupItem>
+      </ToggleGroup>
+    ),
+    [metricMode]
+  )
 
   // Define columns for the pod table - moved outside render cycle for better performance
   const columns = useMemo(
@@ -80,14 +111,22 @@ export function PodListPage() {
         id: 'cpu',
         header: 'CPU',
         cell: ({ row }) => (
-          <MetricCell metrics={row.original.metrics} type="cpu" />
+          <MetricCell
+            metrics={row.original.metrics}
+            type="cpu"
+            mode={metricMode}
+          />
         ),
       }),
       columnHelper.accessor((row) => row.metrics?.memoryUsage || 0, {
         id: 'memory',
         header: 'Memory',
         cell: ({ row }) => (
-          <MetricCell metrics={row.original.metrics} type="memory" />
+          <MetricCell
+            metrics={row.original.metrics}
+            type="memory"
+            mode={metricMode}
+          />
         ),
       }),
       columnHelper.accessor((row) => row.status?.podIP, {
@@ -137,7 +176,7 @@ export function PodListPage() {
         },
       }),
     ],
-    [columnHelper, t]
+    [columnHelper, t, metricMode]
   )
 
   // Custom filter for pod search
@@ -155,6 +194,7 @@ export function PodListPage() {
       columns={columns}
       clusterScope={false}
       searchQueryFilter={podSearchFilter}
+      extraToolbars={[MetricModeSelector]}
     />
   )
 }
