@@ -80,14 +80,22 @@ export function PodListPage() {
         id: 'cpu',
         header: 'CPU',
         cell: ({ row }) => (
-          <MetricCell metrics={row.original.metrics} type="cpu" />
+          <MetricCell
+            metrics={row.original.metrics}
+            type="cpu"
+            showPercentage={true}
+          />
         ),
       }),
       columnHelper.accessor((row) => row.metrics?.memoryUsage || 0, {
         id: 'memory',
         header: 'Memory',
         cell: ({ row }) => (
-          <MetricCell metrics={row.original.metrics} type="memory" />
+          <MetricCell
+            metrics={row.original.metrics}
+            type="memory"
+            showPercentage={true}
+          />
         ),
       }),
       columnHelper.accessor((row) => row.status?.podIP, {

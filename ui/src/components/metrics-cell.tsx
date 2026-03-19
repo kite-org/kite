@@ -84,11 +84,17 @@ export function MetricCell({
           </TooltipContent>
         </Tooltip>
         <span
-          className={`${type === 'cpu' ? 'w-[4ch]' : 'w-[10ch]'} text-right inline-block text-xs text-muted-foreground whitespace-nowrap tabular-nums`}
+          className={`${type === 'cpu' ? 'min-w-[4ch]' : 'min-w-[10ch]'} text-right inline-block text-xs text-muted-foreground whitespace-nowrap tabular-nums`}
         >
           {formatValue(metricValue)}
+          {metricLimit && (
+            <>
+              <span className="opacity-30 mx-1">/</span>
+              <span className="opacity-70">{formatValue(metricLimit)}</span>
+            </>
+          )}
           {showPercentage && metricLimit && metricValue > 0 && (
-            <span className="hidden 2xl:inline text-[10px] opacity-70">
+            <span className="hidden xl:inline text-[10px] opacity-50 ml-1">
               ({percentage.toFixed(0)}%)
             </span>
           )}
