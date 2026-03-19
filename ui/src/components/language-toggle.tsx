@@ -11,6 +11,7 @@ import {
 
 const languages = [
   { code: 'en', name: 'English' },
+  { code: 'es', name: 'Español' },
   { code: 'zh', name: '中文' },
 ]
 
