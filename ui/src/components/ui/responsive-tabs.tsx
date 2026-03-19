@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { cn } from '@/lib/utils'
@@ -33,27 +32,28 @@ export function ResponsiveTabs({
 }: ResponsiveTabsProps) {
   const isMobile = useIsMobile()
   const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const value = tabs.some((tab) => tab.value === tabParam)
+    ? tabParam!
+    : tabs[0]?.value || ''
 
-  const [value, onValueChange] = useState(
-    searchParams.get('tab') || tabs[0]?.value || ''
-  )
-
-  useEffect(() => {
+  const handleValueChange = (nextValue: string) => {
     setSearchParams(
       (prev) => {
-        prev.set('tab', value)
-        return prev
+        const nextParams = new URLSearchParams(prev)
+        nextParams.set('tab', nextValue)
+        return nextParams
       },
       { replace: true }
     )
-  }, [setSearchParams, value])
+  }
 
   const currentTab = tabs.find((tab) => tab.value === value)
 
   if (isMobile) {
     return (
       <div className={cn('space-y-4', className)}>
-        <Select value={value} onValueChange={onValueChange}>
+        <Select value={value} onValueChange={handleValueChange}>
           <SelectTrigger className="w-full">
             <SelectValue>{currentTab?.label || 'Select tab'}</SelectValue>
           </SelectTrigger>
@@ -72,7 +72,11 @@ export function ResponsiveTabs({
   }
 
   return (
-    <Tabs value={value} onValueChange={onValueChange} className={className}>
+    <Tabs
+      value={value}
+      onValueChange={handleValueChange}
+      className={className}
+    >
       <TabsList
         className={cn(
           '**:data-[slot=badge]:bg-muted-foreground/30 **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1',

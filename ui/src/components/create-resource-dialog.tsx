@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { IconLoader2 } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -33,18 +33,23 @@ export function CreateResourceDialog({
   open,
   onOpenChange,
 }: CreateResourceDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {open ? (
+        <CreateResourceDialogContent onOpenChange={onOpenChange} />
+      ) : null}
+    </Dialog>
+  )
+}
+
+function CreateResourceDialogContent({
+  onOpenChange,
+}: Omit<CreateResourceDialogProps, 'open'>) {
   const { t } = useTranslation()
   const { data: templates = [] } = useTemplates()
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const [yamlContent, setYamlContent] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-
-  useEffect(() => {
-    if (open) {
-      setYamlContent('')
-      setSelectedTemplateId('')
-    }
-  }, [open])
 
   const handleTemplateChange = (templateName: string) => {
     if (templateName === 'empty') {
@@ -85,71 +90,69 @@ export function CreateResourceDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-4xl sm:!max-w-4xl max-h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Create Resource</DialogTitle>
-          <DialogDescription>
-            Paste any Kubernetes resource YAML configuration and apply it to the
-            cluster
-          </DialogDescription>
-        </DialogHeader>
+    <DialogContent className="!max-w-4xl sm:!max-w-4xl max-h-[80vh] flex flex-col">
+      <DialogHeader>
+        <DialogTitle>Create Resource</DialogTitle>
+        <DialogDescription>
+          Paste any Kubernetes resource YAML configuration and apply it to the
+          cluster
+        </DialogDescription>
+      </DialogHeader>
 
-        <div className="flex-1 space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="template">Template</Label>
-            <Select
-              value={selectedTemplateId || 'empty'}
-              onValueChange={handleTemplateChange}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={t(
-                    'createResource.selectTemplate',
-                    'Select a template'
-                  )}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="empty">
-                  {t('createResource.emptyTemplate', 'Empty Template')}
-                </SelectItem>
-                {templates.map((template) => (
-                  <SelectItem key={template.name} value={template.name}>
-                    {template.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="yaml">YAML Configuration</Label>
-            <div className="min-h-[300px] border rounded-md">
-              <SimpleYamlEditor
-                value={yamlContent}
-                onChange={(value) => setYamlContent(value || '')}
-                height="400px"
+      <div className="flex-1 space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="template">Template</Label>
+          <Select
+            value={selectedTemplateId || 'empty'}
+            onValueChange={handleTemplateChange}
+          >
+            <SelectTrigger>
+              <SelectValue
+                placeholder={t(
+                  'createResource.selectTemplate',
+                  'Select a template'
+                )}
               />
-            </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="empty">
+                {t('createResource.emptyTemplate', 'Empty Template')}
+              </SelectItem>
+              {templates.map((template) => (
+                <SelectItem key={template.name} value={template.name}>
+                  {template.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="yaml">YAML Configuration</Label>
+          <div className="min-h-[300px] border rounded-md">
+            <SimpleYamlEditor
+              value={yamlContent}
+              onChange={(value) => setYamlContent(value || '')}
+              height="400px"
+            />
           </div>
         </div>
+      </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={handleCancel} disabled={isLoading}>
-            Cancel
-          </Button>
-          <Button onClick={handleApply} disabled={isLoading || !yamlContent}>
-            {isLoading ? (
-              <>
-                <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
-                {t('common.applying', 'Applying...')}
-              </>
-            ) : (
-              t('common.apply', 'Apply')
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <DialogFooter>
+        <Button variant="outline" onClick={handleCancel} disabled={isLoading}>
+          Cancel
+        </Button>
+        <Button onClick={handleApply} disabled={isLoading || !yamlContent}>
+          {isLoading ? (
+            <>
+              <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+              {t('common.applying', 'Applying...')}
+            </>
+          ) : (
+            t('common.apply', 'Apply')
+          )}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
   )
 }

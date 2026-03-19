@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
-import Editor from '@monaco-editor/react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { IconCheck, IconEdit, IconLoader, IconX } from '@tabler/icons-react'
-import { formatHex } from 'culori'
 import * as yaml from 'js-yaml'
-import { editor as monacoEditor } from 'monaco-editor'
+import type { editor as monacoEditor } from 'monaco-editor'
 
 import { ResourceType, ResourceTypeMap } from '@/types/api'
+import { MonacoEditor } from '@/lib/monaco-loader'
+import {
+  defineMonacoBackgroundThemes,
+  useMonacoBackgroundColor,
+} from '@/lib/monaco-theme'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -52,16 +55,12 @@ export function YamlEditor<T extends ResourceType>({
   const { actualTheme, colorTheme } = useAppearance()
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)
   const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  const getCardBackgroundColor = () => {
-    const card = getComputedStyle(document.documentElement)
-      .getPropertyValue('--card')
-      .trim()
-    if (!card) {
-      return actualTheme === 'dark' ? '#18181b' : '#ffffff'
-    }
-    return formatHex(card) || (actualTheme === 'dark' ? '#18181b' : '#ffffff')
-  }
+  const themeMode = actualTheme === 'dark' ? 'dark' : 'light'
+  const backgroundColor = useMonacoBackgroundColor(
+    '--card',
+    themeMode,
+    colorTheme
+  )
 
   // Update editor value when value prop changes
   useEffect(() => {
@@ -191,69 +190,63 @@ export function YamlEditor<T extends ResourceType>({
             </div>
           )}
           <div className="overflow-hidden h-[calc(100dvh-300px)]">
-            <Editor
-              key={`yaml-editor-${colorTheme}-${actualTheme}`} // Force remount on theme change
-              language="yaml"
-              theme={
-                actualTheme === 'dark'
-                  ? `custom-dark-${colorTheme}`
-                  : `custom-vs-${colorTheme}`
+            <Suspense
+              fallback={
+                <div className="flex h-full items-center justify-center text-muted-foreground">
+                  Loading editor...
+                </div>
               }
-              value={editorValue}
-              beforeMount={(monaco) => {
-                const cardBgColor = getCardBackgroundColor()
-                monaco.editor.defineTheme(`custom-dark-${colorTheme}`, {
-                  base: 'vs-dark',
-                  inherit: true,
-                  rules: [],
-                  colors: {
-                    'editor.background': cardBgColor,
-                  },
-                })
-                monaco.editor.defineTheme(`custom-vs-${colorTheme}`, {
-                  base: 'vs',
-                  inherit: true,
-                  rules: [],
-                  colors: {
-                    'editor.background': cardBgColor,
-                  },
-                })
-              }}
-              onChange={handleEditorChange}
-              onMount={handleEditorDidMount}
-              options={{
-                readOnly: effectiveReadOnly,
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                wordWrap: 'on',
-                lineNumbers: 'on',
-                folding: true,
-                renderLineHighlight: effectiveReadOnly ? 'none' : 'line',
-                tabSize: 2,
-                insertSpaces: true,
-                fontSize: 14,
-                fontFamily:
-                  "'Maple Mono',Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace",
-                acceptSuggestionOnCommitCharacter: false,
-                acceptSuggestionOnEnter: 'off',
-                quickSuggestions: false,
-                suggestOnTriggerCharacters: false,
-                wordBasedSuggestions: 'off',
-                // Disable unnecessary features for YAML editing
-                parameterHints: { enabled: false },
-                hover: { enabled: false },
-                contextmenu: false,
-                // Better scrolling behavior
-                smoothScrolling: true,
-                cursorSmoothCaretAnimation: 'on',
-                multiCursorModifier: 'alt',
-                accessibilitySupport: 'off',
-                quickSuggestionsDelay: 500,
-                links: false,
-                colorDecorators: false,
-              }}
-            />
+            >
+              <MonacoEditor
+                key={`yaml-editor-${colorTheme}-${actualTheme}-${backgroundColor}`}
+                language="yaml"
+                theme={
+                  actualTheme === 'dark'
+                    ? `custom-dark-${colorTheme}`
+                    : `custom-vs-${colorTheme}`
+                }
+                value={editorValue}
+                beforeMount={(monaco) => {
+                  defineMonacoBackgroundThemes(monaco, {
+                    darkThemeName: `custom-dark-${colorTheme}`,
+                    lightThemeName: `custom-vs-${colorTheme}`,
+                    backgroundColor,
+                  })
+                }}
+                onChange={handleEditorChange}
+                onMount={handleEditorDidMount}
+                options={{
+                  readOnly: effectiveReadOnly,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  wordWrap: 'on',
+                  lineNumbers: 'on',
+                  folding: true,
+                  renderLineHighlight: effectiveReadOnly ? 'none' : 'line',
+                  tabSize: 2,
+                  insertSpaces: true,
+                  fontSize: 14,
+                  fontFamily:
+                    "'Maple Mono',Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace",
+                  acceptSuggestionOnCommitCharacter: false,
+                  acceptSuggestionOnEnter: 'off',
+                  quickSuggestions: false,
+                  suggestOnTriggerCharacters: false,
+                  wordBasedSuggestions: 'off',
+                  parameterHints: { enabled: false },
+                  hover: { enabled: false },
+                  contextmenu: false,
+                  smoothScrolling: true,
+                  cursorSmoothCaretAnimation: 'on',
+                  multiCursorModifier: 'alt',
+                  accessibilitySupport: 'off',
+                  quickSuggestionsDelay: 500,
+                  links: false,
+                  colorDecorators: false,
+                }}
+              />
+            </Suspense>
           </div>
         </div>
       </CardContent>

@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { RotateCcw, ShieldX, XCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -21,21 +20,14 @@ export function ErrorMessage({
   fallbackKey = 'common.error',
 }: ErrorMessageProps) {
   const { t } = useTranslation()
-  const [isRBAC, setIsRBAC] = useState(false)
-  const [message, setMessage] = useState('')
-
-  useEffect(() => {
-    if (error instanceof Error) {
-      setIsRBAC(isRBACError(error.message))
-      setMessage(translateError(error, t))
-    } else {
-      setMessage(t(fallbackKey))
-    }
-  }, [error, t, fallbackKey])
 
   if (!error) {
     return null
   }
+
+  const isRBAC = error instanceof Error && isRBACError(error.message)
+  const message =
+    error instanceof Error ? translateError(error, t) : t(fallbackKey)
 
   return (
     <div className="h-72 flex flex-col items-center justify-center">

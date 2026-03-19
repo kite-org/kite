@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   IconCheck,
   IconKey,
@@ -26,14 +26,9 @@ interface SettingsHintProps {
 
 export function SettingsHint({ onDismiss }: SettingsHintProps) {
   const { t } = useTranslation()
-  const [isDismissed, setIsDismissed] = useState(false)
-
-  useEffect(() => {
-    const dismissed = localStorage.getItem('settings-hint-dismissed')
-    if (dismissed === 'true') {
-      setIsDismissed(true)
-    }
-  }, [])
+  const [isDismissed, setIsDismissed] = useState(
+    () => localStorage.getItem('settings-hint-dismissed') === 'true'
+  )
 
   const { data: clusters = [] } = useClusterList()
   const { data: oauthProviders = [] } = useOAuthProviderList()

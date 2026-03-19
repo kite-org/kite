@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { useTerminal } from '@/contexts/terminal-context'
 import { Plus, Settings, TerminalSquare } from 'lucide-react'
@@ -10,12 +10,23 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 
-import { CreateResourceDialog } from './create-resource-dialog'
 import { DynamicBreadcrumb } from './dynamic-breadcrumb'
 import { LanguageToggle } from './language-toggle'
 import { ModeToggle } from './mode-toggle'
 import { Search } from './search'
 import { UserMenu } from './user-menu'
+
+const dialogModules = import.meta.glob(['./create-resource-dialog.tsx'])
+
+const CreateResourceDialog = lazy(async () => {
+  const module = (await dialogModules[
+    './create-resource-dialog.tsx'
+  ]()) as typeof import('./create-resource-dialog')
+
+  return {
+    default: module.CreateResourceDialog,
+  }
+})
 
 export function SiteHeader() {
   const isMobile = useIsMobile()
@@ -86,10 +97,14 @@ export function SiteHeader() {
         </div>
       </header>
 
-      <CreateResourceDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-      />
+      {createDialogOpen ? (
+        <Suspense fallback={null}>
+          <CreateResourceDialog
+            open={createDialogOpen}
+            onOpenChange={setCreateDialogOpen}
+          />
+        </Suspense>
+      ) : null}
     </>
   )
 }

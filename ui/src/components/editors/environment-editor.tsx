@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   Container,
   EnvFromSource,
@@ -32,13 +32,10 @@ export function EnvironmentEditor({
   namespace,
   onUpdate,
 }: EnvironmentEditorProps) {
-  const [envVars, setEnvVars] = useState<EnvVar[]>([])
-  const [envFromSources, setEnvFromSources] = useState<EnvFromSource[]>([])
-
-  useEffect(() => {
-    setEnvVars(container.env || [])
-    setEnvFromSources(container.envFrom || [])
-  }, [container.env, container.envFrom])
+  const [envVars, setEnvVars] = useState<EnvVar[]>(() => container.env || [])
+  const [envFromSources, setEnvFromSources] = useState<EnvFromSource[]>(
+    () => container.envFrom || []
+  )
 
   const addEnvVar = () => {
     const newEnvVars = [...envVars, { name: '', value: '' }]

@@ -1,12 +1,11 @@
 import './App.css'
 
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Outlet, useSearchParams } from 'react-router-dom'
 
 import { AIChatbox } from './components/ai-chat/ai-chatbox'
 import { AppSidebar } from './components/app-sidebar'
-import { FloatingTerminal } from './components/floating-terminal'
 import { GlobalSearch } from './components/global-search'
 import {
   GlobalSearchProvider,
@@ -17,9 +16,19 @@ import { SidebarInset, SidebarProvider } from './components/ui/sidebar'
 import { Toaster } from './components/ui/sonner'
 import { AIChatProvider } from './contexts/ai-chat-context'
 import { ClusterProvider } from './contexts/cluster-context'
-import { TerminalProvider } from './contexts/terminal-context'
+import { TerminalProvider, useTerminal } from './contexts/terminal-context'
 import { useCluster } from './hooks/use-cluster'
 import { apiClient } from './lib/api-client'
+
+const appModules = import.meta.glob(['./components/floating-terminal.tsx'])
+
+const FloatingTerminal = lazy(async () => {
+  const module = (await appModules[
+    './components/floating-terminal.tsx'
+  ]()) as typeof import('./components/floating-terminal')
+
+  return { default: module.FloatingTerminal }
+})
 
 function ClusterAwareApp() {
   const { t } = useTranslation()
@@ -57,6 +66,7 @@ function ClusterAwareApp() {
 
 function AppContent() {
   const { isOpen, closeSearch } = useGlobalSearch()
+  const { isOpen: isTerminalOpen } = useTerminal()
   const [searchParams] = useSearchParams()
   const isIframe = searchParams.get('iframe') === 'true'
 
@@ -80,7 +90,11 @@ function AppContent() {
         </SidebarInset>
       </SidebarProvider>
       <GlobalSearch open={isOpen} onOpenChange={closeSearch} />
-      <FloatingTerminal />
+      {isTerminalOpen ? (
+        <Suspense fallback={null}>
+          <FloatingTerminal />
+        </Suspense>
+      ) : null}
       <AIChatbox />
       <Toaster />
     </>

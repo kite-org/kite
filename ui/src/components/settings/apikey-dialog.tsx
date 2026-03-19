@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -26,16 +26,27 @@ export function APIKeyDialog({
   onSubmit,
   isLoading,
 }: APIKeyDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {open ? (
+        <APIKeyDialogContent
+          onOpenChange={onOpenChange}
+          onSubmit={onSubmit}
+          isLoading={isLoading}
+        />
+      ) : null}
+    </Dialog>
+  )
+}
+
+function APIKeyDialogContent({
+  onOpenChange,
+  onSubmit,
+  isLoading,
+}: Omit<APIKeyDialogProps, 'open'>) {
   const { t } = useTranslation()
   const [name, setName] = useState('')
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    if (!open) {
-      setName('')
-      setError('')
-    }
-  }, [open])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,58 +60,56 @@ export function APIKeyDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {t('apikeyManagement.dialog.title', 'Create API Key')}
-          </DialogTitle>
-          <DialogDescription>
-            {t(
-              'apikeyManagement.dialog.description',
-              'Create a new API key for programmatic access.'
-            )}
-          </DialogDescription>
-        </DialogHeader>
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>
+          {t('apikeyManagement.dialog.title', 'Create API Key')}
+        </DialogTitle>
+        <DialogDescription>
+          {t(
+            'apikeyManagement.dialog.description',
+            'Create a new API key for programmatic access.'
+          )}
+        </DialogDescription>
+      </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">
-                {t('apikeyManagement.dialog.name', 'Name')}
-              </Label>
-              <Input
-                id="name"
-                placeholder={t(
-                  'apikeyManagement.dialog.namePlaceholder',
-                  'e.g., CI API Key'
-                )}
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value)
-                  setError('')
-                }}
-              />
-              {error && <p className="text-sm text-destructive">{error}</p>}
-            </div>
+      <form onSubmit={handleSubmit}>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">
+              {t('apikeyManagement.dialog.name', 'Name')}
+            </Label>
+            <Input
+              id="name"
+              placeholder={t(
+                'apikeyManagement.dialog.namePlaceholder',
+                'e.g., CI API Key'
+              )}
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value)
+                setError('')
+              }}
+            />
+            {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
+        </div>
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              {t('common.cancel', 'Cancel')}
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading
-                ? t('common.creating', 'Creating...')
-                : t('common.create', 'Create')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
+            {t('common.cancel', 'Cancel')}
+          </Button>
+          <Button type="submit" disabled={isLoading}>
+            {isLoading
+              ? t('common.creating', 'Creating...')
+              : t('common.create', 'Create')}
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
   )
 }

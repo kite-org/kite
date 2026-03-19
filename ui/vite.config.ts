@@ -23,7 +23,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          monaco: ['monaco-editor'],
           lodash: ['lodash'],
           recharts: ['recharts'],
         },

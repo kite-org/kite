@@ -1,5 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Editor, { OnMount } from '@monaco-editor/react'
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import type { OnMount } from '@monaco-editor/react'
 import {
   IconClearAll,
   IconDownload,
@@ -23,6 +30,8 @@ import {
 } from '@/lib/ansi-parser'
 import { useLogsWebSocket } from '@/lib/api'
 import { toSimpleContainer } from '@/lib/k8s'
+import { MonacoEditor } from '@/lib/monaco-loader'
+import { defineMonacoLogThemes } from '@/lib/monaco-theme'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -61,6 +70,12 @@ interface LogViewerProps {
   initContainers?: Container[]
   onClose?: () => void
 }
+
+const ANSI_CSS = generateAnsiCss()
+const TERMINAL_THEME_KEYS = Object.keys(TERMINAL_THEMES) as TerminalTheme[]
+const TERMINAL_THEME_ENTRIES = Object.entries(TERMINAL_THEMES) as Array<
+  [TerminalTheme, (typeof TERMINAL_THEMES)[TerminalTheme]]
+>
 
 export function LogViewer({
   namespace,
@@ -117,10 +132,29 @@ export function LogViewer({
   const [logCount, setLogCount] = useState(0) // Track log count for re-rendering
   const ansiStateRef = useRef<AnsiState>({})
   const decorationIdsRef = useRef<string[]>([])
+  const normalizedFilterTermRef = useRef('')
+  const pendingLogsRef = useRef<string[]>([])
+  const sortedPods = useMemo(() => {
+    if (!pods) {
+      return undefined
+    }
+
+    return [...pods].sort((a, b) =>
+      (a.metadata?.creationTimestamp || 0) >
+      (b.metadata?.creationTimestamp || 0)
+        ? -1
+        : 1
+    )
+  }, [pods])
+  const currentTheme = TERMINAL_THEMES[logTheme]
 
   const [selectPodName, setSelectPodName] = useState<string | undefined>(
     podName || pods?.[0]?.metadata?.name || undefined
   )
+
+  useEffect(() => {
+    normalizedFilterTermRef.current = filterTerm.toLocaleLowerCase()
+  }, [filterTerm])
 
   useEffect(() => {
     if (podName) {
@@ -168,122 +202,141 @@ export function LogViewer({
 
   // Quick theme cycling function
   const cycleTheme = useCallback(() => {
-    const themes = Object.keys(TERMINAL_THEMES) as TerminalTheme[]
-    const currentIndex = themes.indexOf(logTheme)
-    const nextIndex = (currentIndex + 1) % themes.length
-    handleThemeChange(themes[nextIndex])
+    const currentIndex = TERMINAL_THEME_KEYS.indexOf(logTheme)
+    const nextIndex = (currentIndex + 1) % TERMINAL_THEME_KEYS.length
+    handleThemeChange(TERMINAL_THEME_KEYS[nextIndex])
   }, [logTheme, handleThemeChange])
 
-  // Handle editor mount
-  const handleEditorMount: OnMount = useCallback((editor) => {
-    editorRef.current = editor
+  const writeLogToEditor = useCallback((log: string) => {
+    if (!editorRef.current) {
+      pendingLogsRef.current.push(log)
+      return
+    }
 
-    // Configure search widget
-    editor.updateOptions({
-      find: {
-        addExtraSpaceOnTop: false,
-        autoFindInSelection: 'never',
-        seedSearchStringFromSelection: 'never',
+    const model = editorRef.current.getModel()
+    if (!model) {
+      pendingLogsRef.current.push(log)
+      return
+    }
+
+    const { segments, finalState } = parseAnsi(log, ansiStateRef.current)
+    ansiStateRef.current = finalState
+
+    const plainText = segments.map((s) => s.text).join('')
+
+    if (normalizedFilterTermRef.current) {
+      if (
+        !plainText.toLocaleLowerCase().includes(normalizedFilterTermRef.current)
+      ) {
+        return
+      }
+    }
+
+    const lineCount = model.getLineCount()
+    const lineMaxColumn = model.getLineMaxColumn(lineCount)
+    const prefix = model.getValueLength() === 0 ? '' : '\n'
+
+    const textToInsert = `${prefix}${plainText}`
+    model.applyEdits([
+      {
+        range: {
+          startColumn: lineMaxColumn,
+          endColumn: lineMaxColumn,
+          startLineNumber: lineCount,
+          endLineNumber: lineCount,
+        },
+        text: textToInsert,
+        forceMoveMarkers: true,
       },
+    ])
+
+    const newDecorations: editor.IModelDeltaDecoration[] = []
+
+    // Starting position for decorations
+    let currentLine = lineCount
+    let currentColumn = lineMaxColumn
+
+    if (prefix === '\n') {
+      currentLine++
+      currentColumn = 1
+    }
+
+    segments.forEach((segment) => {
+      const lines = segment.text.split('\n')
+      const endLine = currentLine + lines.length - 1
+      const endColumn =
+        lines.length === 1
+          ? currentColumn + lines[0].length
+          : lines[lines.length - 1].length + 1
+
+      const className = getAnsiClassNames(segment.styles)
+      if (className) {
+        newDecorations.push({
+          range: {
+            startLineNumber: currentLine,
+            startColumn: currentColumn,
+            endLineNumber: endLine,
+            endColumn: endColumn,
+          },
+          options: {
+            inlineClassName: className,
+          },
+        })
+      }
+
+      currentLine = endLine
+      currentColumn = endColumn
     })
+
+    if (newDecorations.length > 0) {
+      const newIds = model.deltaDecorations([], newDecorations)
+      decorationIdsRef.current.push(...newIds)
+    }
+
+    const visibleRange = editorRef.current.getVisibleRanges()[0]
+    if (visibleRange?.endLineNumber + 2 >= lineCount) {
+      editorRef.current.revealLine(model.getLineCount())
+      setShowScrollToBottom(false)
+    } else {
+      setShowScrollToBottom(true)
+    }
+
+    setLogCount((count) => count + 1)
   }, [])
+
+  // Handle editor mount
+  const handleEditorMount: OnMount = useCallback(
+    (editor) => {
+      editorRef.current = editor
+
+      // Configure search widget
+      editor.updateOptions({
+        find: {
+          addExtraSpaceOnTop: false,
+          autoFindInSelection: 'never',
+          seedSearchStringFromSelection: 'never',
+        },
+      })
+
+      const pendingLogs = pendingLogsRef.current
+      pendingLogsRef.current = []
+      pendingLogs.forEach((log) => writeLogToEditor(log))
+    },
+    [writeLogToEditor]
+  )
 
   const appendLog = useCallback(
     (log: string) => {
-      setLogCount((count) => count + 1)
-
-      const { segments, finalState } = parseAnsi(log, ansiStateRef.current)
-      ansiStateRef.current = finalState
-
-      const plainText = segments.map((s) => s.text).join('')
-
-      if (filterTerm) {
-        if (!plainText.toLocaleLowerCase().includes(filterTerm.toLowerCase())) {
-          return
-        }
-      }
-
-      if (editorRef.current) {
-        const model = editorRef.current.getModel()
-        if (model) {
-          const lineCount = model.getLineCount()
-          const lineMaxColumn = model.getLineMaxColumn(lineCount)
-          const prefix = model.getValueLength() === 0 ? '' : '\n'
-
-          const textToInsert = `${prefix}${plainText}`
-          model.applyEdits([
-            {
-              range: {
-                startColumn: lineMaxColumn,
-                endColumn: lineMaxColumn,
-                startLineNumber: lineCount,
-                endLineNumber: lineCount,
-              },
-              text: textToInsert,
-              forceMoveMarkers: true,
-            },
-          ])
-
-          const newDecorations: editor.IModelDeltaDecoration[] = []
-
-          // Starting position for decorations
-          let currentLine = lineCount
-          let currentColumn = lineMaxColumn
-
-          if (prefix === '\n') {
-            currentLine++
-            currentColumn = 1
-          }
-
-          segments.forEach((segment) => {
-            const lines = segment.text.split('\n')
-            const endLine = currentLine + lines.length - 1
-            const endColumn =
-              lines.length === 1
-                ? currentColumn + lines[0].length
-                : lines[lines.length - 1].length + 1
-
-            const className = getAnsiClassNames(segment.styles)
-            if (className) {
-              newDecorations.push({
-                range: {
-                  startLineNumber: currentLine,
-                  startColumn: currentColumn,
-                  endLineNumber: endLine,
-                  endColumn: endColumn,
-                },
-                options: {
-                  inlineClassName: className,
-                },
-              })
-            }
-
-            currentLine = endLine
-            currentColumn = endColumn
-          })
-
-          if (newDecorations.length > 0) {
-            const newIds = model.deltaDecorations([], newDecorations)
-            decorationIdsRef.current.push(...newIds)
-          }
-
-          const visibleRange = editorRef.current.getVisibleRanges()[0]
-          if (visibleRange?.endLineNumber + 2 >= lineCount) {
-            editorRef.current.revealLine(model.getLineCount())
-            setShowScrollToBottom(false)
-          } else {
-            setShowScrollToBottom(true)
-          }
-        }
-      }
+      writeLogToEditor(log)
     },
-    [filterTerm]
+    [writeLogToEditor]
   )
 
   const cleanLog = useCallback(() => {
     setLogCount(0)
     ansiStateRef.current = {}
     decorationIdsRef.current = []
+    pendingLogsRef.current = []
     if (editorRef.current) {
       const model = editorRef.current.getModel()
       if (model) {
@@ -446,20 +499,13 @@ export function LogViewer({
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [
-    filterTerm,
-    isFullscreen,
-    toggleFullscreen,
-    fontSize,
-    handleFontSizeChange,
-    toggleWordWrap,
-  ])
+  }, [toggleFullscreen, fontSize, handleFontSizeChange, toggleWordWrap])
 
   return (
     <Card
       className={`h-full flex flex-col py-4 gap-0 ${isFullscreen ? 'fixed inset-0 z-50 m-0 rounded-none' : ''} ${wordWrap ? 'whitespace-pre-wrap' : 'whitespace-pre'} `}
     >
-      <style>{generateAnsiCss()}</style>
+      <style>{ANSI_CSS}</style>
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -506,14 +552,9 @@ export function LogViewer({
             )}
 
             {/* Pod Selector */}
-            {pods && (
+            {sortedPods && (
               <PodSelector
-                pods={pods.sort((a, b) =>
-                  (a.metadata?.creationTimestamp || 0) >
-                  (b.metadata?.creationTimestamp || 0)
-                    ? -1
-                    : 1
-                )}
+                pods={sortedPods}
                 showAllOption={true}
                 selectedPod={selectPodName}
                 onPodChange={(v) => setSelectPodName(v || '_all')}
@@ -525,14 +566,14 @@ export function LogViewer({
               variant="outline"
               size="sm"
               onClick={cycleTheme}
-              title={`Current theme: ${TERMINAL_THEMES[logTheme].name}`}
+              title={`Current theme: ${currentTheme.name}`}
               className="relative"
             >
               <IconPalette className="h-4 w-4" />
               <div
                 className="absolute -top-1 -right-1 w-3 h-3 rounded-full border border-gray-400"
                 style={{
-                  backgroundColor: TERMINAL_THEMES[logTheme].background,
+                  backgroundColor: currentTheme.background,
                 }}
               ></div>
             </Button>
@@ -616,15 +657,13 @@ export function LogViewer({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {Object.entries(TERMINAL_THEMES).map(
-                            ([key, theme]) => (
-                              <SelectItem key={key} value={key}>
-                                <div className="flex items-center gap-2">
-                                  {theme.name}
-                                </div>
-                              </SelectItem>
-                            )
-                          )}
+                          {TERMINAL_THEME_ENTRIES.map(([key, theme]) => (
+                            <SelectItem key={key} value={key}>
+                              <div className="flex items-center gap-2">
+                                {theme.name}
+                              </div>
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -755,62 +794,58 @@ export function LogViewer({
       </CardHeader>
 
       <CardContent className="flex-1 p-0 relative">
-        <Editor
-          height={isFullscreen ? 'calc(100dvh - 60px)' : 'calc(100dvh - 255px)'}
-          theme={`log-theme-${logTheme}`}
-          beforeMount={(monaco) => {
-            // Define custom themes for each log theme
-            Object.entries(TERMINAL_THEMES).forEach(([key, theme]) => {
-              monaco.editor.defineTheme(`log-theme-${key}`, {
-                base: key === 'github' ? 'vs' : 'vs-dark',
-                inherit: true,
-                rules: [
-                  { token: '', foreground: theme.foreground.replace('#', '') },
-                ],
-                colors: {
-                  'editor.background': theme.background,
-                  'editor.foreground': theme.foreground,
-                  'editorCursor.foreground': theme.cursor,
-                  'editor.selectionBackground': theme.selection,
-                  'editor.lineHighlightBackground': theme.selection,
-                },
-              })
-            })
-          }}
-          onMount={handleEditorMount}
-          options={{
-            readOnly: true,
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            fontSize: fontSize,
-            wordWrap: wordWrap ? 'on' : 'off',
-            lineHeight: 1.7,
-            insertSpaces: true,
-            fontFamily:
-              "'Maple Mono',Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace",
-            lineNumbers: showLineNumbers ? 'on' : 'off',
-            glyphMargin: false,
-            folding: false,
-            renderLineHighlight: 'gutter',
-            scrollbar: {
-              vertical: 'visible',
-              horizontal: 'visible',
-              useShadows: false,
-              verticalScrollbarSize: 10,
-              horizontalScrollbarSize: 10,
-            },
-            overviewRulerLanes: 0,
-            hideCursorInOverviewRuler: true,
-            overviewRulerBorder: false,
-            automaticLayout: true,
-            colorDecorators: false,
-          }}
-          loading={
-            <div className="flex items-center justify-center h-full">
+        <Suspense
+          fallback={
+            <div
+              className="flex h-full items-center justify-center"
+              style={{
+                height: isFullscreen
+                  ? 'calc(100dvh - 60px)'
+                  : 'calc(100dvh - 255px)',
+              }}
+            >
               <div className="text-center opacity-60">Loading editor...</div>
             </div>
           }
-        />
+        >
+          <MonacoEditor
+            height={
+              isFullscreen ? 'calc(100dvh - 60px)' : 'calc(100dvh - 255px)'
+            }
+            theme={`log-theme-${logTheme}`}
+            beforeMount={(monaco) => {
+              defineMonacoLogThemes(monaco)
+            }}
+            onMount={handleEditorMount}
+            options={{
+              readOnly: true,
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+              fontSize,
+              wordWrap: wordWrap ? 'on' : 'off',
+              lineHeight: 1.7,
+              insertSpaces: true,
+              fontFamily:
+                "'Maple Mono',Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace",
+              lineNumbers: showLineNumbers ? 'on' : 'off',
+              glyphMargin: false,
+              folding: false,
+              renderLineHighlight: 'gutter',
+              scrollbar: {
+                vertical: 'visible',
+                horizontal: 'visible',
+                useShadows: false,
+                verticalScrollbarSize: 10,
+                horizontalScrollbarSize: 10,
+              },
+              overviewRulerLanes: 0,
+              hideCursorInOverviewRuler: true,
+              overviewRulerBorder: false,
+              automaticLayout: true,
+              colorDecorators: false,
+            }}
+          />
+        </Suspense>
         {showScrollToBottom && (
           <div
             className={`absolute bottom-4 right-4 shadow-lg z-10  ml-auto w-fit animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ${
