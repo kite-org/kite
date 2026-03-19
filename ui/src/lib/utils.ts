@@ -91,6 +91,7 @@ export function formatBytes(bytes: number): string {
 }
 
 export function parseBytes(capacity: string): number {
+  if (!capacity) return 0
   const units: { [key: string]: number } = {
     Ki: 1024,
     Mi: 1024 ** 2,
@@ -98,15 +99,29 @@ export function parseBytes(capacity: string): number {
     Ti: 1024 ** 4,
     Pi: 1024 ** 5,
     Ei: 1024 ** 6,
+    K: 1000,
+    M: 1000 ** 2,
+    G: 1000 ** 3,
+    T: 1000 ** 4,
+    P: 1000 ** 5,
+    E: 1000 ** 6,
   }
 
-  const match = capacity.match(/^(\d+)([KMGTP]i)?$/)
+  const match = capacity.match(/^(\d+(?:\.\d+)?)([KMGTP]i|[KMGTP])?$/)
   if (match) {
-    const value = parseInt(match[1], 10)
+    const value = parseFloat(match[1])
     const unit = match[2]
-    return unit ? value * units[unit] : value
+    return unit ? Math.floor(value * units[unit]) : Math.floor(value)
   }
-  return parseInt(capacity, 10)
+  return parseInt(capacity, 10) || 0
+}
+
+export function parseCPU(cpu: string): number {
+  if (!cpu) return 0
+  if (cpu.endsWith('m')) {
+    return parseInt(cpu.slice(0, -1), 10)
+  }
+  return Math.floor(parseFloat(cpu) * 1000)
 }
 
 // Format CPU cores

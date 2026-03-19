@@ -5,7 +5,7 @@ import { ObjectMeta } from 'kubernetes-types/meta/v1'
 import { clusterScopeResources, ResourceType } from '@/types/api'
 import { DeploymentStatusType, PodStatus, SimpleContainer } from '@/types/k8s'
 
-import { getAge } from './utils'
+import { parseBytes, parseCPU, getAge } from './utils'
 
 // This function retrieves the status of a Pod in Kubernetes.
 // @see https://github.com/kubernetes/kubernetes/blob/master/pkg/printers/internalversion/printers.go#L881
@@ -406,4 +406,31 @@ export function toSimpleContainer(
       init: true,
     })),
   ]
+}
+
+export function getPodResources(pod: Pod) {
+  let cpuRequest = 0
+  let cpuLimit = 0
+  let memoryRequest = 0
+  let memoryLimit = 0
+
+  pod.spec?.containers?.forEach((container) => {
+    const requests = container.resources?.requests
+    const limits = container.resources?.limits
+
+    if (requests?.cpu) {
+      cpuRequest += parseCPU(requests.cpu)
+    }
+    if (limits?.cpu) {
+      cpuLimit += parseCPU(limits.cpu)
+    }
+    if (requests?.memory) {
+      memoryRequest += parseBytes(requests.memory)
+    }
+    if (limits?.memory) {
+      memoryLimit += parseBytes(limits.memory)
+    }
+  })
+
+  return { cpuRequest, cpuLimit, memoryRequest, memoryLimit }
 }

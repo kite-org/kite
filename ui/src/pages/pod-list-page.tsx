@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
 import { PodWithMetrics } from '@/types/api'
-import { getPodStatus } from '@/lib/k8s'
+import { getPodStatus, getPodResources } from '@/lib/k8s'
 import { formatDate, getAge } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -110,24 +110,30 @@ export function PodListPage() {
       columnHelper.accessor((row) => row.metrics?.cpuUsage || 0, {
         id: 'cpu',
         header: 'CPU',
-        cell: ({ row }) => (
-          <MetricCell
-            metrics={row.original.metrics}
-            type="cpu"
-            mode={metricMode}
-          />
-        ),
+        cell: ({ row }) => {
+          const metrics = { ...row.original.metrics }
+          const resources = getPodResources(row.original)
+          metrics.cpuRequest = metrics.cpuRequest || resources.cpuRequest
+          metrics.cpuLimit = metrics.cpuLimit || resources.cpuLimit
+
+          return (
+            <MetricCell metrics={metrics} type="cpu" mode={metricMode} />
+          )
+        },
       }),
       columnHelper.accessor((row) => row.metrics?.memoryUsage || 0, {
         id: 'memory',
         header: 'Memory',
-        cell: ({ row }) => (
-          <MetricCell
-            metrics={row.original.metrics}
-            type="memory"
-            mode={metricMode}
-          />
-        ),
+        cell: ({ row }) => {
+          const metrics = { ...row.original.metrics }
+          const resources = getPodResources(row.original)
+          metrics.memoryRequest = metrics.memoryRequest || resources.memoryRequest
+          metrics.memoryLimit = metrics.memoryLimit || resources.memoryLimit
+
+          return (
+            <MetricCell metrics={metrics} type="memory" mode={metricMode} />
+          )
+        },
       }),
       columnHelper.accessor((row) => row.status?.podIP, {
         id: 'podIP',
