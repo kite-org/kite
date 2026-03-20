@@ -201,6 +201,7 @@ export function PodListPage() {
       clusterScope={false}
       searchQueryFilter={podSearchFilter}
       extraToolbars={[MetricModeSelector]}
+      reduce={false}
     />
   )
 }

@@ -45,18 +45,33 @@ export function MetricCell({
   }, [mode, metricValue, metricRequest, metricLimit])
 
   return useMemo(() => {
-    const percentage = metricLimit
-      ? Math.min((metricValue / metricLimit) * 100, 100)
-      : 0
+    const barPercentage = (() => {
+      const limit = metricLimit || 0
+      if (limit === 0) return 0
+      if (mode === 'request')
+        return Math.min(((metricRequest || 0) / limit) * 100, 100)
+      if (mode === 'limit') return 100
+      return Math.min((metricValue / limit) * 100, 100)
+    })()
 
-    const requestPercentage =
-      metricRequest && metricLimit
-        ? Math.min((metricRequest / metricLimit) * 100, 100)
-        : 0
+    const markerPercentage = (() => {
+      const limit = metricLimit || 0
+      if (limit === 0) return null
+      // In usage mode, marker is request
+      if (mode === 'usage')
+        return metricRequest ? (metricRequest / limit) * 100 : null
+      // In request mode, marker is usage
+      if (mode === 'request') return (metricValue / limit) * 100
+      // In limit mode, marker is usage
+      if (mode === 'limit') return (metricValue / limit) * 100
+      return null
+    })()
 
     const getProgressColor = () => {
-      if (percentage > 90) return 'bg-red-500'
-      if (percentage > 60) return 'bg-yellow-500'
+      if (mode === 'limit') return 'bg-muted-foreground opacity-30'
+      if (mode === 'request') return 'bg-green-500/80'
+      if (barPercentage > 90) return 'bg-red-500'
+      if (barPercentage > 60) return 'bg-yellow-500'
       return 'bg-blue-500'
     }
 
@@ -68,18 +83,18 @@ export function MetricCell({
               <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                 <div
                   className={`h-2 rounded-full transition-all duration-300 ${getProgressColor()}`}
-                  style={{ width: `${percentage}%` }}
+                  style={{ width: `${barPercentage}%` }}
                 />
               </div>
-              {metricRequest && metricLimit && (
+              {markerPercentage !== null && (
                 <div
-                  className="absolute -top-0.5 h-3 flex items-center justify-center"
+                  className="absolute -top-0.5 h-3 flex items-center justify-center pointer-events-none"
                   style={{
-                    left: `${requestPercentage}%`,
+                    left: `${markerPercentage}%`,
                     transform: 'translateX(-50%)',
                   }}
                 >
-                  <div className="w-0.5 h-3 bg-muted-foreground dark:bg-gray-400 rounded-sm shadow-sm"></div>
+                  <div className="w-0.5 h-3 bg-foreground/50 dark:bg-white/50 rounded-sm shadow-sm"></div>
                 </div>
               )}
             </div>
@@ -101,7 +116,7 @@ export function MetricCell({
           {formatValue(displayValue)}
           {mode === 'usage' && showPercentage && metricLimit && metricValue > 0 && (
             <span className="hidden 2xl:inline text-[10px] opacity-70">
-              ({percentage.toFixed(0)}%)
+              ({barPercentage.toFixed(0)}%)
             </span>
           )}
         </span>

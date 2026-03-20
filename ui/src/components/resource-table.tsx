@@ -74,6 +74,7 @@ export interface ResourceTableProps<T> {
   onCreateClick?: () => void // Callback for create button click
   extraToolbars?: React.ReactNode[] // Additional toolbar components
   defaultHiddenColumns?: string[] // Columns to hide by default
+  reduce?: boolean // If true, fetch reduced data for performance
 }
 
 export function ResourceTable<T>({
@@ -86,6 +87,7 @@ export function ResourceTable<T>({
   onCreateClick,
   extraToolbars = [],
   defaultHiddenColumns = [],
+  reduce = true,
 }: ResourceTableProps<T>) {
   const { t } = useTranslation()
   const [sorting, setSorting] = useState<SortingState>([])
@@ -156,7 +158,7 @@ export function ResourceTable<T>({
     effectiveNamespace,
     {
       refreshInterval: useSSE ? 0 : refreshInterval, // disable polling when SSE
-      reduce: true, // Fetch reduced data for performance
+      reduce: reduce, // Fetch reduced data for performance
       disable: useSSE, // do not query when using SSE
     }
   )
@@ -173,7 +175,7 @@ export function ResourceTable<T>({
     (resourceType ??
       (resourceName.toLowerCase() as ResourceType)) as ResourceType,
     effectiveNamespace,
-    { reduce: true, enabled: useSSE }
+    { reduce: reduce, enabled: useSSE }
   )
 
   useEffect(() => {
