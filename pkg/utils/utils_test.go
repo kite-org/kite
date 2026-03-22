@@ -1,10 +1,49 @@
 package utils
 
 import (
+	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/validation"
 )
+
+func TestInjectKiteBase(t *testing.T) {
+	html := `<html><head><link rel="modulepreload" href="__KITE_ASSET_BASE__/assets/index.js"><script type="module" src="__KITE_ASSET_BASE__/assets/main.js"></script></head></html>`
+
+	t.Run("subpath", func(t *testing.T) {
+		got := InjectKiteBase(html, "/kite")
+
+		if strings.Contains(got, "__KITE_ASSET_BASE__") {
+			t.Fatalf("placeholder should be replaced: %s", got)
+		}
+		if strings.Contains(got, "<base ") {
+			t.Fatalf("base tag should not be injected anymore: %s", got)
+		}
+		if !strings.Contains(got, `href="/kite/assets/index.js"`) {
+			t.Fatalf("expected asset href to include subpath: %s", got)
+		}
+		if !strings.Contains(got, `src="/kite/assets/main.js"`) {
+			t.Fatalf("expected asset src to include subpath: %s", got)
+		}
+		if !strings.Contains(got, `<script>window.__dynamic_base__="/kite";</script>`) {
+			t.Fatalf("expected runtime base script: %s", got)
+		}
+	})
+
+	t.Run("root", func(t *testing.T) {
+		got := InjectKiteBase(html, "")
+
+		if !strings.Contains(got, `href="/assets/index.js"`) {
+			t.Fatalf("expected root asset href: %s", got)
+		}
+		if !strings.Contains(got, `src="/assets/main.js"`) {
+			t.Fatalf("expected root asset src: %s", got)
+		}
+		if !strings.Contains(got, `<script>window.__dynamic_base__="";</script>`) {
+			t.Fatalf("expected empty runtime base script: %s", got)
+		}
+	})
+}
 
 func TestGetImageRegistryAndRepo(t *testing.T) {
 	testcase := []struct {

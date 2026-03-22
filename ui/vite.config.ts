@@ -1,32 +1,67 @@
+import { readFileSync, writeFileSync } from 'fs'
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
-import { dynamicBase } from 'vite-plugin-dynamic-base'
+import { defineConfig, type Plugin } from 'vite'
 
-const devBase = process.env.KITE_BASE || ''
+const devSubPath = process.env.KITE_BASE?.replace(/\/$/, '') || ''
+const runtimeAssetBasePlaceholder = '__KITE_ASSET_BASE__'
 
-export default defineConfig({
-  base: process.env.NODE_ENV === 'production' ? '/__dynamic_base__/' : devBase,
-  plugins: [
-    dynamicBase({
-      publicPath: 'window.__dynamic_base__',
-      transformIndexHtml: true,
-    }),
-    react(),
-    tailwindcss(),
-  ],
+function getDevBase() {
+  return devSubPath ? `${devSubPath}/` : '/'
+}
+
+function getManualChunk(id: string) {
+  const normalizedId = id.replaceAll('\\', '/')
+
+  if (normalizedId.includes('/node_modules/recharts/')) {
+    return 'recharts'
+  }
+
+  if (normalizedId.includes('/node_modules/lodash/')) {
+    return 'lodash'
+  }
+
+  return undefined
+}
+
+function runtimeBaseHtmlPlugin(): Plugin {
+  let buildOutDir = ''
+
+  return {
+    name: 'kite-runtime-base-html',
+    apply: 'build',
+    configResolved(config) {
+      buildOutDir = path.resolve(config.root, config.build.outDir)
+    },
+    closeBundle() {
+      const indexHtmlPath = path.join(buildOutDir, 'index.html')
+      const html = readFileSync(indexHtmlPath, 'utf8')
+
+      // Make the first HTML-loaded assets runtime-base aware without relying on <base href>.
+      const nextHtml = html.replaceAll(
+        /((?:href|src)=["'])\.\/assets\//g,
+        `$1${runtimeAssetBasePlaceholder}/assets/`
+      )
+
+      if (nextHtml !== html) {
+        writeFileSync(indexHtmlPath, nextHtml)
+      }
+    },
+  }
+}
+
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? './' : getDevBase(),
+  plugins: [react(), tailwindcss(), runtimeBaseHtmlPlugin()],
   envPrefix: ['VITE_', 'KITE_'],
   build: {
     outDir: '../static',
     emptyOutDir: true,
     chunkSizeWarningLimit: 3000,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks: {
-          recharts: ['recharts'],
-          lodash: ['lodash'],
-        },
+        manualChunks: getManualChunk,
       },
     },
   },
@@ -35,7 +70,7 @@ export default defineConfig({
       ignored: ['**/.vscode/**'],
     },
     proxy: {
-      [devBase + '/api/']: {
+      [devSubPath + '/api/']: {
         changeOrigin: true,
         target: 'http://localhost:8080',
       },
@@ -57,4 +92,4 @@ export default defineConfig({
   define: {
     global: 'globalThis',
   },
-})
+}))
