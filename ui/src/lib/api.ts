@@ -1744,7 +1744,7 @@ export interface APIKeyCreateRequest {
 
 export interface GeneralSetting {
   aiAgentEnabled: boolean
-  aiProvider: 'openai' | 'anthropic'
+  aiProvider: 'openai' | 'anthropic' | 'minimax'
   aiModel: string
   aiApiKey: string
   aiApiKeyConfigured: boolean
@@ -1759,7 +1759,7 @@ export interface GeneralSetting {
 
 export interface GeneralSettingUpdateRequest {
   aiAgentEnabled: boolean
-  aiProvider: 'openai' | 'anthropic'
+  aiProvider: 'openai' | 'anthropic' | 'minimax'
   aiModel: string
   aiApiKey?: string
   aiBaseUrl: string

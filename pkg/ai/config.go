@@ -28,10 +28,14 @@ func defaultModelForProvider(provider string) string {
 	return model.DefaultGeneralAIModelByProvider(provider)
 }
 
+const defaultMiniMaxBaseURL = "https://api.minimax.io/v1"
+
 func providerLabel(provider string) string {
 	switch provider {
 	case model.GeneralAIProviderAnthropic:
 		return "Anthropic"
+	case model.GeneralAIProviderMiniMax:
+		return "MiniMax"
 	default:
 		return "OpenAI"
 	}
@@ -103,4 +107,29 @@ func NewAnthropicClient(cfg *RuntimeConfig) (anthropic.Client, error) {
 	}
 
 	return anthropic.NewClient(opts...), nil
+}
+
+// NewMiniMaxClient creates an OpenAI-compatible client configured for the
+// MiniMax API (https://api.minimax.io/v1). MiniMax models are fully
+// compatible with the OpenAI chat completions format, so the standard
+// openai-go SDK is reused with MiniMax's base URL and API key.
+func NewMiniMaxClient(cfg *RuntimeConfig) (openai.Client, error) {
+	if cfg == nil || !cfg.Enabled {
+		return openai.Client{}, fmt.Errorf("AI is not enabled")
+	}
+	if normalizeProvider(cfg.Provider) != model.GeneralAIProviderMiniMax {
+		return openai.Client{}, fmt.Errorf("AI provider %s is not supported by MiniMax client", providerLabel(cfg.Provider))
+	}
+
+	opts := make([]openaioption.RequestOption, 0, 2)
+	if cfg.APIKey != "" {
+		opts = append(opts, openaioption.WithAPIKey(cfg.APIKey))
+	}
+	baseURL := cfg.BaseURL
+	if baseURL == "" {
+		baseURL = defaultMiniMaxBaseURL
+	}
+	opts = append(opts, openaioption.WithBaseURL(baseURL))
+
+	return openai.NewClient(opts...), nil
 }

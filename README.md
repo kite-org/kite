@@ -58,7 +58,7 @@ Kite is a lightweight, modern Kubernetes dashboard that unifies real-time observ
 - Live pod logs with filtering and search
 - Web terminal for pods and nodes
 - Built-in kubectl console.
-- AI assistant.
+- AI assistant with multi-provider support (OpenAI, Anthropic, [MiniMax](https://www.minimaxi.com)).
 
 ### Security
 

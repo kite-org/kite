@@ -26,6 +26,7 @@ import { Switch } from '@/components/ui/switch'
 
 const DEFAULT_MODEL = 'gpt-4o-mini'
 const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-5'
+const DEFAULT_MINIMAX_MODEL = 'MiniMax-M2.7'
 const DEFAULT_KUBECTL_IMAGE = 'zzde/kubectl:latest'
 const DEFAULT_NODE_TERMINAL_IMAGE = 'busybox:latest'
 
@@ -88,7 +89,9 @@ export function GeneralManagement() {
     const defaultModel =
       formData.aiProvider === 'anthropic'
         ? DEFAULT_ANTHROPIC_MODEL
-        : DEFAULT_MODEL
+        : formData.aiProvider === 'minimax'
+          ? DEFAULT_MINIMAX_MODEL
+          : DEFAULT_MODEL
 
     if (formData.aiAgentEnabled && !formData.aiModel.trim()) {
       toast.error(
@@ -198,14 +201,18 @@ export function GeneralManagement() {
                 </Label>
                 <Select
                   value={formData.aiProvider}
-                  onValueChange={(value: 'openai' | 'anthropic') =>
+                  onValueChange={(
+                    value: 'openai' | 'anthropic' | 'minimax'
+                  ) =>
                     setFormData((prev) => ({
                       ...prev,
                       aiProvider: value,
                       aiModel:
                         value === 'anthropic'
                           ? prev.aiModel || DEFAULT_ANTHROPIC_MODEL
-                          : prev.aiModel || DEFAULT_MODEL,
+                          : value === 'minimax'
+                            ? prev.aiModel || DEFAULT_MINIMAX_MODEL
+                            : prev.aiModel || DEFAULT_MODEL,
                     }))
                   }
                 >
@@ -223,6 +230,12 @@ export function GeneralManagement() {
                       {t(
                         'generalManagement.aiAgent.form.providers.anthropic',
                         'Anthropic Compatible'
+                      )}
+                    </SelectItem>
+                    <SelectItem value="minimax">
+                      {t(
+                        'generalManagement.aiAgent.form.providers.minimax',
+                        'MiniMax'
                       )}
                     </SelectItem>
                   </SelectContent>
@@ -245,7 +258,9 @@ export function GeneralManagement() {
                   placeholder={
                     formData.aiProvider === 'anthropic'
                       ? DEFAULT_ANTHROPIC_MODEL
-                      : DEFAULT_MODEL
+                      : formData.aiProvider === 'minimax'
+                        ? DEFAULT_MINIMAX_MODEL
+                        : DEFAULT_MODEL
                   }
                 />
               </div>
@@ -291,7 +306,9 @@ export function GeneralManagement() {
                   placeholder={
                     formData.aiProvider === 'anthropic'
                       ? 'https://api.anthropic.com'
-                      : 'https://api.openai.com/v1'
+                      : formData.aiProvider === 'minimax'
+                        ? 'https://api.minimax.io/v1'
+                        : 'https://api.openai.com/v1'
                   }
                 />
               </div>

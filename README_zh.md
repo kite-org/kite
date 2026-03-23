@@ -58,7 +58,7 @@ Kite是一款轻量级、现代化的Kubernetes仪表板工具，它将实时可
 - 支持过滤和搜索的实时 Pod 日志
 - 面向 Pod 和 Node 的 Web 终端
 - 内置 kubectl 控制台
-- AI 助手
+- AI 助手，支持多种 AI 供应商（OpenAI、Anthropic、[MiniMax](https://www.minimaxi.com)）
 
 ### 安全
 

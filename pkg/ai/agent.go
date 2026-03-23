@@ -140,6 +140,12 @@ func NewAgent(cs *cluster.ClientSet, cfg *RuntimeConfig) (*Agent, error) {
 			return nil, err
 		}
 		agent.anthropicClient = client
+	case model.GeneralAIProviderMiniMax:
+		client, err := NewMiniMaxClient(cfg)
+		if err != nil {
+			return nil, err
+		}
+		agent.openaiClient = client
 	default:
 		client, err := NewOpenAIClient(cfg)
 		if err != nil {
@@ -290,6 +296,7 @@ func buildContextualSystemPrompt(pageCtx *PageContext, runtimeCtx runtimePromptC
 }
 
 // ProcessChat runs the AI conversation loop and sends SSE events via the callback.
+// MiniMax uses an OpenAI-compatible API, so it shares the OpenAI code path.
 func (a *Agent) ProcessChat(c *gin.Context, req *ChatRequest, sendEvent func(SSEEvent)) {
 	switch a.provider {
 	case model.GeneralAIProviderAnthropic:

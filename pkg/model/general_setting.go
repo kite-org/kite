@@ -10,11 +10,13 @@ import (
 
 const DefaultGeneralAIModel = "gpt-4o-mini"
 const DefaultGeneralAnthropicModel = "claude-sonnet-4-5"
+const DefaultGeneralMiniMaxModel = "MiniMax-M2.7"
 const DefaultGeneralKubectlImage = "zzde/kubectl:latest"
 const DefaultGeneralNodeTerminalImage = "busybox:latest"
 
 const GeneralAIProviderOpenAI = "openai"
 const GeneralAIProviderAnthropic = "anthropic"
+const GeneralAIProviderMiniMax = "minimax"
 const DefaultGeneralAIProvider = GeneralAIProviderOpenAI
 
 func DefaultGeneralNodeTerminalImageValue() string {
@@ -44,6 +46,8 @@ func NormalizeGeneralAIProvider(provider string) string {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
 	case GeneralAIProviderAnthropic:
 		return GeneralAIProviderAnthropic
+	case GeneralAIProviderMiniMax:
+		return GeneralAIProviderMiniMax
 	default:
 		return GeneralAIProviderOpenAI
 	}
@@ -51,13 +55,17 @@ func NormalizeGeneralAIProvider(provider string) string {
 
 func IsGeneralAIProviderSupported(provider string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(provider))
-	return normalized == GeneralAIProviderOpenAI || normalized == GeneralAIProviderAnthropic
+	return normalized == GeneralAIProviderOpenAI ||
+		normalized == GeneralAIProviderAnthropic ||
+		normalized == GeneralAIProviderMiniMax
 }
 
 func DefaultGeneralAIModelByProvider(provider string) string {
 	switch NormalizeGeneralAIProvider(provider) {
 	case GeneralAIProviderAnthropic:
 		return DefaultGeneralAnthropicModel
+	case GeneralAIProviderMiniMax:
+		return DefaultGeneralMiniMaxModel
 	default:
 		return DefaultGeneralAIModel
 	}
