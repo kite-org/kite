@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import {
-  GeneralSetting,
   GeneralSettingUpdateRequest,
   updateGeneralSetting,
   useGeneralSetting,
@@ -29,11 +28,26 @@ const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-5'
 const DEFAULT_KUBECTL_IMAGE = 'zzde/kubectl:latest'
 const DEFAULT_NODE_TERMINAL_IMAGE = 'busybox:latest'
 
+interface GeneralSettingsFormData {
+  aiAgentEnabled: boolean
+  aiProvider: 'openai' | 'anthropic'
+  aiModel: string
+  aiApiKey: string
+  aiApiKeyConfigured: boolean
+  aiBaseUrl: string
+  aiMaxTokens: number
+  kubectlEnabled: boolean
+  kubectlImage: string
+  nodeTerminalImage: string
+  enableAnalytics: boolean
+  enableVersionCheck: boolean
+}
+
 export function GeneralManagement() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { data, isLoading } = useGeneralSetting()
-  const [formData, setFormData] = useState<GeneralSetting>({
+  const [formData, setFormData] = useState<GeneralSettingsFormData>({
     aiAgentEnabled: false,
     aiProvider: 'openai',
     aiModel: DEFAULT_MODEL,

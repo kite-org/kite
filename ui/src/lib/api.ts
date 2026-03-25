@@ -1758,17 +1758,56 @@ export interface GeneralSetting {
 }
 
 export interface GeneralSettingUpdateRequest {
-  aiAgentEnabled: boolean
-  aiProvider: 'openai' | 'anthropic'
-  aiModel: string
+  aiAgentEnabled?: boolean
+  aiProvider?: 'openai' | 'anthropic'
+  aiModel?: string
   aiApiKey?: string
-  aiBaseUrl: string
-  aiMaxTokens: number
-  kubectlEnabled: boolean
-  kubectlImage: string
-  nodeTerminalImage: string
-  enableAnalytics: boolean
-  enableVersionCheck: boolean
+  aiBaseUrl?: string
+  aiMaxTokens?: number
+  kubectlEnabled?: boolean
+  kubectlImage?: string
+  nodeTerminalImage?: string
+  enableAnalytics?: boolean
+  enableVersionCheck?: boolean
+}
+
+export type CredentialProvider = 'password' | 'ldap'
+
+export interface AuthProviderCatalog {
+  providers: string[]
+  credentialProviders: CredentialProvider[]
+  oauthProviders: string[]
+}
+
+export interface LDAPSetting {
+  enabled: boolean
+  serverUrl: string
+  useStartTLS: boolean
+  bindDn: string
+  bindPassword: string
+  bindPasswordConfigured: boolean
+  userBaseDn: string
+  userFilter: string
+  usernameAttribute: string
+  displayNameAttribute: string
+  groupBaseDn: string
+  groupFilter: string
+  groupNameAttribute: string
+}
+
+export interface LDAPSettingUpdateRequest {
+  enabled: boolean
+  serverUrl: string
+  useStartTLS: boolean
+  bindDn: string
+  bindPassword?: string
+  userBaseDn: string
+  userFilter: string
+  usernameAttribute: string
+  displayNameAttribute: string
+  groupBaseDn: string
+  groupFilter: string
+  groupNameAttribute: string
 }
 
 export const fetchGeneralSetting = async (): Promise<GeneralSetting> => {
@@ -1791,6 +1830,28 @@ export const updateGeneralSetting = async (
   data: GeneralSettingUpdateRequest
 ): Promise<GeneralSetting> => {
   return await apiClient.put<GeneralSetting>('/admin/general-setting/', data)
+}
+
+export const fetchLDAPSetting = async (): Promise<LDAPSetting> => {
+  return fetchAPI<LDAPSetting>('/admin/ldap-setting/')
+}
+
+export const useLDAPSetting = (options?: {
+  staleTime?: number
+  enabled?: boolean
+}) => {
+  return useQuery({
+    queryKey: ['ldap-setting'],
+    queryFn: fetchLDAPSetting,
+    enabled: options?.enabled ?? true,
+    staleTime: options?.staleTime || 30000,
+  })
+}
+
+export const updateLDAPSetting = async (
+  data: LDAPSettingUpdateRequest
+): Promise<LDAPSetting> => {
+  return await apiClient.put<LDAPSetting>('/admin/ldap-setting/', data)
 }
 
 export const fetchAPIKeyList = async (): Promise<APIKey[]> => {

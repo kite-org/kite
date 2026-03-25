@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	expirable "github.com/hashicorp/golang-lru/v2/expirable"
@@ -248,6 +249,80 @@ func CheckPassword(hashedPassword, plainPassword string) bool {
 	return utils.CheckPasswordHash(plainPassword, hashedPassword)
 }
 
+func UpsertLDAPUser(user *User) (*User, error) {
+	if user == nil {
+		return nil, errors.New("user is nil")
+	}
+
+	user.Username = strings.TrimSpace(user.Username)
+	if user.Username == "" {
+		return nil, errors.New("username is empty")
+	}
+
+	now := time.Now()
+	user.Provider = AuthProviderLDAP
+	user.Password = ""
+	user.LastLoginAt = &now
+
+	var existingUser User
+	if err := DB.Where("username = ?", user.Username).First(&existingUser).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			user.Enabled = true
+			if strings.TrimSpace(user.Name) == "" {
+				user.Name = user.Username
+			}
+			err = DB.Create(user).Error
+			if err == nil {
+				InvalidateUserCache(uint64(user.ID))
+				return user, nil
+			}
+			if !isUniqueConstraintError(err) {
+				return nil, err
+			}
+			if err := DB.Where("username = ?", user.Username).First(&existingUser).Error; err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+	}
+
+	if existingUser.Provider != AuthProviderLDAP {
+		return nil, ErrUserProviderConflict
+	}
+
+	user.ID = existingUser.ID
+	user.CreatedAt = existingUser.CreatedAt
+	user.Enabled = existingUser.Enabled
+	user.SidebarPreference = existingUser.SidebarPreference
+	user.Sub = existingUser.Sub
+	if strings.TrimSpace(user.Name) == "" {
+		user.Name = existingUser.Name
+	}
+	if strings.TrimSpace(user.AvatarURL) == "" {
+		user.AvatarURL = existingUser.AvatarURL
+	}
+
+	err := DB.Save(user).Error
+	if err == nil {
+		InvalidateUserCache(uint64(user.ID))
+	}
+	return user, err
+}
+
+func isUniqueConstraintError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return true
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "unique constraint failed") ||
+		strings.Contains(message, "duplicate key value") ||
+		strings.Contains(message, "duplicate entry")
+}
+
 func AddSuperUser(user *User) error {
 	if user == nil {
 		return errors.New("user is nil")
@@ -277,6 +352,8 @@ func ListAPIKeyUsers() (users []User, err error) {
 }
 
 var (
+	ErrUserProviderConflict = errors.New("user exists with different provider")
+
 	AnonymousUser = User{
 		Model: Model{
 			ID: 0,

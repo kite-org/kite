@@ -195,6 +195,11 @@
     "enterPassword": "Enter your password",
     "signingIn": "Signing in...",
     "signInWithPassword": "Sign In with Password",
+    "signInWithLdap": "Sign In with LDAP",
+    "tabs": {
+      "password": "Password",
+      "ldap": "LDAP"
+    },
     "orContinueWith": "Or continue with",
     "signInWith": "Sign in with {{provider}}",
     "tryAgainDifferentAccount": "Try Again with Different Account",
@@ -271,7 +276,7 @@
     "tabs": {
       "clusters": "Cluster",
       "general": "General",
-      "oauth": "OAuth",
+      "oauth": "Authentication",
       "rbac": "RBAC",
       "users": "User"
     }
@@ -322,6 +327,40 @@
       "updated": "General settings updated"
     }
   },
+  "authenticationManagement": {
+    "title": "Authentication",
+    "ldap": {
+      "title": "LDAP",
+      "description": "Enable LDAP username/password login and sync groups into RBAC.",
+      "form": {
+        "serverUrl": "Server URL",
+        "useStartTLS": "Use StartTLS",
+        "useStartTLSHint": "Enable StartTLS when using ldap:// endpoints.",
+        "bindDn": "Bind DN",
+        "bindPassword": "Bind Password",
+        "bindPasswordPlaceholder": "Leave empty to keep current bind password",
+        "userBaseDn": "User Base DN",
+        "userFilter": "User Filter",
+        "usernameAttribute": "Username Attribute",
+        "displayNameAttribute": "Display Name Attribute",
+        "groupBaseDn": "Group Base DN",
+        "groupFilter": "Group Filter",
+        "groupNameAttribute": "Group Name Attribute"
+      }
+    },
+    "errors": {
+      "serverUrlRequired": "LDAP server URL is required",
+      "bindDnRequired": "LDAP bind DN is required",
+      "bindPasswordRequired": "LDAP bind password is required",
+      "userBaseDnRequired": "LDAP user base DN is required",
+      "groupBaseDnRequired": "LDAP group base DN is required",
+      "userFilterPlaceholder": "LDAP user filter must contain exactly one %s",
+      "groupFilterPlaceholder": "LDAP group filter must contain exactly one %s"
+    },
+    "messages": {
+      "updated": "Authentication settings updated"
+    }
+  },
   "settingsHint": {
     "title": "Complete Your Setup",
     "description": "Configure essential settings to get the most out of Kite",
@@ -329,7 +368,7 @@
       "description": "Configure Prometheus"
     },
     "oauth": {
-      "description": "Set up OAuth providers for authentication"
+      "description": "Set up LDAP or OAuth authentication"
     },
     "rbac": {
       "description": "Configure roles and permissions"

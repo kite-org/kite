@@ -4,9 +4,9 @@ import { usePageTitle } from '@/hooks/use-page-title'
 import { ResponsiveTabs } from '@/components/ui/responsive-tabs'
 import { APIKeyManagement } from '@/components/settings/apikey-management'
 import { AuditLog } from '@/components/settings/audit-log'
+import { AuthenticationManagement } from '@/components/settings/authentication-management'
 import { ClusterManagement } from '@/components/settings/cluster-management'
 import { GeneralManagement } from '@/components/settings/general-management'
-import { OAuthProviderManagement } from '@/components/settings/oauth-provider-management'
 import { RBACManagement } from '@/components/settings/rbac-management'
 import { TemplateManagement } from '@/components/settings/template-management'
 import { UserManagement } from '@/components/settings/user-management'
@@ -41,8 +41,8 @@ export function SettingsPage() {
           },
           {
             value: 'oauth',
-            label: t('settings.tabs.oauth', 'OAuth'),
-            content: <OAuthProviderManagement />,
+            label: t('settings.tabs.oauth', 'Authentication'),
+            content: <AuthenticationManagement />,
           },
           {
             value: 'rbac',

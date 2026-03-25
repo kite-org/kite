@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -9,24 +11,44 @@ import (
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/rbac"
+	"gorm.io/gorm"
 	"k8s.io/klog/v2"
 )
 
 type AuthHandler struct {
 	manager *OAuthManager
+	ldap    *LDAPAuthenticator
 }
+
+type credentialAuthenticator func(username, password string) (*model.User, error)
+
+var errInvalidCredentials = errors.New("invalid credentials")
 
 func NewAuthHandler() *AuthHandler {
 	return &AuthHandler{
 		manager: NewOAuthManager(),
+		ldap:    NewLDAPAuthenticator(),
 	}
 }
 
 func (h *AuthHandler) GetProviders(c *gin.Context) {
-	providers := h.manager.GetAvailableProviders()
-	providers = append(providers, "password")
+	credentialProviders := []string{model.AuthProviderPassword}
+	oauthProviders := uniqueStrings(h.manager.GetAvailableProviders())
+
+	setting, err := model.GetLDAPSetting()
+	if err != nil {
+		klog.Warningf("Failed to load ldap setting for providers: %v", err)
+	} else if setting.Enabled {
+		credentialProviders = append(credentialProviders, model.AuthProviderLDAP)
+	}
+
+	credentialProviders = uniqueStrings(credentialProviders)
+	providers := append(append([]string{}, credentialProviders...), oauthProviders...)
+
 	c.JSON(http.StatusOK, gin.H{
-		"providers": providers,
+		"providers":           providers,
+		"credentialProviders": credentialProviders,
+		"oauthProviders":      oauthProviders,
 	})
 }
 
@@ -63,23 +85,42 @@ func (h *AuthHandler) Login(c *gin.Context) {
 }
 
 func (h *AuthHandler) PasswordLogin(c *gin.Context) {
+	h.handleCredentialLogin(c, model.AuthProviderPassword, h.authenticatePasswordUser)
+}
+
+func (h *AuthHandler) LDAPLogin(c *gin.Context) {
+	h.handleCredentialLogin(c, model.AuthProviderLDAP, h.authenticateAndSyncLDAPUser)
+}
+
+func (h *AuthHandler) handleCredentialLogin(c *gin.Context, provider string, authenticate credentialAuthenticator) {
 	var req common.PasswordLoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request payload"})
 		return
 	}
 
-	user, err := model.GetUserByUsername(req.Username)
+	username := strings.TrimSpace(req.Username)
+	if username == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request payload"})
+		return
+	}
+
+	user, err := authenticate(username, req.Password)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		errMsg := fmt.Sprintf("%s login failed for %s: %v", strings.ToUpper(provider), username, err)
+		klog.Warning(errMsg)
+		if isCredentialFailure(err) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": errMsg})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsg})
 		return
 	}
 
-	if !model.CheckPassword(user.Password, req.Password) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
-		return
-	}
+	h.completePasswordLikeLogin(c, user)
+}
 
+func (h *AuthHandler) completePasswordLikeLogin(c *gin.Context, user *model.User) {
 	if !user.Enabled {
 		c.JSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
 		return
@@ -105,6 +146,66 @@ func (h *AuthHandler) PasswordLogin(c *gin.Context) {
 	setCookieSecure(c, "auth_token", jwtToken, common.CookieExpirationSeconds)
 
 	c.Status(http.StatusNoContent)
+}
+
+func (h *AuthHandler) authenticateAndSyncLDAPUser(username, password string) (*model.User, error) {
+	setting, err := model.GetLDAPSetting()
+	if err != nil {
+		return nil, err
+	}
+
+	ldapUser, err := h.ldap.Authenticate(setting, username, password)
+	if err != nil {
+		return nil, err
+	}
+
+	syncedUser, err := model.UpsertLDAPUser(ldapUser)
+	if err != nil {
+		if errors.Is(err, model.ErrUserProviderConflict) {
+			return nil, ErrLDAPInvalidCredentials
+		}
+		return nil, err
+	}
+
+	return syncedUser, nil
+}
+
+func (h *AuthHandler) authenticatePasswordUser(username, password string) (*model.User, error) {
+	user, err := model.GetUserByUsername(username)
+	switch {
+	case err == nil:
+		if user.Provider != "" && user.Provider != model.AuthProviderPassword {
+			return nil, errInvalidCredentials
+		}
+		if !model.CheckPassword(user.Password, password) {
+			return nil, errInvalidCredentials
+		}
+		return user, nil
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		return nil, errInvalidCredentials
+	default:
+		return nil, err
+	}
+}
+
+func uniqueStrings(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	unique := make([]string, 0, len(values))
+	for _, value := range values {
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		unique = append(unique, value)
+	}
+	return unique
+}
+
+func isCredentialFailure(err error) bool {
+	return errors.Is(err, errInvalidCredentials) ||
+		errors.Is(err, ErrLDAPInvalidCredentials) ||
+		errors.Is(err, ErrLDAPDisabled) ||
+		errors.Is(err, ErrLDAPNotConfigured)
 }
 
 func (h *AuthHandler) Callback(c *gin.Context) {
@@ -418,6 +519,8 @@ func (h *AuthHandler) CreateOAuthProvider(c *gin.Context) {
 		return
 	}
 
+	provider.Name = model.LowerCaseString(model.NormalizeOAuthProviderName(string(provider.Name)))
+
 	// Validate required fields
 	if provider.Name == "" || provider.ClientID == "" || string(provider.ClientSecret) == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -425,8 +528,20 @@ func (h *AuthHandler) CreateOAuthProvider(c *gin.Context) {
 		})
 		return
 	}
+	if model.IsReservedOAuthProviderName(string(provider.Name)) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": model.ErrReservedOAuthProviderName.Error(),
+		})
+		return
+	}
 
 	if err := model.CreateOAuthProvider(&provider); err != nil {
+		if errors.Is(err, model.ErrReservedOAuthProviderName) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to create OAuth provider: " + err.Error(),
 		})
@@ -461,11 +576,18 @@ func (h *AuthHandler) UpdateOAuthProvider(c *gin.Context) {
 		return
 	}
 	provider.ID = uint(dbID)
+	provider.Name = model.LowerCaseString(model.NormalizeOAuthProviderName(string(provider.Name)))
 
 	// Validate required fields
 	if provider.Name == "" || provider.ClientID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Name and ClientID are required",
+		})
+		return
+	}
+	if model.IsReservedOAuthProviderName(string(provider.Name)) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": model.ErrReservedOAuthProviderName.Error(),
 		})
 		return
 	}
@@ -485,6 +607,12 @@ func (h *AuthHandler) UpdateOAuthProvider(c *gin.Context) {
 	}
 
 	if err := model.UpdateOAuthProvider(&provider, updates); err != nil {
+		if errors.Is(err, model.ErrReservedOAuthProviderName) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to update OAuth provider: " + err.Error(),
 		})

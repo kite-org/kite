@@ -1,6 +1,30 @@
 package model
 
-import "strings"
+import (
+	"errors"
+	"strings"
+)
+
+const AuthProviderPassword = "password"
+const AuthProviderLDAP = "ldap"
+
+const ReservedOAuthProviderNamePassword = AuthProviderPassword
+const ReservedOAuthProviderNameLDAP = AuthProviderLDAP
+
+var ErrReservedOAuthProviderName = errors.New("oauth provider names 'password' and 'ldap' are reserved for built-in credential providers")
+
+func NormalizeOAuthProviderName(name string) string {
+	return strings.ToLower(strings.TrimSpace(name))
+}
+
+func IsReservedOAuthProviderName(name string) bool {
+	switch NormalizeOAuthProviderName(name) {
+	case ReservedOAuthProviderNamePassword, ReservedOAuthProviderNameLDAP:
+		return true
+	default:
+		return false
+	}
+}
 
 type OAuthProvider struct {
 	Model
@@ -35,7 +59,7 @@ func GetEnabledOAuthProviders() ([]OAuthProvider, error) {
 // GetOAuthProviderByName returns an OAuth provider by name
 func GetOAuthProviderByName(name string) (OAuthProvider, error) {
 	var provider OAuthProvider
-	name = strings.ToLower(name)
+	name = NormalizeOAuthProviderName(name)
 	err := DB.Where("name = ? AND enabled = ?", name, true).First(&provider).Error
 	if err != nil {
 		return OAuthProvider{}, err
@@ -45,11 +69,24 @@ func GetOAuthProviderByName(name string) (OAuthProvider, error) {
 
 // CreateOAuthProvider creates a new OAuth provider
 func CreateOAuthProvider(provider *OAuthProvider) error {
+	if IsReservedOAuthProviderName(string(provider.Name)) {
+		return ErrReservedOAuthProviderName
+	}
 	return DB.Create(provider).Error
 }
 
 // UpdateOAuthProvider updates an existing OAuth provider
 func UpdateOAuthProvider(provider *OAuthProvider, updates map[string]interface{}) error {
+	name := string(provider.Name)
+	switch value := updates["name"].(type) {
+	case string:
+		name = value
+	case LowerCaseString:
+		name = string(value)
+	}
+	if IsReservedOAuthProviderName(name) {
+		return ErrReservedOAuthProviderName
+	}
 	return DB.Model(provider).Updates(updates).Error
 }
 

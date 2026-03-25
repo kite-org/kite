@@ -167,12 +167,12 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
             },
             {
               id: 'oauth',
-              title: t('settings.tabs.oauth', 'OAuth'),
+              title: t('settings.tabs.oauth', 'Authentication'),
               url: '/settings?tab=oauth',
               Icon: IconSettings,
               groupLabel: 'Settings',
               searchText:
-                `${t('settings.tabs.oauth', 'OAuth')} settings oauth admin`.toLowerCase(),
+                `${t('settings.tabs.oauth', 'Authentication')} settings authentication ldap oauth admin`.toLowerCase(),
               isPinned: false,
             },
             {

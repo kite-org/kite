@@ -1,9 +1,10 @@
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import Logo from '@/assets/icon.svg'
 import { useAuth } from '@/contexts/auth-context'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useSearchParams } from 'react-router-dom'
 
+import type { CredentialProvider } from '@/lib/api'
 import { withSubPath } from '@/lib/subpath'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -16,19 +17,39 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Footer } from '@/components/footer'
 import { LanguageToggle } from '@/components/language-toggle'
 
 export function LoginPage() {
   const { t } = useTranslation()
-  const { user, login, loginWithPassword, providers, isLoading } = useAuth()
+  const {
+    user,
+    login,
+    loginWithCredentials,
+    credentialProviders,
+    oauthProviders,
+    isLoading,
+  } = useAuth()
   const [searchParams] = useSearchParams()
   const [loginLoading, setLoginLoading] = useState<string | null>(null)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [credentialError, setCredentialError] = useState<string | null>(null)
+  const [credentialsProvider, setCredentialsProvider] =
+    useState<CredentialProvider>('password')
 
   const error = searchParams.get('error')
+  const totalProviders = credentialProviders.length + oauthProviders.length
+
+  useEffect(() => {
+    if (
+      credentialProviders.length > 0 &&
+      !credentialProviders.includes(credentialsProvider)
+    ) {
+      setCredentialsProvider(credentialProviders[0])
+    }
+  }, [credentialProviders, credentialsProvider])
 
   if (user && !isLoading) {
     return <Navigate to="/" replace />
@@ -44,26 +65,36 @@ export function LoginPage() {
     }
   }
 
-  const handlePasswordLogin = async (e: FormEvent) => {
+  const handleCredentialLogin = async (e: FormEvent) => {
     e.preventDefault()
-    setLoginLoading('password')
-    setPasswordError(null)
+    setLoginLoading(credentialsProvider)
+    setCredentialError(null)
     try {
-      await loginWithPassword(username, password)
+      await loginWithCredentials(credentialsProvider, username, password)
     } catch (err) {
       if (err instanceof Error) {
-        setPasswordError(
+        setCredentialError(
           t(`login.errors.${err.message}`, {
             defaultValue: err.message,
           }) || t('login.errors.invalidCredentials')
         )
       } else {
-        setPasswordError(t('login.errors.unknownError'))
+        setCredentialError(t('login.errors.unknownError'))
       }
     } finally {
       setLoginLoading(null)
     }
   }
+
+  const credentialTabLabel = {
+    password: t('login.tabs.password', 'Password'),
+    ldap: t('login.tabs.ldap', 'LDAP'),
+  } satisfies Record<CredentialProvider, string>
+
+  const credentialSubmitLabel = {
+    password: t('login.signInWithPassword', 'Sign In with Password'),
+    ldap: t('login.signInWithLdap', 'Sign In with LDAP'),
+  } satisfies Record<CredentialProvider, string>
 
   const getErrorMessage = (errorCode: string | null) => {
     if (!errorCode) return null
@@ -200,7 +231,7 @@ export function LoginPage() {
                 </div>
               )}
 
-              {providers.length === 0 ? (
+              {totalProviders === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-gray-600">{t('login.noLoginMethods')}</p>
                   <p className="text-sm text-gray-500 mt-2">
@@ -209,54 +240,91 @@ export function LoginPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {providers.includes('password') && (
-                    <form onSubmit={handlePasswordLogin} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="username">{t('login.username')}</Label>
-                        <Input
-                          id="username"
-                          type="text"
-                          placeholder={t('login.enterUsername')}
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="password">{t('login.password')}</Label>
-                        <Input
-                          id="password"
-                          type="password"
-                          placeholder={t('login.enterPassword')}
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          required
-                        />
-                      </div>
-                      {passwordError && (
-                        <Alert variant="destructive">
-                          <AlertDescription>{passwordError}</AlertDescription>
-                        </Alert>
+                  {credentialProviders.length > 0 && (
+                    <div className="space-y-4">
+                      {credentialProviders.length > 1 && (
+                        <Tabs
+                          value={credentialsProvider}
+                          onValueChange={(value) => {
+                            if (value === 'password' || value === 'ldap') {
+                              setCredentialsProvider(value)
+                              setCredentialError(null)
+                            }
+                          }}
+                        >
+                          <TabsList
+                            className={`grid w-full ${
+                              credentialProviders.length > 1
+                                ? 'grid-cols-2'
+                                : 'grid-cols-1'
+                            }`}
+                          >
+                            {credentialProviders.map((provider) => (
+                              <TabsTrigger key={provider} value={provider}>
+                                {credentialTabLabel[provider]}
+                              </TabsTrigger>
+                            ))}
+                          </TabsList>
+                        </Tabs>
                       )}
-                      <Button
-                        type="submit"
-                        disabled={loginLoading !== null}
-                        className="w-full"
+
+                      <form
+                        onSubmit={handleCredentialLogin}
+                        className="space-y-4"
                       >
-                        {loginLoading === 'password' ? (
-                          <div className="flex items-center space-x-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2"></div>
-                            <span>{t('login.signingIn')}</span>
-                          </div>
-                        ) : (
-                          t('login.signInWithPassword')
+                        <div className="space-y-2">
+                          <Label htmlFor="username">
+                            {t('login.username')}
+                          </Label>
+                          <Input
+                            id="username"
+                            type="text"
+                            placeholder={t('login.enterUsername')}
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="password">
+                            {t('login.password')}
+                          </Label>
+                          <Input
+                            id="password"
+                            type="password"
+                            placeholder={t('login.enterPassword')}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                          />
+                        </div>
+                        {credentialError && (
+                          <Alert variant="destructive">
+                            <AlertDescription>
+                              {credentialError}
+                            </AlertDescription>
+                          </Alert>
                         )}
-                      </Button>
-                    </form>
+                        <Button
+                          type="submit"
+                          disabled={loginLoading !== null}
+                          className="w-full"
+                        >
+                          {loginLoading === credentialsProvider ? (
+                            <div className="flex items-center space-x-2">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2"></div>
+                              <span>{t('login.signingIn')}</span>
+                            </div>
+                          ) : (
+                            credentialSubmitLabel[credentialsProvider]
+                          )}
+                        </Button>
+                      </form>
+                    </div>
                   )}
 
-                  {providers.filter((p) => p !== 'password').length > 0 &&
-                    providers.includes('password') && (
+                  {oauthProviders.length > 0 &&
+                    credentialProviders.length > 0 && (
                       <div className="relative">
                         <div className="absolute inset-0 flex items-center">
                           <span className="w-full border-t" />
@@ -269,34 +337,32 @@ export function LoginPage() {
                       </div>
                     )}
 
-                  {providers
-                    .filter((p) => p !== 'password')
-                    .map((provider) => (
-                      <Button
-                        key={provider}
-                        onClick={() => handleLogin(provider)}
-                        disabled={loginLoading !== null}
-                        className="w-full h-10"
-                        variant="outline"
-                      >
-                        {loginLoading === provider ? (
-                          <div className="flex items-center space-x-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2"></div>
-                            <span>{t('login.signingIn')}</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center space-x-2">
-                            <span>
-                              {t('login.signInWith', {
-                                provider:
-                                  provider.charAt(0).toUpperCase() +
-                                  provider.slice(1),
-                              })}
-                            </span>
-                          </div>
-                        )}
-                      </Button>
-                    ))}
+                  {oauthProviders.map((provider) => (
+                    <Button
+                      key={provider}
+                      onClick={() => handleLogin(provider)}
+                      disabled={loginLoading !== null}
+                      className="w-full h-10"
+                      variant="outline"
+                    >
+                      {loginLoading === provider ? (
+                        <div className="flex items-center space-x-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2"></div>
+                          <span>{t('login.signingIn')}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <span>
+                            {t('login.signInWith', {
+                              provider:
+                                provider.charAt(0).toUpperCase() +
+                                provider.slice(1),
+                            })}
+                          </span>
+                        </div>
+                      )}
+                    </Button>
+                  ))}
                 </div>
               )}
             </CardContent>

@@ -94,6 +94,7 @@ func InitDB() {
 		User{},
 		Cluster{},
 		GeneralSetting{},
+		LDAPSetting{},
 		OAuthProvider{},
 		Role{},
 		RoleAssignment{},

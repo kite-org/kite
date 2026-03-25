@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react'
 
+import type { AuthProviderCatalog, CredentialProvider } from '@/lib/api'
 import { withSubPath } from '@/lib/subpath'
 
 interface User {
@@ -26,9 +27,14 @@ interface User {
 interface AuthContextType {
   user: User | null
   isLoading: boolean
-  providers: string[]
+  credentialProviders: CredentialProvider[]
+  oauthProviders: string[]
   login: (provider?: string) => Promise<void>
-  loginWithPassword: (username: string, password: string) => Promise<void>
+  loginWithCredentials: (
+    provider: CredentialProvider,
+    username: string,
+    password: string
+  ) => Promise<void>
   logout: () => Promise<void>
   checkAuth: () => Promise<void>
   refreshToken: () => Promise<void>
@@ -51,17 +57,35 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [providers, setProviders] = useState<string[]>([])
+  const [credentialProviders, setCredentialProviders] = useState<
+    CredentialProvider[]
+  >([])
+  const [oauthProviders, setOAuthProviders] = useState<string[]>([])
 
   const loadProviders = async () => {
     try {
       const response = await fetch(withSubPath('/api/auth/providers'))
       if (response.ok) {
-        const data = await response.json()
-        setProviders(data.providers || [])
+        const data = (await response.json()) as Partial<AuthProviderCatalog>
+        if (data.credentialProviders || data.oauthProviders) {
+          setCredentialProviders(data.credentialProviders || [])
+          setOAuthProviders(data.oauthProviders || [])
+          return
+        }
+
+        const providers = data.providers || []
+        const fallbackCredentialProviders = providers.filter(
+          (provider): provider is CredentialProvider =>
+            provider === 'password' || provider === 'ldap'
+        )
+        const fallbackOAuthProviders = providers.filter(
+          (provider) => provider !== 'password' && provider !== 'ldap'
+        )
+        setCredentialProviders(fallbackCredentialProviders)
+        setOAuthProviders(fallbackOAuthProviders)
       }
     } catch (error) {
-      console.error('Failed to load OAuth providers:', error)
+      console.error('Failed to load authentication providers:', error)
     }
   }
 
@@ -117,9 +141,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
-  const loginWithPassword = async (username: string, password: string) => {
+  const loginWithCredentials = async (
+    provider: CredentialProvider,
+    username: string,
+    password: string
+  ) => {
     try {
-      const response = await fetch(withSubPath('/api/auth/login/password'), {
+      const response = await fetch(withSubPath(`/api/auth/login/${provider}`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -132,10 +160,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         await checkAuth()
       } else {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Password login failed')
+        throw new Error(errorData.error || `${provider} login failed`)
       }
     } catch (error) {
-      console.error('Password login failed:', error)
+      console.error(`${provider} login failed:`, error)
       throw error
     }
   }
@@ -211,9 +239,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const value = {
     user,
     isLoading,
-    providers,
+    credentialProviders,
+    oauthProviders,
     login,
-    loginWithPassword,
+    loginWithCredentials,
     logout,
     checkAuth,
     refreshToken,

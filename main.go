@@ -94,6 +94,7 @@ func setupAPIRouter(r *gin.RouterGroup, cm *cluster.ClusterManager) {
 	{
 		authGroup.GET("/providers", authHandler.GetProviders)
 		authGroup.POST("/login/password", authHandler.PasswordLogin)
+		authGroup.POST("/login/ldap", authHandler.LDAPLogin)
 		authGroup.GET("/login", authHandler.Login)
 		authGroup.GET("/callback", authHandler.Callback)
 		authGroup.POST("/logout", authHandler.Logout)
@@ -122,6 +123,12 @@ func setupAPIRouter(r *gin.RouterGroup, cm *cluster.ClusterManager) {
 			oauthProviderAPI.GET("/:id", authHandler.GetOAuthProvider)
 			oauthProviderAPI.PUT("/:id", authHandler.UpdateOAuthProvider)
 			oauthProviderAPI.DELETE("/:id", authHandler.DeleteOAuthProvider)
+		}
+
+		ldapSettingAPI := adminAPI.Group("/ldap-setting")
+		{
+			ldapSettingAPI.GET("/", authHandler.GetLDAPSetting)
+			ldapSettingAPI.PUT("/", authHandler.UpdateLDAPSetting)
 		}
 
 		clusterAPI := adminAPI.Group("/clusters")

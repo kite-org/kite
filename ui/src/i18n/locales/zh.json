@@ -213,6 +213,11 @@
     "enterPassword": "请输入密码",
     "signingIn": "登录中...",
     "signInWithPassword": "使用密码登录",
+    "signInWithLdap": "使用 LDAP 登录",
+    "tabs": {
+      "password": "密码",
+      "ldap": "LDAP"
+    },
     "orContinueWith": "或继续使用",
     "signInWith": "使用 {{provider}} 登录",
     "tryAgainDifferentAccount": "尝试使用其他账户",
@@ -294,7 +299,7 @@
     "tabs": {
       "clusters": "集群",
       "general": "通用",
-      "oauth": "OAuth",
+      "oauth": "认证",
       "rbac": "权限控制",
       "users": "用户",
       "apikeys": "API 密钥"
@@ -346,6 +351,40 @@
       "updated": "通用设置已更新"
     }
   },
+  "authenticationManagement": {
+    "title": "认证",
+    "ldap": {
+      "title": "LDAP",
+      "description": "启用 LDAP 用户名密码登录，并将 LDAP 组同步到 RBAC。",
+      "form": {
+        "serverUrl": "服务地址",
+        "useStartTLS": "启用 StartTLS",
+        "useStartTLSHint": "当使用 ldap:// 地址时启用 StartTLS。",
+        "bindDn": "绑定 DN",
+        "bindPassword": "绑定密码",
+        "bindPasswordPlaceholder": "留空将保持当前绑定密码",
+        "userBaseDn": "用户 Base DN",
+        "userFilter": "用户过滤器",
+        "usernameAttribute": "用户名属性",
+        "displayNameAttribute": "显示名属性",
+        "groupBaseDn": "用户组 Base DN",
+        "groupFilter": "用户组过滤器",
+        "groupNameAttribute": "用户组名称属性"
+      }
+    },
+    "errors": {
+      "serverUrlRequired": "LDAP 服务地址不能为空",
+      "bindDnRequired": "LDAP 绑定 DN 不能为空",
+      "bindPasswordRequired": "LDAP 绑定密码不能为空",
+      "userBaseDnRequired": "LDAP 用户 Base DN 不能为空",
+      "groupBaseDnRequired": "LDAP 用户组 Base DN 不能为空",
+      "userFilterPlaceholder": "LDAP 用户过滤器必须且只能包含一个 %s",
+      "groupFilterPlaceholder": "LDAP 用户组过滤器必须且只能包含一个 %s"
+    },
+    "messages": {
+      "updated": "认证设置已更新"
+    }
+  },
   "settingsHint": {
     "title": "完成设置",
     "description": "配置基本设置以获得最佳体验",
@@ -353,7 +392,7 @@
       "description": "配置 Prometheus"
     },
     "oauth": {
-      "description": "设置 OAuth 提供商进行身份验证"
+      "description": "配置 LDAP 或 OAuth 认证"
     },
     "rbac": {
       "description": "配置角色和权限"

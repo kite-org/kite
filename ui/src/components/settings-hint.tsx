@@ -9,7 +9,12 @@ import {
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
-import { useClusterList, useOAuthProviderList, useRoleList } from '@/lib/api'
+import {
+  useClusterList,
+  useLDAPSetting,
+  useOAuthProviderList,
+  useRoleList,
+} from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -32,10 +37,12 @@ export function SettingsHint({ onDismiss }: SettingsHintProps) {
 
   const { data: clusters = [] } = useClusterList()
   const { data: oauthProviders = [] } = useOAuthProviderList()
+  const { data: ldapSetting } = useLDAPSetting({ staleTime: 30000 })
   const { data: roles = [] } = useRoleList()
 
   const hasP8S = clusters.some((cluster) => !!cluster.prometheusURL)
-  const hasOAuthProviders = oauthProviders.length > 0
+  const hasOAuthProviders =
+    oauthProviders.length > 0 || ldapSetting?.enabled === true
   const hasRoles = roles.length > 2
 
   if ((hasP8S && hasOAuthProviders && hasRoles) || isDismissed) {
@@ -59,10 +66,10 @@ export function SettingsHint({ onDismiss }: SettingsHintProps) {
     },
     {
       key: 'oauth',
-      title: t('settings.tabs.oauth', 'OAuth'),
+      title: t('settings.tabs.oauth', 'Authentication'),
       description: t(
         'settingsHint.oauth.description',
-        'Set up OAuth providers for authentication'
+        'Set up LDAP or OAuth authentication'
       ),
       icon: IconKey,
       completed: hasOAuthProviders,
