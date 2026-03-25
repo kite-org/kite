@@ -8,12 +8,12 @@ import (
 )
 
 func TestInjectKiteBase(t *testing.T) {
-	html := `<html><head><link rel="modulepreload" href="__KITE_ASSET_BASE__/assets/index.js"><script type="module" src="__KITE_ASSET_BASE__/assets/main.js"></script></head></html>`
+	html := `<html><head><link rel="modulepreload" href="__KITE_BASE__/assets/index.js"><script type="module" src="__KITE_BASE__/assets/main.js"></script></head></html>`
 
 	t.Run("subpath", func(t *testing.T) {
 		got := InjectKiteBase(html, "/kite")
 
-		if strings.Contains(got, "__KITE_ASSET_BASE__") {
+		if strings.Contains(got, "__KITE_BASE__") {
 			t.Fatalf("placeholder should be replaced: %s", got)
 		}
 		if strings.Contains(got, "<base ") {
@@ -41,6 +41,20 @@ func TestInjectKiteBase(t *testing.T) {
 		}
 		if !strings.Contains(got, `<script>window.__dynamic_base__="";</script>`) {
 			t.Fatalf("expected empty runtime base script: %s", got)
+		}
+	})
+
+	t.Run("escapes html attribute injection", func(t *testing.T) {
+		got := InjectKiteBase(html, `/ki"te`)
+
+		if strings.Contains(got, `href="/ki"te/assets/index.js"`) {
+			t.Fatalf("expected asset href to be escaped: %s", got)
+		}
+		if !strings.Contains(got, `href="/ki&#34;te/assets/index.js"`) {
+			t.Fatalf("expected escaped quote in asset href: %s", got)
+		}
+		if !strings.Contains(got, `<script>window.__dynamic_base__="/ki\"te";</script>`) {
+			t.Fatalf("expected runtime base script to remain safely quoted: %s", got)
 		}
 	})
 }

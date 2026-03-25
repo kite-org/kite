@@ -4,8 +4,10 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 
-const devSubPath = process.env.KITE_BASE?.replace(/\/$/, '') || ''
-const runtimeAssetBasePlaceholder = '__KITE_ASSET_BASE__'
+import { normalizeBasePath } from './src/lib/base-path'
+
+const devSubPath = normalizeBasePath(process.env.KITE_BASE)
+const runtimeBasePlaceholder = '__KITE_BASE__'
 
 function getDevBase() {
   return devSubPath ? `${devSubPath}/` : '/'
@@ -41,7 +43,7 @@ function runtimeBaseHtmlPlugin(): Plugin {
       // Make the first HTML-loaded assets runtime-base aware without relying on <base href>.
       const nextHtml = html.replaceAll(
         /((?:href|src)=["'])\.\/assets\//g,
-        `$1${runtimeAssetBasePlaceholder}/assets/`
+        `$1${runtimeBasePlaceholder}/assets/`
       )
 
       if (nextHtml !== html) {

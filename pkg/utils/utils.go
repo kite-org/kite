@@ -2,13 +2,14 @@ package utils
 
 import (
 	"fmt"
+	"html"
 	"regexp"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
-const kiteAssetBasePlaceholder = "__KITE_ASSET_BASE__"
+const kiteBasePlaceholder = "__KITE_BASE__"
 
 func InjectAnalytics(htmlContent string) string {
 	analyticsScript := `<script defer src="https://cloud.umami.is/script.js" data-website-id="c3d8a914-abbc-4eed-9699-a9192c4bef9e" data-exclude-search="true" data-exclude-hash="true" data-do-not-track="true"></script>`
@@ -23,7 +24,7 @@ func InjectKiteBase(htmlContent string, base string) string {
 		assetBase = ""
 	}
 
-	htmlContent = strings.ReplaceAll(htmlContent, kiteAssetBasePlaceholder, assetBase)
+	htmlContent = strings.ReplaceAll(htmlContent, kiteBasePlaceholder, html.EscapeString(assetBase))
 
 	baseScript := fmt.Sprintf(`<script>window.__dynamic_base__=%q;</script>`, assetBase)
 	re := regexp.MustCompile(`<head>`)

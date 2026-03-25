@@ -1,3 +1,5 @@
+import { normalizeBasePath } from './base-path'
+
 declare global {
   interface Window {
     __dynamic_base__?: string
@@ -6,9 +8,9 @@ declare global {
 
 export function getSubPath(): string {
   if (import.meta.env.DEV) {
-    return import.meta.env.KITE_BASE || ''
+    return normalizeBasePath(import.meta.env.KITE_BASE)
   }
-  return window.__dynamic_base__ || ''
+  return normalizeBasePath(window.__dynamic_base__)
 }
 
 export function withSubPath(path: string): string {
