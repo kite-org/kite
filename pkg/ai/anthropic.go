@@ -41,14 +41,14 @@ func (a *Agent) processChatAnthropic(c *gin.Context, req *ChatRequest, sendEvent
 func (a *Agent) continueChatAnthropic(c *gin.Context, session pendingSession, sendEvent func(SSEEvent)) error {
 	ctx := c.Request.Context()
 	result, isError := ExecuteTool(ctx, c, a.cs, session.ToolCall.Name, session.ToolCall.Args)
+	return a.continueChatAnthropicWithToolResult(c, session, result, isError, sendEvent)
+}
 
+func (a *Agent) continueChatAnthropicWithToolResult(c *gin.Context, session pendingSession, result string, isError bool, sendEvent func(SSEEvent)) error {
+	ctx := c.Request.Context()
 	sendEvent(SSEEvent{
 		Event: "tool_result",
-		Data: map[string]interface{}{
-			"tool":     session.ToolCall.Name,
-			"result":   result,
-			"is_error": isError,
-		},
+		Data:  buildToolResultEventData(session.ToolCall.ID, session.ToolCall.Name, result, isError),
 	})
 
 	toolResult := result
@@ -88,7 +88,7 @@ func (a *Agent) runAnthropicConversation(
 			},
 		})
 
-		response, messageContent, thinkingContent, streamedToolCalls, err := consumeAnthropicStreamingResponse(stream, sendEvent)
+		_, messageContent, thinkingContent, streamedToolCalls, err := consumeAnthropicStreamingResponse(stream, sendEvent)
 		if err != nil {
 			klog.Errorf("AI generation error: %v", err)
 			sendEvent(SSEEvent{Event: "error", Data: map[string]string{"message": fmt.Sprintf("AI error: %v", err)}})
@@ -104,10 +104,11 @@ func (a *Agent) runAnthropicConversation(
 			return
 		}
 
-		messages = append(messages, response.ToParam())
 		toolResults := make([]anthropic.ContentBlockParamUnion, 0, len(streamedToolCalls))
 
 		for _, tc := range streamedToolCalls {
+			messages = append(messages, streamedToolCallToAnthropicAssistantMessage(tc))
+
 			toolName := tc.Name
 			args, err := parseToolCallArguments(tc.Arguments)
 			if err != nil {
@@ -119,22 +120,52 @@ func (a *Agent) runAnthropicConversation(
 
 			sendEvent(SSEEvent{
 				Event: "tool_call",
-				Data: map[string]interface{}{
-					"tool": toolName,
-					"args": args,
-				},
+				Data:  buildToolCallEventData(tc, args),
 			})
+
+			if InteractionTools[toolName] {
+				request, err := parseInteractionRequest(toolName, args)
+				if err != nil {
+					result := "Error: " + err.Error()
+					sendEvent(SSEEvent{
+						Event: "tool_result",
+						Data:  buildToolResultEventData(tc.ID, toolName, result, true),
+					})
+					toolResults = append(toolResults, anthropic.NewToolResultBlock(tc.ID, "Tool error: "+result, true))
+					continue
+				}
+				if len(toolResults) > 0 {
+					messages = append(messages, anthropic.NewUserMessage(toolResults...))
+					toolResults = nil
+				}
+				sessionID := agentPendingSessions.save(pendingSession{
+					Provider:          a.provider,
+					SystemPrompt:      sysPrompt,
+					AnthropicMessages: append([]anthropic.MessageParam(nil), messages...),
+					ToolCall: pendingToolCall{
+						ID:   tc.ID,
+						Name: toolName,
+						Args: args,
+					},
+				})
+				if sessionID == "" {
+					errorMsg := "Failed to save pending session"
+					toolResults = append(toolResults, anthropic.NewToolResultBlock(tc.ID, "Tool error: "+errorMsg, true))
+					continue
+				}
+				sendEvent(SSEEvent{
+					Event: "input_required",
+					Data:  buildInteractionEventData(toolName, tc.ID, sessionID, request),
+				})
+				return
+			}
 
 			if MutationTools[toolName] {
 				result, isError := AuthorizeTool(c, a.cs, toolName, args)
 				if isError {
 					sendEvent(SSEEvent{
 						Event: "tool_result",
-						Data: map[string]interface{}{
-							"tool":     toolName,
-							"result":   result,
-							"is_error": true,
-						},
+						Data:  buildToolResultEventData(tc.ID, toolName, result, true),
 					})
 					toolResults = append(toolResults, anthropic.NewToolResultBlock(tc.ID, "Tool error: "+result, true))
 					continue
@@ -159,11 +190,7 @@ func (a *Agent) runAnthropicConversation(
 				}
 				sendEvent(SSEEvent{
 					Event: "action_required",
-					Data: map[string]interface{}{
-						"tool":       toolName,
-						"args":       args,
-						"session_id": sessionID,
-					},
+					Data:  buildActionRequiredEventData(tc, sessionID, args),
 				})
 				return
 			}
@@ -172,11 +199,7 @@ func (a *Agent) runAnthropicConversation(
 
 			sendEvent(SSEEvent{
 				Event: "tool_result",
-				Data: map[string]interface{}{
-					"tool":     toolName,
-					"result":   result,
-					"is_error": isError,
-				},
+				Data:  buildToolResultEventData(tc.ID, toolName, result, isError),
 			})
 
 			if isError {
@@ -297,4 +320,14 @@ func anthropicMessageThinking(message anthropic.Message) string {
 		thinkingBuilder.WriteString(thinkingBlock.Thinking)
 	}
 	return thinkingBuilder.String()
+}
+
+func streamedToolCallToAnthropicAssistantMessage(tc streamedToolCall) anthropic.MessageParam {
+	input := map[string]interface{}{}
+	if args, err := parseToolCallArguments(tc.Arguments); err == nil {
+		input = args
+	}
+	return anthropic.NewAssistantMessage(
+		anthropic.NewToolUseBlock(tc.ID, input, tc.Name),
+	)
 }

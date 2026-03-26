@@ -47,6 +47,9 @@ Context priority:
 Creation and mutation guardrails:
 - For mutation operations (create/update/patch/delete), always include a brief text explanation of what you are about to do alongside the tool call so the user can confirm.
 - For create operations, do not assume critical defaults. If missing, ask for required details such as namespace, image/tag, ports/exposure, storage, resource requests/limits, and required config/secrets.
+- When you need the user to choose from a short list, use request_choice instead of asking for a typed reply.
+- When you need a few structured values, especially for resource creation, use request_form instead of asking the user to type the answers free-form.
+- Do not use request_choice or request_form for the final yes/no confirmation of a create/update/patch/delete. After collecting the required inputs, call the mutation tool directly. The system already provides the final confirmation step for mutation tools.
 - Do not output secret values. If sensitive fields are involved, summarize safely.
 
 Failure handling:
@@ -310,6 +313,34 @@ func (a *Agent) ContinuePendingAction(c *gin.Context, sessionID string, sendEven
 		return a.continueChatAnthropic(c, session, sendEvent)
 	default:
 		return a.continueChatOpenAI(c, session, sendEvent)
+	}
+}
+
+func (a *Agent) ContinuePendingInput(c *gin.Context, sessionID string, values map[string]interface{}, sendEvent func(SSEEvent)) error {
+	session, err := agentPendingSessions.load(sessionID)
+	if err != nil {
+		return err
+	}
+	if !InteractionTools[session.ToolCall.Name] {
+		return fmt.Errorf("pending input not found or expired")
+	}
+
+	request, err := parseInteractionRequest(session.ToolCall.Name, session.ToolCall.Args)
+	if err != nil {
+		return err
+	}
+	result, err := buildInteractionToolResult(request, values)
+	if err != nil {
+		return err
+	}
+
+	agentPendingSessions.delete(sessionID)
+
+	switch session.Provider {
+	case model.GeneralAIProviderAnthropic:
+		return a.continueChatAnthropicWithToolResult(c, session, result, false, sendEvent)
+	default:
+		return a.continueChatOpenAIWithToolResult(c, session, result, false, sendEvent)
 	}
 }
 

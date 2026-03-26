@@ -17,6 +17,85 @@ type agentToolDefinition struct {
 func toolDefinitions(cs *cluster.ClientSet) []agentToolDefinition {
 	tools := []agentToolDefinition{
 		{
+			Name:        requestChoiceTool,
+			Description: "Pause the conversation and ask the user to pick one option by clicking. Use this instead of a free-form follow-up question when the next step is a short list of known choices. Do not use this for the final confirmation of create/update/patch/delete actions; mutation tools already trigger their own confirmation UI.",
+			Properties: map[string]any{
+				"name": map[string]any{
+					"type":        "string",
+					"description": "The field name for the selected value, e.g. resourceType or namespace.",
+				},
+				"title": map[string]any{
+					"type":        "string",
+					"description": "Short prompt shown above the options.",
+				},
+				"description": map[string]any{
+					"type":        "string",
+					"description": "Optional extra context to help the user choose.",
+				},
+				"options": interactionOptionsSchema("The clickable options."),
+			},
+			Required: []string{"name", "title", "options"},
+		},
+		{
+			Name:        requestFormTool,
+			Description: "Pause the conversation and ask the user to fill a small structured form. Use this for resource creation or updates when a few predictable inputs are needed. Do not use this as a final confirmation step before create/update/patch/delete; collect inputs, then call the mutation tool directly.",
+			Properties: map[string]any{
+				"title": map[string]any{
+					"type":        "string",
+					"description": "Short form title shown to the user.",
+				},
+				"description": map[string]any{
+					"type":        "string",
+					"description": "Optional context describing why these fields are needed.",
+				},
+				"submit_label": map[string]any{
+					"type":        "string",
+					"description": "Optional custom submit button label.",
+				},
+				"fields": map[string]any{
+					"type":        "array",
+					"description": "Form fields to collect. Keep the form short and ask only for the minimum required inputs.",
+					"items": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"name": map[string]any{
+								"type":        "string",
+								"description": "Field key returned in the submitted values object.",
+							},
+							"label": map[string]any{
+								"type":        "string",
+								"description": "Field label shown to the user.",
+							},
+							"type": map[string]any{
+								"type":        "string",
+								"description": "Field type.",
+								"enum":        []string{"text", "number", "textarea", "select", "switch"},
+							},
+							"required": map[string]any{
+								"type":        "boolean",
+								"description": "Whether the field must be provided.",
+							},
+							"placeholder": map[string]any{
+								"type":        "string",
+								"description": "Optional placeholder text.",
+							},
+							"description": map[string]any{
+								"type":        "string",
+								"description": "Optional short helper text.",
+							},
+							"default_value": map[string]any{
+								"type":        "string",
+								"description": "Optional default value as a string. For switch use 'true' or 'false'.",
+							},
+							"options": interactionOptionsSchema("Options for select fields."),
+						},
+						"required": []string{"name", "label", "type"},
+					},
+				},
+			},
+			Required: []string{"title", "fields"},
+		},
+		{
 			Name:        "get_resource",
 			Description: "Get a specific Kubernetes resource by kind, name, and optionally namespace. Returns the resource details in YAML format.",
 			Properties: map[string]any{
@@ -177,6 +256,31 @@ func toolDefinitions(cs *cluster.ClientSet) []agentToolDefinition {
 	}
 
 	return tools
+}
+
+func interactionOptionsSchema(description string) map[string]any {
+	return map[string]any{
+		"type":        "array",
+		"description": description,
+		"items": map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"label": map[string]any{
+					"type":        "string",
+					"description": "User-facing label.",
+				},
+				"value": map[string]any{
+					"type":        "string",
+					"description": "Submitted value.",
+				},
+				"description": map[string]any{
+					"type":        "string",
+					"description": "Optional short helper text.",
+				},
+			},
+			"required": []string{"label", "value"},
+		},
+	}
 }
 
 func OpenAIToolDefs(cs *cluster.ClientSet) []openai.ChatCompletionToolParam {

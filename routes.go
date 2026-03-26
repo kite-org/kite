@@ -151,6 +151,7 @@ func registerProtectedRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, 
 	api.GET("/ai/status", ai.HandleAIStatus)
 	api.POST("/ai/chat", ai.HandleChat)
 	api.POST("/ai/execute/continue", ai.HandleExecuteContinue)
+	api.POST("/ai/input/continue", ai.HandleInputContinue)
 
 	api.Use(middleware.RBACMiddleware())
 	resources.RegisterRoutes(api)

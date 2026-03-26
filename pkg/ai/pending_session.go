@@ -75,17 +75,31 @@ func (s *pendingSessionStore) save(session pendingSession) string {
 	return sessionID
 }
 
-func (s *pendingSessionStore) take(sessionID string) (pendingSession, error) {
+func (s *pendingSessionStore) load(sessionID string) (pendingSession, error) {
 	dbSession, err := model.GetPendingSession(sessionID)
 	if err != nil {
 		return pendingSession{}, fmt.Errorf("pending action not found or expired")
 	}
 
-	// Delete the session immediately after retrieving it
+	return pendingSessionFromModel(dbSession)
+}
+
+func (s *pendingSessionStore) delete(sessionID string) {
 	if err := model.DeletePendingSession(sessionID); err != nil {
 		klog.Warningf("Failed to delete pending session %s: %v", sessionID, err)
 	}
+}
 
+func (s *pendingSessionStore) take(sessionID string) (pendingSession, error) {
+	session, err := s.load(sessionID)
+	if err != nil {
+		return pendingSession{}, err
+	}
+	s.delete(sessionID)
+	return session, nil
+}
+
+func pendingSessionFromModel(dbSession *model.PendingSession) (pendingSession, error) {
 	session := pendingSession{
 		Provider:     dbSession.Provider,
 		SystemPrompt: dbSession.SystemPrompt,
@@ -95,6 +109,8 @@ func (s *pendingSessionStore) take(sessionID string) (pendingSession, error) {
 			Name: dbSession.ToolCallName,
 		},
 	}
+
+	var err error
 
 	// Unmarshal messages and args directly in the AI package
 	if err = dbSession.OpenAIMessages.Unmarshal(&session.OpenAIMessages); err != nil {

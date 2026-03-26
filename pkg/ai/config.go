@@ -28,6 +28,10 @@ func defaultModelForProvider(provider string) string {
 	return model.DefaultGeneralAIModelByProvider(provider)
 }
 
+func isOpenRouterBaseURL(baseURL string) bool {
+	return strings.Contains(strings.ToLower(strings.TrimSpace(baseURL)), "openrouter.ai")
+}
+
 func providerLabel(provider string) string {
 	switch provider {
 	case model.GeneralAIProviderAnthropic:
@@ -80,6 +84,9 @@ func NewOpenAIClient(cfg *RuntimeConfig) (openai.Client, error) {
 	}
 	if cfg.BaseURL != "" {
 		opts = append(opts, openaioption.WithBaseURL(cfg.BaseURL))
+		if isOpenRouterBaseURL(cfg.BaseURL) {
+			opts = append(opts, openaioption.WithHeader("X-OpenRouter-Title", "OpenClaw"))
+		}
 	}
 
 	return openai.NewClient(opts...), nil
@@ -100,6 +107,9 @@ func NewAnthropicClient(cfg *RuntimeConfig) (anthropic.Client, error) {
 	}
 	if cfg.BaseURL != "" {
 		opts = append(opts, anthropicoption.WithBaseURL(cfg.BaseURL))
+		if isOpenRouterBaseURL(cfg.BaseURL) {
+			opts = append(opts, anthropicoption.WithHeader("X-OpenRouter-Title", "OpenClaw"))
+		}
 	}
 
 	return anthropic.NewClient(opts...), nil

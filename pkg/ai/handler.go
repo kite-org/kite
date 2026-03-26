@@ -80,6 +80,11 @@ type ContinueRequest struct {
 	SessionID string `json:"sessionId"`
 }
 
+type ContinueInputRequest struct {
+	SessionID string                 `json:"sessionId"`
+	Values    map[string]interface{} `json:"values"`
+}
+
 // HandleExecuteContinue resumes a pending AI action after user confirmation.
 func HandleExecuteContinue(c *gin.Context) {
 	cfg, err := LoadRuntimeConfig()
@@ -126,6 +131,57 @@ func HandleExecuteContinue(c *gin.Context) {
 	}
 
 	if err := agent.ContinuePendingAction(c, req.SessionID, sendEvent); err != nil {
+		sendEvent(SSEEvent{Event: "error", Data: map[string]string{"message": err.Error()}})
+	}
+
+	sendEvent(SSEEvent{Event: "done", Data: map[string]string{}})
+}
+
+func HandleInputContinue(c *gin.Context) {
+	cfg, err := LoadRuntimeConfig()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to load AI config: %v", err)})
+		return
+	}
+	if !cfg.Enabled {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "AI is not enabled"})
+		return
+	}
+
+	var req ContinueInputRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid request: %v", err)})
+		return
+	}
+	if strings.TrimSpace(req.SessionID) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "sessionId is required"})
+		return
+	}
+
+	clientSet, ok := getClusterClientSet(c)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No cluster selected"})
+		return
+	}
+
+	agent, err := NewAgent(clientSet, cfg)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create AI agent: %v", err)})
+		return
+	}
+
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	sendEvent := func(event SSEEvent) {
+		data := MarshalSSEEvent(event)
+		_, _ = fmt.Fprint(c.Writer, data)
+		c.Writer.Flush()
+	}
+
+	if err := agent.ContinuePendingInput(c, req.SessionID, req.Values, sendEvent); err != nil {
 		sendEvent(SSEEvent{Event: "error", Data: map[string]string{"message": err.Error()}})
 	}
 

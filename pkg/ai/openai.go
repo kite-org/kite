@@ -44,14 +44,14 @@ func (a *Agent) processChatOpenAI(c *gin.Context, req *ChatRequest, sendEvent fu
 func (a *Agent) continueChatOpenAI(c *gin.Context, session pendingSession, sendEvent func(SSEEvent)) error {
 	ctx := c.Request.Context()
 	result, isError := ExecuteTool(ctx, c, a.cs, session.ToolCall.Name, session.ToolCall.Args)
+	return a.continueChatOpenAIWithToolResult(c, session, result, isError, sendEvent)
+}
 
+func (a *Agent) continueChatOpenAIWithToolResult(c *gin.Context, session pendingSession, result string, isError bool, sendEvent func(SSEEvent)) error {
+	ctx := c.Request.Context()
 	sendEvent(SSEEvent{
 		Event: "tool_result",
-		Data: map[string]interface{}{
-			"tool":     session.ToolCall.Name,
-			"result":   result,
-			"is_error": isError,
-		},
+		Data:  buildToolResultEventData(session.ToolCall.ID, session.ToolCall.Name, result, isError),
 	})
 
 	if isError {
@@ -104,9 +104,9 @@ func (a *Agent) runOpenAIConversation(
 			return
 		}
 
-		messages = append(messages, streamedToolCallsToAssistantMessage(streamedToolCalls))
-
 		for _, tc := range streamedToolCalls {
+			messages = append(messages, streamedToolCallsToAssistantMessage([]streamedToolCall{tc}))
+
 			toolName := tc.Name
 			args, err := parseToolCallArguments(tc.Arguments)
 			if err != nil {
@@ -118,22 +118,48 @@ func (a *Agent) runOpenAIConversation(
 
 			sendEvent(SSEEvent{
 				Event: "tool_call",
-				Data: map[string]interface{}{
-					"tool": toolName,
-					"args": args,
-				},
+				Data:  buildToolCallEventData(tc, args),
 			})
+
+			if InteractionTools[toolName] {
+				request, err := parseInteractionRequest(toolName, args)
+				if err != nil {
+					result := "Error: " + err.Error()
+					sendEvent(SSEEvent{
+						Event: "tool_result",
+						Data:  buildToolResultEventData(tc.ID, toolName, result, true),
+					})
+					messages = append(messages, openai.ToolMessage("Tool error: "+result, tc.ID))
+					continue
+				}
+
+				sessionID := agentPendingSessions.save(pendingSession{
+					Provider:       a.provider,
+					OpenAIMessages: append([]openai.ChatCompletionMessageParamUnion(nil), messages...),
+					ToolCall: pendingToolCall{
+						ID:   tc.ID,
+						Name: toolName,
+						Args: args,
+					},
+				})
+				if sessionID == "" {
+					errorMsg := "Failed to save pending session"
+					messages = append(messages, openai.ToolMessage("Tool error: "+errorMsg, tc.ID))
+					continue
+				}
+				sendEvent(SSEEvent{
+					Event: "input_required",
+					Data:  buildInteractionEventData(toolName, tc.ID, sessionID, request),
+				})
+				return
+			}
 
 			if MutationTools[toolName] {
 				result, isError := AuthorizeTool(c, a.cs, toolName, args)
 				if isError {
 					sendEvent(SSEEvent{
 						Event: "tool_result",
-						Data: map[string]interface{}{
-							"tool":     toolName,
-							"result":   result,
-							"is_error": true,
-						},
+						Data:  buildToolResultEventData(tc.ID, toolName, result, true),
 					})
 					messages = append(messages, openai.ToolMessage("Tool error: "+result, tc.ID))
 					continue
@@ -154,11 +180,7 @@ func (a *Agent) runOpenAIConversation(
 				}
 				sendEvent(SSEEvent{
 					Event: "action_required",
-					Data: map[string]interface{}{
-						"tool":       toolName,
-						"args":       args,
-						"session_id": sessionID,
-					},
+					Data:  buildActionRequiredEventData(tc, sessionID, args),
 				})
 				return
 			}
@@ -167,11 +189,7 @@ func (a *Agent) runOpenAIConversation(
 
 			sendEvent(SSEEvent{
 				Event: "tool_result",
-				Data: map[string]interface{}{
-					"tool":     toolName,
-					"result":   result,
-					"is_error": isError,
-				},
+				Data:  buildToolResultEventData(tc.ID, toolName, result, isError),
 			})
 
 			if isError {

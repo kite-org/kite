@@ -26,7 +26,18 @@ import { withSubPath } from '@/lib/subpath'
 import { ChatMessage, ChatSession, useAIChat } from '@/hooks/use-ai-chat'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Tooltip,
   TooltipContent,
@@ -154,24 +165,47 @@ function buildToolYamlPreview(
   }
 }
 
+function buildInputDefaults(
+  inputRequest: ChatMessage['inputRequest']
+): Record<string, string | boolean> {
+  const values: Record<string, string | boolean> = {}
+  for (const field of inputRequest?.fields || []) {
+    if (field.type === 'switch') {
+      values[field.name] = field.defaultValue === 'true'
+      continue
+    }
+    values[field.name] = field.defaultValue || ''
+  }
+  return values
+}
+
 function ToolCallMessage({
   message,
   onConfirm,
   onDeny,
+  onSubmitInput,
 }: {
   message: ChatMessage
   onConfirm?: (id: string) => void
   onDeny?: (id: string) => void
+  onSubmitInput?: (id: string, values: Record<string, unknown>) => void
 }) {
+  const { t } = useTranslation()
   const toolYamlPreview = buildToolYamlPreview(
     message.toolName,
     message.toolArgs
   )
   const [expanded, setExpanded] = useState(false)
+  const [formValues, setFormValues] = useState<
+    Record<string, string | boolean>
+  >(() => buildInputDefaults(message.inputRequest))
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const isPending = message.actionStatus === 'pending'
   const isConfirmed = message.actionStatus === 'confirmed'
   const isDenied = message.actionStatus === 'denied'
   const isError = message.actionStatus === 'error'
+  const inputRequest = message.inputRequest
+  const title = inputRequest?.title || message.toolName
 
   const statusIcon = () => {
     if (isPending)
@@ -184,6 +218,46 @@ function ToolCallMessage({
     return <Loader2 className="h-3 w-3 animate-spin" />
   }
 
+  useEffect(() => {
+    setFormValues(buildInputDefaults(inputRequest))
+    setFormErrors({})
+  }, [inputRequest, message.id])
+
+  const updateFormValue = (fieldName: string, nextValue: string | boolean) => {
+    setFormValues((prev) => ({
+      ...prev,
+      [fieldName]: nextValue,
+    }))
+    setFormErrors((prev) => {
+      if (!prev[fieldName]) {
+        return prev
+      }
+      const next = { ...prev }
+      delete next[fieldName]
+      return next
+    })
+  }
+
+  const submitForm = () => {
+    const nextErrors: Record<string, string> = {}
+    for (const field of inputRequest?.fields || []) {
+      if (!field.required || field.type === 'switch') {
+        continue
+      }
+      const value = formValues[field.name]
+      if (typeof value !== 'string' || value.trim() === '') {
+        nextErrors[field.name] = t('aiChat.validation.required', 'Required')
+      }
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFormErrors(nextErrors)
+      return
+    }
+
+    onSubmitInput?.(message.id, formValues)
+  }
+
   return (
     <div className="mx-3 my-1">
       <button
@@ -191,7 +265,7 @@ function ToolCallMessage({
         onClick={() => setExpanded(!expanded)}
       >
         <Wrench className="h-3 w-3" />
-        <span className="font-medium">{message.toolName}</span>
+        <span className="font-medium">{title}</span>
         {statusIcon()}
         <ChevronRight
           className={`h-3 w-3 transition-transform ${expanded ? 'rotate-90' : ''}`}
@@ -211,6 +285,152 @@ function ToolCallMessage({
         <pre className="mt-1 max-h-40 overflow-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap break-all">
           {message.toolResult}
         </pre>
+      )}
+      {inputRequest && (
+        <div className="mt-1.5 rounded border border-primary/20 bg-primary/5 p-3">
+          <p className="text-sm font-medium text-foreground">
+            {inputRequest.title}
+          </p>
+          {inputRequest.description && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {inputRequest.description}
+            </p>
+          )}
+          {inputRequest.kind === 'choice' && (
+            <div className="mt-3 flex flex-col gap-2">
+              {inputRequest.options?.map((option) => (
+                <button
+                  key={option.value}
+                  className="rounded-md border bg-background px-3 py-2 text-left transition-colors hover:bg-muted"
+                  onClick={() =>
+                    onSubmitInput?.(message.id, {
+                      [inputRequest.name || 'value']: option.value,
+                    })
+                  }
+                >
+                  <div className="text-sm font-medium text-foreground">
+                    {option.label}
+                  </div>
+                  {option.description && (
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      {option.description}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+          {inputRequest.kind === 'form' && (
+            <div className="mt-3 space-y-3">
+              {inputRequest.fields?.map((field) => {
+                const value = formValues[field.name]
+                return (
+                  <div key={field.name} className="space-y-1.5">
+                    {field.type === 'switch' ? (
+                      <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2">
+                        <div className="pr-3">
+                          <Label htmlFor={`${message.id}-${field.name}`}>
+                            {field.label}
+                          </Label>
+                          {field.description && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {field.description}
+                            </p>
+                          )}
+                        </div>
+                        <Switch
+                          id={`${message.id}-${field.name}`}
+                          checked={value === true}
+                          onCheckedChange={(checked) =>
+                            updateFormValue(field.name, checked)
+                          }
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <Label
+                          htmlFor={`${message.id}-${field.name}`}
+                          className={
+                            formErrors[field.name] ? 'text-destructive' : ''
+                          }
+                        >
+                          {field.label}
+                          {field.required ? ' *' : ''}
+                        </Label>
+                        {field.type === 'textarea' ? (
+                          <Textarea
+                            id={`${message.id}-${field.name}`}
+                            value={typeof value === 'string' ? value : ''}
+                            placeholder={field.placeholder}
+                            className={`min-h-24 bg-background ${formErrors[field.name] ? 'border-destructive' : ''}`}
+                            onChange={(e) =>
+                              updateFormValue(field.name, e.target.value)
+                            }
+                          />
+                        ) : field.type === 'select' ? (
+                          <Select
+                            value={
+                              typeof value === 'string' && value !== ''
+                                ? value
+                                : undefined
+                            }
+                            onValueChange={(nextValue) =>
+                              updateFormValue(field.name, nextValue)
+                            }
+                          >
+                            <SelectTrigger
+                              className={`w-full bg-background ${formErrors[field.name] ? 'border-destructive' : ''}`}
+                            >
+                              <SelectValue
+                                placeholder={
+                                  field.placeholder || 'Select an option'
+                                }
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {field.options?.map((option) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            id={`${message.id}-${field.name}`}
+                            type={field.type === 'number' ? 'number' : 'text'}
+                            value={typeof value === 'string' ? value : ''}
+                            placeholder={field.placeholder}
+                            className={`bg-background ${formErrors[field.name] ? 'border-destructive' : ''}`}
+                            onChange={(e) =>
+                              updateFormValue(field.name, e.target.value)
+                            }
+                          />
+                        )}
+                        {field.description && (
+                          <p className="text-xs text-muted-foreground">
+                            {field.description}
+                          </p>
+                        )}
+                        {formErrors[field.name] && (
+                          <p className="text-xs text-destructive">
+                            {formErrors[field.name]}
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )
+              })}
+              <Button size="sm" className="h-8" onClick={submitForm}>
+                {inputRequest.submitLabel || 'Continue'}
+              </Button>
+            </div>
+          )}
+        </div>
       )}
       {isPending && message.pendingAction && (
         <div className="mt-1.5 rounded border border-yellow-500/30 bg-yellow-500/5 p-2">
@@ -250,10 +470,12 @@ function MessageBubble({
   message,
   onConfirm,
   onDeny,
+  onSubmitInput,
 }: {
   message: ChatMessage
   onConfirm?: (id: string) => void
   onDeny?: (id: string) => void
+  onSubmitInput?: (id: string, values: Record<string, unknown>) => void
 }) {
   const [thinkingExpanded, setThinkingExpanded] = useState(false)
 
@@ -263,6 +485,7 @@ function MessageBubble({
         message={message}
         onConfirm={onConfirm}
         onDeny={onDeny}
+        onSubmitInput={onSubmitInput}
       />
     )
   }
@@ -572,6 +795,7 @@ export function AIChatbox({
     currentSessionId,
     sendMessage,
     executeAction,
+    submitInput,
     denyAction,
     stopGeneration,
     loadSession,
@@ -956,6 +1180,7 @@ export function AIChatbox({
                   message={msg}
                   onConfirm={executeAction}
                   onDeny={denyAction}
+                  onSubmitInput={submitInput}
                 />
               ))}
               {isLoading &&
