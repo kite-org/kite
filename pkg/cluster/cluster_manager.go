@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/zxh326/kite/pkg/kube"
@@ -239,6 +240,12 @@ func syncClusters(cm *ClusterManager) error {
 		return err
 	}
 	dbClusterMap := make(map[string]interface{})
+	type buildResult struct {
+		cluster   *model.Cluster
+		clientSet *ClientSet
+		err       error
+	}
+	buildQueue := make([]*model.Cluster, 0)
 	for _, cluster := range clusters {
 		dbClusterMap[cluster.Name] = cluster
 		if cluster.IsDefault {
@@ -251,18 +258,36 @@ func syncClusters(cm *ClusterManager) error {
 				current.K8sClient.Stop(cluster.Name)
 			}
 			if cluster.Enable {
-				clientSet, err := buildClientSet(cluster)
-				if err != nil {
-					klog.Errorf("Failed to build k8s client for cluster %s, in cluster: %t, err: %v", cluster.Name, cluster.InCluster, err)
-					cm.errors[cluster.Name] = err.Error()
-					continue
-				}
-				delete(cm.errors, cluster.Name)
-				cm.clusters[cluster.Name] = clientSet
+				buildQueue = append(buildQueue, cluster)
 			} else {
 				delete(cm.errors, cluster.Name)
 			}
 		}
+	}
+	results := make(chan buildResult, len(buildQueue))
+	var wg sync.WaitGroup
+	for _, cluster := range buildQueue {
+		wg.Add(1)
+		go func(cluster *model.Cluster) {
+			defer wg.Done()
+			clientSet, err := buildClientSet(cluster)
+			results <- buildResult{
+				cluster:   cluster,
+				clientSet: clientSet,
+				err:       err,
+			}
+		}(cluster)
+	}
+	wg.Wait()
+	close(results)
+	for result := range results {
+		if result.err != nil {
+			klog.Errorf("Failed to build k8s client for cluster %s, in cluster: %t, err: %v", result.cluster.Name, result.cluster.InCluster, result.err)
+			cm.errors[result.cluster.Name] = result.err.Error()
+			continue
+		}
+		delete(cm.errors, result.cluster.Name)
+		cm.clusters[result.cluster.Name] = result.clientSet
 	}
 	for name, clientSet := range cm.clusters {
 		if _, ok := dbClusterMap[name]; !ok {
