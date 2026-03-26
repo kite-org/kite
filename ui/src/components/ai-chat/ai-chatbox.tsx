@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  ExternalLink,
   Loader2,
   MessageSquarePlus,
   Send,
@@ -17,10 +18,11 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import remarkGfm from 'remark-gfm'
 
 import { useAIStatus } from '@/lib/api'
+import { withSubPath } from '@/lib/subpath'
 import { ChatMessage, ChatSession, useAIChat } from '@/hooks/use-ai-chat'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
@@ -30,6 +32,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { AIChatTrigger } from '@/components/ai-chat/ai-chat-trigger'
 
 const MIN_HEIGHT = 200
 const DESKTOP_DEFAULT_HEIGHT_RATIO = 0.62
@@ -37,6 +40,7 @@ const MIN_WIDTH = 320
 const DEFAULT_WIDTH = 420
 const DESKTOP_MARGIN = 16
 const MOBILE_DEFAULT_HEIGHT_RATIO = 0.62
+const MAX_INPUT_HEIGHT = 220
 
 /** Build a human-readable summary from tool name + args. */
 function describeAction(tool: string, args: Record<string, unknown>): string {
@@ -539,7 +543,25 @@ function SuggestedPrompts({
   )
 }
 
-export function AIChatbox() {
+interface AIChatboxProps {
+  standalone?: boolean
+  sessionId?: string
+}
+
+export function StandaloneAIChatbox() {
+  const [searchParams] = useSearchParams()
+  return (
+    <AIChatbox
+      standalone
+      sessionId={searchParams.get('sessionId')?.trim() || ''}
+    />
+  )
+}
+
+export function AIChatbox({
+  standalone = false,
+  sessionId = '',
+}: AIChatboxProps) {
   const { i18n, t } = useTranslation()
   const isMobile = useIsMobile()
   const { isOpen, openChat, closeChat, pageContext } = useAIChatContext()
@@ -555,10 +577,12 @@ export function AIChatbox() {
     loadSession,
     deleteSession,
     newSession,
+    ensureSessionId,
+    saveCurrentSession,
   } = useAIChat()
 
   const { pathname } = useLocation()
-  const shouldShowAIChatbox = !/^\/settings\/?$/.test(pathname)
+  const shouldShowAIChatbox = standalone || !/^\/settings\/?$/.test(pathname)
 
   const [input, setInput] = useState('')
   const [showHistory, setShowHistory] = useState(false)
@@ -634,12 +658,47 @@ export function AIChatbox() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Focus input when chat opens
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen || standalone) {
       setTimeout(() => inputRef.current?.focus(), 100)
     }
-  }, [isOpen])
+  }, [isOpen, standalone])
+
+  useEffect(() => {
+    if (!standalone || !sessionId) return
+    if (currentSessionId === sessionId) return
+    if (!history.find((session) => session.id === sessionId)) return
+    loadSession(sessionId)
+  }, [currentSessionId, history, loadSession, sessionId, standalone])
+
+  const openChatTab = useCallback(() => {
+    const sessionId =
+      messages.length > 0
+        ? saveCurrentSession(currentSessionId || ensureSessionId())
+        : currentSessionId
+    const params = new URLSearchParams({
+      page: pageContext.page,
+      namespace: pageContext.namespace,
+      resourceName: pageContext.resourceName,
+      resourceKind: pageContext.resourceKind,
+    })
+    if (sessionId) {
+      params.set('sessionId', sessionId)
+    }
+    const url = withSubPath(`/ai-chat-box?${params.toString()}`)
+    window.open(url, '_blank', 'noopener,noreferrer')
+    closeChat()
+  }, [
+    closeChat,
+    currentSessionId,
+    ensureSessionId,
+    messages.length,
+    pageContext.namespace,
+    pageContext.page,
+    pageContext.resourceKind,
+    pageContext.resourceName,
+    saveCurrentSession,
+  ])
 
   const handleSend = useCallback(() => {
     if (!input.trim() || isLoading) return
@@ -727,51 +786,55 @@ export function AIChatbox() {
     widthDragging.current = false
   }, [])
 
+  const resizeInput = useCallback(() => {
+    const textarea = inputRef.current
+    if (!textarea) return
+
+    textarea.style.height = 'auto'
+    textarea.style.height = `${Math.min(textarea.scrollHeight, MAX_INPUT_HEIGHT)}px`
+    textarea.style.overflowY =
+      textarea.scrollHeight > MAX_INPUT_HEIGHT ? 'auto' : 'hidden'
+  }, [])
+
+  useEffect(() => {
+    resizeInput()
+  }, [input, resizeInput])
+
   if (!shouldShowAIChatbox) return null
 
   // Don't render if AI is not enabled
   if (aiEnabled === false) return null
 
-  // FAB button when chat is closed
-  if (!isOpen) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            className="fixed bottom-6 right-6 z-50 h-12 w-12 rounded-full shadow-lg"
-            size="icon"
-            onClick={openChat}
-            style={{
-              bottom: `calc(env(safe-area-inset-bottom, 0px) + 1.5rem)`,
-            }}
-          >
-            <Bot className="h-5 w-5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="left">AI Assistant</TooltipContent>
-      </Tooltip>
-    )
+  if (!standalone && !isOpen) {
+    return <AIChatTrigger onOpen={openChat} />
   }
 
   return (
     <div
-      className={`fixed z-50 flex flex-col border bg-background shadow-2xl ${
-        isMobile ? 'left-2 right-2 rounded-lg' : 'bottom-4 right-4 rounded-lg'
-      }`}
+      className={
+        standalone
+          ? 'fixed inset-0 z-50 flex flex-col bg-background'
+          : `fixed z-50 flex flex-col border bg-background shadow-2xl ${
+              isMobile
+                ? 'left-2 right-2 rounded-lg'
+                : 'bottom-4 right-4 rounded-lg'
+            }`
+      }
       style={
-        isMobile
-          ? {
-              bottom: `calc(env(safe-area-inset-bottom, 0px) + 0.5rem)`,
-              height: `${MOBILE_DEFAULT_HEIGHT_RATIO * 100}%`,
-            }
-          : {
-              width: desktopWidth,
-              height: desktopHeight,
-            }
+        standalone
+          ? undefined
+          : isMobile
+            ? {
+                bottom: `calc(env(safe-area-inset-bottom, 0px) + 0.5rem)`,
+                height: `${MOBILE_DEFAULT_HEIGHT_RATIO * 100}%`,
+              }
+            : {
+                width: desktopWidth,
+                height: desktopHeight,
+              }
       }
     >
-      {/* Resize handle */}
-      {!isMobile && (
+      {!isMobile && !standalone && (
         <div
           className="absolute -top-1 left-4 right-4 h-2 cursor-ns-resize z-10"
           onPointerDown={onPointerDown}
@@ -779,7 +842,7 @@ export function AIChatbox() {
           onPointerUp={onPointerUp}
         />
       )}
-      {!isMobile && (
+      {!isMobile && !standalone && (
         <div
           className="absolute -left-1 top-11 bottom-0 w-2 cursor-ew-resize z-10"
           onPointerDown={onWidthPointerDown}
@@ -788,8 +851,11 @@ export function AIChatbox() {
         />
       )}
 
-      {/* Header */}
-      <div className="flex h-11 shrink-0 items-center justify-between rounded-t-lg border-b bg-muted/50 px-3">
+      <div
+        className={`flex h-11 shrink-0 items-center justify-between border-b bg-muted/50 px-3 ${
+          standalone ? '' : 'rounded-t-lg'
+        }`}
+      >
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Bot className="h-4 w-4" />
           AI Assistant
@@ -824,6 +890,22 @@ export function AIChatbox() {
             <TooltipContent side="top">New chat</TooltipContent>
           </Tooltip>
 
+          {!standalone && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={openChatTab}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Open in new tab</TooltipContent>
+            </Tooltip>
+          )}
+
           <Separator orientation="vertical" className="mx-0.5 h-4" />
 
           <Tooltip>
@@ -832,7 +914,7 @@ export function AIChatbox() {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 hover:bg-destructive hover:text-destructive-foreground"
-                onClick={closeChat}
+                onClick={standalone ? () => window.close() : closeChat}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -897,7 +979,7 @@ export function AIChatbox() {
           <div className="flex items-end gap-2">
             <textarea
               ref={inputRef}
-              className="flex-1 resize-none rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex-1 resize-none rounded-md border bg-background px-3 py-2 text-sm leading-5 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               placeholder="Ask about your cluster..."
               rows={1}
               value={input}

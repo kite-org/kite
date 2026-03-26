@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { useTerminal } from '@/contexts/terminal-context'
-import { ChevronDown, ChevronUp, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Maximize2, Minimize2, X } from 'lucide-react'
 
 import { useGeneralSetting } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,7 @@ export function FloatingTerminal() {
     enabled: isAdmin && isOpen,
   })
   const kubectlEnabled = generalSetting?.kubectlEnabled ?? true
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const [height, setHeight] = useState(
     () => (window.innerHeight * DEFAULT_HEIGHT_VH) / 100
   )
@@ -34,13 +35,13 @@ export function FloatingTerminal() {
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (isMinimized) return
+      if (isMinimized || isFullscreen) return
       dragging.current = true
       startY.current = e.clientY
       startH.current = height
       ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
     },
-    [height, isMinimized]
+    [height, isFullscreen, isMinimized]
   )
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
@@ -63,16 +64,40 @@ export function FloatingTerminal() {
     }
   }, [closeTerminal, isOpen, kubectlEnabled])
 
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen((prev) => !prev)
+  }, [])
+
+  const handleMinimize = useCallback(() => {
+    setIsFullscreen(false)
+    if (isMinimized) {
+      openTerminal()
+      return
+    }
+    minimizeTerminal()
+  }, [isMinimized, minimizeTerminal, openTerminal])
+
+  const handleClose = useCallback(() => {
+    setIsFullscreen(false)
+    closeTerminal()
+  }, [closeTerminal])
+
   if (!kubectlEnabled) return null
   if (!isOpen) return null
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-50 flex flex-col border-t bg-background shadow-2xl"
-      style={{ height: isMinimized ? 40 : height }}
+      className={
+        isFullscreen
+          ? 'fixed inset-0 z-50 flex flex-col bg-background shadow-2xl'
+          : 'fixed bottom-0 left-0 right-0 z-50 flex flex-col border-t bg-background shadow-2xl'
+      }
+      style={{
+        height: isMinimized ? 40 : isFullscreen ? '100dvh' : height,
+      }}
     >
       {/* Drag handle */}
-      {!isMinimized && (
+      {!isMinimized && !isFullscreen && (
         <div
           className="absolute -top-1 left-0 right-0 h-2 cursor-ns-resize z-10"
           onPointerDown={onPointerDown}
@@ -85,13 +110,34 @@ export function FloatingTerminal() {
       <div className="flex h-10 shrink-0 items-center justify-between border-b bg-muted/50 px-3">
         <button
           className="flex items-center gap-2 text-sm font-semibold tracking-wide text-foreground hover:opacity-70 transition-opacity"
-          onClick={() => (isMinimized ? openTerminal() : minimizeTerminal())}
+          onClick={handleMinimize}
         >
           <span className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-sm" />
           Kubectl Terminal
         </button>
 
         <div className="flex items-center">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={toggleFullscreen}
+                disabled={isMinimized}
+              >
+                {isFullscreen ? (
+                  <Minimize2 className="h-4 w-4" />
+                ) : (
+                  <Maximize2 className="h-4 w-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            </TooltipContent>
+          </Tooltip>
+
           <Separator orientation="vertical" className="mx-1 h-4" />
 
           <Tooltip>
@@ -100,9 +146,7 @@ export function FloatingTerminal() {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7"
-                onClick={() =>
-                  isMinimized ? openTerminal() : minimizeTerminal()
-                }
+                onClick={handleMinimize}
               >
                 {isMinimized ? (
                   <ChevronUp className="h-4 w-4" />
@@ -124,7 +168,7 @@ export function FloatingTerminal() {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 hover:bg-destructive hover:text-destructive-foreground"
-                onClick={closeTerminal}
+                onClick={handleClose}
               >
                 <X className="h-4 w-4" />
               </Button>

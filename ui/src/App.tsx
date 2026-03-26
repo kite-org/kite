@@ -1,10 +1,10 @@
 import './App.css'
 
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, ReactNode, Suspense, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Outlet, useSearchParams } from 'react-router-dom'
 
-import { AIChatbox } from './components/ai-chat/ai-chatbox'
+import { AIChatbox, StandaloneAIChatbox } from './components/ai-chat/ai-chatbox'
 import { AppSidebar } from './components/app-sidebar'
 import { GlobalSearch } from './components/global-search'
 import {
@@ -26,7 +26,7 @@ const FloatingTerminal = lazy(async () => {
   return { default: module.FloatingTerminal }
 })
 
-function ClusterAwareApp() {
+function ClusterGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
   const { currentCluster, isLoading, error } = useCluster()
 
@@ -57,7 +57,7 @@ function ClusterAwareApp() {
     )
   }
 
-  return <AppContent />
+  return <>{children}</>
 }
 
 function AppContent() {
@@ -97,7 +97,7 @@ function AppContent() {
   )
 }
 
-function App() {
+function AppProviders({ children }: { children: ReactNode }) {
   useEffect(() => {
     prefetchMonaco()
   }, [])
@@ -106,12 +106,30 @@ function App() {
     <TerminalProvider>
       <ClusterProvider>
         <GlobalSearchProvider>
-          <AIChatProvider>
-            <ClusterAwareApp />
-          </AIChatProvider>
+          <AIChatProvider>{children}</AIChatProvider>
         </GlobalSearchProvider>
       </ClusterProvider>
     </TerminalProvider>
+  )
+}
+
+function App() {
+  return (
+    <AppProviders>
+      <ClusterGate>
+        <AppContent />
+      </ClusterGate>
+    </AppProviders>
+  )
+}
+
+export function StandaloneAIChatApp() {
+  return (
+    <AppProviders>
+      <ClusterGate>
+        <StandaloneAIChatbox />
+      </ClusterGate>
+    </AppProviders>
   )
 }
 

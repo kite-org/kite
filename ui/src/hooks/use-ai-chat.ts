@@ -37,13 +37,6 @@ export interface ChatSession {
 
 type APIChatMessage = { role: 'user' | 'assistant'; content: string }
 
-const defaultPageContext: PageContext = {
-  page: '',
-  namespace: '',
-  resourceName: '',
-  resourceKind: '',
-}
-
 const HISTORY_STORAGE_KEY_PREFIX = 'ai-chat-history-'
 const MAX_HISTORY_SESSIONS = 50
 
@@ -87,8 +80,6 @@ export function useAIChat() {
   const abortControllerRef = useRef<AbortController | null>(null)
   const activeAssistantMsgIdRef = useRef<string | null>(null)
   const startNewAssistantSegmentRef = useRef(false)
-  const lastPageContextRef = useRef<PageContext>(defaultPageContext)
-  const lastLanguageRef = useRef('en')
 
   // Load history when username becomes available or changes
   // TODO: save in backend.
@@ -112,44 +103,69 @@ export function useAIChat() {
     []
   )
 
-  const saveCurrentSession = useCallback(() => {
-    if (messagesRef.current.length === 0) return
+  const upsertSession = useCallback(
+    (sessionId: string, sessionMessages: ChatMessage[]) => {
+      if (!sessionId || sessionMessages.length === 0) return
 
-    const now = Date.now()
-    const sessionId = currentSessionId || generateId()
-    const title = generateSessionTitle(messagesRef.current)
-    const clusterName = localStorage.getItem('current-cluster') || ''
+      const now = Date.now()
+      const title = generateSessionTitle(sessionMessages)
+      const clusterName = localStorage.getItem('current-cluster') || ''
 
-    setHistory((prev) => {
-      const existingIndex = prev.findIndex((s) => s.id === sessionId)
-      const session: ChatSession = {
-        id: sessionId,
-        title,
-        messages: messagesRef.current,
-        createdAt: existingIndex >= 0 ? prev[existingIndex].createdAt : now,
-        updatedAt: now,
-        clusterName,
-      }
+      setHistory((prev) => {
+        const existingIndex = prev.findIndex((s) => s.id === sessionId)
+        const session: ChatSession = {
+          id: sessionId,
+          title,
+          messages: sessionMessages,
+          createdAt: existingIndex >= 0 ? prev[existingIndex].createdAt : now,
+          updatedAt: now,
+          clusterName,
+        }
 
-      let updated: ChatSession[]
-      if (existingIndex >= 0) {
-        updated = [...prev]
-        updated[existingIndex] = session
-      } else {
-        updated = [session, ...prev]
-      }
+        let updated: ChatSession[]
+        if (existingIndex >= 0) {
+          updated = [...prev]
+          updated[existingIndex] = session
+        } else {
+          updated = [session, ...prev]
+        }
 
-      // Keep only the most recent sessions
-      if (updated.length > MAX_HISTORY_SESSIONS) {
-        updated = updated.slice(0, MAX_HISTORY_SESSIONS)
-      }
+        if (updated.length > MAX_HISTORY_SESSIONS) {
+          updated = updated.slice(0, MAX_HISTORY_SESSIONS)
+        }
 
-      saveHistoryToStorage(username, updated)
-      return updated
-    })
+        saveHistoryToStorage(username, updated)
+        return updated
+      })
+    },
+    [username]
+  )
 
+  const ensureSessionId = useCallback(() => {
+    if (currentSessionId) return currentSessionId
+    const sessionId = generateId()
     setCurrentSessionId(sessionId)
-  }, [currentSessionId, username])
+    return sessionId
+  }, [currentSessionId])
+
+  const saveCurrentSession = useCallback(
+    (sessionId?: string | null) => {
+      if (messagesRef.current.length === 0) return null
+
+      const resolvedSessionId = sessionId || currentSessionId || generateId()
+      upsertSession(resolvedSessionId, messagesRef.current)
+      if (currentSessionId !== resolvedSessionId) {
+        setCurrentSessionId(resolvedSessionId)
+      }
+      return resolvedSessionId
+    },
+    [currentSessionId, upsertSession]
+  )
+
+  useEffect(() => {
+    if (!currentSessionId || messages.length === 0) return
+    upsertSession(currentSessionId, messages)
+  }, [currentSessionId, messages, upsertSession])
 
   const appendAssistantError = useCallback(
     (message: string) => {
@@ -463,8 +479,8 @@ export function useAIChat() {
       const trimmed = content.trim()
       if (!trimmed || isLoading) return
 
-      lastPageContextRef.current = pageContext
-      lastLanguageRef.current = (language || '').trim() || 'en'
+      const sessionId = ensureSessionId()
+      const requestLanguage = (language || '').trim() || 'en'
       const baseMessages = buildAPIMessagesFromCurrentState()
 
       updateMessages((prev) => [
@@ -490,7 +506,7 @@ export function useAIChat() {
         await streamChat(
           apiMessages,
           pageContext,
-          lastLanguageRef.current,
+          requestLanguage,
           abortControllerRef.current.signal
         )
       } catch (error) {
@@ -502,12 +518,13 @@ export function useAIChat() {
         abortControllerRef.current = null
         activeAssistantMsgIdRef.current = null
         startNewAssistantSegmentRef.current = false
-        saveCurrentSession()
+        saveCurrentSession(sessionId)
       }
     },
     [
       appendAssistantError,
       buildAPIMessagesFromCurrentState,
+      ensureSessionId,
       isLoading,
       saveCurrentSession,
       streamChat,
@@ -697,5 +714,7 @@ export function useAIChat() {
     loadSession,
     deleteSession,
     newSession,
+    ensureSessionId,
+    saveCurrentSession,
   }
 }

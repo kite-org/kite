@@ -1,6 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom'
 
-import App from './App'
+import App, { StandaloneAIChatApp } from './App'
 import { InitCheckRoute } from './components/init-check-route'
 import { ProtectedRoute } from './components/protected-route'
 import { getSubPath } from './lib/subpath'
@@ -25,6 +25,16 @@ export const router = createBrowserRouter(
       element: (
         <InitCheckRoute>
           <LoginPage />
+        </InitCheckRoute>
+      ),
+    },
+    {
+      path: '/ai-chat-box',
+      element: (
+        <InitCheckRoute>
+          <ProtectedRoute>
+            <StandaloneAIChatApp />
+          </ProtectedRoute>
         </InitCheckRoute>
       ),
     },

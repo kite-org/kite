@@ -78,6 +78,19 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
 
   const pageContext = useMemo<PageContext>(() => {
     const path = location.pathname
+    const searchParams = new URLSearchParams(location.search)
+
+    if (path === '/ai-chat-box') {
+      return {
+        page: searchParams.get('page') || 'overview',
+        namespace: searchParams.get('namespace') || '',
+        resourceName: searchParams.get('resourceName') || '',
+        resourceKind: toSingularResource(
+          searchParams.get('resourceKind') || ''
+        ),
+      }
+    }
+
     const resource = params.resource || ''
     const name = params.name || ''
     const namespace = params.namespace || ''
@@ -98,7 +111,13 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
       resourceName: name,
       resourceKind: normalizedKind,
     }
-  }, [location.pathname, params.resource, params.name, params.namespace])
+  }, [
+    location.pathname,
+    location.search,
+    params.resource,
+    params.name,
+    params.namespace,
+  ])
 
   return (
     <AIChatContext.Provider
