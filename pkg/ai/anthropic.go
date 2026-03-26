@@ -78,7 +78,7 @@ func (a *Agent) runAnthropicConversation(
 	maxIterations := 100
 	for i := 0; i < maxIterations; i++ {
 		stream := a.anthropicClient.Messages.NewStreaming(ctx, anthropic.MessageNewParams{
-			Model:     anthropic.Model(a.model),
+			Model:     a.model,
 			Messages:  messages,
 			System:    []anthropic.TextBlockParam{{Text: sysPrompt}},
 			Tools:     tools,
