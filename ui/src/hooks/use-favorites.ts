@@ -49,9 +49,9 @@ export function useFavorites() {
   // Toggle favorite status
   const toggleFavorite = useCallback(
     (resource: SearchResult) => {
-      const wasFavorite = toggleFavoriteStorage(resource)
+      const isFavorite = toggleFavoriteStorage(resource)
       refreshFavorites()
-      return !wasFavorite // Return new state
+      return isFavorite
     },
     [refreshFavorites]
   )

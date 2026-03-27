@@ -134,6 +134,7 @@ pre-commit: format lint ## Run pre-commit checks
 test: ## Run tests
 	@echo "🧪 Running tests..."
 	go test -v ./...
+	cd $(UI_DIR) && pnpm run test
 
 docs-dev: ## Start documentation server in development mode
 	@echo "📚 Starting documentation server..."
