@@ -49,7 +49,8 @@ jobs:
 
     env:
       KITE_E2E_CLUSTER_NAME: kite-e2e
-      KUBECONFIG: ${{ runner.temp }}/kite-e2e.kubeconfig
+      KUBECONFIG: ${{ github.workspace }}/kite-e2e.kubeconfig
+      KIND_LOGS_DIR: ${{ github.workspace }}/kind-logs
       KITE_E2E_PORT: "38080"
 
     steps:
@@ -91,7 +92,7 @@ jobs:
 
       - name: Export kind logs
         if: always()
-        run: kind export logs "${RUNNER_TEMP}/kind-logs" --name "${KITE_E2E_CLUSTER_NAME}"
+        run: kind export logs "${KIND_LOGS_DIR}" --name "${KITE_E2E_CLUSTER_NAME}"
 
       - name: Upload E2E artifacts
         if: always()
@@ -101,4 +102,4 @@ jobs:
           path: |
             e2e/playwright-report
             e2e/test-results
-            ${{ runner.temp }}/kind-logs
+            ${{ env.KIND_LOGS_DIR }}
