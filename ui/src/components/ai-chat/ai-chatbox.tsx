@@ -1204,7 +1204,7 @@ export function AIChatbox({
           <div className="flex items-end gap-2">
             <textarea
               ref={inputRef}
-              className="flex-1 resize-none rounded-md border bg-background px-3 py-2 text-sm leading-5 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex-1 min-w-0 resize-none rounded-md border bg-background px-3 py-2 text-sm leading-5 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               placeholder="Ask about your cluster..."
               rows={1}
               value={input}
