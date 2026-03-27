@@ -77,6 +77,9 @@ export interface OAuthProviderCreateRequest {
   userInfoUrl?: string
   scopes?: string
   issuer?: string
+  usernameClaim?: string
+  groupsClaim?: string
+  allowedGroups?: string
   enabled?: boolean
 }
 

@@ -35,6 +35,9 @@ function createOAuthProviderFormData(provider?: OAuthProvider | null) {
     userInfoUrl: provider?.userInfoUrl || '',
     scopes: provider?.scopes || 'openid,profile,email',
     issuer: provider?.issuer || '',
+    usernameClaim: provider?.usernameClaim || '',
+    groupsClaim: provider?.groupsClaim || '',
+    allowedGroups: provider?.allowedGroups || '',
     enabled: provider?.enabled ?? true,
   }
 }
@@ -113,6 +116,9 @@ function OAuthProviderDialogContent({
     if (formData.userInfoUrl) submitData.userInfoUrl = formData.userInfoUrl
     if (formData.scopes) submitData.scopes = formData.scopes
     if (formData.issuer) submitData.issuer = formData.issuer
+    if (formData.usernameClaim) submitData.usernameClaim = formData.usernameClaim
+    if (formData.groupsClaim) submitData.groupsClaim = formData.groupsClaim
+    if (formData.allowedGroups) submitData.allowedGroups = formData.allowedGroups
 
     onSubmit(submitData)
   }
@@ -303,7 +309,60 @@ function OAuthProviderDialogContent({
           </div>
         </div>
         <Separator />
-        {/* Section 3: Enable */}
+        {/* Section 3: Advanced OIDC Details */}
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <h3 className="text-lg font-medium">
+              {t('oauthManagement.dialog.section.advanced', 'Advanced Settings')}
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="usernameClaim">
+                {t('oauthManagement.dialog.usernameClaim', 'Username Claim')}
+              </Label>
+              <Input
+                id="usernameClaim"
+                value={formData.usernameClaim}
+                onChange={handleInputChange('usernameClaim')}
+                placeholder={t(
+                  'oauthManagement.dialog.usernameClaimPlaceholder',
+                  'e.g., preferred_username'
+                )}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="groupsClaim">
+                {t('oauthManagement.dialog.groupsClaim', 'Groups Claim')}
+              </Label>
+              <Input
+                id="groupsClaim"
+                value={formData.groupsClaim}
+                onChange={handleInputChange('groupsClaim')}
+                placeholder={t(
+                  'oauthManagement.dialog.groupsClaimPlaceholder',
+                  'e.g., memberOf'
+                )}
+              />
+            </div>
+            <div className="space-y-2 col-span-2">
+              <Label htmlFor="allowedGroups">
+                {t('oauthManagement.dialog.allowedGroups', 'Allowed Groups')}
+              </Label>
+              <Input
+                id="allowedGroups"
+                value={formData.allowedGroups}
+                onChange={handleInputChange('allowedGroups')}
+                placeholder={t(
+                  'oauthManagement.dialog.allowedGroupsPlaceholder',
+                  'e.g., admin, developers (comma separated)'
+                )}
+              />
+            </div>
+          </div>
+        </div>
+        <Separator />
+        {/* Section 4: Enable */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium">
             {t('oauthManagement.dialog.section.status', 'Status')}

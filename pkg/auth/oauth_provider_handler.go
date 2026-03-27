@@ -104,14 +104,17 @@ func (h *AuthHandler) UpdateOAuthProvider(c *gin.Context) {
 	}
 
 	updates := map[string]interface{}{
-		"name":          provider.Name,
-		"client_id":     provider.ClientID,
-		"auth_url":      provider.AuthURL,
-		"token_url":     provider.TokenURL,
-		"user_info_url": provider.UserInfoURL,
-		"scopes":        provider.Scopes,
-		"issuer":        provider.Issuer,
-		"enabled":       provider.Enabled,
+		"name":           provider.Name,
+		"client_id":      provider.ClientID,
+		"auth_url":       provider.AuthURL,
+		"token_url":      provider.TokenURL,
+		"user_info_url":  provider.UserInfoURL,
+		"scopes":         provider.Scopes,
+		"issuer":         provider.Issuer,
+		"username_claim": provider.UsernameClaim,
+		"groups_claim":   provider.GroupsClaim,
+		"allowed_groups": provider.AllowedGroups,
+		"enabled":        provider.Enabled,
 	}
 	if provider.ClientSecret != "" {
 		updates["client_secret"] = provider.ClientSecret

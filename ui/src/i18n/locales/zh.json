@@ -250,7 +250,9 @@
       "invalidCredentials": "用户名或密码无效",
       "insufficient permissions": "权限不足",
       "invalid credentials": "用户名或密码无效",
-      "unknownError": "发生未知错误"
+      "unknownError": "发生未知错误",
+      "notInAllowedGroups": "认证成功，但您的账号不属于 {{provider}} 允许的群组。",
+      "notInAllowedGroupsDetails": "请联系管理员将您添加到允许的群组中。"
     }
   },
   "cluster": {

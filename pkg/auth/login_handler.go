@@ -221,6 +221,10 @@ func (h *AuthHandler) Callback(c *gin.Context) {
 	klog.V(1).Infof("OAuth Callback - Getting user info with provider: %s", provider)
 	user, err := oauthProvider.GetUserInfo(tokenResp.AccessToken)
 	if err != nil {
+		if err.Error() == "user is not in any of the allowed groups" {
+			c.Redirect(http.StatusFound, base+"/login?error=insufficient_permissions&reason=not_in_allowed_groups&provider="+provider)
+			return
+		}
 		c.Redirect(http.StatusFound, base+"/login?error=user_info_failed&reason=user_info_failed&provider="+provider)
 		return
 	}

@@ -37,6 +37,9 @@ type OAuthProvider struct {
 	Scopes       string          `json:"scopes" gorm:"type:varchar(255);default:'openid,profile,email'"`
 	Issuer       string          `json:"issuer" gorm:"type:varchar(255)"`
 	Enabled      bool            `json:"enabled" gorm:"type:boolean;default:true"`
+	UsernameClaim string `json:"usernameClaim" gorm:"type:varchar(255)"`
+	GroupsClaim   string `json:"groupsClaim" gorm:"type:varchar(255)"`
+	AllowedGroups string `json:"allowedGroups" gorm:"type:text"`
 
 	// Auto-generated redirect URL
 	RedirectURL string `json:"-" gorm:"-"`

@@ -359,6 +359,9 @@ export interface OAuthProvider {
   userInfoUrl?: string
   scopes?: string
   issuer?: string
+  usernameClaim?: string
+  groupsClaim?: string
+  allowedGroups?: string
   enabled: boolean
   createdAt: string
   updatedAt: string

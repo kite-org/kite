@@ -60,6 +60,9 @@ type GenericProvider struct {
 	TokenURL    string
 	UserInfoURL string
 	Name        string
+	UsernameClaim string
+	GroupsClaim   string
+	AllowedGroups []string
 }
 
 // discoverOAuthEndpoints discovers OAuth endpoints from issuer's well-known configuration
@@ -133,6 +136,16 @@ func NewGenericProvider(op model.OAuthProvider) (*GenericProvider, error) {
 		scopes = strings.Split(op.Scopes, ",")
 	}
 
+	allowedGroups := []string{}
+	if op.AllowedGroups != "" {
+		for _, g := range strings.Split(op.AllowedGroups, ",") {
+			g = strings.TrimSpace(g)
+			if g != "" {
+				allowedGroups = append(allowedGroups, g)
+			}
+		}
+	}
+
 	gp := &GenericProvider{
 		Config: OAuthConfig{
 			ClientID:     op.ClientID,
@@ -140,10 +153,13 @@ func NewGenericProvider(op model.OAuthProvider) (*GenericProvider, error) {
 			RedirectURL:  op.RedirectURL,
 			Scopes:       strings.Join(scopes, " "),
 		},
-		AuthURL:     op.AuthURL,
-		TokenURL:    op.TokenURL,
-		UserInfoURL: op.UserInfoURL,
-		Name:        string(op.Name),
+		AuthURL:       op.AuthURL,
+		TokenURL:      op.TokenURL,
+		UserInfoURL:   op.UserInfoURL,
+		Name:          string(op.Name),
+		UsernameClaim: op.UsernameClaim,
+		GroupsClaim:   op.GroupsClaim,
+		AllowedGroups: allowedGroups,
 	}
 	return gp, nil
 }
@@ -268,22 +284,30 @@ func (g *GenericProvider) GetUserInfo(accessToken string) (*model.User, error) {
 	if userid, ok := userInfo["userid"]; ok {
 		user.Sub = fmt.Sprintf("%v", userid)
 	}
-	if username, ok := userInfo["username"]; ok {
-		user.Username = fmt.Sprintf("%v", username)
-	} else if login, ok := userInfo["login"]; ok {
-		user.Username = fmt.Sprintf("%v", login)
-	} else if userPrincipalName, ok := userInfo["userPrincipalName"]; ok {
-		// Azure AD Graph API uses 'userPrincipalName' for the user's email/UPN
-		user.Username = fmt.Sprintf("%v", userPrincipalName)
-	} else if preferredUsername, ok := userInfo["preferred_username"]; ok {
-		// OIDC uses 'preferred_username' for the user's email/UPN
-		user.Username = fmt.Sprintf("%v", preferredUsername)
-	} else if upn, ok := userInfo["upn"]; ok {
-		// Some providers use 'upn' (User Principal Name)
-		user.Username = fmt.Sprintf("%v", upn)
-	} else if email, ok := userInfo["email"]; ok {
-		user.Username = fmt.Sprintf("%v", email)
+
+	if g.UsernameClaim != "" {
+		if usernameVal, ok := userInfo[g.UsernameClaim]; ok {
+			user.Username = fmt.Sprintf("%v", usernameVal)
+		}
+	} else {
+		if username, ok := userInfo["username"]; ok {
+			user.Username = fmt.Sprintf("%v", username)
+		} else if login, ok := userInfo["login"]; ok {
+			user.Username = fmt.Sprintf("%v", login)
+		} else if userPrincipalName, ok := userInfo["userPrincipalName"]; ok {
+			// Azure AD Graph API uses 'userPrincipalName' for the user's email/UPN
+			user.Username = fmt.Sprintf("%v", userPrincipalName)
+		} else if preferredUsername, ok := userInfo["preferred_username"]; ok {
+			// OIDC uses 'preferred_username' for the user's email/UPN
+			user.Username = fmt.Sprintf("%v", preferredUsername)
+		} else if upn, ok := userInfo["upn"]; ok {
+			// Some providers use 'upn' (User Principal Name)
+			user.Username = fmt.Sprintf("%v", upn)
+		} else if email, ok := userInfo["email"]; ok {
+			user.Username = fmt.Sprintf("%v", email)
+		}
 	}
+
 	if name, ok := userInfo["name"]; ok {
 		user.Name = fmt.Sprintf("%v", name)
 	} else if displayName, ok := userInfo["displayName"]; ok {
@@ -300,13 +324,23 @@ func (g *GenericProvider) GetUserInfo(accessToken string) (*model.User, error) {
 	}
 
 	var groups []interface{}
-	if v, ok := userInfo["groups"]; ok {
-		if arr, ok := v.([]interface{}); ok {
-			groups = arr
+	if g.GroupsClaim != "" {
+		if v, ok := userInfo[g.GroupsClaim]; ok {
+			if arr, ok := v.([]interface{}); ok {
+				groups = arr
+			} else if str, ok := v.(string); ok {
+				groups = []interface{}{str}
+			}
 		}
-	} else if roles, ok := userInfo["roles"]; ok {
-		if arr, ok := roles.([]interface{}); ok {
-			groups = arr
+	} else {
+		if v, ok := userInfo["groups"]; ok {
+			if arr, ok := v.([]interface{}); ok {
+				groups = arr
+			}
+		} else if roles, ok := userInfo["roles"]; ok {
+			if arr, ok := roles.([]interface{}); ok {
+				groups = arr
+			}
 		}
 	}
 
@@ -330,6 +364,26 @@ func (g *GenericProvider) GetUserInfo(accessToken string) (*model.User, error) {
 	} else {
 		klog.V(1).Infof("No groups/roles found in user info from %s", g.Name)
 	}
+
+	if len(g.AllowedGroups) > 0 {
+		allowed := false
+		for _, userGroup := range user.OIDCGroups {
+			for _, allowedGroup := range g.AllowedGroups {
+				if userGroup == allowedGroup {
+					allowed = true
+					break
+				}
+			}
+			if allowed {
+				break
+			}
+		}
+		if !allowed {
+			klog.Warningf("User %s is not in any allowed groups %v (user groups: %v)", user.Username, g.AllowedGroups, user.OIDCGroups)
+			return nil, fmt.Errorf("user is not in any of the allowed groups")
+		}
+	}
+
 	return user, nil
 }
 

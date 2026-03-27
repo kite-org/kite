@@ -232,7 +232,9 @@
       "invalidCredentials": "Invalid username or password",
       "unknownError": "An unknown error occurred",
       "userDisabled": "User Disabled",
-      "userDisabledMessage": "Your user account has been disabled. Please contact your administrator for more information."
+      "userDisabledMessage": "Your user account has been disabled. Please contact your administrator for more information.",
+      "notInAllowedGroups": "Authentication succeeded, but your account is not a member of the allowed groups in {{provider}}.",
+      "notInAllowedGroupsDetails": "Please contact your administrator to be added to an allowed group."
     }
   },
   "cluster": {

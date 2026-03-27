@@ -150,6 +150,12 @@ export function LoginPage() {
           title: t('login.errors.userDisabled', 'User Disabled'),
           message: t('login.errors.userDisabledMessage'),
         }
+      case 'not_in_allowed_groups':
+        return {
+          title: t('login.errors.accessDenied'),
+          message: t('login.errors.notInAllowedGroups', { provider }),
+          details: t('login.errors.notInAllowedGroupsDetails'),
+        }
       default:
         return {
           title: t('login.errors.authenticationError'),

@@ -118,34 +118,114 @@ func TestGenericProviderGetUserInfo(t *testing.T) {
 		}
 
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"oid":          "oid-123",
-			"login":        "alice",
-			"displayName":  "Alice Display",
-			"nickname":     "Alice Nick",
-			"picture":      "https://example.com/avatar.png",
-			"groups":       []any{"dev", "ops"},
-			"unused_field": "ignored",
+			"oid":            "oid-123",
+			"login":          "alice",
+			"displayName":    "Alice Display",
+			"nickname":       "Alice Nick",
+			"picture":        "https://example.com/avatar.png",
+			"groups":         []any{"dev", "ops"},
+			"custom_uname":   "bob",
+			"custom_grp":     []any{"admin"},
+			"custom_grp_str": "superuser",
 		})
 	}))
 	t.Cleanup(server.Close)
 
-	provider := &GenericProvider{
-		Name:        "github",
-		UserInfoURL: server.URL + "/userinfo",
+	tests := []struct {
+		name         string
+		provider     *GenericProvider
+		wantErr      bool
+		wantUsername string
+		wantGroups   []string
+		wantProvider string
+	}{
+		{
+			name: "default claims",
+			provider: &GenericProvider{
+				Name:        "github",
+				UserInfoURL: server.URL + "/userinfo",
+			},
+			wantErr:      false,
+			wantUsername: "alice",
+			wantGroups:   []string{"dev", "ops"},
+			wantProvider: "github",
+		},
+		{
+			name: "custom claims string group",
+			provider: &GenericProvider{
+				Name:          "github-custom1",
+				UserInfoURL:   server.URL + "/userinfo",
+				UsernameClaim: "custom_uname",
+				GroupsClaim:   "custom_grp_str",
+			},
+			wantErr:      false,
+			wantUsername: "bob",
+			wantGroups:   []string{"superuser"},
+			wantProvider: "github-custom1",
+		},
+		{
+			name: "custom claims array group",
+			provider: &GenericProvider{
+				Name:          "github-custom2",
+				UserInfoURL:   server.URL + "/userinfo",
+				UsernameClaim: "custom_uname",
+				GroupsClaim:   "custom_grp",
+			},
+			wantErr:      false,
+			wantUsername: "bob",
+			wantGroups:   []string{"admin"},
+			wantProvider: "github-custom2",
+		},
+		{
+			name: "allowed groups success",
+			provider: &GenericProvider{
+				Name:          "github-allowed",
+				UserInfoURL:   server.URL + "/userinfo",
+				AllowedGroups: []string{"ops", "sales"},
+			},
+			wantErr:      false,
+			wantUsername: "alice",
+			wantGroups:   []string{"dev", "ops"},
+			wantProvider: "github-allowed",
+		},
+		{
+			name: "allowed groups fail",
+			provider: &GenericProvider{
+				Name:          "github-denied",
+				UserInfoURL:   server.URL + "/userinfo",
+				AllowedGroups: []string{"sales", "marketing"},
+			},
+			wantErr:      true,
+		},
 	}
 
-	got, err := provider.GetUserInfo("access-token")
-	if err != nil {
-		t.Fatalf("GetUserInfo() error = %v", err)
-	}
-	if got.Provider != "github" {
-		t.Fatalf("Provider = %q, want %q", got.Provider, "github")
-	}
-	if got.Sub != "oid-123" || got.Username != "alice" || got.Name != "Alice Nick" || got.AvatarURL != "https://example.com/avatar.png" {
-		t.Fatalf("GetUserInfo() user = %#v", got)
-	}
-	if want := []string{"dev", "ops"}; len(got.OIDCGroups) != len(want) || got.OIDCGroups[0] != want[0] || got.OIDCGroups[1] != want[1] {
-		t.Fatalf("OIDCGroups = %#v, want %#v", got.OIDCGroups, want)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := tc.provider.GetUserInfo("access-token")
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("GetUserInfo() error = %v, wantErr %v", err, tc.wantErr)
+			}
+			if tc.wantErr {
+				return
+			}
+			if got.Provider != tc.wantProvider {
+				t.Fatalf("Provider = %q, want %q", got.Provider, tc.wantProvider)
+			}
+			if got.Username != tc.wantUsername {
+				t.Errorf("Username = %q, want %q", got.Username, tc.wantUsername)
+			}
+			if len(got.OIDCGroups) != len(tc.wantGroups) {
+				t.Fatalf("OIDCGroups len = %d, want %d", len(got.OIDCGroups), len(tc.wantGroups))
+			}
+			for i, wantGroup := range tc.wantGroups {
+				if got.OIDCGroups[i] != wantGroup {
+					t.Errorf("OIDCGroups[%d] = %q, want %q", i, got.OIDCGroups[i], wantGroup)
+				}
+			}
+			if got.Sub != "oid-123" || got.Name != "Alice Nick" || got.AvatarURL != "https://example.com/avatar.png" {
+				t.Fatalf("GetUserInfo() user details mismatch = %#v", got)
+			}
+		})
 	}
 }
 
