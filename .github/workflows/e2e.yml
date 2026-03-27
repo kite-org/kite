@@ -1,0 +1,104 @@
+name: E2E
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/e2e.yml"
+      - "Makefile"
+      - "go.mod"
+      - "go.sum"
+      - "*.go"
+      - "internal/**"
+      - "pkg/**"
+      - "ui/**"
+      - "e2e/**"
+      - "scripts/e2e-start-app.sh"
+      - "scripts/get-version.sh"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/e2e.yml"
+      - "Makefile"
+      - "go.mod"
+      - "go.sum"
+      - "*.go"
+      - "internal/**"
+      - "pkg/**"
+      - "ui/**"
+      - "e2e/**"
+      - "scripts/e2e-start-app.sh"
+      - "scripts/get-version.sh"
+
+env:
+  GO_VERSION: "1.25"
+  NODE_VERSION: "24"
+
+jobs:
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      KITE_E2E_CLUSTER_NAME: kite-e2e
+      KUBECONFIG: ${{ runner.temp }}/kite-e2e.kubeconfig
+      KITE_E2E_PORT: "38080"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+          cache-dependency-path: |
+            ui/pnpm-lock.yaml
+            e2e/pnpm-lock.yaml
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          check-latest: true
+
+      - name: Install deps
+        run: make deps
+
+      - name: Install kind
+        run: |
+          [ "$(uname -m)" = "x86_64" ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.31.0/kind-linux-amd64
+          [ "$(uname -m)" = "aarch64" ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.31.0/kind-linux-arm64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Run E2E tests
+        run: make e2e-test
+
+      - name: Export kind logs
+        if: always()
+        run: kind export logs "${RUNNER_TEMP}/kind-logs" --name "${KITE_E2E_CLUSTER_NAME}"
+
+      - name: Upload E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+            ${{ runner.temp }}/kind-logs
