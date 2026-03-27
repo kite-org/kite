@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { kindClusterName } from './env'
+import { kindClusterName } from '../env'
 
 const controlPlaneNodeName = `${kindClusterName}-control-plane`
 

@@ -11,6 +11,9 @@ importers:
       '@playwright/test':
         specifier: ^1.58.2
         version: 1.58.2
+      '@types/node':
+        specifier: ^25.5.0
+        version: 25.5.0
 
 packages:
 
@@ -18,6 +21,9 @@ packages:
     resolution: {integrity: sha512-akea+6bHYBBfA9uQqSYmlJXn61cTa+jbO87xVLCWbTqbWadRVmhxlXATaOjOgcBaWU4ePo0wB41KMFv3o35IXA==}
     engines: {node: '>=18'}
     hasBin: true
+
+  '@types/node@25.5.0':
+    resolution: {integrity: sha512-jp2P3tQMSxWugkCUKLRPVUpGaL5MVFwF8RDuSRztfwgN1wmqJeMSbKlnEtQqU8UrhTmzEmZdu2I6v2dpp7XIxw==}
 
   fsevents@2.3.2:
     resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
@@ -34,11 +40,18 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
+  undici-types@7.18.2:
+    resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
+
 snapshots:
 
   '@playwright/test@1.58.2':
     dependencies:
       playwright: 1.58.2
+
+  '@types/node@25.5.0':
+    dependencies:
+      undici-types: 7.18.2
 
   fsevents@2.3.2:
     optional: true
@@ -50,3 +63,5 @@ snapshots:
       playwright-core: 1.58.2
     optionalDependencies:
       fsevents: 2.3.2
+
+  undici-types@7.18.2: {}

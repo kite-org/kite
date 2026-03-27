@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { adminUser } from './env'
+import { adminUser } from '../env'
 
 test.describe('auth session', () => {
   test('logout returns to login', async ({ page }) => {
