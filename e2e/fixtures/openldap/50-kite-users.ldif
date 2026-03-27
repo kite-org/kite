@@ -1,0 +1,35 @@
+dn: ou=users,{{ LDAP_BASE_DN }}
+objectClass: organizationalUnit
+ou: users
+
+dn: ou=groups,{{ LDAP_BASE_DN }}
+objectClass: organizationalUnit
+ou: groups
+
+dn: uid=ldap-e2e,ou=users,{{ LDAP_BASE_DN }}
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: ldap-e2e
+cn: LDAP E2E
+sn: LDAP
+mail: ldap-e2e@kite.test
+userPassword: KiteLDAP!2345
+
+dn: uid=oauth-e2e,ou=users,{{ LDAP_BASE_DN }}
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: oauth-e2e
+cn: OAuth E2E
+sn: OAuth
+mail: oauth-e2e@kite.test
+userPassword: KiteOAuth!2345
+
+dn: cn=e2e-viewers,ou=groups,{{ LDAP_BASE_DN }}
+objectClass: groupOfNames
+cn: e2e-viewers
+member: uid=ldap-e2e,ou=users,{{ LDAP_BASE_DN }}
+member: uid=oauth-e2e,ou=users,{{ LDAP_BASE_DN }}

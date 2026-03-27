@@ -1,0 +1,38 @@
+issuer: http://127.0.0.1:5556
+storage:
+  type: memory
+web:
+  http: 0.0.0.0:5556
+oauth2:
+  skipApprovalScreen: true
+staticClients:
+  - id: kite-e2e
+    secret: kite-e2e-secret
+    name: Kite E2E
+    redirectURIs:
+      - http://127.0.0.1:38080/api/auth/callback
+connectors:
+  - type: ldap
+    id: ldap
+    name: LDAP
+    config:
+      host: ldap:389
+      insecureNoSSL: true
+      bindDN: cn=admin,dc=kite,dc=test
+      bindPW: admin
+      usernamePrompt: Username
+      userSearch:
+        baseDN: ou=users,dc=kite,dc=test
+        filter: "(objectClass=inetOrgPerson)"
+        username: uid
+        idAttr: uid
+        emailAttr: mail
+        nameAttr: cn
+        preferredUsernameAttr: uid
+      groupSearch:
+        baseDN: ou=groups,dc=kite,dc=test
+        filter: "(objectClass=groupOfNames)"
+        userMatchers:
+          - userAttr: DN
+            groupAttr: member
+        nameAttr: cn
