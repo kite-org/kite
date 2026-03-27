@@ -28,6 +28,17 @@ sn: OAuth
 mail: oauth-e2e@kite.test
 userPassword: KiteOAuth!2345
 
+dn: uid=oauth-no-group,ou=users,{{ LDAP_BASE_DN }}
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: oauth-no-group
+cn: OAuth No Group
+sn: OAuth
+mail: oauth-no-group@kite.test
+userPassword: KiteOAuthNoGroup!2345
+
 dn: cn=e2e-viewers,ou=groups,{{ LDAP_BASE_DN }}
 objectClass: groupOfNames
 cn: e2e-viewers

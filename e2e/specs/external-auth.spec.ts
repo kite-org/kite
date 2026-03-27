@@ -20,6 +20,11 @@ const oauthUser = {
   provider: 'dex',
 }
 
+const oauthUserWithoutGroup = {
+  username: 'oauth-no-group',
+  password: 'KiteOAuthNoGroup!2345',
+}
+
 async function openAnonymousPage(browser: Browser) {
   const context = await browser.newContext({
     baseURL,
@@ -178,6 +183,59 @@ test.describe('external auth', () => {
       await page.getByRole('button', { name: 'Login' }).click()
 
       await expectSignedInUser(page, oauthUser.username, oauthUser.provider)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('rejects LDAP credentials with the wrong password', async ({
+    browser,
+  }) => {
+    const { context, page } = await openAnonymousPage(browser)
+
+    try {
+      await page.goto('/login')
+
+      await expect(page.getByRole('tab', { name: 'LDAP' })).toBeVisible()
+      await page.getByRole('tab', { name: 'LDAP' }).click()
+      await page.getByLabel('Username').fill(ldapUser.username)
+      await page.getByLabel('Password').fill('wrong-password')
+      await page.getByRole('button', { name: 'Sign In with LDAP' }).click()
+
+      await expect(page).toHaveURL(/\/login/)
+      await expect(page.getByRole('alert')).toContainText(
+        'invalid ldap credentials'
+      )
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('rejects Dex OAuth users without a mapped group', async ({ browser }) => {
+    const { context, page } = await openAnonymousPage(browser)
+
+    try {
+      await page.goto('/login')
+
+      await expect(
+        page.getByRole('button', { name: 'Sign In with Dex' })
+      ).toBeVisible()
+      await page.getByRole('button', { name: 'Sign In with Dex' }).click()
+
+      await expect(
+        page.getByRole('heading', { name: 'Log in to Your Account' })
+      ).toBeVisible()
+      await page.getByLabel('Username').fill(oauthUserWithoutGroup.username)
+      await page.getByLabel('Password').fill(oauthUserWithoutGroup.password)
+      await page.getByRole('button', { name: 'Login' }).click()
+
+      await expect(page).toHaveURL(/\/login\?/)
+      await expect(page.getByRole('alert')).toContainText(
+        `Access denied for user "${oauthUserWithoutGroup.username}"`
+      )
+      await expect(
+        page.getByRole('button', { name: 'Try Again with Different Account' })
+      ).toBeVisible()
     } finally {
       await context.close()
     }
