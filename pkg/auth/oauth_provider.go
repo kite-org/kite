@@ -2,6 +2,7 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -243,6 +244,9 @@ func (g *GenericProvider) RefreshToken(refreshToken string) (*TokenResponse, err
 	return &tokenResp, nil
 }
 
+// ErrNotInAllowedGroups is returned when a user successfully authenticates but does not belong to any specified AllowedGroups.
+var ErrNotInAllowedGroups = errors.New("user is not in any of the allowed groups")
+
 func (g *GenericProvider) GetUserInfo(accessToken string) (*model.User, error) {
 	req, err := http.NewRequest("GET", g.UserInfoURL, nil)
 	if err != nil {
@@ -286,10 +290,13 @@ func (g *GenericProvider) GetUserInfo(accessToken string) (*model.User, error) {
 	}
 
 	if g.UsernameClaim != "" {
-		if usernameVal, ok := userInfo[g.UsernameClaim]; ok {
+		if usernameVal, ok := userInfo[g.UsernameClaim]; ok && usernameVal != "" {
 			user.Username = fmt.Sprintf("%v", usernameVal)
 		}
-	} else {
+	}
+	
+	// Fall back to standard claims if username is not retrieved from custom claim
+	if user.Username == "" {
 		if username, ok := userInfo["username"]; ok {
 			user.Username = fmt.Sprintf("%v", username)
 		} else if login, ok := userInfo["login"]; ok {
@@ -328,11 +335,14 @@ func (g *GenericProvider) GetUserInfo(accessToken string) (*model.User, error) {
 		if v, ok := userInfo[g.GroupsClaim]; ok {
 			if arr, ok := v.([]interface{}); ok {
 				groups = arr
-			} else if str, ok := v.(string); ok {
+			} else if str, ok := v.(string); ok && str != "" {
 				groups = []interface{}{str}
 			}
 		}
-	} else {
+	}
+	
+	// Fall back to standard claims if groups is empty from custom claim
+	if len(groups) == 0 {
 		if v, ok := userInfo["groups"]; ok {
 			if arr, ok := v.([]interface{}); ok {
 				groups = arr
@@ -380,7 +390,7 @@ func (g *GenericProvider) GetUserInfo(accessToken string) (*model.User, error) {
 		}
 		if !allowed {
 			klog.Warningf("User %s is not in any allowed groups %v (user groups: %v)", user.Username, g.AllowedGroups, user.OIDCGroups)
-			return nil, fmt.Errorf("user is not in any of the allowed groups")
+			return nil, ErrNotInAllowedGroups
 		}
 	}
 
