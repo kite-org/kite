@@ -1,5 +1,5 @@
 # Makefile for Kite project
-.PHONY: help dev build clean test docker-build docker-run frontend backend install deps e2e-install e2e-kind-up e2e-kind-down e2e-stop-app e2e-test e2e-test-headed
+.PHONY: help dev build clean test docker-build docker-run frontend backend install deps e2e-install e2e-kind-up e2e-kind-down e2e-stop-app e2e-setup-ldap e2e-setup-dex e2e-test e2e-test-headed
 
 # Variables
 BINARY_NAME=kite
@@ -10,6 +10,11 @@ DOCKER_TAG=latest
 E2E_KIND_NAME ?= kite-e2e
 E2E_PORT ?= 38080
 E2E_KUBECONFIG ?= $(shell printf '%s' "$${TMPDIR:-/tmp/}kite-e2e.kubeconfig")
+E2E_AUTH_NETWORK ?= kite-e2e-auth
+E2E_LDAP_CONTAINER ?= kite-e2e-ldap
+E2E_LDAP_PORT ?= 3389
+E2E_DEX_CONTAINER ?= kite-e2e-dex
+E2E_OAUTH_PORT ?= 5556
 SPEC ?=
 
 # Version information
@@ -171,6 +176,44 @@ e2e-stop-app: ## Stop any local e2e app process listening on the e2e port
 		kill $$PIDS 2>/dev/null || true; \
 		sleep 1; \
 	fi
+
+e2e-setup-ldap: ## Start the OpenLDAP service used by external-auth e2e
+	@docker network inspect "$(E2E_AUTH_NETWORK)" >/dev/null 2>&1 || docker network create "$(E2E_AUTH_NETWORK)" >/dev/null
+	@docker rm -f "$(E2E_LDAP_CONTAINER)" >/dev/null 2>&1 || true
+	docker run -d --name "$(E2E_LDAP_CONTAINER)" \
+		--network "$(E2E_AUTH_NETWORK)" \
+		--network-alias ldap \
+		-p "$(E2E_LDAP_PORT):389" \
+		-e LDAP_ORGANISATION="Kite E2E" \
+		-e LDAP_DOMAIN="kite.test" \
+		-e LDAP_ADMIN_PASSWORD="admin" \
+		-e LDAP_CONFIG_PASSWORD="admin" \
+		-e LDAP_TLS="false" \
+		-v "$(CURDIR)/e2e/fixtures/openldap:/container/service/slapd/assets/config/bootstrap/ldif/custom:ro" \
+		osixia/openldap:1.5.0 --copy-service
+	@for i in $$(seq 1 60); do \
+		if docker exec "$(E2E_LDAP_CONTAINER)" ldapsearch -x -H ldap://localhost:389 -b dc=kite,dc=test -D "cn=admin,dc=kite,dc=test" -w admin >/dev/null 2>&1; then \
+			break; \
+		fi; \
+		sleep 1; \
+	done
+	docker exec "$(E2E_LDAP_CONTAINER)" ldapsearch -x -H ldap://localhost:389 -b dc=kite,dc=test -D "cn=admin,dc=kite,dc=test" -w admin >/dev/null
+
+e2e-setup-dex: ## Start the Dex service used by external-auth e2e
+	@docker network inspect "$(E2E_AUTH_NETWORK)" >/dev/null 2>&1 || docker network create "$(E2E_AUTH_NETWORK)" >/dev/null
+	@docker rm -f "$(E2E_DEX_CONTAINER)" >/dev/null 2>&1 || true
+	docker run -d --name "$(E2E_DEX_CONTAINER)" \
+		--network "$(E2E_AUTH_NETWORK)" \
+		-p "$(E2E_OAUTH_PORT):5556" \
+		-v "$(CURDIR)/e2e/fixtures/dex/config.yaml:/etc/dex/config.yaml:ro" \
+		ghcr.io/dexidp/dex:v2.45.1 dex serve /etc/dex/config.yaml
+	@for i in $$(seq 1 60); do \
+		if curl -fsS "http://127.0.0.1:$(E2E_OAUTH_PORT)/.well-known/openid-configuration" >/dev/null; then \
+			break; \
+		fi; \
+		sleep 1; \
+	done
+	curl -fsS "http://127.0.0.1:$(E2E_OAUTH_PORT)/.well-known/openid-configuration" >/dev/null
 
 e2e-test: e2e-install e2e-kind-up e2e-stop-app ## Run e2e tests against the local kind cluster
 	@echo "🧪 Running e2e tests..."

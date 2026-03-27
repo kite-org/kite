@@ -48,10 +48,10 @@ jobs:
     timeout-minutes: 30
 
     env:
-      KITE_E2E_CLUSTER_NAME: kite-e2e
-      KUBECONFIG: ${{ github.workspace }}/kite-e2e.kubeconfig
+      E2E_KIND_NAME: kite-e2e
+      E2E_KUBECONFIG: ${{ github.workspace }}/kite-e2e.kubeconfig
       KIND_LOGS_DIR: ${{ github.workspace }}/kind-logs
-      KITE_E2E_PORT: "38080"
+      E2E_PORT: "38080"
       KITE_E2E_LDAP_URL: ldap://127.0.0.1:3389
       KITE_E2E_OAUTH_ISSUER: http://127.0.0.1:5556
 
@@ -89,52 +89,18 @@ jobs:
           chmod +x ./kind
           sudo mv ./kind /usr/local/bin/kind
 
-      - name: Start external auth services
-        run: |
-          docker network create kite-e2e-auth
+      - name: Start OpenLDAP
+        run: make e2e-setup-ldap
 
-          docker run -d --name kite-e2e-ldap \
-            --network kite-e2e-auth \
-            --network-alias ldap \
-            -p 3389:389 \
-            -e LDAP_ORGANISATION="Kite E2E" \
-            -e LDAP_DOMAIN="kite.test" \
-            -e LDAP_ADMIN_PASSWORD="admin" \
-            -e LDAP_CONFIG_PASSWORD="admin" \
-            -e LDAP_TLS="false" \
-            -v "${GITHUB_WORKSPACE}/e2e/fixtures/openldap:/container/service/slapd/assets/config/bootstrap/ldif/custom:ro" \
-            osixia/openldap:1.5.0 --copy-service
-
-          for i in $(seq 1 60); do
-            if docker exec kite-e2e-ldap ldapsearch -x -H ldap://localhost:389 -b dc=kite,dc=test -D "cn=admin,dc=kite,dc=test" -w admin >/dev/null 2>&1; then
-              break
-            fi
-            sleep 1
-          done
-
-          docker exec kite-e2e-ldap ldapsearch -x -H ldap://localhost:389 -b dc=kite,dc=test -D "cn=admin,dc=kite,dc=test" -w admin >/dev/null
-
-          docker run -d --name kite-e2e-dex \
-            --network kite-e2e-auth \
-            -p 5556:5556 \
-            -v "${GITHUB_WORKSPACE}/e2e/fixtures/dex/config.yaml:/etc/dex/config.yaml:ro" \
-            ghcr.io/dexidp/dex:v2.45.1 dex serve /etc/dex/config.yaml
-
-          for i in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:5556/.well-known/openid-configuration >/dev/null; then
-              break
-            fi
-            sleep 1
-          done
-
-          curl -fsS http://127.0.0.1:5556/.well-known/openid-configuration >/dev/null
+      - name: Start Dex
+        run: make e2e-setup-dex
 
       - name: Run E2E tests
         run: make e2e-test
 
       - name: Export kind logs
         if: always()
-        run: kind export logs "${KIND_LOGS_DIR}" --name "${KITE_E2E_CLUSTER_NAME}"
+        run: kind export logs "${KIND_LOGS_DIR}" --name "${E2E_KIND_NAME}"
 
       - name: Collect external auth logs
         if: always()
