@@ -45,7 +45,7 @@ export function ResourceTableView<T>({
   isLoading,
   data,
   allPageSize,
-  maxBodyHeightClassName = 'max-h-[calc(100vh-210px)]',
+  maxBodyHeightClassName = 'max-h-[calc(100dvh-210px)]',
   containerClassName = 'flex flex-col gap-3',
   emptyState,
   hasActiveFilters,
@@ -151,7 +151,7 @@ export function ResourceTableView<T>({
       </div>
 
       {dataLength > 0 && (
-        <div className="flex items-center justify-between px-2 py-1">
+        <div className="flex flex-col gap-3 px-2 py-1 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-muted-foreground hidden flex-1 text-sm lg:flex">
             {hasActiveFilters ? (
               <>
@@ -164,8 +164,8 @@ export function ResourceTableView<T>({
               `${totalRowCount} row(s) total.`
             )}
           </div>
-          <div className="flex w-full items-center gap-4 lg:w-fit">
-            <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 lg:w-fit">
+            <div className="flex items-center justify-between gap-2 sm:justify-start">
               <span className="text-sm text-muted-foreground">
                 Rows per page:
               </span>
@@ -196,10 +196,10 @@ export function ResourceTableView<T>({
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex w-fit items-center justify-center text-sm font-medium">
+            <div className="flex items-center justify-center text-sm font-medium">
               Page {pagination.pageIndex + 1} of {table.getPageCount() || 1}
             </div>
-            <div className="ml-auto flex items-center gap-2 lg:ml-0">
+            <div className="flex items-center justify-end gap-2 sm:justify-start lg:ml-0">
               <Button
                 variant="outline"
                 className="size-8"

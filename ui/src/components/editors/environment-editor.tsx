@@ -499,7 +499,7 @@ export function EnvironmentEditor({
                       )}
 
                       {env.valueFrom.resourceFieldRef && (
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                           <div>
                             <Label className="text-xs text-muted-foreground">
                               Resource

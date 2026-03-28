@@ -92,18 +92,22 @@ function RelatedResourceCell({ rs }: { rs: RelatedResources }) {
       <DialogTrigger asChild>
         <div className="font-medium app-link cursor-pointer">{rs.name}</div>
       </DialogTrigger>
-      <DialogContent className="!max-w-[60%] !h-[80%] flex flex-col">
+      <DialogContent className="!h-[calc(100dvh-1rem)] !max-w-[calc(100vw-1rem)] flex min-h-0 flex-col md:!h-[80%] md:!max-w-[60%]">
         <DialogHeader className="flex flex-row justify-between items-center">
           <DialogTitle className="capitalize">{rs.type}</DialogTitle>
           <a href={withSubPath(path)} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="icon">
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Open resource in new tab"
+            >
               <IconExternalLink size={12} />
             </Button>
           </a>
         </DialogHeader>
         <iframe
           src={`${withSubPath(path)}?iframe=true`}
-          className="w-full flex-grow border-none"
+          className="min-h-0 w-full flex-grow border-none"
         />
       </DialogContent>
     </Dialog>

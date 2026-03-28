@@ -36,10 +36,10 @@ export function NodeMonitoring({ name }: NodeMonitoringProps) {
   return (
     <div className="space-y-6">
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="space-y-2">
+      <div className="flex flex-col gap-4 md:flex-row">
+        <div className="w-full space-y-2 md:w-auto">
           <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-full md:w-[200px]">
               <SelectValue placeholder="Select time range" />
             </SelectTrigger>
             <SelectContent>

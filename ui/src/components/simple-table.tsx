@@ -153,14 +153,14 @@ export function SimpleTable<T>({
       </Table>
 
       {paginationConfig.enabled && data.length > 0 && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {paginationConfig.showPageInfo && (
             <div className="text-sm text-muted-foreground">
               Showing {startIndex} - {endIndex} of {data.length} entries
             </div>
           )}
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -170,7 +170,7 @@ export function SimpleTable<T>({
               Previous
             </Button>
 
-            <div className="flex items-center space-x-1">
+            <div className="flex flex-wrap items-center gap-1">
               {Array.from({ length: totalPages }, (_, i) => i + 1)
                 .filter((page) => {
                   // Show current page ±2 pages, plus first and last page

@@ -87,10 +87,10 @@ export function PodMonitoring({
   return (
     <div className="space-y-6">
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="space-y-2">
+      <div className="flex flex-col gap-4 md:flex-row md:flex-wrap">
+        <div className="w-full space-y-2 md:w-auto">
           <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-full md:w-[200px]">
               <SelectValue placeholder="Select time range" />
             </SelectTrigger>
             <SelectContent>
@@ -103,12 +103,12 @@ export function PodMonitoring({
           </Select>
         </div>
 
-        <div className="space-y-2">
+        <div className="w-full space-y-2 md:w-auto">
           <Select
             value={refreshInterval.toString()}
             onValueChange={(value) => setRefreshInterval(Number(value))}
           >
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-full md:w-[200px]">
               <SelectValue placeholder="Select refresh interval" />
             </SelectTrigger>
             <SelectContent>
@@ -121,7 +121,7 @@ export function PodMonitoring({
           </Select>
         </div>
 
-        <div className="space-y-2">
+        <div className="w-full space-y-2 md:w-auto md:min-w-[220px]">
           <ContainerSelector
             containers={containers}
             selectedContainer={selectedContainer}
@@ -129,7 +129,7 @@ export function PodMonitoring({
           />
         </div>
         {pods && pods.length > 1 && (
-          <div className="space-y-2">
+          <div className="w-full space-y-2 md:w-auto md:min-w-[220px]">
             {/* Pod Selector */}
             <PodSelector
               pods={pods}

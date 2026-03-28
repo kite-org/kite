@@ -101,8 +101,8 @@ export function SimpleResourceDetail<T extends ResourceType>(props: {
   return (
     <div className="space-y-2">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
           <h1 className="text-lg font-bold">{name}</h1>
           {namespace && (
             <p className="text-muted-foreground">
@@ -110,7 +110,7 @@ export function SimpleResourceDetail<T extends ResourceType>(props: {
             </p>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
           <Button
             disabled={isLoading}
             variant="outline"

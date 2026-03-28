@@ -627,7 +627,7 @@ export function DeploymentCreateDialog({
       case 2:
         return (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <Label>Volume</Label>
               <Button
                 type="button"
@@ -740,7 +740,7 @@ export function DeploymentCreateDialog({
       case 3:
         return (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <Label className="text-lg font-medium">Containers</Label>
               <Button
                 type="button"
@@ -755,7 +755,7 @@ export function DeploymentCreateDialog({
             {formData.containers.map((containerConfig, containerIndex) => (
               <Card key={containerIndex}>
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <CardTitle className="text-base">
                       Container {containerIndex + 1}
                     </CardTitle>
@@ -765,6 +765,7 @@ export function DeploymentCreateDialog({
                         variant="outline"
                         size="sm"
                         onClick={() => removeContainer(containerIndex)}
+                        aria-label={`Remove container ${containerIndex + 1}`}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -772,7 +773,7 @@ export function DeploymentCreateDialog({
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <ImageEditor
                         container={containerConfig.container}
@@ -811,7 +812,7 @@ export function DeploymentCreateDialog({
 
                   <div className="space-y-2">
                     <Label>Resources (optional)</Label>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label className="text-sm text-muted-foreground">
                           Requests
@@ -904,7 +905,7 @@ export function DeploymentCreateDialog({
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor={`port-${containerIndex}`}>
                         Container Port (optional)
@@ -955,7 +956,7 @@ export function DeploymentCreateDialog({
                   </div>
                   {(formData.podSpec?.volumes?.length || 0) > 0 && (
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <Label>Volume Mounts</Label>
                         <Button
                           type="button"
@@ -990,7 +991,7 @@ export function DeploymentCreateDialog({
                         (mount, mountIndex) => (
                           <div
                             key={mountIndex}
-                            className="flex gap-2 items-center"
+                            className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center"
                           >
                             <Select
                               value={mount.name}
@@ -1007,7 +1008,7 @@ export function DeploymentCreateDialog({
                                 })
                               }}
                             >
-                              <SelectTrigger className="w-[160px]">
+                              <SelectTrigger className="w-full sm:w-[160px]">
                                 <SelectValue placeholder="Volume name" />
                               </SelectTrigger>
                               <SelectContent>
@@ -1071,7 +1072,7 @@ export function DeploymentCreateDialog({
                                 })
                               }}
                             >
-                              <SelectTrigger className="w-[160px]">
+                              <SelectTrigger className="w-full sm:w-[160px]">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -1085,6 +1086,7 @@ export function DeploymentCreateDialog({
                               variant="outline"
                               size="icon"
                               className="w-7 h-7"
+                              aria-label={`Remove volume mount ${mountIndex + 1}`}
                               onClick={() => {
                                 const updatedMounts =
                                   containerConfig.volumeMounts?.filter(

@@ -256,14 +256,14 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
   return (
     <div className="space-y-2">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
           <h1 className="text-lg font-bold">{name}</h1>
           <p className="text-muted-foreground">
             Namespace: <span className="font-medium">{namespace}</span>
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
           <Button variant="outline" size="sm" onClick={handleRefresh}>
             <IconRefresh className="w-4 h-4" />
             Refresh
@@ -398,7 +398,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                     <CardTitle>Status Overview</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-4">
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
                           <DeploymentStatusIcon

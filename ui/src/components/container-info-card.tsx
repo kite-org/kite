@@ -350,7 +350,10 @@ export function ContainerInfoCard({
                 </Label>
                 <div className="mt-2 space-y-1">
                   {container.volumeMounts.map((mount, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs">
+                    <div
+                      key={i}
+                      className="flex flex-wrap items-center gap-2 text-xs"
+                    >
                       <Badge variant="outline" className="text-xs font-mono">
                         {mount.name}
                       </Badge>
@@ -378,7 +381,7 @@ export function ContainerInfoCard({
               (container.resources.requests || container.resources.limits) && (
                 <div className="border-t pt-3">
                   <Label className={sectionLabelClassName}>Resources</Label>
-                  <div className="mt-2 grid grid-cols-2 gap-4 text-sm">
+                  <div className="mt-2 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                     {container.resources.requests && (
                       <div>
                         <div className="text-xs font-medium text-green-600 dark:text-green-400 mb-1">

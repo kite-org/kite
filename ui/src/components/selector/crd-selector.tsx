@@ -121,19 +121,19 @@ export function CRDSelector({
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className="justify-between min-w-[200px]"
+          className="w-full min-w-0 justify-between md:w-auto md:min-w-[200px]"
         >
           <span
-            className={
+            className={`truncate ${
               selectedCRD ? 'text-foreground' : 'text-muted-foreground'
-            }
+            }`}
           >
             {selectedCRDData ? selectedCRDData.name : placeholder}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[400px] p-0">
+      <PopoverContent className="w-[calc(100vw-1rem)] max-w-[400px] p-0 md:w-[400px]">
         <div className="p-2 border-b">
           <Input
             placeholder="Search CRDs..."

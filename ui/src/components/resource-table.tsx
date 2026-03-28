@@ -527,7 +527,7 @@ export function ResourceTable<T>({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold capitalize">{resourceName}</h1>
           {!clusterScope && selectedNamespace && (
@@ -542,8 +542,8 @@ export function ResourceTable<T>({
           )}
         </div>
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:flex-wrap">
+          <div className="flex flex-wrap items-center gap-2">
             {extraToolbars?.map((toolbar, index) => (
               <React.Fragment key={index}>{toolbar}</React.Fragment>
             ))}
@@ -583,7 +583,7 @@ export function ResourceTable<T>({
               }}
               disabled={useSSE}
             >
-              <SelectTrigger className="max-w-[140px]">
+              <SelectTrigger className="w-full md:w-[140px]">
                 <div className="flex items-center gap-2">
                   <RefreshCw className="h-4 w-4" />
                   <SelectValue />
@@ -628,7 +628,7 @@ export function ResourceTable<T>({
                       column.setFilterValue(value === 'all' ? '' : value)
                     }
                   >
-                    <SelectTrigger className="min-w-32">
+                    <SelectTrigger className="w-full md:min-w-32 md:w-auto">
                       <SelectValue
                         placeholder={`Filter ${typeof columnDef.header === 'string' ? columnDef.header : 'Column'}`}
                       />
@@ -658,80 +658,88 @@ export function ResourceTable<T>({
               })}
           </div>
 
-          {/* Search bar */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="relative w-full sm:w-auto">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder={`Search ${resourceName.toLowerCase()}...`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-4 w-full sm:w-[100px] md:w-[200px]"
-              />
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full items-center gap-2 md:w-auto">
+              <div className="relative w-full md:w-auto">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder={`Search ${resourceName.toLowerCase()}...`}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 md:w-[200px]"
+                />
+              </div>
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSearchQuery('')}
+                  className="h-9 w-9"
+                  aria-label="Clear search"
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              )}
             </div>
-            {searchQuery && (
+
+            {/* Batch delete button */}
+            {table.getSelectedRowModel().rows.length > 0 && (
               <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSearchQuery('')}
-                className="h-9 w-9"
+                variant="destructive"
+                onClick={() => setDeleteDialogOpen(true)}
+                className="gap-2"
               >
-                <XCircle className="h-4 w-4" />
+                <Trash2 className="h-4 w-4" />
+                {t('resourceTable.deleteSelected', {
+                  count: table.getSelectedRowModel().rows.length,
+                })}
               </Button>
             )}
-          </div>
-          {/* Batch delete button */}
-          {table.getSelectedRowModel().rows.length > 0 && (
-            <Button
-              variant="destructive"
-              onClick={() => setDeleteDialogOpen(true)}
-              className="gap-2"
-            >
-              <Trash2 className="h-4 w-4" />
-              {t('resourceTable.deleteSelected', {
-                count: table.getSelectedRowModel().rows.length,
-              })}
-            </Button>
-          )}
-          {showCreateButton && onCreateClick && (
-            <Button onClick={onCreateClick} className="gap-1">
-              <Plus className="h-2 w-2" />
-              New
-            </Button>
-          )}
-
-          {/* Toggle columns Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="h-9 w-9">
-                <Settings2 className="h-4 w-4" />
+            {showCreateButton && onCreateClick && (
+              <Button onClick={onCreateClick} className="gap-1">
+                <Plus className="h-2 w-2" />
+                New
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {table
-                .getAllLeafColumns()
-                .filter((column) => column.getCanHide())
-                .map((column) => {
-                  const header = column.columnDef.header
-                  const headerText =
-                    typeof header === 'string' ? header : column.id
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
-                        column.toggleVisibility(!!value)
-                      }
-                    >
-                      {headerText}
-                    </DropdownMenuCheckboxItem>
-                  )
-                })}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            )}
+
+            {/* Toggle columns Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9"
+                  aria-label="Toggle columns"
+                >
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {table
+                  .getAllLeafColumns()
+                  .filter((column) => column.getCanHide())
+                  .map((column) => {
+                    const header = column.columnDef.header
+                    const headerText =
+                      typeof header === 'string' ? header : column.id
+                    return (
+                      <DropdownMenuCheckboxItem
+                        key={column.id}
+                        className="capitalize"
+                        checked={column.getIsVisible()}
+                        onCheckedChange={(value) =>
+                          column.toggleVisibility(!!value)
+                        }
+                      >
+                        {headerText}
+                      </DropdownMenuCheckboxItem>
+                    )
+                  })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
 

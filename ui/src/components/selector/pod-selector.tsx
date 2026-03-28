@@ -54,13 +54,15 @@ export function PodSelector({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="justify-between"
+          className="w-full min-w-0 justify-between md:w-auto md:max-w-[300px]"
         >
-          {selectedOption ? selectedOption.metadata?.name : 'All'}
+          <span className="truncate">
+            {selectedOption ? selectedOption.metadata?.name : 'All'}
+          </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="max-w-[300px] p-0">
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-w-[min(300px,calc(100vw-1rem))] p-0">
         <Command>
           <CommandInput placeholder="Search pods..." />
           <CommandList>
@@ -89,10 +91,12 @@ export function PodSelector({
                         : 'opacity-0'
                     )}
                   />
-                  <div className="flex flex-col">
-                    <span className="font-medium">{pod.metadata?.name}</span>
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate font-medium">
+                      {pod.metadata?.name}
+                    </span>
                     {pod.metadata?.creationTimestamp && (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="truncate text-xs text-muted-foreground">
                         Age: {getAge(pod.metadata?.creationTimestamp || '')},
                         Node: {pod.spec?.nodeName}
                       </span>

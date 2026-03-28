@@ -47,7 +47,7 @@ export function NamespaceSelector({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[200px] justify-between shadow-sm"
+          className="w-full min-w-0 justify-between shadow-sm md:w-[200px]"
         >
           <span className="truncate">
             {selectedNamespace === '_all'
@@ -58,7 +58,10 @@ export function NamespaceSelector({
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-[200px] p-0" align="start">
+      <PopoverContent
+        className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1rem)] p-0"
+        align="start"
+      >
         <Command>
           <CommandInput placeholder="Search..." className="h-9" />
           <CommandList className="max-h-[300px] overflow-x-hidden overflow-y-auto [ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
