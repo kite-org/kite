@@ -28,18 +28,18 @@ func IsReservedOAuthProviderName(name string) bool {
 
 type OAuthProvider struct {
 	Model
-	Name         LowerCaseString `json:"name" gorm:"type:varchar(100);uniqueIndex;not null"`
-	ClientID     string          `json:"clientId" gorm:"type:varchar(255);not null"`
-	ClientSecret SecretString    `json:"clientSecret" gorm:"type:text;not null"`
-	AuthURL      string          `json:"authUrl" gorm:"type:varchar(255)"`
-	TokenURL     string          `json:"tokenUrl" gorm:"type:varchar(255)"`
-	UserInfoURL  string          `json:"userInfoUrl" gorm:"type:varchar(255)"`
-	Scopes       string          `json:"scopes" gorm:"type:varchar(255);default:'openid,profile,email'"`
-	Issuer       string          `json:"issuer" gorm:"type:varchar(255)"`
-	Enabled      bool            `json:"enabled" gorm:"type:boolean;default:true"`
-	UsernameClaim string `json:"usernameClaim" gorm:"type:varchar(255)"`
-	GroupsClaim   string `json:"groupsClaim" gorm:"type:varchar(255)"`
-	AllowedGroups string `json:"allowedGroups" gorm:"type:text"`
+	Name          LowerCaseString `json:"name" gorm:"type:varchar(100);uniqueIndex;not null"`
+	ClientID      string          `json:"clientId" gorm:"type:varchar(255);not null"`
+	ClientSecret  SecretString    `json:"clientSecret" gorm:"type:text;not null"`
+	AuthURL       string          `json:"authUrl" gorm:"type:varchar(255)"`
+	TokenURL      string          `json:"tokenUrl" gorm:"type:varchar(255)"`
+	UserInfoURL   string          `json:"userInfoUrl" gorm:"type:varchar(255)"`
+	Scopes        string          `json:"scopes" gorm:"type:varchar(255);default:'openid,profile,email'"`
+	Issuer        string          `json:"issuer" gorm:"type:varchar(255)"`
+	Enabled       bool            `json:"enabled" gorm:"type:boolean;default:true"`
+	UsernameClaim string          `json:"usernameClaim" gorm:"type:varchar(255)"`
+	GroupsClaim   string          `json:"groupsClaim" gorm:"type:varchar(255)"`
+	AllowedGroups string          `json:"allowedGroups" gorm:"type:text"`
 
 	// Auto-generated redirect URL
 	RedirectURL string `json:"-" gorm:"-"`

@@ -56,11 +56,11 @@ type Claims struct {
 }
 
 type GenericProvider struct {
-	Config      OAuthConfig
-	AuthURL     string
-	TokenURL    string
-	UserInfoURL string
-	Name        string
+	Config        OAuthConfig
+	AuthURL       string
+	TokenURL      string
+	UserInfoURL   string
+	Name          string
 	UsernameClaim string
 	GroupsClaim   string
 	AllowedGroups []string
@@ -248,6 +248,30 @@ func (g *GenericProvider) RefreshToken(refreshToken string) (*TokenResponse, err
 var ErrNotInAllowedGroups = errors.New("user is not in any of the allowed groups")
 
 func (g *GenericProvider) GetUserInfo(accessToken string) (*model.User, error) {
+	userInfo, err := g.fetchUserInfo(accessToken)
+	if err != nil {
+		return nil, err
+	}
+
+	klog.V(1).Infof("User info from %s: %v", g.Name, userInfo)
+
+	user := &model.User{
+		Provider:   g.Name,
+		Sub:        extractSub(userInfo),
+		Username:   extractUsername(userInfo, g.UsernameClaim),
+		Name:       extractName(userInfo),
+		AvatarURL:  extractAvatarURL(userInfo),
+		OIDCGroups: g.extractOIDCGroups(userInfo, accessToken),
+	}
+	if !isAllowedGroup(user.OIDCGroups, g.AllowedGroups) {
+		klog.Warningf("User %s is not in any allowed groups %v (user groups: %v)", user.Username, g.AllowedGroups, user.OIDCGroups)
+		return nil, ErrNotInAllowedGroups
+	}
+
+	return user, nil
+}
+
+func (g *GenericProvider) fetchUserInfo(accessToken string) (map[string]interface{}, error) {
 	req, err := http.NewRequest("GET", g.UserInfoURL, nil)
 	if err != nil {
 		return nil, err
@@ -264,97 +288,66 @@ func (g *GenericProvider) GetUserInfo(accessToken string) (*model.User, error) {
 	defer func() {
 		_ = resp.Body.Close()
 	}()
+
 	var userInfo map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
 		return nil, err
 	}
 
-	klog.V(1).Infof("User info from %s: %v", g.Name, userInfo)
+	return userInfo, nil
+}
 
-	// Map common fields - this might need customization per provider
-	user := &model.User{
-		Provider: g.Name,
-	}
-
-	user.Sub = ""
-	if id, ok := userInfo["id"]; ok {
-		user.Sub = fmt.Sprintf("%v", id)
-	} else if sub, ok := userInfo["sub"]; ok {
-		user.Sub = fmt.Sprintf("%v", sub)
-	} else if oid, ok := userInfo["oid"]; ok {
-		// Azure AD uses 'oid' (object ID) as the user identifier
-		user.Sub = fmt.Sprintf("%v", oid)
-	}
+func extractSub(userInfo map[string]interface{}) string {
 	if userid, ok := userInfo["userid"]; ok {
-		user.Sub = fmt.Sprintf("%v", userid)
+		return fmt.Sprintf("%v", userid)
 	}
+	return firstClaimValue(userInfo, "id", "sub", "oid")
+}
 
-	if g.UsernameClaim != "" {
-		if usernameVal, ok := userInfo[g.UsernameClaim]; ok && usernameVal != "" {
-			user.Username = fmt.Sprintf("%v", usernameVal)
-		}
+func extractUsername(userInfo map[string]interface{}, customClaim string) string {
+	if value := customClaimValue(userInfo, customClaim); value != "" {
+		return value
 	}
-	
-	// Fall back to standard claims if username is not retrieved from custom claim
-	if user.Username == "" {
-		if username, ok := userInfo["username"]; ok {
-			user.Username = fmt.Sprintf("%v", username)
-		} else if login, ok := userInfo["login"]; ok {
-			user.Username = fmt.Sprintf("%v", login)
-		} else if userPrincipalName, ok := userInfo["userPrincipalName"]; ok {
-			// Azure AD Graph API uses 'userPrincipalName' for the user's email/UPN
-			user.Username = fmt.Sprintf("%v", userPrincipalName)
-		} else if preferredUsername, ok := userInfo["preferred_username"]; ok {
-			// OIDC uses 'preferred_username' for the user's email/UPN
-			user.Username = fmt.Sprintf("%v", preferredUsername)
-		} else if upn, ok := userInfo["upn"]; ok {
-			// Some providers use 'upn' (User Principal Name)
-			user.Username = fmt.Sprintf("%v", upn)
-		} else if email, ok := userInfo["email"]; ok {
-			user.Username = fmt.Sprintf("%v", email)
-		}
-	}
+	return firstClaimValue(userInfo, "username", "login", "userPrincipalName", "preferred_username", "upn", "email")
+}
 
-	if name, ok := userInfo["name"]; ok {
-		user.Name = fmt.Sprintf("%v", name)
-	} else if displayName, ok := userInfo["displayName"]; ok {
-		// Azure AD Graph API uses 'displayName' instead of 'name'
-		user.Name = fmt.Sprintf("%v", displayName)
-	}
+func extractName(userInfo map[string]interface{}) string {
+	name := firstClaimValue(userInfo, "name", "displayName")
 	if nickname, ok := userInfo["nickname"]; ok {
-		user.Name = fmt.Sprintf("%v", nickname)
+		return fmt.Sprintf("%v", nickname)
 	}
-	if avatar, ok := userInfo["avatar_url"]; ok {
-		user.AvatarURL = fmt.Sprintf("%v", avatar)
-	} else if picture, ok := userInfo["picture"]; ok {
-		user.AvatarURL = fmt.Sprintf("%v", picture)
-	}
+	return name
+}
 
-	var groups []interface{}
-	if g.GroupsClaim != "" {
-		if v, ok := userInfo[g.GroupsClaim]; ok {
-			if arr, ok := v.([]interface{}); ok {
-				groups = arr
-			} else if str, ok := v.(string); ok && str != "" {
-				groups = []interface{}{str}
-			}
+func extractAvatarURL(userInfo map[string]interface{}) string {
+	return firstClaimValue(userInfo, "avatar_url", "picture")
+}
+
+func customClaimValue(userInfo map[string]interface{}, claim string) string {
+	if claim == "" {
+		return ""
+	}
+	if value, ok := userInfo[claim]; ok && value != "" {
+		return fmt.Sprintf("%v", value)
+	}
+	return ""
+}
+
+func firstClaimValue(userInfo map[string]interface{}, claims ...string) string {
+	for _, claim := range claims {
+		if value, ok := userInfo[claim]; ok {
+			return fmt.Sprintf("%v", value)
 		}
 	}
-	
-	// Fall back to standard claims if groups is empty from custom claim
+	return ""
+}
+
+func (g *GenericProvider) extractOIDCGroups(userInfo map[string]interface{}, accessToken string) []string {
+	groups := extractClaimGroups(userInfo, g.GroupsClaim)
 	if len(groups) == 0 {
-		if v, ok := userInfo["groups"]; ok {
-			if arr, ok := v.([]interface{}); ok {
-				groups = arr
-			}
-		} else if roles, ok := userInfo["roles"]; ok {
-			if arr, ok := roles.([]interface{}); ok {
-				groups = arr
-			}
-		}
+		groups = extractClaimGroups(userInfo, "groups", "roles")
 	}
 
-	// If no groups found and this looks like Azure AD/Microsoft Graph, try fetching memberOf
 	if len(groups) == 0 && strings.Contains(g.UserInfoURL, "graph.microsoft.com") {
 		klog.V(1).Infof("No groups in user info, fetching from /me/memberOf for %s", g.Name)
 		memberOfGroups, err := g.fetchAzureADGroups(accessToken)
@@ -365,36 +358,47 @@ func (g *GenericProvider) GetUserInfo(accessToken string) (*model.User, error) {
 		}
 	}
 
-	if len(groups) != 0 {
-		user.OIDCGroups = make([]string, len(groups))
-		for i, v := range groups {
-			user.OIDCGroups[i] = fmt.Sprintf("%v", v)
-		}
-		klog.V(1).Infof("Extracted %d groups/roles from %s", len(groups), g.Name)
-	} else {
+	if len(groups) == 0 {
 		klog.V(1).Infof("No groups/roles found in user info from %s", g.Name)
+		return nil
 	}
 
-	if len(g.AllowedGroups) > 0 {
-		allowed := false
-		for _, userGroup := range user.OIDCGroups {
-			for _, allowedGroup := range g.AllowedGroups {
-				if userGroup == allowedGroup {
-					allowed = true
-					break
-				}
-			}
-			if allowed {
-				break
-			}
+	oidcGroups := make([]string, len(groups))
+	for i, value := range groups {
+		oidcGroups[i] = fmt.Sprintf("%v", value)
+	}
+	klog.V(1).Infof("Extracted %d groups/roles from %s", len(oidcGroups), g.Name)
+	return oidcGroups
+}
+
+func extractClaimGroups(userInfo map[string]interface{}, claims ...string) []interface{} {
+	for _, claim := range claims {
+		value, ok := userInfo[claim]
+		if !ok {
+			continue
 		}
-		if !allowed {
-			klog.Warningf("User %s is not in any allowed groups %v (user groups: %v)", user.Username, g.AllowedGroups, user.OIDCGroups)
-			return nil, ErrNotInAllowedGroups
+		if arr, ok := value.([]interface{}); ok {
+			return arr
+		}
+		if str, ok := value.(string); ok && str != "" {
+			return []interface{}{str}
 		}
 	}
+	return nil
+}
 
-	return user, nil
+func isAllowedGroup(userGroups, allowedGroups []string) bool {
+	if len(allowedGroups) == 0 {
+		return true
+	}
+	for _, userGroup := range userGroups {
+		for _, allowedGroup := range allowedGroups {
+			if userGroup == allowedGroup {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // fetchAzureADGroups fetches group memberships from Azure AD Graph API /me/memberOf endpoint

@@ -195,7 +195,7 @@ func TestGenericProviderGetUserInfo(t *testing.T) {
 				UserInfoURL:   server.URL + "/userinfo",
 				AllowedGroups: []string{"sales", "marketing"},
 			},
-			wantErr:      true,
+			wantErr: true,
 		},
 	}
 

@@ -116,9 +116,11 @@ function OAuthProviderDialogContent({
     if (formData.userInfoUrl) submitData.userInfoUrl = formData.userInfoUrl
     if (formData.scopes) submitData.scopes = formData.scopes
     if (formData.issuer) submitData.issuer = formData.issuer
-    if (formData.usernameClaim) submitData.usernameClaim = formData.usernameClaim
+    if (formData.usernameClaim)
+      submitData.usernameClaim = formData.usernameClaim
     if (formData.groupsClaim) submitData.groupsClaim = formData.groupsClaim
-    if (formData.allowedGroups) submitData.allowedGroups = formData.allowedGroups
+    if (formData.allowedGroups)
+      submitData.allowedGroups = formData.allowedGroups
 
     onSubmit(submitData)
   }
@@ -313,7 +315,10 @@ function OAuthProviderDialogContent({
         <div className="space-y-4">
           <div className="space-y-2">
             <h3 className="text-lg font-medium">
-              {t('oauthManagement.dialog.section.advanced', 'Advanced Settings')}
+              {t(
+                'oauthManagement.dialog.section.advanced',
+                'Advanced Settings'
+              )}
             </h3>
           </div>
           <div className="grid grid-cols-2 gap-4">
