@@ -25,6 +25,22 @@ const oauthUserWithoutGroup = {
   password: 'KiteOAuthNoGroup!2345',
 }
 
+const restrictedOAuthProvider = {
+  name: 'dex-allowed',
+  allowedGroups: 'e2e-viewers',
+}
+
+const usernameClaimOAuthProvider = {
+  name: 'dex-name-username',
+  usernameClaim: 'name',
+}
+
+const customGroupClaimOAuthProvider = {
+  name: 'dex-name-group',
+  groupsClaim: 'name',
+  allowedGroups: 'OAuth E2E',
+}
+
 async function openAnonymousPage(browser: Browser) {
   const context = await browser.newContext({
     baseURL,
@@ -38,6 +54,23 @@ async function openUserMenu(page: Page) {
   await page.locator('header').getByRole('button').last().click()
 }
 
+async function fetchCurrentUser(page: Page) {
+  return page.evaluate(async () => {
+    const response = await fetch('/api/auth/user', {
+      credentials: 'include',
+    })
+    if (!response.ok) {
+      throw new Error(`Failed to fetch current user: ${response.status}`)
+    }
+    const data = await response.json()
+    return data.user as {
+      username: string
+      provider: string
+      oidc_groups?: string[]
+    }
+  })
+}
+
 async function expectSignedInUser(
   page: Page,
   username: string,
@@ -47,9 +80,24 @@ async function expectSignedInUser(
   await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
 
   await openUserMenu(page)
-  await expect(page.getByText(username)).toBeVisible()
-  await expect(page.getByText(`via ${provider}`)).toBeVisible()
-  await expect(page.getByText('Role: viewer')).toBeVisible()
+  await expect(
+    page
+      .locator('p.text-xs.text-muted-foreground')
+      .filter({ hasText: username })
+      .first()
+  ).toBeVisible()
+  await expect(
+    page
+      .locator('p.text-xs.text-muted-foreground')
+      .filter({ hasText: `via ${provider}` })
+      .first()
+  ).toBeVisible()
+  await expect(
+    page
+      .locator('p.text-xs.text-muted-foreground')
+      .filter({ hasText: 'Role: viewer' })
+      .first()
+  ).toBeVisible()
 }
 
 async function configureLDAPViaUI(page: Page) {
@@ -99,7 +147,160 @@ async function configureOAuthViaUI(page: Page) {
   await expect(providerRow).toBeVisible()
 }
 
-async function assignViewerRoleViaUI(page: Page) {
+async function configureUsernameClaimOAuthViaUI(page: Page) {
+  await page.goto('/settings?tab=oauth')
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+
+  const providerRow = page
+    .getByRole('row')
+    .filter({ hasText: usernameClaimOAuthProvider.name })
+
+  if (await providerRow.count()) {
+    await providerRow.getByRole('button', { name: '•••' }).click()
+    await page.getByRole('menuitem', { name: 'Edit' }).click()
+
+    const dialog = page.getByRole('dialog', { name: 'Edit OAuth Provider' })
+    await expect(dialog).toBeVisible()
+
+    await dialog.getByLabel('Issuer').fill(oauthIssuer!)
+    await dialog.getByLabel('Scopes').fill('openid,profile,email,groups')
+    await dialog
+      .getByLabel('Username Claim')
+      .fill(usernameClaimOAuthProvider.usernameClaim)
+    await dialog.getByLabel('Groups Claim').fill('')
+    await dialog.getByLabel('Allowed Groups').fill('')
+    await dialog.getByRole('button', { name: 'Update' }).click()
+
+    await expect(
+      page.getByText('OAuth provider updated successfully')
+    ).toBeVisible()
+    return
+  }
+
+  await page.getByRole('button', { name: 'Add Provider' }).click()
+
+  const dialog = page.getByRole('dialog', { name: 'Add OAuth Provider' })
+  await expect(dialog).toBeVisible()
+
+  await dialog.getByLabel('Name *').fill(usernameClaimOAuthProvider.name)
+  await dialog.getByLabel('Client ID *').fill('kite-e2e')
+  await dialog.getByLabel('Client Secret *').fill('kite-e2e-secret')
+  await dialog.getByLabel('Issuer').fill(oauthIssuer!)
+  await dialog.getByLabel('Scopes').fill('openid,profile,email,groups')
+  await dialog
+    .getByLabel('Username Claim')
+    .fill(usernameClaimOAuthProvider.usernameClaim)
+  await dialog.getByRole('button', { name: 'Create' }).click()
+
+  await expect(
+    page.getByText('OAuth provider created successfully')
+  ).toBeVisible()
+  await expect(providerRow).toBeVisible()
+}
+
+async function configureRestrictedOAuthViaUI(page: Page) {
+  await page.goto('/settings?tab=oauth')
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+
+  const providerRow = page
+    .getByRole('row')
+    .filter({ hasText: restrictedOAuthProvider.name })
+
+  if (await providerRow.count()) {
+    await providerRow.getByRole('button', { name: '•••' }).click()
+    await page.getByRole('menuitem', { name: 'Edit' }).click()
+
+    const dialog = page.getByRole('dialog', { name: 'Edit OAuth Provider' })
+    await expect(dialog).toBeVisible()
+
+    await dialog.getByLabel('Issuer').fill(oauthIssuer!)
+    await dialog.getByLabel('Scopes').fill('openid,profile,email,groups')
+    await dialog
+      .getByLabel('Allowed Groups')
+      .fill(restrictedOAuthProvider.allowedGroups)
+    await dialog.getByRole('button', { name: 'Update' }).click()
+
+    await expect(
+      page.getByText('OAuth provider updated successfully')
+    ).toBeVisible()
+    return
+  }
+
+  await page.getByRole('button', { name: 'Add Provider' }).click()
+
+  const dialog = page.getByRole('dialog', { name: 'Add OAuth Provider' })
+  await expect(dialog).toBeVisible()
+
+  await dialog.getByLabel('Name *').fill(restrictedOAuthProvider.name)
+  await dialog.getByLabel('Client ID *').fill('kite-e2e')
+  await dialog.getByLabel('Client Secret *').fill('kite-e2e-secret')
+  await dialog.getByLabel('Issuer').fill(oauthIssuer!)
+  await dialog.getByLabel('Scopes').fill('openid,profile,email,groups')
+  await dialog
+    .getByLabel('Allowed Groups')
+    .fill(restrictedOAuthProvider.allowedGroups)
+  await dialog.getByRole('button', { name: 'Create' }).click()
+
+  await expect(providerRow).toBeVisible()
+}
+
+async function configureCustomGroupClaimOAuthViaUI(page: Page) {
+  await page.goto('/settings?tab=oauth')
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+
+  const providerRow = page
+    .getByRole('row')
+    .filter({ hasText: customGroupClaimOAuthProvider.name })
+
+  if (await providerRow.count()) {
+    await providerRow.getByRole('button', { name: '•••' }).click()
+    await page.getByRole('menuitem', { name: 'Edit' }).click()
+
+    const dialog = page.getByRole('dialog', { name: 'Edit OAuth Provider' })
+    await expect(dialog).toBeVisible()
+
+    await dialog.getByLabel('Issuer').fill(oauthIssuer!)
+    await dialog.getByLabel('Scopes').fill('openid,profile,email,groups')
+    await dialog.getByLabel('Username Claim').fill('')
+    await dialog
+      .getByLabel('Groups Claim')
+      .fill(customGroupClaimOAuthProvider.groupsClaim)
+    await dialog
+      .getByLabel('Allowed Groups')
+      .fill(customGroupClaimOAuthProvider.allowedGroups)
+    await dialog.getByRole('button', { name: 'Update' }).click()
+
+    await expect(
+      page.getByText('OAuth provider updated successfully')
+    ).toBeVisible()
+    return
+  }
+
+  await page.getByRole('button', { name: 'Add Provider' }).click()
+
+  const dialog = page.getByRole('dialog', { name: 'Add OAuth Provider' })
+  await expect(dialog).toBeVisible()
+
+  await dialog.getByLabel('Name *').fill(customGroupClaimOAuthProvider.name)
+  await dialog.getByLabel('Client ID *').fill('kite-e2e')
+  await dialog.getByLabel('Client Secret *').fill('kite-e2e-secret')
+  await dialog.getByLabel('Issuer').fill(oauthIssuer!)
+  await dialog.getByLabel('Scopes').fill('openid,profile,email,groups')
+  await dialog
+    .getByLabel('Groups Claim')
+    .fill(customGroupClaimOAuthProvider.groupsClaim)
+  await dialog
+    .getByLabel('Allowed Groups')
+    .fill(customGroupClaimOAuthProvider.allowedGroups)
+  await dialog.getByRole('button', { name: 'Create' }).click()
+
+  await expect(
+    page.getByText('OAuth provider created successfully')
+  ).toBeVisible()
+  await expect(providerRow).toBeVisible()
+}
+
+async function assignViewerRoleViaUI(page: Page, groupName: string) {
   await page.goto('/settings?tab=rbac')
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
 
@@ -112,12 +313,12 @@ async function assignViewerRoleViaUI(page: Page) {
   const dialog = page.getByRole('dialog', { name: 'Assign Role - viewer' })
   await expect(dialog).toBeVisible()
 
-  if (!(await dialog.getByText('e2e-viewers').count())) {
+  if (!(await dialog.getByText(groupName).count())) {
     await dialog.getByRole('combobox').click()
     await page.getByRole('option', { name: 'OIDC Group' }).click()
-    await dialog.getByPlaceholder('username or group name').fill('e2e-viewers')
+    await dialog.getByPlaceholder('username or group name').fill(groupName)
     await dialog.getByRole('button', { name: 'Assign' }).click()
-    await expect(dialog.getByText('e2e-viewers')).toBeVisible()
+    await expect(dialog.getByText(groupName)).toBeVisible()
   }
 
   await dialog.getByRole('button', { name: 'Cancel' }).click()
@@ -140,7 +341,11 @@ test.describe('external auth', () => {
     try {
       await configureLDAPViaUI(adminPage)
       await configureOAuthViaUI(adminPage)
-      await assignViewerRoleViaUI(adminPage)
+      await configureUsernameClaimOAuthViaUI(adminPage)
+      await configureRestrictedOAuthViaUI(adminPage)
+      await configureCustomGroupClaimOAuthViaUI(adminPage)
+      await assignViewerRoleViaUI(adminPage, 'e2e-viewers')
+      await assignViewerRoleViaUI(adminPage, 'OAuth E2E')
     } finally {
       await adminContext.close()
     }
@@ -171,9 +376,9 @@ test.describe('external auth', () => {
       await page.goto('/login')
 
       await expect(
-        page.getByRole('button', { name: 'Sign In with Dex' })
+        page.getByRole('button', { name: /^Sign In with Dex$/i })
       ).toBeVisible()
-      await page.getByRole('button', { name: 'Sign In with Dex' }).click()
+      await page.getByRole('button', { name: /^Sign In with Dex$/i }).click()
 
       await expect(
         page.getByRole('heading', { name: 'Log in to Your Account' })
@@ -183,6 +388,46 @@ test.describe('external auth', () => {
       await page.getByRole('button', { name: 'Login' }).click()
 
       await expectSignedInUser(page, oauthUser.username, oauthUser.provider)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('signs in through Dex OAuth with usernameClaim override', async ({
+    browser,
+  }) => {
+    const { context, page } = await openAnonymousPage(browser)
+
+    try {
+      await page.goto('/login')
+
+      await expect(
+        page.getByRole('button', {
+          name: /^Sign In with Dex-name-username$/i,
+        })
+      ).toBeVisible()
+      await page
+        .getByRole('button', {
+          name: /^Sign In with Dex-name-username$/i,
+        })
+        .click()
+
+      await expect(
+        page.getByRole('heading', { name: 'Log in to Your Account' })
+      ).toBeVisible()
+      await page.getByLabel('Username').fill(oauthUser.username)
+      await page.getByLabel('Password').fill(oauthUser.password)
+      await page.getByRole('button', { name: 'Login' }).click()
+
+      await expectSignedInUser(
+        page,
+        'OAuth E2E',
+        usernameClaimOAuthProvider.name
+      )
+
+      const currentUser = await fetchCurrentUser(page)
+      expect(currentUser.username).toBe('OAuth E2E')
+      expect(currentUser.provider).toBe(usernameClaimOAuthProvider.name)
     } finally {
       await context.close()
     }
@@ -218,9 +463,9 @@ test.describe('external auth', () => {
       await page.goto('/login')
 
       await expect(
-        page.getByRole('button', { name: 'Sign In with Dex' })
+        page.getByRole('button', { name: /^Sign In with Dex$/i })
       ).toBeVisible()
-      await page.getByRole('button', { name: 'Sign In with Dex' }).click()
+      await page.getByRole('button', { name: /^Sign In with Dex$/i }).click()
 
       await expect(
         page.getByRole('heading', { name: 'Log in to Your Account' })
@@ -232,6 +477,115 @@ test.describe('external auth', () => {
       await expect(page).toHaveURL(/\/login\?/)
       await expect(page.getByRole('alert')).toContainText(
         `Access denied for user "${oauthUserWithoutGroup.username}"`
+      )
+      await expect(
+        page.getByRole('button', { name: 'Try Again with Different Account' })
+      ).toBeVisible()
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('signs in through Dex OAuth when the user is in an allowed group', async ({
+    browser,
+  }) => {
+    const { context, page } = await openAnonymousPage(browser)
+
+    try {
+      await page.goto('/login')
+
+      await expect(
+        page.getByRole('button', { name: /^Sign In with Dex-allowed$/i })
+      ).toBeVisible()
+      await page
+        .getByRole('button', { name: /^Sign In with Dex-allowed$/i })
+        .click()
+
+      await expect(
+        page.getByRole('heading', { name: 'Log in to Your Account' })
+      ).toBeVisible()
+      await page.getByLabel('Username').fill(oauthUser.username)
+      await page.getByLabel('Password').fill(oauthUser.password)
+      await page.getByRole('button', { name: 'Login' }).click()
+
+      await expectSignedInUser(
+        page,
+        oauthUser.username,
+        restrictedOAuthProvider.name
+      )
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('signs in through Dex OAuth with groupsClaim override', async ({
+    browser,
+  }) => {
+    const { context, page } = await openAnonymousPage(browser)
+
+    try {
+      await page.goto('/login')
+
+      await expect(
+        page.getByRole('button', {
+          name: /^Sign In with Dex-name-group$/i,
+        })
+      ).toBeVisible()
+      await page
+        .getByRole('button', {
+          name: /^Sign In with Dex-name-group$/i,
+        })
+        .click()
+
+      await expect(
+        page.getByRole('heading', { name: 'Log in to Your Account' })
+      ).toBeVisible()
+      await page.getByLabel('Username').fill(oauthUser.username)
+      await page.getByLabel('Password').fill(oauthUser.password)
+      await page.getByRole('button', { name: 'Login' }).click()
+
+      await expectSignedInUser(
+        page,
+        oauthUser.username,
+        customGroupClaimOAuthProvider.name
+      )
+
+      const currentUser = await fetchCurrentUser(page)
+      expect(currentUser.provider).toBe(customGroupClaimOAuthProvider.name)
+      expect(currentUser.oidc_groups).toEqual(['OAuth E2E'])
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('rejects Dex OAuth users outside the allowed groups before RBAC', async ({
+    browser,
+  }) => {
+    const { context, page } = await openAnonymousPage(browser)
+
+    try {
+      await page.goto('/login')
+
+      await expect(
+        page.getByRole('button', { name: /^Sign In with Dex-allowed$/i })
+      ).toBeVisible()
+      await page
+        .getByRole('button', { name: /^Sign In with Dex-allowed$/i })
+        .click()
+
+      await expect(
+        page.getByRole('heading', { name: 'Log in to Your Account' })
+      ).toBeVisible()
+      await page.getByLabel('Username').fill(oauthUserWithoutGroup.username)
+      await page.getByLabel('Password').fill(oauthUserWithoutGroup.password)
+      await page.getByRole('button', { name: 'Login' }).click()
+
+      await expect(page).toHaveURL(/\/login\?/)
+      await expect(page.getByRole('alert')).toContainText(
+        'Authentication succeeded, but your account is not a member of the allowed groups in dex-allowed.'
+      )
+      await expect(page.getByRole('alert')).toContainText(
+        'Please contact your administrator to be added to an allowed group.'
       )
       await expect(
         page.getByRole('button', { name: 'Try Again with Different Account' })

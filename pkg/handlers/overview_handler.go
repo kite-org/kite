@@ -8,8 +8,8 @@ import (
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/utils"
-	v1 "k8s.io/api/core/v1"
 	"golang.org/x/sync/errgroup"
+	v1 "k8s.io/api/core/v1"
 )
 
 type OverviewData struct {
