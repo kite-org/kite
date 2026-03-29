@@ -49,3 +49,5 @@ kite
 
 
 .gocache/
+
+.pnpm-store/
