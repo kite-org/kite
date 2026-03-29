@@ -1,0 +1,24 @@
+{
+  "name": "Kite",
+  "image": "mcr.microsoft.com/devcontainers/go:1.25",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "go.useLanguageServer": true,
+        "go.lintTool": "golangci-lint"
+      },
+      "extensions": [
+        "golang.go",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  },
+  "postCreateCommand": "npm install -g pnpm && make deps",
+  "remoteUser": "vscode"
+}
