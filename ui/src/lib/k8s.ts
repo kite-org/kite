@@ -321,6 +321,7 @@ export function isStandardK8sResource(kind: string): boolean {
     'nodes',
     'events',
     'storageclasses',
+    'poddisruptionbudgets',
   ]
   const resourcePath = kind.toLowerCase() + 's'
   return (

@@ -59,6 +59,7 @@
     "deployments": "部署",
     "statefulsets": "有状态副本集",
     "daemonsets": "守护进程集",
+    "poddisruptionbudgets": "Pod 中断预算",
     "jobs": "任务",
     "services": "服务",
     "ingresses": "入口",

@@ -1,13 +1,19 @@
 package resources
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
 	"github.com/zxh326/kite/pkg/common"
+	"github.com/zxh326/kite/pkg/kube"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	policyv1 "k8s.io/api/policy/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -206,6 +212,63 @@ func TestGetAutoScalingRelatedResources(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("getAutoScalingRelatedResources() = %#v, want %#v", got, want)
+	}
+}
+
+func TestDiscoverPodsByPodDisruptionBudget(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod-1", Namespace: "default", Labels: map[string]string{"app": "nginx"}}},
+		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod-2", Namespace: "default", Labels: map[string]string{"app": "nginx"}}},
+		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod-other", Namespace: "default", Labels: map[string]string{"app": "busybox"}}},
+	).Build()
+
+	k8sClient := &kube.K8sClient{Client: fakeClient}
+	selector := &metav1.LabelSelector{MatchLabels: map[string]string{"app": "nginx"}}
+	got, err := discoverPodsByPodDisruptionBudget(context.Background(), k8sClient, "default", selector)
+	if err != nil {
+		t.Fatalf("discoverPodsByPodDisruptionBudget() error = %v", err)
+	}
+	want := []common.RelatedResource{
+		{Type: "pods", Namespace: "default", Name: "pod-1"},
+		{Type: "pods", Namespace: "default", Name: "pod-2"},
+	}
+	if !sameRelatedResources(got, want) {
+		t.Fatalf("discoverPodsByPodDisruptionBudget() = %#v, want %#v", got, want)
+	}
+}
+
+func TestDiscoverPodDisruptionBudgetsByPod(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = policyv1.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		&policyv1.PodDisruptionBudget{
+			ObjectMeta: metav1.ObjectMeta{Name: "pdb-1", Namespace: "default"},
+			Spec: policyv1.PodDisruptionBudgetSpec{
+				Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "nginx"}},
+			},
+		},
+		&policyv1.PodDisruptionBudget{
+			ObjectMeta: metav1.ObjectMeta{Name: "pdb-other", Namespace: "default"},
+			Spec: policyv1.PodDisruptionBudgetSpec{
+				Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "busybox"}},
+			},
+		},
+	).Build()
+
+	k8sClient := &kube.K8sClient{Client: fakeClient}
+	podLabels := map[string]string{"app": "nginx"}
+	got, err := discoverPodDisruptionBudgetsByPod(context.Background(), k8sClient, "default", podLabels)
+	if err != nil {
+		t.Fatalf("discoverPodDisruptionBudgetsByPod() error = %v", err)
+	}
+	want := []common.RelatedResource{
+		{Type: "poddisruptionbudgets", Namespace: "default", Name: "pdb-1"},
+	}
+	if !sameRelatedResources(got, want) {
+		t.Fatalf("discoverPodDisruptionBudgetsByPod() = %#v, want %#v", got, want)
 	}
 }
 

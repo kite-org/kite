@@ -12,6 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -67,6 +68,7 @@ func RegisterRoutes(group *gin.RouterGroup) {
 		string(common.ReplicaSets):              NewGenericResourceHandler[*appsv1.ReplicaSet, *appsv1.ReplicaSetList](common.ReplicaSets),
 		string(common.StatefulSets):             NewGenericResourceHandler[*appsv1.StatefulSet, *appsv1.StatefulSetList](common.StatefulSets),
 		string(common.DaemonSets):               NewGenericResourceHandler[*appsv1.DaemonSet, *appsv1.DaemonSetList](common.DaemonSets),
+		string(common.PodDisruptionBudgets):     NewGenericResourceHandler[*policyv1.PodDisruptionBudget, *policyv1.PodDisruptionBudgetList](common.PodDisruptionBudgets),
 		string(common.Jobs):                     NewGenericResourceHandler[*batchv1.Job, *batchv1.JobList](common.Jobs),
 		string(common.CronJobs):                 NewGenericResourceHandler[*batchv1.CronJob, *batchv1.CronJobList](common.CronJobs),
 		string(common.Ingresses):                NewGenericResourceHandler[*networkingv1.Ingress, *networkingv1.IngressList](common.Ingresses),

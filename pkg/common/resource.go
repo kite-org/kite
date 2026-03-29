@@ -24,6 +24,7 @@ const (
 	ReplicaSets              ResourceType = "replicasets"
 	StatefulSets             ResourceType = "statefulsets"
 	DaemonSets               ResourceType = "daemonsets"
+	PodDisruptionBudgets     ResourceType = "poddisruptionbudgets"
 	Jobs                     ResourceType = "jobs"
 	CronJobs                 ResourceType = "cronjobs"
 	Ingresses                ResourceType = "ingresses"
@@ -76,6 +77,9 @@ var Registry = []ResourceMeta{
 	{Kind: "ReplicaSet", Singular: "replicaset", Plural: ReplicaSets, Short: []string{"rs"}, Group: "apps", Version: "v1"},
 	{Kind: "StatefulSet", Singular: "statefulset", Plural: StatefulSets, Short: []string{"sts"}, Group: "apps", Version: "v1", Searchable: true, Related: true},
 	{Kind: "DaemonSet", Singular: "daemonset", Plural: DaemonSets, Short: []string{"ds"}, Group: "apps", Version: "v1", Searchable: true, GlobalSearch: true, Related: true},
+
+	// policy/v1
+	{Kind: "PodDisruptionBudget", Singular: "poddisruptionbudget", Plural: PodDisruptionBudgets, Short: []string{"pdb"}, Group: "policy", Version: "v1", Searchable: true, GlobalSearch: true, Related: true},
 
 	// batch/v1
 	{Kind: "Job", Singular: "job", Plural: Jobs, Group: "batch", Version: "v1", Searchable: true},

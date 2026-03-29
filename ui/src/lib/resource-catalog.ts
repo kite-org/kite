@@ -99,6 +99,17 @@ export const resourceCatalog = [
     sidebar: { groupKey: 'sidebar.groups.workloads', order: 0 },
   },
   {
+    type: 'poddisruptionbudgets',
+    singular: 'poddisruptionbudget',
+    singularLabel: 'PodDisruptionBudget',
+    pluralLabel: 'PodDisruptionBudgets',
+    shortLabel: 'PDB',
+    clusterScope: false,
+    titleKey: 'nav.poddisruptionbudgets',
+    icon: 'IconShield',
+    sidebar: { groupKey: 'sidebar.groups.workloads', order: 1 },
+  },
+  {
     type: 'deployments',
     singular: 'deployment',
     singularLabel: 'Deployment',
@@ -107,7 +118,7 @@ export const resourceCatalog = [
     clusterScope: false,
     titleKey: 'nav.deployments',
     icon: 'IconRocket',
-    sidebar: { groupKey: 'sidebar.groups.workloads', order: 1 },
+    sidebar: { groupKey: 'sidebar.groups.workloads', order: 2 },
   },
   {
     type: 'statefulsets',
@@ -118,7 +129,7 @@ export const resourceCatalog = [
     clusterScope: false,
     titleKey: 'nav.statefulsets',
     icon: 'IconStack2',
-    sidebar: { groupKey: 'sidebar.groups.workloads', order: 2 },
+    sidebar: { groupKey: 'sidebar.groups.workloads', order: 3 },
   },
   {
     type: 'daemonsets',
@@ -129,7 +140,7 @@ export const resourceCatalog = [
     clusterScope: false,
     titleKey: 'nav.daemonsets',
     icon: 'IconTopologyBus',
-    sidebar: { groupKey: 'sidebar.groups.workloads', order: 3 },
+    sidebar: { groupKey: 'sidebar.groups.workloads', order: 4 },
   },
   {
     type: 'jobs',
@@ -140,7 +151,7 @@ export const resourceCatalog = [
     clusterScope: false,
     titleKey: 'nav.jobs',
     icon: 'IconPlayerPlay',
-    sidebar: { groupKey: 'sidebar.groups.workloads', order: 4 },
+    sidebar: { groupKey: 'sidebar.groups.workloads', order: 5 },
   },
   {
     type: 'cronjobs',
@@ -150,7 +161,7 @@ export const resourceCatalog = [
     clusterScope: false,
     titleKey: 'nav.cronjobs',
     icon: 'IconClockHour4',
-    sidebar: { groupKey: 'sidebar.groups.workloads', order: 5 },
+    sidebar: { groupKey: 'sidebar.groups.workloads', order: 6 },
   },
   {
     type: 'services',

@@ -43,6 +43,7 @@ var searchResourceOrder = map[string]int{
 	string(common.Secrets):      7,
 	string(common.Ingresses):    8,
 	string(common.Namespaces):   9,
+	string(common.PodDisruptionBudgets): 10,
 }
 
 func NewSearchHandler() *SearchHandler {

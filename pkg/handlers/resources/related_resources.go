@@ -15,6 +15,7 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -270,6 +271,66 @@ func discoverPodsByService(ctx context.Context, k8sClient *kube.K8sClient, servi
 	return relatedPods
 }
 
+func discoverPodsByPodDisruptionBudget(ctx context.Context, k8sClient *kube.K8sClient, namespace string, selector *metav1.LabelSelector) ([]common.RelatedResource, error) {
+	if selector == nil {
+		return []common.RelatedResource{}, nil
+	}
+
+	labelSelector, err := metav1.LabelSelectorAsSelector(selector)
+	if err != nil {
+		return nil, err
+	}
+
+	var podList corev1.PodList
+	if err := k8sClient.List(ctx, &podList, client.InNamespace(namespace), client.MatchingLabelsSelector{Selector: labelSelector}); err != nil {
+		return nil, err
+	}
+
+	relatedPods := make([]common.RelatedResource, 0, len(podList.Items))
+	for _, pod := range podList.Items {
+		relatedPods = append(relatedPods, common.RelatedResource{
+			Type:      "pods",
+			Namespace: pod.Namespace,
+			Name:      pod.Name,
+		})
+	}
+
+	return relatedPods, nil
+}
+
+func discoverPodDisruptionBudgetsByPod(ctx context.Context, k8sClient *kube.K8sClient, namespace string, podLabels map[string]string) ([]common.RelatedResource, error) {
+	if len(podLabels) == 0 {
+		return []common.RelatedResource{}, nil
+	}
+
+	var pdbList policyv1.PodDisruptionBudgetList
+	if err := k8sClient.List(ctx, &pdbList, client.InNamespace(namespace)); err != nil {
+		return nil, err
+	}
+
+	relatedPDBs := make([]common.RelatedResource, 0)
+	for _, pdb := range pdbList.Items {
+		if pdb.Spec.Selector == nil {
+			continue
+		}
+
+		selector, err := metav1.LabelSelectorAsSelector(pdb.Spec.Selector)
+		if err != nil {
+			continue
+		}
+
+		if selector.Matches(labels.Set(podLabels)) {
+			relatedPDBs = append(relatedPDBs, common.RelatedResource{
+				Type:      "poddisruptionbudgets",
+				Namespace: pdb.Namespace,
+				Name:      pdb.Name,
+			})
+		}
+	}
+
+	return relatedPDBs, nil
+}
+
 func GetRelatedResources(c *gin.Context) {
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
 	namespace := c.Param("namespace")
@@ -296,6 +357,9 @@ func GetRelatedResources(c *gin.Context) {
 			selector = &metav1.LabelSelector{
 				MatchLabels: res.Labels,
 			}
+		}
+		if relatedPDBs, err := discoverPodDisruptionBudgetsByPod(ctx, cs.K8sClient, namespace, res.Labels); err == nil {
+			result = append(result, relatedPDBs...)
 		}
 	case *appsv1.Deployment:
 		podSpec = &res.Spec.Template
@@ -329,6 +393,10 @@ func GetRelatedResources(c *gin.Context) {
 	case *v1.Ingress:
 		services := discoverIngressServices(namespace, res)
 		result = append(result, services...)
+	case *policyv1.PodDisruptionBudget:
+		if relatedPods, err := discoverPodsByPodDisruptionBudget(ctx, cs.K8sClient, namespace, res.Spec.Selector); err == nil {
+			result = append(result, relatedPods...)
+		}
 	}
 
 	if podSpec != nil && selector != nil {

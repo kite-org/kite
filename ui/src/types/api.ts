@@ -46,6 +46,10 @@ import {
   NetworkPolicyList,
 } from 'kubernetes-types/networking/v1'
 import {
+  PodDisruptionBudget,
+  PodDisruptionBudgetList,
+} from 'kubernetes-types/policy/v1'
+import {
   ClusterRole,
   ClusterRoleBinding,
   ClusterRoleBindingList,
@@ -143,6 +147,7 @@ export interface ResourcesTypeMap {
     metadata?: listMetadataType
   }
   replicasets: ReplicaSetList
+  poddisruptionbudgets: PodDisruptionBudgetList
   serviceaccounts: ServiceAccountList
   roles: RoleList
   rolebindings: RoleBindingList
@@ -212,6 +217,7 @@ export interface ResourceTypeMap {
   persistentvolumes: PersistentVolume
   storageclasses: StorageClass
   replicasets: ReplicaSet
+  poddisruptionbudgets: PodDisruptionBudget
   podmetrics: PodMetrics
   serviceaccounts: ServiceAccount
   roles: RawRole
