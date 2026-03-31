@@ -1,10 +1,11 @@
-import React from 'react'
+import React, { useLayoutEffect, useRef, useState } from 'react'
 import {
   flexRender,
   PaginationState,
   Table as TableInstance,
 } from '@tanstack/react-table'
 
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -30,6 +31,7 @@ interface ResourceTableViewProps<T> {
   allPageSize?: number
   maxBodyHeightClassName?: string
   containerClassName?: string
+  fitViewportHeight?: boolean
   emptyState: React.ReactNode
   hasActiveFilters: boolean
   filteredRowCount: number
@@ -47,6 +49,7 @@ export function ResourceTableView<T>({
   allPageSize,
   maxBodyHeightClassName = 'max-h-[calc(100dvh-210px)]',
   containerClassName = 'flex flex-col gap-3',
+  fitViewportHeight = false,
   emptyState,
   hasActiveFilters,
   filteredRowCount,
@@ -86,10 +89,65 @@ export function ResourceTableView<T>({
 
   const dataLength = data?.length ?? 0
   const resolvedAllPageSize = allPageSize ?? dataLength
+  const rootRef = useRef<HTMLDivElement>(null)
+  const tableShellRef = useRef<HTMLDivElement>(null)
+  const footerRef = useRef<HTMLDivElement>(null)
+  const [tableHeight, setTableHeight] = useState<number | null>(null)
+
+  useLayoutEffect(() => {
+    if (!fitViewportHeight || !tableShellRef.current) {
+      return
+    }
+
+    let frameId = 0
+    const resizeObserver = new ResizeObserver(() => {
+      scheduleUpdate()
+    })
+
+    const updateHeight = () => {
+      if (!tableShellRef.current) {
+        return
+      }
+
+      const tableTop = tableShellRef.current.getBoundingClientRect().top
+      const footerHeight =
+        footerRef.current?.getBoundingClientRect().height ?? 0
+      const footerGap = dataLength > 0 ? 12 : 0
+      const nextHeight = Math.max(
+        240,
+        Math.floor(window.innerHeight - tableTop - footerHeight - footerGap)
+      )
+
+      setTableHeight((currentHeight) =>
+        currentHeight === nextHeight ? currentHeight : nextHeight
+      )
+    }
+
+    const scheduleUpdate = () => {
+      window.cancelAnimationFrame(frameId)
+      frameId = window.requestAnimationFrame(updateHeight)
+    }
+
+    scheduleUpdate()
+    window.addEventListener('resize', scheduleUpdate)
+    resizeObserver.observe(tableShellRef.current)
+    if (footerRef.current) {
+      resizeObserver.observe(footerRef.current)
+    }
+    if (rootRef.current?.parentElement) {
+      resizeObserver.observe(rootRef.current.parentElement)
+    }
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      window.removeEventListener('resize', scheduleUpdate)
+      resizeObserver.disconnect()
+    }
+  }, [dataLength, fitViewportHeight])
 
   return (
-    <div className={containerClassName}>
-      <div className="rounded-lg border overflow-hidden">
+    <div ref={rootRef} className={containerClassName}>
+      <div ref={tableShellRef} className="rounded-lg border overflow-hidden">
         <div
           className={`transition-opacity duration-200 ${
             isLoading && dataLength > 0 ? 'opacity-75' : 'opacity-100'
@@ -97,7 +155,15 @@ export function ResourceTableView<T>({
         >
           {emptyState || (
             <div
-              className={`relative ${maxBodyHeightClassName} overflow-auto scrollbar-hide`}
+              className={cn(
+                'relative overflow-auto scrollbar-hide',
+                fitViewportHeight ? 'min-h-[240px]' : maxBodyHeightClassName
+              )}
+              style={
+                fitViewportHeight && tableHeight
+                  ? { height: `${tableHeight}px` }
+                  : undefined
+              }
             >
               <Table>
                 <TableHeader className="bg-muted">
@@ -151,7 +217,10 @@ export function ResourceTableView<T>({
       </div>
 
       {dataLength > 0 && (
-        <div className="flex flex-col gap-3 px-2 py-1 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          ref={footerRef}
+          className="flex flex-col gap-3 px-2 py-1 sm:flex-row sm:items-center sm:justify-between"
+        >
           <div className="text-muted-foreground hidden flex-1 text-sm lg:flex">
             {hasActiveFilters ? (
               <>

@@ -76,8 +76,16 @@ export function DynamicBreadcrumb() {
       }
     }
 
-    // Generate breadcrumbs for each path segment
-    pathSegments.forEach((segment, index) => {
+    const shouldHideLastSegment =
+      pathSegments[0] === 'crds'
+        ? pathSegments.length >= 3
+        : pathSegments.length >= 2
+    const visibleSegments = shouldHideLastSegment
+      ? pathSegments.slice(0, -1)
+      : pathSegments
+
+    // Generate breadcrumbs for each visible path segment
+    visibleSegments.forEach((segment, index) => {
       const href = getSafeLink(index)
       breadcrumbs.push(createBreadcrumb(segment, href))
     })
@@ -94,7 +102,7 @@ export function DynamicBreadcrumb() {
           <div key={index} className="flex items-center">
             {index > 0 && <BreadcrumbSeparator />}
             <BreadcrumbItem>
-              {crumb.href ? (
+              {crumb.href && index < breadcrumbs.length - 1 ? (
                 <BreadcrumbLink asChild>
                   <Link to={crumb.href}>{crumb.label}</Link>
                 </BreadcrumbLink>

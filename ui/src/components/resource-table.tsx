@@ -28,6 +28,7 @@ import { toast } from 'sonner'
 
 import { ResourceType } from '@/types/api'
 import { deleteResource, useResources, useResourcesWatch } from '@/lib/api'
+import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -48,7 +49,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -56,9 +56,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
+import { Toggle } from '@/components/ui/toggle'
 
-import { ConnectionIndicator } from './connection-indicator'
 import { ErrorMessage } from './error-message'
 import { ResourceTableView } from './resource-table-view'
 import { NamespaceSelector } from './selector/namespace-selector'
@@ -459,6 +458,13 @@ export function ResourceTable<T>({
     return Boolean(searchQuery) || columnFilters.length > 0
   }, [searchQuery, columnFilters])
 
+  const filterableColumns = table.getAllColumns().filter((column) => {
+    const columnDef = column.columnDef as ColumnDef<T> & {
+      enableColumnFilter?: boolean
+    }
+    return columnDef.enableColumnFilter && column.getCanFilter()
+  })
+
   // Render empty state based on condition
   const renderEmptyState = () => {
     // Only show loading state if there's no existing data
@@ -527,52 +533,37 @@ export function ResourceTable<T>({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold capitalize">{resourceName}</h1>
-          {!clusterScope && selectedNamespace && (
-            <div className="text-muted-foreground flex items-center mt-1">
-              <span>Namespace:</span>
-              <Badge variant="outline" className="ml-2 ">
-                {selectedNamespace === '_all'
-                  ? 'All Namespaces'
-                  : selectedNamespace}
-              </Badge>
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:flex-wrap">
-          <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             {extraToolbars?.map((toolbar, index) => (
               <React.Fragment key={index}>{toolbar}</React.Fragment>
             ))}
-            {/* Watch/Live mode toggle switch */}
             {resourceName === 'Pods' && (
-              <div className="flex items-center gap-2">
-                <Label className="text-sm">
-                  {useSSE ? (
-                    <ConnectionIndicator isConnected={isConnected}>
-                      {t('resourceTable.watch')}
-                    </ConnectionIndicator>
-                  ) : (
-                    t('resourceTable.watch')
+              <Toggle
+                pressed={useSSE}
+                variant="outline"
+                className="px-3 text-muted-foreground data-[state=on]:text-foreground"
+                aria-label={t('resourceTable.watch')}
+                onPressedChange={(pressed) => {
+                  setUseSSE(pressed)
+                  if (pressed) {
+                    setRefreshInterval(0)
+                  } else if (refreshInterval === 0) {
+                    setRefreshInterval(5000)
+                  }
+                }}
+              >
+                <span
+                  className={cn(
+                    'bg-muted-foreground/25 size-2 rounded-full',
+                    useSSE && isConnected && 'bg-emerald-500',
+                    useSSE && !isConnected && 'bg-red-500'
                   )}
-                </Label>
-                <Switch
-                  checked={useSSE}
-                  onCheckedChange={(checked) => {
-                    setUseSSE(checked)
-                    if (checked) {
-                      setRefreshInterval(0)
-                    } else if (refreshInterval === 0) {
-                      setRefreshInterval(5000) // Default to 5s when disabling watch mode
-                    }
-                  }}
                 />
-              </div>
+                <span>{t('resourceTable.watch')}</span>
+              </Toggle>
             )}
-            {/* Refresh interval selector */}
             <Select
               value={refreshInterval.toString()}
               onValueChange={(value) => {
@@ -583,7 +574,7 @@ export function ResourceTable<T>({
               }}
               disabled={useSSE}
             >
-              <SelectTrigger className="w-full md:w-[140px]">
+              <SelectTrigger className="w-full sm:w-[120px]">
                 <div className="flex items-center gap-2">
                   <RefreshCw className="h-4 w-4" />
                   <SelectValue />
@@ -604,69 +595,57 @@ export function ResourceTable<T>({
                 showAll={true}
               />
             )}
-            {/* Column Filters */}
-            {table
-              .getAllColumns()
-              .filter((column) => {
-                const columnDef = column.columnDef as ColumnDef<T> & {
-                  enableColumnFilter?: boolean
-                }
-                return columnDef.enableColumnFilter && column.getCanFilter()
-              })
-              .map((column) => {
-                const columnDef = column.columnDef as ColumnDef<T> & {
-                  enableColumnFilter?: boolean
-                }
-                const uniqueValues = column.getFacetedUniqueValues()
-                const filterValue = column.getFilterValue() as string
+            {filterableColumns.map((column) => {
+              const columnDef = column.columnDef as ColumnDef<T> & {
+                enableColumnFilter?: boolean
+              }
+              const uniqueValues = column.getFacetedUniqueValues()
+              const filterValue = column.getFilterValue() as string
 
-                return (
-                  <Select
-                    key={column.id}
-                    value={filterValue || ''}
-                    onValueChange={(value) =>
-                      column.setFilterValue(value === 'all' ? '' : value)
-                    }
-                  >
-                    <SelectTrigger className="w-full md:min-w-32 md:w-auto">
-                      <SelectValue
-                        placeholder={`Filter ${typeof columnDef.header === 'string' ? columnDef.header : 'Column'}`}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">
-                        All{' '}
-                        {typeof columnDef.header === 'string'
-                          ? columnDef.header
-                          : 'Values'}
-                      </SelectItem>
-                      {Array.from(uniqueValues.keys())
-                        .sort()
-                        .map((value) =>
-                          value ? (
-                            <SelectItem
-                              key={String(value)}
-                              value={String(value)}
-                            >
-                              {String(value)} ({uniqueValues.get(value)})
-                            </SelectItem>
-                          ) : null
-                        )}
-                    </SelectContent>
-                  </Select>
-                )
-              })}
+              return (
+                <Select
+                  key={column.id}
+                  value={filterValue || ''}
+                  onValueChange={(value) =>
+                    column.setFilterValue(value === 'all' ? '' : value)
+                  }
+                >
+                  <SelectTrigger className="w-full sm:w-auto sm:min-w-[8.5rem] sm:max-w-[12rem]">
+                    <SelectValue
+                      placeholder={`Filter ${typeof columnDef.header === 'string' ? columnDef.header : 'Column'}`}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      All{' '}
+                      {typeof columnDef.header === 'string'
+                        ? columnDef.header
+                        : 'Values'}
+                    </SelectItem>
+                    {Array.from(uniqueValues.keys())
+                      .sort()
+                      .map((value) =>
+                        value ? (
+                          <SelectItem key={String(value)} value={String(value)}>
+                            {String(value)} ({uniqueValues.get(value)})
+                          </SelectItem>
+                        ) : null
+                      )}
+                  </SelectContent>
+                </Select>
+              )
+            })}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex w-full items-center gap-2 md:w-auto">
-              <div className="relative w-full md:w-auto">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+            <div className="flex w-full items-center gap-2 sm:w-auto">
+              <div className="relative min-w-0 flex-1 sm:w-[280px]">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder={`Search ${resourceName.toLowerCase()}...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 md:w-[200px]"
+                  className="w-full pl-9 pr-4"
                 />
               </div>
               {searchQuery && (
@@ -682,63 +661,62 @@ export function ResourceTable<T>({
               )}
             </div>
 
-            {/* Batch delete button */}
-            {table.getSelectedRowModel().rows.length > 0 && (
-              <Button
-                variant="destructive"
-                onClick={() => setDeleteDialogOpen(true)}
-                className="gap-2"
-              >
-                <Trash2 className="h-4 w-4" />
-                {t('resourceTable.deleteSelected', {
-                  count: table.getSelectedRowModel().rows.length,
-                })}
-              </Button>
-            )}
-            {showCreateButton && onCreateClick && (
-              <Button onClick={onCreateClick} className="gap-1">
-                <Plus className="h-2 w-2" />
-                New
-              </Button>
-            )}
-
-            {/* Toggle columns Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+              {table.getSelectedRowModel().rows.length > 0 && (
                 <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9"
-                  aria-label="Toggle columns"
+                  variant="destructive"
+                  onClick={() => setDeleteDialogOpen(true)}
+                  className="gap-2"
                 >
-                  <Settings2 className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {table
-                  .getAllLeafColumns()
-                  .filter((column) => column.getCanHide())
-                  .map((column) => {
-                    const header = column.columnDef.header
-                    const headerText =
-                      typeof header === 'string' ? header : column.id
-                    return (
-                      <DropdownMenuCheckboxItem
-                        key={column.id}
-                        className="capitalize"
-                        checked={column.getIsVisible()}
-                        onCheckedChange={(value) =>
-                          column.toggleVisibility(!!value)
-                        }
-                      >
-                        {headerText}
-                      </DropdownMenuCheckboxItem>
-                    )
+                  <Trash2 className="h-4 w-4" />
+                  {t('resourceTable.deleteSelected', {
+                    count: table.getSelectedRowModel().rows.length,
                   })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </Button>
+              )}
+              {showCreateButton && onCreateClick && (
+                <Button onClick={onCreateClick} className="gap-1">
+                  <Plus className="h-2 w-2" />
+                  New
+                </Button>
+              )}
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="Toggle columns"
+                  >
+                    <Settings2 className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {table
+                    .getAllLeafColumns()
+                    .filter((column) => column.getCanHide())
+                    .map((column) => {
+                      const header = column.columnDef.header
+                      const headerText =
+                        typeof header === 'string' ? header : column.id
+                      return (
+                        <DropdownMenuCheckboxItem
+                          key={column.id}
+                          className="capitalize"
+                          checked={column.getIsVisible()}
+                          onCheckedChange={(value) =>
+                            column.toggleVisibility(!!value)
+                          }
+                        >
+                          {headerText}
+                        </DropdownMenuCheckboxItem>
+                      )
+                    })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
       </div>
@@ -748,6 +726,7 @@ export function ResourceTable<T>({
         columnCount={enhancedColumns.length}
         isLoading={isLoading}
         data={data as T[] | undefined}
+        fitViewportHeight={true}
         emptyState={emptyState}
         hasActiveFilters={hasActiveFilters}
         filteredRowCount={filteredRowCount}
