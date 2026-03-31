@@ -99,17 +99,6 @@ export const resourceCatalog = [
     sidebar: { groupKey: 'sidebar.groups.workloads', order: 0 },
   },
   {
-    type: 'poddisruptionbudgets',
-    singular: 'poddisruptionbudget',
-    singularLabel: 'PodDisruptionBudget',
-    pluralLabel: 'PodDisruptionBudgets',
-    shortLabel: 'PDB',
-    clusterScope: false,
-    titleKey: 'nav.poddisruptionbudgets',
-    icon: 'IconShield',
-    sidebar: { groupKey: 'sidebar.groups.workloads', order: 1 },
-  },
-  {
     type: 'deployments',
     singular: 'deployment',
     singularLabel: 'Deployment',
@@ -399,6 +388,17 @@ export const resourceCatalog = [
     titleKey: 'nav.horizontalpodautoscalers',
     icon: 'IconArrowsHorizontal',
     sidebar: { groupKey: 'sidebar.groups.config', order: 2 },
+  },
+  {
+    type: 'poddisruptionbudgets',
+    singular: 'poddisruptionbudget',
+    singularLabel: 'PodDisruptionBudget',
+    pluralLabel: 'PodDisruptionBudgets',
+    shortLabel: 'PDB',
+    clusterScope: false,
+    titleKey: 'nav.poddisruptionbudgets',
+    icon: 'IconShield',
+    sidebar: { groupKey: 'sidebar.groups.config', order: 3 },
   },
 ] as const satisfies readonly ResourceCatalogEntryBase[]
 
