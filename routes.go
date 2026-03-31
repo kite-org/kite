@@ -97,6 +97,8 @@ func registerAdminRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, cm *
 	userAPI.DELETE("/:id", handlers.DeleteUser)
 	userAPI.POST("/:id/reset_password", handlers.ResetPassword)
 	userAPI.POST("/:id/enable", handlers.SetUserEnabled)
+	adminAPI.POST("/sidebar_preference/global", handlers.UpdateGlobalSidebarPreference)
+	adminAPI.DELETE("/sidebar_preference/global", handlers.ClearGlobalSidebarPreference)
 
 	apiKeyAPI := adminAPI.Group("/apikeys")
 	apiKeyAPI.GET("/", handlers.ListAPIKeys)

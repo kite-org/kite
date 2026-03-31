@@ -280,8 +280,26 @@ func (h *AuthHandler) GetUser(c *gin.Context) {
 		return
 	}
 
+	currentUser := user.(model.User)
+	isAdmin := rbac.UserHasRole(currentUser, model.DefaultAdminRole.Name)
+	setting, err := model.GetGeneralSetting()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("Failed to load general setting: %v", err),
+		})
+		return
+	}
+
+	globalSidebarPreference := strings.TrimSpace(setting.GlobalSidebarPreference)
+	hasGlobalSidebarPreference := globalSidebarPreference != ""
+	if hasGlobalSidebarPreference && (!isAdmin || strings.TrimSpace(currentUser.SidebarPreference) == "") {
+		currentUser.SidebarPreference = globalSidebarPreference
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"user": user,
+		"user":                       currentUser,
+		"hasGlobalSidebarPreference": hasGlobalSidebarPreference,
+		"globalSidebarPreference":    globalSidebarPreference,
 	})
 }
 

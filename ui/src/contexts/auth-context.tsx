@@ -27,6 +27,8 @@ interface User {
 interface AuthContextType {
   user: User | null
   isLoading: boolean
+  hasGlobalSidebarPreference: boolean
+  globalSidebarPreference: string
   credentialProviders: CredentialProvider[]
   oauthProviders: string[]
   login: (provider?: string) => Promise<void>
@@ -57,6 +59,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [globalSidebarPreference, setGlobalSidebarPreference] = useState('')
   const [credentialProviders, setCredentialProviders] = useState<
     CredentialProvider[]
   >([])
@@ -98,6 +101,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (response.ok) {
         const data = await response.json()
         const user = data.user as User
+        setGlobalSidebarPreference(String(data.globalSidebarPreference || ''))
         user.isAdmin = function () {
           return (
             this.roles?.some(
@@ -111,10 +115,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(user)
       } else {
         setUser(null)
+        setGlobalSidebarPreference('')
       }
     } catch (error) {
       console.error('Auth check failed:', error)
       setUser(null)
+      setGlobalSidebarPreference('')
     } finally {
       setIsLoading(false)
     }
@@ -236,9 +242,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => clearInterval(refreshInterval)
   }, [user])
 
+  const hasGlobalSidebarPreference = globalSidebarPreference.trim() !== ''
+
   const value = {
     user,
     isLoading,
+    hasGlobalSidebarPreference,
+    globalSidebarPreference,
     credentialProviders,
     oauthProviders,
     login,

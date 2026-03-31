@@ -109,6 +109,12 @@
     "pinned": "置顶",
     "menuGroups": "菜单分组",
     "resetToDefault": "重置为默认",
+    "setAsGlobal": "设为全局侧边栏",
+    "setAsGlobalSuccess": "全局侧边栏更新成功",
+    "setAsGlobalError": "全局侧边栏更新失败",
+    "unsetGlobal": "取消全局侧边栏",
+    "unsetGlobalSuccess": "已取消全局侧边栏",
+    "unsetGlobalError": "取消全局侧边栏失败",
     "expand": "展开",
     "collapse": "折叠"
   },

@@ -431,6 +431,21 @@ export const updateGeneralSetting = async (
   return await apiClient.put<GeneralSetting>('/admin/general-setting/', data)
 }
 
+export const setGlobalSidebarPreference = async (sidebarPreference: string) => {
+  return await apiClient.post<{ success: boolean }>(
+    '/admin/sidebar_preference/global',
+    {
+      sidebar_preference: sidebarPreference,
+    }
+  )
+}
+
+export const clearGlobalSidebarPreference = async () => {
+  return await apiClient.delete<{ success: boolean }>(
+    '/admin/sidebar_preference/global'
+  )
+}
+
 export const fetchLDAPSetting = async (): Promise<LDAPSetting> => {
   return fetchAPI<LDAPSetting>('/admin/ldap-setting/')
 }

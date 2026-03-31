@@ -59,7 +59,13 @@
     "pinnedItems": "Pinned Items",
     "pinned": "Pinned",
     "menuGroups": "Menu Groups",
-    "resetToDefault": "Reset to Default"
+    "resetToDefault": "Reset to Default",
+    "setAsGlobal": "Set as global sidebar",
+    "setAsGlobalSuccess": "Global sidebar updated successfully",
+    "setAsGlobalError": "Failed to update global sidebar",
+    "unsetGlobal": "Unset global sidebar",
+    "unsetGlobalSuccess": "Global sidebar disabled successfully",
+    "unsetGlobalError": "Failed to disable global sidebar"
   },
   "nav": {
     "overview": "Overview",

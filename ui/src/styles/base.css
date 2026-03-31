@@ -104,6 +104,10 @@ samp {
   --radius: 0.5rem;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

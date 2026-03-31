@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useAuth } from '@/contexts/auth-context'
 import { useSidebarConfig } from '@/contexts/sidebar-config-context'
 import {
   ArrowDown,
@@ -14,7 +15,12 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
+import {
+  clearGlobalSidebarPreference,
+  setGlobalSidebarPreference,
+} from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -30,14 +36,33 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { CRDSelector } from '@/components/selector/crd-selector'
 
+const normalizeSidebarPreference = (value: string): string => {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return ''
+  }
+  try {
+    return JSON.stringify(JSON.parse(trimmed))
+  } catch {
+    return trimmed
+  }
+}
+
 export function SidebarCustomizer({
   onOpenChange,
 }: {
   onOpenChange?: (open: boolean) => void
 }) {
   const { t } = useTranslation()
+  const { user, globalSidebarPreference } = useAuth()
   const [open, setOpen] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
+  const [isPublishingGlobal, setIsPublishingGlobal] = useState(false)
+  const [isClearingGlobal, setIsClearingGlobal] = useState(false)
+  const [
+    publishedGlobalSidebarPreference,
+    setPublishedGlobalSidebarPreference,
+  ] = useState(globalSidebarPreference)
   const [selectedCRD, setSelectedCRD] = useState<
     | {
         name: string
@@ -88,18 +113,83 @@ export function SidebarCustomizer({
     return [...config.groups].sort((a, b) => a.order - b.order)
   }, [config])
 
+  const normalizedCurrentConfig = useMemo(() => {
+    if (!config) {
+      return ''
+    }
+    return JSON.stringify(config)
+  }, [config])
+
+  const normalizedGlobalSidebarPreference = useMemo(() => {
+    return normalizeSidebarPreference(publishedGlobalSidebarPreference)
+  }, [publishedGlobalSidebarPreference])
+
+  const hasPublishedGlobalSidebarPreference =
+    normalizedGlobalSidebarPreference !== ''
+
+  const isCurrentConfigGlobal =
+    hasPublishedGlobalSidebarPreference &&
+    normalizedCurrentConfig === normalizedGlobalSidebarPreference
+
+  useEffect(() => {
+    setPublishedGlobalSidebarPreference(globalSidebarPreference)
+  }, [globalSidebarPreference])
+
+  const handleSetAsGlobalSidebar = async () => {
+    if (!config || !user?.isAdmin()) {
+      return
+    }
+
+    setIsPublishingGlobal(true)
+    try {
+      await setGlobalSidebarPreference(normalizedCurrentConfig)
+      setPublishedGlobalSidebarPreference(normalizedCurrentConfig)
+      toast.success(
+        t('sidebar.setAsGlobalSuccess', 'Global sidebar updated successfully')
+      )
+    } catch (error) {
+      console.error('Failed to update global sidebar:', error)
+      toast.error(
+        t('sidebar.setAsGlobalError', 'Failed to update global sidebar')
+      )
+    } finally {
+      setIsPublishingGlobal(false)
+    }
+  }
+
+  const handleUnsetGlobalSidebar = async () => {
+    if (!user?.isAdmin()) {
+      return
+    }
+
+    setIsClearingGlobal(true)
+    try {
+      await clearGlobalSidebarPreference()
+      setPublishedGlobalSidebarPreference('')
+      toast.success(
+        t('sidebar.unsetGlobalSuccess', 'Global sidebar disabled successfully')
+      )
+    } catch (error) {
+      console.error('Failed to clear global sidebar:', error)
+      toast.error(
+        t('sidebar.unsetGlobalError', 'Failed to disable global sidebar')
+      )
+    } finally {
+      setIsClearingGlobal(false)
+    }
+  }
+
   if (isLoading || !config) {
     return null
   }
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen)
+    onOpenChange?.(nextOpen)
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={() => {
-        setOpen(!open)
-        if (onOpenChange) onOpenChange(!open)
-      }}
-    >
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <DropdownMenuItem
           className="cursor-pointer"
@@ -409,14 +499,37 @@ export function SidebarCustomizer({
             <RotateCcw className="h-4 w-4" />
             {t('sidebar.resetToDefault', 'Reset to Default')}
           </Button>
-          <Button
-            onClick={() => {
-              setOpen(!open)
-              if (onOpenChange) onOpenChange(!open)
-            }}
-          >
-            {t('common.done', 'Done')}
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {user?.isAdmin() && hasPublishedGlobalSidebarPreference && (
+              <Button
+                variant="outline"
+                onClick={handleUnsetGlobalSidebar}
+                disabled={isPublishingGlobal || isClearingGlobal}
+              >
+                {t('sidebar.unsetGlobal', 'Unset global sidebar')}
+              </Button>
+            )}
+            {user?.isAdmin() && (
+              <Button
+                variant="outline"
+                onClick={handleSetAsGlobalSidebar}
+                disabled={
+                  isPublishingGlobal ||
+                  isClearingGlobal ||
+                  isCurrentConfigGlobal
+                }
+              >
+                {t('sidebar.setAsGlobal', 'Set as global sidebar')}
+              </Button>
+            )}
+            <Button
+              onClick={() => {
+                handleOpenChange(false)
+              }}
+            >
+              {t('common.done', 'Done')}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

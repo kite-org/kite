@@ -20,7 +20,7 @@ import { ColorTheme, colorThemes } from '@/components/color-theme-provider'
 import { SidebarCustomizer } from './sidebar-customizer'
 
 export function UserMenu() {
-  const { user, logout } = useAuth()
+  const { user, logout, hasGlobalSidebarPreference } = useAuth()
   const { colorTheme, setColorTheme, font, setFont } = useAppearance()
   const [open, setOpen] = useState(false)
 
@@ -151,7 +151,9 @@ export function UserMenu() {
           </DropdownMenuSubContent>
         </DropdownMenuSub>
 
-        <SidebarCustomizer onOpenChange={(d) => setOpen(d)} />
+        {(user.isAdmin() || !hasGlobalSidebarPreference) && (
+          <SidebarCustomizer onOpenChange={(d) => setOpen(d)} />
+        )}
 
         {user.provider !== 'Anonymous' && (
           <>
