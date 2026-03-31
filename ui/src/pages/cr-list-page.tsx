@@ -2,12 +2,12 @@ import { useCallback, useMemo, useState } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import * as yaml from 'js-yaml'
 import { CustomResourceDefinition } from 'kubernetes-types/apiextensions/v1'
-import { get } from 'lodash'
 import { Eye } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 
 import { CustomResource, ResourceType } from '@/types/api'
 import { useResource } from '@/lib/api'
+import { getPrinterColumnValue } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -66,31 +66,34 @@ export function CRListPage() {
     const additionalColumns =
       crdData?.spec.versions[0].additionalPrinterColumns?.map(
         (printerColumn) => {
-          const jsonPath = printerColumn.jsonPath.startsWith('.')
-            ? printerColumn.jsonPath.slice(1)
-            : printerColumn.jsonPath
+          const jsonPath = printerColumn.jsonPath
 
-          return columnHelper.accessor((row) => get(row, jsonPath), {
-            id: jsonPath || printerColumn.name,
-            header: printerColumn.name,
-            cell: ({ getValue }) => {
-              const type = printerColumn.type
-              const value = getValue()
-              if (!value) {
-                return <span className="text-sm text-muted-foreground">-</span>
-              }
-              if (type === 'date') {
+          return columnHelper.accessor(
+            (row) => getPrinterColumnValue(row, jsonPath),
+            {
+              id: jsonPath || printerColumn.name,
+              header: printerColumn.name,
+              cell: ({ getValue }) => {
+                const type = printerColumn.type
+                const value = getValue()
+                if (!value) {
+                  return (
+                    <span className="text-sm text-muted-foreground">-</span>
+                  )
+                }
+                if (type === 'date') {
+                  return (
+                    <span className="text-sm text-muted-foreground">
+                      {formatDate(value)}
+                    </span>
+                  )
+                }
                 return (
-                  <span className="text-sm text-muted-foreground">
-                    {formatDate(value)}
-                  </span>
+                  <span className="text-sm text-muted-foreground">{value}</span>
                 )
-              }
-              return (
-                <span className="text-sm text-muted-foreground">{value}</span>
-              )
-            },
-          })
+              },
+            }
+          )
         }
       )
     return [...baseColumns, ...(additionalColumns ?? [])]

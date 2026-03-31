@@ -1,8 +1,13 @@
+import * as jsonpath from 'jsonpath'
 import { Deployment } from 'kubernetes-types/apps/v1'
 import { Container, Pod, Service } from 'kubernetes-types/core/v1'
 import { ObjectMeta } from 'kubernetes-types/meta/v1'
 
-import { clusterScopeResources, ResourceType } from '@/types/api'
+import {
+  clusterScopeResources,
+  CustomResource,
+  ResourceType,
+} from '@/types/api'
 import { DeploymentStatusType, PodStatus, SimpleContainer } from '@/types/k8s'
 
 import { getAge } from './utils'
@@ -222,6 +227,30 @@ export function getPodErrorMessage(pod: Pod): string | undefined {
   }
 
   return undefined
+}
+
+export function getPrinterColumnValue(
+  resource: CustomResource,
+  jsonPath: string
+) {
+  const queryPath = jsonPath.startsWith('$')
+    ? jsonPath
+    : jsonPath.startsWith('.')
+      ? `$${jsonPath}`
+      : `$.${jsonPath}`
+  const values = jsonpath
+    .query(resource, queryPath)
+    .filter((value) => value !== undefined && value !== null)
+
+  if (values.length === 0) {
+    return undefined
+  }
+
+  if (values.length === 1) {
+    return values[0]
+  }
+
+  return values.join(', ')
 }
 
 export function getDeploymentStatus(

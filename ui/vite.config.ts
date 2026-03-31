@@ -20,10 +20,6 @@ function getManualChunk(id: string) {
     return 'recharts'
   }
 
-  if (normalizedId.includes('/node_modules/lodash/')) {
-    return 'lodash'
-  }
-
   return undefined
 }
 
