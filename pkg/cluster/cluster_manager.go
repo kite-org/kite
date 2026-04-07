@@ -248,6 +248,15 @@ func triggerClusterSync() {
 }
 
 func syncClusters(cm *ClusterManager, readyCh chan<- struct{}) error {
+	if readyCh != nil {
+		defer func() {
+			select {
+			case readyCh <- struct{}{}:
+			default:
+			}
+		}()
+	}
+
 	clusters, err := model.ListClusters()
 	if err != nil {
 		klog.Warningf("list cluster err: %v", err)
@@ -305,7 +314,6 @@ func syncClusters(cm *ClusterManager, readyCh chan<- struct{}) error {
 		wg.Wait()
 		close(results)
 	}()
-	readyNotified := false
 	for result := range results {
 		if result.err != nil {
 			klog.Errorf("Failed to build k8s client for cluster %s, in cluster: %t, err: %v", result.cluster.Name, result.cluster.InCluster, result.err)
@@ -318,14 +326,6 @@ func syncClusters(cm *ClusterManager, readyCh chan<- struct{}) error {
 		delete(cm.errors, result.cluster.Name)
 		cm.clusters[result.cluster.Name] = result.clientSet
 		cm.mu.Unlock()
-
-		if !readyNotified && readyCh != nil {
-			readyNotified = true
-			select {
-			case readyCh <- struct{}{}:
-			default:
-			}
-		}
 	}
 	cm.mu.Lock()
 	for name, clientSet := range cm.clusters {
