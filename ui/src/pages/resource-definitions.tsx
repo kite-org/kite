@@ -1,14 +1,14 @@
 import type { ReactNode } from 'react'
 
-import type { ResourceType } from '@/types/api'
 import {
-  getResourceMetadata,
   getResourcePluralLabel,
   getResourceShortLabel,
   getResourceSingularLabel,
   isClusterScopedResource,
+  resourceCatalog,
   type ResourceMetadata,
-} from '@/lib/resource-metadata'
+  type ResourceType,
+} from '@/lib/resource-catalog'
 
 import { ConfigMapDetail } from './configmap-detail'
 import { ConfigMapListPage } from './configmap-list-page'
@@ -47,108 +47,138 @@ export interface ResourceDefinition extends ResourceMetadata {
   detailPage?: (props: { name: string; namespace?: string }) => ReactNode
 }
 
-type ResourceRendererMap = Partial<
-  Record<ResourceType, Pick<ResourceDefinition, 'listPage' | 'detailPage'>>
+type ResourceViewDefinition = Pick<
+  ResourceDefinition,
+  'listPage' | 'detailPage'
 >
 
-const resourceRenderers: ResourceRendererMap = {
-  pods: {
-    listPage: () => <PodListPage />,
-    detailPage: ({ name, namespace }) => (
-      <PodDetail namespace={namespace!} name={name} />
-    ),
-  },
-  deployments: {
-    listPage: () => <DeploymentListPage />,
-    detailPage: ({ name, namespace }) => (
-      <DeploymentDetail namespace={namespace!} name={name} />
-    ),
-  },
-  statefulsets: {
-    listPage: () => <StatefulSetListPage />,
-    detailPage: ({ name, namespace }) => (
-      <StatefulSetDetail namespace={namespace!} name={name} />
-    ),
-  },
-  daemonsets: {
-    listPage: () => <DaemonSetListPage />,
-    detailPage: ({ name, namespace }) => (
-      <DaemonSetDetail namespace={namespace!} name={name} />
-    ),
-  },
-  jobs: {
-    listPage: () => <JobListPage />,
-    detailPage: ({ name, namespace }) => (
-      <JobDetail namespace={namespace!} name={name} />
-    ),
-  },
-  cronjobs: {
-    listPage: () => <CronJobListPage />,
-    detailPage: ({ name, namespace }) => (
-      <CronJobDetail namespace={namespace!} name={name} />
-    ),
-  },
-  services: {
-    listPage: () => <ServiceListPage />,
-    detailPage: ({ name, namespace }) => (
-      <ServiceDetail namespace={namespace} name={name} />
-    ),
-  },
-  configmaps: {
-    listPage: () => <ConfigMapListPage />,
-    detailPage: ({ name, namespace }) => (
-      <ConfigMapDetail namespace={namespace!} name={name} />
-    ),
-  },
-  secrets: {
-    listPage: () => <SecretListPage />,
-    detailPage: ({ name, namespace }) => (
-      <SecretDetail namespace={namespace!} name={name} />
-    ),
-  },
-  ingresses: {
-    listPage: () => <IngressListPage />,
-  },
-  namespaces: {
-    listPage: () => <NamespaceListPage />,
-  },
-  crds: {
-    listPage: () => <CRDListPage />,
-  },
-  nodes: {
-    listPage: () => <NodeListPage />,
-    detailPage: ({ name }) => <NodeDetail name={name} />,
-  },
-  events: {
-    listPage: () => <EventListPage />,
-  },
-  persistentvolumes: {
-    listPage: () => <PVListPage />,
-  },
-  persistentvolumeclaims: {
-    listPage: () => <PVCListPage />,
-  },
-  horizontalpodautoscalers: {
-    listPage: () => <HorizontalPodAutoscalerListPage />,
-  },
-  gateways: {
-    listPage: () => <GatewayListPage />,
-  },
-  httproutes: {
-    listPage: () => <HTTPRouteListPage />,
-  },
+type ResourceDetailProps = { name: string; namespace?: string }
+
+function getResourceViews(resourceType: ResourceType): ResourceViewDefinition {
+  switch (resourceType) {
+    case 'pods':
+      return {
+        listPage: () => <PodListPage />,
+        detailPage: ({ name, namespace }: ResourceDetailProps) => (
+          <PodDetail namespace={namespace!} name={name} />
+        ),
+      }
+    case 'deployments':
+      return {
+        listPage: () => <DeploymentListPage />,
+        detailPage: ({ name, namespace }: ResourceDetailProps) => (
+          <DeploymentDetail namespace={namespace!} name={name} />
+        ),
+      }
+    case 'statefulsets':
+      return {
+        listPage: () => <StatefulSetListPage />,
+        detailPage: ({ name, namespace }: ResourceDetailProps) => (
+          <StatefulSetDetail namespace={namespace!} name={name} />
+        ),
+      }
+    case 'daemonsets':
+      return {
+        listPage: () => <DaemonSetListPage />,
+        detailPage: ({ name, namespace }: ResourceDetailProps) => (
+          <DaemonSetDetail namespace={namespace!} name={name} />
+        ),
+      }
+    case 'jobs':
+      return {
+        listPage: () => <JobListPage />,
+        detailPage: ({ name, namespace }: ResourceDetailProps) => (
+          <JobDetail namespace={namespace!} name={name} />
+        ),
+      }
+    case 'cronjobs':
+      return {
+        listPage: () => <CronJobListPage />,
+        detailPage: ({ name, namespace }: ResourceDetailProps) => (
+          <CronJobDetail namespace={namespace!} name={name} />
+        ),
+      }
+    case 'services':
+      return {
+        listPage: () => <ServiceListPage />,
+        detailPage: ({ name, namespace }: ResourceDetailProps) => (
+          <ServiceDetail namespace={namespace} name={name} />
+        ),
+      }
+    case 'configmaps':
+      return {
+        listPage: () => <ConfigMapListPage />,
+        detailPage: ({ name, namespace }: ResourceDetailProps) => (
+          <ConfigMapDetail namespace={namespace!} name={name} />
+        ),
+      }
+    case 'secrets':
+      return {
+        listPage: () => <SecretListPage />,
+        detailPage: ({ name, namespace }: ResourceDetailProps) => (
+          <SecretDetail namespace={namespace!} name={name} />
+        ),
+      }
+    case 'ingresses':
+      return {
+        listPage: () => <IngressListPage />,
+      }
+    case 'namespaces':
+      return {
+        listPage: () => <NamespaceListPage />,
+      }
+    case 'crds':
+      return {
+        listPage: () => <CRDListPage />,
+      }
+    case 'nodes':
+      return {
+        listPage: () => <NodeListPage />,
+        detailPage: ({ name }: ResourceDetailProps) => (
+          <NodeDetail name={name} />
+        ),
+      }
+    case 'events':
+      return {
+        listPage: () => <EventListPage />,
+      }
+    case 'persistentvolumes':
+      return {
+        listPage: () => <PVListPage />,
+      }
+    case 'persistentvolumeclaims':
+      return {
+        listPage: () => <PVCListPage />,
+      }
+    case 'horizontalpodautoscalers':
+      return {
+        listPage: () => <HorizontalPodAutoscalerListPage />,
+      }
+    case 'gateways':
+      return {
+        listPage: () => <GatewayListPage />,
+      }
+    case 'httproutes':
+      return {
+        listPage: () => <HTTPRouteListPage />,
+      }
+    default:
+      return {}
+  }
 }
 
-export function getResourceDefinition(resourceType: string) {
-  const metadata = getResourceMetadata(resourceType)
-  if (!metadata) {
-    return undefined
-  }
+export const resourceDefinitions: readonly ResourceDefinition[] =
+  resourceCatalog.map(
+    (entry): ResourceDefinition => ({
+      ...entry,
+      ...getResourceViews(entry.type),
+    })
+  )
 
-  return {
-    ...metadata,
-    ...resourceRenderers[metadata.type],
-  } satisfies ResourceDefinition
+export function getResourceDefinition(resourceType: string) {
+  return resourceDefinitions.find(
+    (definition) => definition.type === resourceType
+  )
 }
 
 export function getResourceLabel(resourceType: string, plural = false) {

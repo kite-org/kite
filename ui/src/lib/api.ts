@@ -1,4 +1,6 @@
 export type { PaginatedResult } from './api/shared'
+export * from './api/auth'
+export * from './api/cluster'
 export * from './api/ai'
 export * from './api/core'
 export * from './api/observability'

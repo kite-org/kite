@@ -2,23 +2,26 @@
 import {
   createContext,
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useState,
 } from 'react'
 
 import type { AuthProviderCatalog, CredentialProvider } from '@/lib/api'
+import {
+  loginWithCredentials as authenticateWithCredentials,
+  initiateOAuthLogin,
+  logout as logoutUser,
+  refreshAuthToken,
+  useAuthProviders,
+  useCurrentUser,
+  type AuthUser,
+  type CurrentUserResponse,
+} from '@/lib/api'
 import { withSubPath } from '@/lib/subpath'
 
-interface User {
-  id: string
-  username: string
-  name: string
-  avatar_url: string
-  provider: string
-  roles?: { name: string }[]
-  sidebar_preference?: string
-
+interface User extends AuthUser {
   isAdmin(): boolean
 
   Key(): string
@@ -56,6 +59,45 @@ interface AuthProviderProps {
   children: ReactNode
 }
 
+function normalizeUser(user: AuthUser): User {
+  return {
+    ...user,
+    isAdmin() {
+      return (
+        this.roles?.some((role: { name: string }) => role.name === 'admin') ||
+        false
+      )
+    },
+    Key() {
+      return this.username || this.id
+    },
+  }
+}
+
+function applyAuthProviderCatalog(
+  catalog: AuthProviderCatalog,
+  setCredentialProviders: (providers: CredentialProvider[]) => void,
+  setOAuthProviders: (providers: string[]) => void
+) {
+  setCredentialProviders(catalog.credentialProviders)
+  setOAuthProviders(catalog.oauthProviders)
+}
+
+function applyCurrentUser(
+  response: CurrentUserResponse | null,
+  setUser: (user: User | null) => void,
+  setGlobalSidebarPreference: (value: string) => void
+) {
+  if (!response) {
+    setUser(null)
+    setGlobalSidebarPreference('')
+    return
+  }
+
+  setGlobalSidebarPreference(String(response.globalSidebarPreference || ''))
+  setUser(normalizeUser(response.user))
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -65,86 +107,59 @@ export function AuthProvider({ children }: AuthProviderProps) {
   >([])
   const [oauthProviders, setOAuthProviders] = useState<string[]>([])
 
-  const loadProviders = async () => {
-    try {
-      const response = await fetch(withSubPath('/api/auth/providers'))
-      if (response.ok) {
-        const data = (await response.json()) as Partial<AuthProviderCatalog>
-        if (data.credentialProviders || data.oauthProviders) {
-          setCredentialProviders(data.credentialProviders || [])
-          setOAuthProviders(data.oauthProviders || [])
-          return
-        }
+  const { refetch: refetchAuthProviders } = useAuthProviders({
+    enabled: false,
+  })
+  const { refetch: refetchCurrentUser } = useCurrentUser({
+    enabled: false,
+  })
 
-        const providers = data.providers || []
-        const fallbackCredentialProviders = providers.filter(
-          (provider): provider is CredentialProvider =>
-            provider === 'password' || provider === 'ldap'
-        )
-        const fallbackOAuthProviders = providers.filter(
-          (provider) => provider !== 'password' && provider !== 'ldap'
-        )
-        setCredentialProviders(fallbackCredentialProviders)
-        setOAuthProviders(fallbackOAuthProviders)
+  const checkAuth = useCallback(async () => {
+    const result = await refetchCurrentUser()
+    applyCurrentUser(result.data ?? null, setUser, setGlobalSidebarPreference)
+  }, [refetchCurrentUser])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const bootstrap = async () => {
+      setIsLoading(true)
+
+      const [providersResult, userResult] = await Promise.all([
+        refetchAuthProviders(),
+        refetchCurrentUser(),
+      ])
+
+      if (cancelled) {
+        return
       }
-    } catch (error) {
-      console.error('Failed to load authentication providers:', error)
-    }
-  }
 
-  const checkAuth = async () => {
-    try {
-      const response = await fetch(withSubPath('/api/auth/user'), {
-        credentials: 'include',
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        const user = data.user as User
-        setGlobalSidebarPreference(String(data.globalSidebarPreference || ''))
-        user.isAdmin = function () {
-          return (
-            this.roles?.some(
-              (role: { name: string }) => role.name === 'admin'
-            ) || false
-          )
-        }
-        user.Key = function () {
-          return this.username || this.id
-        }
-        setUser(user)
-      } else {
-        setUser(null)
-        setGlobalSidebarPreference('')
+      if (providersResult.data) {
+        applyAuthProviderCatalog(
+          providersResult.data,
+          setCredentialProviders,
+          setOAuthProviders
+        )
       }
-    } catch (error) {
-      console.error('Auth check failed:', error)
-      setUser(null)
-      setGlobalSidebarPreference('')
-    } finally {
+
+      applyCurrentUser(
+        userResult.data ?? null,
+        setUser,
+        setGlobalSidebarPreference
+      )
       setIsLoading(false)
     }
-  }
+
+    void bootstrap()
+
+    return () => {
+      cancelled = true
+    }
+  }, [refetchAuthProviders, refetchCurrentUser])
 
   const login = async (provider: string = 'github') => {
-    try {
-      const response = await fetch(
-        withSubPath(`/api/auth/login?provider=${provider}`),
-        {
-          credentials: 'include',
-        }
-      )
-
-      if (response.ok) {
-        const data = await response.json()
-        window.location.href = data.auth_url
-      } else {
-        throw new Error('Failed to initiate login')
-      }
-    } catch (error) {
-      console.error('Login failed:', error)
-      throw error
-    }
+    const { auth_url } = await initiateOAuthLogin(provider)
+    window.location.href = auth_url
   }
 
   const loginWithCredentials = async (
@@ -152,80 +167,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
     username: string,
     password: string
   ) => {
-    try {
-      const response = await fetch(withSubPath(`/api/auth/login/${provider}`), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-        credentials: 'include',
-      })
-
-      if (response.ok) {
-        await checkAuth()
-      } else {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `${provider} login failed`)
-      }
-    } catch (error) {
-      console.error(`${provider} login failed:`, error)
-      throw error
-    }
+    await authenticateWithCredentials(provider, username, password)
+    await checkAuth()
   }
 
-  const refreshToken = async () => {
+  const refreshToken = useCallback(async () => {
     try {
-      const response = await fetch(withSubPath('/api/auth/refresh'), {
-        method: 'POST',
-        credentials: 'include',
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to refresh token')
-      }
+      await refreshAuthToken()
     } catch (error) {
       console.error('Token refresh failed:', error)
       setUser(null)
       window.location.href = withSubPath('/login')
     }
-  }
-
-  const logout = async () => {
-    try {
-      const response = await fetch(withSubPath('/api/auth/logout'), {
-        method: 'POST',
-        credentials: 'include',
-      })
-
-      if (response.ok) {
-        setUser(null)
-        window.location.href = withSubPath('/login')
-      } else {
-        throw new Error('Failed to logout')
-      }
-    } catch (error) {
-      console.error('Logout failed:', error)
-      throw error
-    }
-  }
-
-  useEffect(() => {
-    const initAuth = async () => {
-      await loadProviders()
-      await checkAuth()
-    }
-    initAuth()
   }, [])
 
-  // Set up automatic token refresh
+  const logout = async () => {
+    await logoutUser()
+    setUser(null)
+    window.location.href = withSubPath('/login')
+  }
+
   useEffect(() => {
     if (!user) return
     const refreshKey = 'lastRefreshTokenAt'
     const lastRefreshAt = localStorage.getItem(refreshKey)
     const now = Date.now()
 
-    // If the last refresh was more than 30 minutes ago, refresh immediately
     if (!lastRefreshAt || now - Number(lastRefreshAt) > 30 * 60 * 1000) {
       refreshToken()
       localStorage.setItem(refreshKey, String(now))
@@ -237,10 +204,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         localStorage.setItem(refreshKey, String(Date.now()))
       },
       30 * 60 * 1000
-    ) // Refresh every 30 minutes
+    )
 
     return () => clearInterval(refreshInterval)
-  }, [user])
+  }, [user, refreshToken])
 
   const hasGlobalSidebarPreference = globalSidebarPreference.trim() !== ''
 

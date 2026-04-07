@@ -2,6 +2,10 @@
 import { appendCurrentClusterHeader } from './current-cluster'
 import { withSubPath } from './subpath'
 
+export interface ApiRequestOptions extends RequestInit {
+  retryOnUnauthorized?: boolean
+}
+
 class ApiClient {
   private baseUrl: string = ''
   private isRefreshing = false
@@ -34,10 +38,10 @@ class ApiClient {
     return this.refreshPromise
   }
 
-  private async makeRequest<T>(
+  async request(
     url: string,
-    options: RequestInit = {}
-  ): Promise<T> {
+    options: ApiRequestOptions = {}
+  ): Promise<Response> {
     const fullUrl = withSubPath(this.baseUrl + url)
 
     const headers: Record<string, string> = {
@@ -60,12 +64,9 @@ class ApiClient {
     try {
       let response = await fetch(fullUrl, defaultOptions)
 
-      // Handle authentication errors with automatic retry
-      if (response.status === 401) {
+      if (response.status === 401 && options.retryOnUnauthorized !== false) {
         try {
-          // Try to refresh the token
           await this.refreshToken()
-          // Retry the original request
           response = await fetch(fullUrl, defaultOptions)
         } catch (refreshError) {
           console.error('Token refresh failed:', refreshError)
@@ -74,33 +75,42 @@ class ApiClient {
         }
       }
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(
-          errorData.error || `HTTP error! status: ${response.status}`
-        )
-      }
-
-      const contentType = response.headers.get('content-type')
-      if (contentType && contentType.includes('application/json')) {
-        return await response.json()
-      } else {
-        return (await response.text()) as T
-      }
+      return response
     } catch (error) {
       console.error('API request failed:', error)
       throw error
     }
   }
 
-  async get<T>(url: string, options?: RequestInit): Promise<T> {
+  private async makeRequest<T>(
+    url: string,
+    options: ApiRequestOptions = {}
+  ): Promise<T> {
+    const response = await this.request(url, options)
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(
+        errorData.error || `HTTP error! status: ${response.status}`
+      )
+    }
+
+    const contentType = response.headers.get('content-type')
+    if (contentType && contentType.includes('application/json')) {
+      return await response.json()
+    }
+
+    return (await response.text()) as T
+  }
+
+  async get<T>(url: string, options?: ApiRequestOptions): Promise<T> {
     return this.makeRequest<T>(url, { ...options, method: 'GET' })
   }
 
   async post<T>(
     url: string,
     data?: unknown,
-    options?: RequestInit
+    options?: ApiRequestOptions
   ): Promise<T> {
     const isFormData = data instanceof FormData
     return this.makeRequest<T>(url, {
@@ -114,7 +124,11 @@ class ApiClient {
     })
   }
 
-  async put<T>(url: string, data?: unknown, options?: RequestInit): Promise<T> {
+  async put<T>(
+    url: string,
+    data?: unknown,
+    options?: ApiRequestOptions
+  ): Promise<T> {
     const isFormData = data instanceof FormData
     return this.makeRequest<T>(url, {
       ...options,
@@ -127,14 +141,14 @@ class ApiClient {
     })
   }
 
-  async delete<T>(url: string, options?: RequestInit): Promise<T> {
+  async delete<T>(url: string, options?: ApiRequestOptions): Promise<T> {
     return this.makeRequest<T>(url, { ...options, method: 'DELETE' })
   }
 
   async patch<T>(
     url: string,
     data?: unknown,
-    options?: RequestInit
+    options?: ApiRequestOptions
   ): Promise<T> {
     const isFormData = data instanceof FormData
     return this.makeRequest<T>(url, {
@@ -153,3 +167,4 @@ export const API_BASE_URL = '/api/v1'
 
 // Create a singleton instance
 export const apiClient = new ApiClient(API_BASE_URL)
+export const authApiClient = new ApiClient('/api')

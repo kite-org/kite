@@ -170,13 +170,13 @@ func executeListResources(ctx context.Context, cs *cluster.ClientSet, args map[s
 		creationTime := item.GetCreationTimestamp().Format("2006-01-02 15:04:05")
 
 		if ns != "" {
-			sb.WriteString(fmt.Sprintf("- %s/%s (created: %s)", ns, name, creationTime))
+			fmt.Fprintf(&sb, "- %s/%s (created: %s)", ns, name, creationTime)
 		} else {
-			sb.WriteString(fmt.Sprintf("- %s (created: %s)", name, creationTime))
+			fmt.Fprintf(&sb, "- %s (created: %s)", name, creationTime)
 		}
 
 		for _, detail := range resourceSummaryDetails(kindLower, item) {
-			sb.WriteString(fmt.Sprintf(" | %s", detail))
+			fmt.Fprintf(&sb, " | %s", detail)
 		}
 		sb.WriteString("\n")
 	}
@@ -511,12 +511,12 @@ func executeGetPodLogs(ctx context.Context, cs *cluster.ClientSet, args map[stri
 
 func executeGetClusterOverview(ctx context.Context, cs *cluster.ClientSet) (string, bool) {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Cluster: %s\n\n", cs.Name))
+	fmt.Fprintf(&sb, "Cluster: %s\n\n", cs.Name)
 
 	// Nodes
 	nodes := &corev1.NodeList{}
 	if err := cs.K8sClient.List(ctx, nodes); err != nil {
-		sb.WriteString(fmt.Sprintf("Error listing nodes: %v\n", err))
+		fmt.Fprintf(&sb, "Error listing nodes: %v\n", err)
 	} else {
 		ready := 0
 		for _, node := range nodes.Items {
@@ -526,13 +526,13 @@ func executeGetClusterOverview(ctx context.Context, cs *cluster.ClientSet) (stri
 				}
 			}
 		}
-		sb.WriteString(fmt.Sprintf("Nodes: %d total, %d ready\n", len(nodes.Items), ready))
+		fmt.Fprintf(&sb, "Nodes: %d total, %d ready\n", len(nodes.Items), ready)
 	}
 
 	// Pods
 	pods := &corev1.PodList{}
 	if err := cs.K8sClient.List(ctx, pods); err != nil {
-		sb.WriteString(fmt.Sprintf("Error listing pods: %v\n", err))
+		fmt.Fprintf(&sb, "Error listing pods: %v\n", err)
 	} else {
 		running, pending, failed, succeeded := 0, 0, 0, 0
 		for _, pod := range pods.Items {
@@ -547,19 +547,19 @@ func executeGetClusterOverview(ctx context.Context, cs *cluster.ClientSet) (stri
 				succeeded++
 			}
 		}
-		sb.WriteString(fmt.Sprintf("Pods: %d total (%d running, %d pending, %d failed, %d succeeded)\n", len(pods.Items), running, pending, failed, succeeded))
+		fmt.Fprintf(&sb, "Pods: %d total (%d running, %d pending, %d failed, %d succeeded)\n", len(pods.Items), running, pending, failed, succeeded)
 	}
 
 	// Namespaces
 	namespaces := &corev1.NamespaceList{}
 	if err := cs.K8sClient.List(ctx, namespaces); err == nil {
-		sb.WriteString(fmt.Sprintf("Namespaces: %d\n", len(namespaces.Items)))
+		fmt.Fprintf(&sb, "Namespaces: %d\n", len(namespaces.Items))
 	}
 
 	// Services
 	services := &corev1.ServiceList{}
 	if err := cs.K8sClient.List(ctx, services); err == nil {
-		sb.WriteString(fmt.Sprintf("Services: %d\n", len(services.Items)))
+		fmt.Fprintf(&sb, "Services: %d\n", len(services.Items))
 	}
 
 	return sb.String(), false
