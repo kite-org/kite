@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { ResourceType } from '@/types/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -35,6 +36,7 @@ import { NamespaceSelector } from './selector/namespace-selector'
 interface ResourceTableToolbarProps<T> {
   table: Table<T>
   resourceName: string
+  resourceType?: ResourceType
   clusterScope: boolean
   extraToolbars: React.ReactNode[]
   showCreateButton: boolean
@@ -55,6 +57,7 @@ interface ResourceTableToolbarProps<T> {
 export function ResourceTableToolbar<T>({
   table,
   resourceName,
+  resourceType,
   clusterScope,
   extraToolbars,
   showCreateButton,
@@ -87,7 +90,7 @@ export function ResourceTableToolbar<T>({
           {extraToolbars.map((toolbar, index) => (
             <React.Fragment key={index}>{toolbar}</React.Fragment>
           ))}
-          {resourceName === 'Pods' && (
+          {resourceType === 'pods' && (
             <Toggle
               pressed={useSSE}
               variant="outline"
@@ -178,7 +181,7 @@ export function ResourceTableToolbar<T>({
             <div className="relative min-w-0 flex-1 sm:w-[280px]">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder={`Search ${resourceName.toLowerCase()}...`}
+                placeholder={`Search ${resourceName}...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-4"

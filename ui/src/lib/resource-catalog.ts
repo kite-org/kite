@@ -107,7 +107,7 @@ export const resourceCatalog = [
     clusterScope: false,
     titleKey: 'nav.deployments',
     icon: 'IconRocket',
-    sidebar: { groupKey: 'sidebar.groups.workloads', order: 2 },
+    sidebar: { groupKey: 'sidebar.groups.workloads', order: 1 },
   },
   {
     type: 'statefulsets',
@@ -118,7 +118,7 @@ export const resourceCatalog = [
     clusterScope: false,
     titleKey: 'nav.statefulsets',
     icon: 'IconStack2',
-    sidebar: { groupKey: 'sidebar.groups.workloads', order: 3 },
+    sidebar: { groupKey: 'sidebar.groups.workloads', order: 2 },
   },
   {
     type: 'daemonsets',
@@ -129,7 +129,7 @@ export const resourceCatalog = [
     clusterScope: false,
     titleKey: 'nav.daemonsets',
     icon: 'IconTopologyBus',
-    sidebar: { groupKey: 'sidebar.groups.workloads', order: 4 },
+    sidebar: { groupKey: 'sidebar.groups.workloads', order: 3 },
   },
   {
     type: 'jobs',
@@ -140,7 +140,7 @@ export const resourceCatalog = [
     clusterScope: false,
     titleKey: 'nav.jobs',
     icon: 'IconPlayerPlay',
-    sidebar: { groupKey: 'sidebar.groups.workloads', order: 5 },
+    sidebar: { groupKey: 'sidebar.groups.workloads', order: 4 },
   },
   {
     type: 'cronjobs',
@@ -150,7 +150,7 @@ export const resourceCatalog = [
     clusterScope: false,
     titleKey: 'nav.cronjobs',
     icon: 'IconClockHour4',
-    sidebar: { groupKey: 'sidebar.groups.workloads', order: 6 },
+    sidebar: { groupKey: 'sidebar.groups.workloads', order: 5 },
   },
   {
     type: 'services',

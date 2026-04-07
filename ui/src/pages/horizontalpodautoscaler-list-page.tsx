@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { HorizontalPodAutoscaler } from 'kubernetes-types/autoscaling/v2'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
 import { createSearchFilter } from '@/lib/k8s'
@@ -55,6 +56,7 @@ const horizontalPodAutoscalerSearchFilter =
   )
 
 export function HorizontalPodAutoscalerListPage() {
+  const { t } = useTranslation()
   const columnHelper = createColumnHelper<HorizontalPodAutoscaler>()
 
   const columns = useMemo(
@@ -115,7 +117,8 @@ export function HorizontalPodAutoscalerListPage() {
 
   return (
     <ResourceTable
-      resourceName="HorizontalPodAutoscalers"
+      resourceName={t('nav.horizontalpodautoscalers', { defaultValue: 'HPA' })}
+      resourceType="horizontalpodautoscalers"
       columns={columns}
       searchQueryFilter={horizontalPodAutoscalerSearchFilter}
     />

@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 
 import { ResourceType } from '@/types/api'
 import { deleteResource } from '@/lib/api'
+import { getResourceMetadata } from '@/lib/resource-catalog'
 import { useResourceTableData } from '@/hooks/use-resource-table-data'
 import { useResourceTableState } from '@/hooks/use-resource-table-state'
 import { Badge } from '@/components/ui/badge'
@@ -102,6 +103,19 @@ export function ResourceTable<T>({
     useSSE,
     refreshInterval,
   })
+  const displayResourceName = (() => {
+    const resource = getResourceMetadata(resolvedResourceType)
+    if (!resource) {
+      return resourceName
+    }
+    if (resource.titleKey) {
+      return t(resource.titleKey, {
+        defaultValue:
+          resource.shortLabel || resource.pluralLabel || resourceName,
+      })
+    }
+    return resource.shortLabel || resource.pluralLabel || resourceName
+  })()
 
   // Add namespace column when showing all namespaces
   const enhancedColumns = useMemo(() => {
@@ -320,7 +334,7 @@ export function ResourceTable<T>({
             <Database className="h-12 w-12 text-muted-foreground animate-pulse" />
           </div>
           <h3 className="text-lg font-medium mb-1">
-            Loading {resourceName.toLowerCase()}...
+            Loading {displayResourceName}...
           </h3>
           <p className="text-muted-foreground">
             Retrieving data
@@ -335,7 +349,7 @@ export function ResourceTable<T>({
     if (isError) {
       return (
         <ErrorMessage
-          resourceName={resourceName}
+          resourceName={displayResourceName}
           error={error}
           refetch={refetch}
         />
@@ -349,14 +363,14 @@ export function ResourceTable<T>({
             <Box className="h-12 w-12 text-muted-foreground" />
           </div>
           <h3 className="text-lg font-medium mb-1">
-            No {resourceName.toLowerCase()} found
+            No {displayResourceName} found
           </h3>
           <p className="text-muted-foreground">
             {searchQuery
               ? `No results match your search query: "${searchQuery}"`
               : clusterScope
-                ? `There are no ${resourceName.toLowerCase()} found`
-                : `There are no ${resourceName.toLowerCase()} in the ${selectedNamespace} namespace`}
+                ? `There are no ${displayResourceName} found`
+                : `There are no ${displayResourceName} in the ${selectedNamespace} namespace`}
           </p>
           {searchQuery && (
             <Button
@@ -380,7 +394,8 @@ export function ResourceTable<T>({
     <div className="flex flex-col gap-3">
       <ResourceTableToolbar
         table={table}
-        resourceName={resourceName}
+        resourceName={displayResourceName}
+        resourceType={resolvedResourceType}
         clusterScope={clusterScope}
         extraToolbars={extraToolbars}
         showCreateButton={showCreateButton}
@@ -421,7 +436,7 @@ export function ResourceTable<T>({
             <DialogDescription>
               {t('resourceTable.confirmDeletionMessage', {
                 count: table.getSelectedRowModel().rows.length,
-                resourceName: resourceName.toLowerCase(),
+                resourceName: displayResourceName,
               })}
             </DialogDescription>
           </DialogHeader>

@@ -73,7 +73,7 @@
     "deployments": "Deployments",
     "statefulsets": "StatefulSets",
     "daemonsets": "DaemonSets",
-    "poddisruptionbudgets": "Pod Disruption Budgets",
+    "poddisruptionbudgets": "PDB",
     "jobs": "Jobs",
     "services": "Services",
     "ingresses": "Ingresses",

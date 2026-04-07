@@ -1,12 +1,17 @@
 import { useCallback, useMemo } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
 import { ResourceType, ResourceTypeMap } from '@/types/api'
 import { formatDate } from '@/lib/utils'
 import { ResourceTable } from '@/components/resource-table'
 
-import { getResourceLabel, getResourceScope } from './resource-definitions'
+import {
+  getResourceDefinition,
+  getResourceLabel,
+  getResourceScope,
+} from './resource-definitions'
 
 export interface ResourceTableProps {
   resourceType?: ResourceType
@@ -15,8 +20,18 @@ export interface ResourceTableProps {
 export function SimpleListPage<T extends keyof ResourceTypeMap>({
   resourceType,
 }: ResourceTableProps) {
+  const { t } = useTranslation()
   const columnHelper = createColumnHelper<ResourceTypeMap[T]>()
-  const resourceName = resourceType ? getResourceLabel(resourceType, true) : ''
+  const resourceDefinition = resourceType
+    ? getResourceDefinition(resourceType)
+    : undefined
+  const resourceName = resourceType
+    ? resourceDefinition?.titleKey
+      ? t(resourceDefinition.titleKey, {
+          defaultValue: getResourceLabel(resourceType, true),
+        })
+      : getResourceLabel(resourceType, true)
+    : ''
   const isClusterScope = resourceType
     ? getResourceScope(resourceType) === 'cluster'
     : false
@@ -60,6 +75,7 @@ export function SimpleListPage<T extends keyof ResourceTypeMap>({
   return (
     <ResourceTable
       resourceName={resourceName}
+      resourceType={resourceType}
       columns={columns}
       clusterScope={isClusterScope}
       searchQueryFilter={filter}

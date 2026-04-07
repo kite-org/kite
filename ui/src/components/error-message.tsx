@@ -42,7 +42,7 @@ export function ErrorMessage({
         className={`text-lg font-medium mb-1 ${isRBAC ? 'text-amber-600' : 'text-red-500'}`}
       >
         {t('resourceTable.errorLoading', {
-          resourceName: resourceName.toLowerCase(),
+          resourceName,
         })}
       </h3>
       <p className="text-muted-foreground mb-4">{message}</p>
