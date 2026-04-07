@@ -1,203 +1,132 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 
+import {
+  appendCurrentClusterHeader,
+  getCurrentCluster,
+} from '@/lib/current-cluster'
 import { withSubPath } from '@/lib/subpath'
+import {
+  aiChatReducer,
+  deleteChatSession,
+  initialAIChatState,
+  loadHistoryFromStorage,
+  saveHistoryToStorage,
+  upsertChatSession,
+} from '@/components/ai-chat/ai-chat-state'
+import { readAIChatSSEStream } from '@/components/ai-chat/ai-chat-stream'
+import {
+  APIChatMessage,
+  ChatMessage,
+  ChatSession,
+  PageContext,
+} from '@/components/ai-chat/ai-chat-types'
 
-export interface ChatMessage {
-  id: string
-  role: 'user' | 'assistant' | 'tool'
-  content: string
-  thinking?: string
-  toolCallId?: string
-  toolName?: string
-  toolArgs?: Record<string, unknown>
-  toolResult?: string
-  inputRequest?: {
-    sessionId: string
-    kind: 'choice' | 'form'
-    name?: string
-    title: string
-    description?: string
-    submitLabel?: string
-    options?: Array<{
-      label: string
-      value: string
-      description?: string
-    }>
-    fields?: Array<{
-      name: string
-      label: string
-      type: 'text' | 'number' | 'textarea' | 'select' | 'switch'
-      required?: boolean
-      placeholder?: string
-      description?: string
-      defaultValue?: string
-      options?: Array<{
-        label: string
-        value: string
-        description?: string
-      }>
-    }>
-  }
-  pendingAction?: {
-    sessionId: string
-    tool: string
-    args: Record<string, unknown>
-  }
-  actionStatus?: 'pending' | 'confirmed' | 'denied' | 'error'
-}
+export type {
+  ChatMessage,
+  ChatSession,
+  PageContext,
+} from '@/components/ai-chat/ai-chat-types'
 
-export interface PageContext {
-  page: string
-  namespace: string
-  resourceName: string
-  resourceKind: string
-}
-
-export interface ChatSession {
-  id: string
-  title: string
-  messages: ChatMessage[]
-  createdAt: number
-  updatedAt: number
-  clusterName?: string
-}
-
-type APIChatMessage = { role: 'user' | 'assistant'; content: string }
-
-const HISTORY_STORAGE_KEY_PREFIX = 'ai-chat-history-'
-const MAX_HISTORY_SESSIONS = 50
-
-function loadHistoryFromStorage(username: string): ChatSession[] {
-  try {
-    const key = `${HISTORY_STORAGE_KEY_PREFIX}${username || 'anonymous'}`
-    const stored = localStorage.getItem(key)
-    if (!stored) return []
-    return JSON.parse(stored)
-  } catch {
-    return []
-  }
-}
-
-function saveHistoryToStorage(username: string, sessions: ChatSession[]) {
-  try {
-    const key = `${HISTORY_STORAGE_KEY_PREFIX}${username || 'anonymous'}`
-    localStorage.setItem(key, JSON.stringify(sessions))
-  } catch {
-    // ignore storage errors
-  }
-}
-
-// TODO: generate session title with AI to better summarize the conversation, instead of just using the first user message
-function generateSessionTitle(messages: ChatMessage[]): string {
-  const firstUserMessage = messages.find((m) => m.role === 'user')
-  if (!firstUserMessage) return 'New Chat'
-  const content = firstUserMessage.content.trim()
-  return content.length > 50 ? content.slice(0, 50) + '...' : content
+function generateId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
 export function useAIChat() {
   const { user } = useAuth()
   const username = user?.Key() || 'anonymous'
 
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
-  const [history, setHistory] = useState<ChatSession[]>([])
-  const messagesRef = useRef<ChatMessage[]>([])
+  const [state, dispatch] = useReducer(aiChatReducer, initialAIChatState)
+  const messagesRef = useRef<ChatMessage[]>(state.messages)
+  const historyRef = useRef<ChatSession[]>(state.history)
+  const currentSessionIdRef = useRef<string | null>(state.currentSessionId)
+  const isLoadingRef = useRef(state.isLoading)
   const abortControllerRef = useRef<AbortController | null>(null)
   const activeAssistantMsgIdRef = useRef<string | null>(null)
   const startNewAssistantSegmentRef = useRef(false)
 
-  // Load history when username becomes available or changes
-  // TODO: save in backend.
   useEffect(() => {
-    if (username) {
-      setHistory(loadHistoryFromStorage(username))
-    }
+    messagesRef.current = state.messages
+  }, [state.messages])
+
+  useEffect(() => {
+    historyRef.current = state.history
+  }, [state.history])
+
+  useEffect(() => {
+    currentSessionIdRef.current = state.currentSessionId
+  }, [state.currentSessionId])
+
+  useEffect(() => {
+    isLoadingRef.current = state.isLoading
+  }, [state.isLoading])
+
+  useEffect(() => {
+    const nextHistory = loadHistoryFromStorage(username)
+    historyRef.current = nextHistory
+    dispatch({ type: 'history/set', history: nextHistory })
   }, [username])
 
-  const generateId = () =>
-    `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+  useEffect(() => {
+    if (!state.currentSessionId || state.messages.length === 0) return
 
-  const updateMessages = useCallback(
+    const nextHistory = upsertChatSession(
+      historyRef.current,
+      state.currentSessionId,
+      state.messages,
+      getCurrentCluster() || ''
+    )
+
+    if (nextHistory !== historyRef.current) {
+      historyRef.current = nextHistory
+      dispatch({ type: 'history/set', history: nextHistory })
+      saveHistoryToStorage(username, nextHistory)
+    }
+  }, [state.currentSessionId, state.messages, username])
+
+  const commitMessages = useCallback(
     (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
-      setMessages((prev) => {
-        const next = updater(prev)
-        messagesRef.current = next
-        return next
-      })
+      const next = updater(messagesRef.current)
+      messagesRef.current = next
+      dispatch({ type: 'messages/set', messages: next })
+      return next
     },
     []
   )
 
-  const upsertSession = useCallback(
-    (sessionId: string, sessionMessages: ChatMessage[]) => {
-      if (!sessionId || sessionMessages.length === 0) return
-
-      const now = Date.now()
-      const title = generateSessionTitle(sessionMessages)
-      const clusterName = localStorage.getItem('current-cluster') || ''
-
-      setHistory((prev) => {
-        const existingIndex = prev.findIndex((s) => s.id === sessionId)
-        const session: ChatSession = {
-          id: sessionId,
-          title,
-          messages: sessionMessages,
-          createdAt: existingIndex >= 0 ? prev[existingIndex].createdAt : now,
-          updatedAt: now,
-          clusterName,
-        }
-
-        let updated: ChatSession[]
-        if (existingIndex >= 0) {
-          updated = [...prev]
-          updated[existingIndex] = session
-        } else {
-          updated = [session, ...prev]
-        }
-
-        if (updated.length > MAX_HISTORY_SESSIONS) {
-          updated = updated.slice(0, MAX_HISTORY_SESSIONS)
-        }
-
-        saveHistoryToStorage(username, updated)
-        return updated
-      })
+  const commitHistory = useCallback(
+    (nextHistory: ChatSession[]) => {
+      historyRef.current = nextHistory
+      dispatch({ type: 'history/set', history: nextHistory })
+      saveHistoryToStorage(username, nextHistory)
     },
     [username]
   )
 
-  const ensureSessionId = useCallback(() => {
-    if (currentSessionId) return currentSessionId
-    const sessionId = generateId()
-    setCurrentSessionId(sessionId)
-    return sessionId
-  }, [currentSessionId])
+  const commitCurrentSessionId = useCallback((sessionId: string | null) => {
+    currentSessionIdRef.current = sessionId
+    dispatch({ type: 'session/set', sessionId })
+  }, [])
 
-  const saveCurrentSession = useCallback(
-    (sessionId?: string | null) => {
-      if (messagesRef.current.length === 0) return null
+  const commitLoading = useCallback((isLoading: boolean) => {
+    isLoadingRef.current = isLoading
+    dispatch({ type: 'loading/set', isLoading })
+  }, [])
 
-      const resolvedSessionId = sessionId || currentSessionId || generateId()
-      upsertSession(resolvedSessionId, messagesRef.current)
-      if (currentSessionId !== resolvedSessionId) {
-        setCurrentSessionId(resolvedSessionId)
-      }
-      return resolvedSessionId
+  const updateMessageById = useCallback(
+    (messageId: string, updater: (message: ChatMessage) => ChatMessage) => {
+      commitMessages((prev) =>
+        prev.map((message) =>
+          message.id === messageId ? updater(message) : message
+        )
+      )
     },
-    [currentSessionId, upsertSession]
+    [commitMessages]
   )
-
-  useEffect(() => {
-    if (!currentSessionId || messages.length === 0) return
-    upsertSession(currentSessionId, messages)
-  }, [currentSessionId, messages, upsertSession])
 
   const appendAssistantError = useCallback(
     (message: string) => {
-      updateMessages((prev) => [
+      commitMessages((prev) => [
         ...prev,
         {
           id: generateId(),
@@ -206,7 +135,7 @@ export function useAIChat() {
         },
       ])
     },
-    [updateMessages]
+    [commitMessages]
   )
 
   const updateToolMessage = useCallback(
@@ -215,110 +144,87 @@ export function useAIChat() {
       tool: string,
       updater: (message: ChatMessage) => ChatMessage
     ) => {
-      updateMessages((prev) => {
+      commitMessages((prev) => {
         let targetIndex = -1
 
         if (toolCallId) {
           targetIndex = prev.findIndex(
-            (m) => m.role === 'tool' && m.toolCallId === toolCallId
+            (message) =>
+              message.role === 'tool' && message.toolCallId === toolCallId
           )
         }
 
         if (targetIndex < 0) {
           const index = [...prev]
             .reverse()
-            .findIndex((m) => m.role === 'tool' && m.toolName === tool)
+            .findIndex(
+              (message) => message.role === 'tool' && message.toolName === tool
+            )
           if (index < 0) {
             return prev
           }
           targetIndex = prev.length - 1 - index
         }
 
-        return prev.map((m, i) => (i === targetIndex ? updater(m) : m))
+        return prev.map((message, index) =>
+          index === targetIndex ? updater(message) : message
+        )
       })
     },
-    [updateMessages]
+    [commitMessages]
+  )
+
+  const appendToAssistantStream = useCallback(
+    (field: 'content' | 'thinking', chunk: string) => {
+      if (typeof chunk !== 'string') return
+      if (
+        startNewAssistantSegmentRef.current ||
+        !activeAssistantMsgIdRef.current
+      ) {
+        activeAssistantMsgIdRef.current = generateId()
+        startNewAssistantSegmentRef.current = false
+      }
+      const assistantMsgId = activeAssistantMsgIdRef.current
+      if (!assistantMsgId) return
+
+      commitMessages((prev) => {
+        const existing = prev.find((m) => m.id === assistantMsgId)
+        if (existing) {
+          return prev.map((m) =>
+            m.id === assistantMsgId
+              ? { ...m, [field]: `${m[field] || ''}${chunk}` }
+              : m
+          )
+        }
+        return [
+          ...prev,
+          {
+            id: assistantMsgId,
+            role: 'assistant' as const,
+            content: field === 'content' ? chunk : '',
+            thinking: field === 'thinking' ? chunk : '',
+          },
+        ]
+      })
+    },
+    [commitMessages]
   )
 
   const handleSSEEvent = useCallback(
     (eventType: string, data: Record<string, unknown>) => {
       switch (eventType) {
-        case 'message': {
-          const content = (data as { content: string }).content
-          if (typeof content !== 'string') {
-            break
-          }
-          if (
-            startNewAssistantSegmentRef.current ||
-            !activeAssistantMsgIdRef.current
-          ) {
-            activeAssistantMsgIdRef.current = generateId()
-            startNewAssistantSegmentRef.current = false
-          }
-          const assistantMsgId = activeAssistantMsgIdRef.current
-          if (!assistantMsgId) {
-            break
-          }
-
-          updateMessages((prev) => {
-            const existing = prev.find((m) => m.id === assistantMsgId)
-            if (existing) {
-              return prev.map((m) =>
-                m.id === assistantMsgId
-                  ? { ...m, content: `${m.content}${content}` }
-                  : m
-              )
-            }
-            return [
-              ...prev,
-              {
-                id: assistantMsgId,
-                role: 'assistant' as const,
-                content,
-                thinking: '',
-              },
-            ]
-          })
+        case 'message':
+          appendToAssistantStream(
+            'content',
+            (data as { content: string }).content
+          )
           break
-        }
-        case 'think': {
-          const thinking = (data as { content: string }).content
-          if (typeof thinking !== 'string') {
-            break
-          }
-          if (
-            startNewAssistantSegmentRef.current ||
-            !activeAssistantMsgIdRef.current
-          ) {
-            activeAssistantMsgIdRef.current = generateId()
-            startNewAssistantSegmentRef.current = false
-          }
-          const assistantMsgId = activeAssistantMsgIdRef.current
-          if (!assistantMsgId) {
-            break
-          }
-
-          updateMessages((prev) => {
-            const existing = prev.find((m) => m.id === assistantMsgId)
-            if (existing) {
-              return prev.map((m) =>
-                m.id === assistantMsgId
-                  ? { ...m, thinking: `${m.thinking || ''}${thinking}` }
-                  : m
-              )
-            }
-            return [
-              ...prev,
-              {
-                id: assistantMsgId,
-                role: 'assistant' as const,
-                content: '',
-                thinking,
-              },
-            ]
-          })
+        case 'think':
+          appendToAssistantStream(
+            'thinking',
+            (data as { content: string }).content
+          )
           break
-        }
         case 'tool_call': {
           const { tool, tool_call_id, args } = data as {
             tool: string
@@ -326,7 +232,7 @@ export function useAIChat() {
             args: Record<string, unknown>
           }
           startNewAssistantSegmentRef.current = true
-          updateMessages((prev) => [
+          commitMessages((prev) => [
             ...prev,
             {
               id: generateId(),
@@ -526,83 +432,17 @@ export function useAIChat() {
         }
       }
     },
-    [appendAssistantError, updateMessages, updateToolMessage]
+    [
+      appendAssistantError,
+      appendToAssistantStream,
+      commitMessages,
+      updateToolMessage,
+    ]
   )
 
   const readSSEStream = useCallback(
     async (response: Response) => {
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('No response body')
-
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let eventType = ''
-      let eventDataLines: string[] = []
-      let streamError: string | null = null
-
-      const processLine = (line: string) => {
-        if (line.startsWith('event: ')) {
-          eventType = line.slice(7).trim()
-        } else if (line.startsWith('data: ')) {
-          eventDataLines.push(line.slice(6))
-        } else if (line === '') {
-          flushEvent()
-        }
-      }
-
-      const flushEvent = () => {
-        if (!eventType || eventDataLines.length === 0) {
-          eventType = ''
-          eventDataLines = []
-          return
-        }
-
-        try {
-          const data = JSON.parse(eventDataLines.join('\n'))
-          if (
-            eventType === 'error' &&
-            streamError == null &&
-            typeof data?.message === 'string' &&
-            data.message.trim() !== ''
-          ) {
-            streamError = data.message
-          }
-          handleSSEEvent(eventType, data)
-        } catch {
-          // ignore invalid SSE payload
-        }
-
-        eventType = ''
-        eventDataLines = []
-      }
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) {
-          break
-        }
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          processLine(line)
-        }
-      }
-
-      buffer += decoder.decode()
-      const remainingLines = buffer.split('\n')
-      buffer = remainingLines.pop() || ''
-      for (const line of remainingLines) {
-        processLine(line)
-      }
-
-      if (buffer.trim() !== '') {
-        processLine(buffer.trim())
-      }
-      flushEvent()
-      return streamError
+      return readAIChatSSEStream(response, handleSSEEvent)
     },
     [handleSSEEvent]
   )
@@ -614,17 +454,17 @@ export function useAIChat() {
       language: string,
       abortSignal?: AbortSignal
     ) => {
-      const clusterName = localStorage.getItem('current-cluster') || ''
       const requestLanguage = (language || '').trim() || 'en'
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept-Language': requestLanguage,
+      }
+      appendCurrentClusterHeader(headers)
 
       const response = await fetch(withSubPath('/api/v1/ai/chat'), {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept-Language': requestLanguage,
-          'x-cluster-name': clusterName,
-        },
+        headers,
         body: JSON.stringify({
           messages: apiMessages,
           language: requestLanguage,
@@ -654,12 +494,11 @@ export function useAIChat() {
     (extra: APIChatMessage[] = []) => {
       const history: APIChatMessage[] = []
 
-      for (const m of messagesRef.current) {
-        if (m.role === 'user' || m.role === 'assistant') {
-          history.push({ role: m.role, content: m.content })
-        } else if (m.role === 'tool' && m.toolResult) {
-          // Include tool results as assistant messages to preserve context
-          const toolSummary = `[Tool: ${m.toolName}]\nResult: ${m.toolResult}`
+      for (const message of messagesRef.current) {
+        if (message.role === 'user' || message.role === 'assistant') {
+          history.push({ role: message.role, content: message.content })
+        } else if (message.role === 'tool' && message.toolResult) {
+          const toolSummary = `[Tool: ${message.toolName}]\nResult: ${message.toolResult}`
           history.push({ role: 'assistant', content: toolSummary })
         }
       }
@@ -669,16 +508,44 @@ export function useAIChat() {
     []
   )
 
+  const ensureSessionId = useCallback(() => {
+    if (currentSessionIdRef.current) return currentSessionIdRef.current
+    const sessionId = generateId()
+    commitCurrentSessionId(sessionId)
+    return sessionId
+  }, [commitCurrentSessionId])
+
+  const saveCurrentSession = useCallback(
+    (sessionId?: string | null) => {
+      if (messagesRef.current.length === 0) return null
+
+      const resolvedSessionId =
+        sessionId || currentSessionIdRef.current || generateId()
+      const nextHistory = upsertChatSession(
+        historyRef.current,
+        resolvedSessionId,
+        messagesRef.current,
+        getCurrentCluster() || ''
+      )
+      commitHistory(nextHistory)
+      if (currentSessionIdRef.current !== resolvedSessionId) {
+        commitCurrentSessionId(resolvedSessionId)
+      }
+      return resolvedSessionId
+    },
+    [commitCurrentSessionId, commitHistory]
+  )
+
   const sendMessage = useCallback(
     async (content: string, pageContext: PageContext, language: string) => {
       const trimmed = content.trim()
-      if (!trimmed || isLoading) return
+      if (!trimmed || isLoadingRef.current) return
 
       const sessionId = ensureSessionId()
       const requestLanguage = (language || '').trim() || 'en'
       const baseMessages = buildAPIMessagesFromCurrentState()
 
-      updateMessages((prev) => [
+      commitMessages((prev) => [
         ...prev.map((message) =>
           message.inputRequest
             ? {
@@ -695,7 +562,7 @@ export function useAIChat() {
           content: trimmed,
         },
       ])
-      setIsLoading(true)
+      commitLoading(true)
 
       const apiMessages = [
         ...baseMessages,
@@ -718,7 +585,7 @@ export function useAIChat() {
           appendAssistantError((error as Error).message)
         }
       } finally {
-        setIsLoading(false)
+        commitLoading(false)
         abortControllerRef.current = null
         activeAssistantMsgIdRef.current = null
         startNewAssistantSegmentRef.current = false
@@ -728,11 +595,92 @@ export function useAIChat() {
     [
       appendAssistantError,
       buildAPIMessagesFromCurrentState,
+      commitLoading,
+      commitMessages,
       ensureSessionId,
-      isLoading,
       saveCurrentSession,
       streamChat,
-      updateMessages,
+    ]
+  )
+
+  const continueSession = useCallback(
+    async (opts: {
+      messageId: string
+      sessionId: string
+      url: string
+      body: Record<string, unknown>
+      statusText: string
+      clearFields: Partial<ChatMessage>
+      errorFields: Partial<ChatMessage>
+      toolName?: string
+    }) => {
+      updateMessageById(opts.messageId, (m) => ({
+        ...m,
+        actionStatus: 'pending' as const,
+        ...opts.clearFields,
+        content: `${opts.toolName || m.toolName} ${opts.statusText}`,
+      }))
+
+      commitLoading(true)
+      try {
+        activeAssistantMsgIdRef.current = generateId()
+        startNewAssistantSegmentRef.current = false
+        abortControllerRef.current = new AbortController()
+
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        }
+        appendCurrentClusterHeader(headers)
+        const response = await fetch(withSubPath(opts.url), {
+          method: 'POST',
+          credentials: 'include',
+          headers,
+          body: JSON.stringify(opts.body),
+          signal: abortControllerRef.current.signal,
+        })
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}))
+          throw new Error(
+            errData.error || `HTTP error! status: ${response.status}`
+          )
+        }
+
+        const streamError = await readSSEStream(response)
+        if (streamError) {
+          updateMessageById(opts.messageId, (m) => ({
+            ...m,
+            actionStatus: 'error' as const,
+            ...opts.errorFields,
+            toolResult: streamError,
+            content: `${opts.toolName || m.toolName} failed`,
+          }))
+        }
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          appendAssistantError((error as Error).message)
+          updateMessageById(opts.messageId, (m) => ({
+            ...m,
+            actionStatus: 'error' as const,
+            ...opts.errorFields,
+            toolResult: (error as Error).message,
+            content: `${opts.toolName || m.toolName} failed`,
+          }))
+        }
+      } finally {
+        commitLoading(false)
+        abortControllerRef.current = null
+        activeAssistantMsgIdRef.current = null
+        startNewAssistantSegmentRef.current = false
+        saveCurrentSession()
+      }
+    },
+    [
+      appendAssistantError,
+      commitLoading,
+      readSSEStream,
+      saveCurrentSession,
+      updateMessageById,
     ]
   )
 
@@ -743,120 +691,29 @@ export function useAIChat() {
 
       const sessionId = msg.pendingAction.sessionId?.trim()
       if (!sessionId) {
-        updateMessages((prev) =>
-          prev.map((m) =>
-            m.id === messageId
-              ? {
-                  ...m,
-                  actionStatus: 'error' as const,
-                  pendingAction: undefined,
-                  toolResult:
-                    'This pending action has expired. Please ask the AI to generate the action again.',
-                  content: `${msg.toolName} failed`,
-                }
-              : m
-          )
-        )
+        updateMessageById(messageId, (m) => ({
+          ...m,
+          actionStatus: 'error' as const,
+          pendingAction: undefined,
+          toolResult:
+            'This pending action has expired. Please ask the AI to generate the action again.',
+          content: `${msg.toolName} failed`,
+        }))
         return
       }
 
-      const clusterName = localStorage.getItem('current-cluster') || ''
-
-      try {
-        updateMessages((prev) =>
-          prev.map((m) =>
-            m.id === messageId
-              ? {
-                  ...m,
-                  actionStatus: 'pending' as const,
-                  pendingAction: undefined,
-                  content: `${msg.toolName} executing`,
-                }
-              : m
-          )
-        )
-
-        setIsLoading(true)
-        try {
-          activeAssistantMsgIdRef.current = generateId()
-          startNewAssistantSegmentRef.current = false
-          abortControllerRef.current = new AbortController()
-
-          const response = await fetch(
-            withSubPath('/api/v1/ai/execute/continue'),
-            {
-              method: 'POST',
-              credentials: 'include',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-cluster-name': clusterName,
-              },
-              body: JSON.stringify({ sessionId }),
-              signal: abortControllerRef.current.signal,
-            }
-          )
-
-          if (!response.ok) {
-            const errData = await response.json().catch(() => ({}))
-            throw new Error(
-              errData.error || `HTTP error! status: ${response.status}`
-            )
-          }
-
-          const streamError = await readSSEStream(response)
-          if (streamError) {
-            updateMessages((prev) =>
-              prev.map((m) =>
-                m.id === messageId
-                  ? {
-                      ...m,
-                      actionStatus: 'error' as const,
-                      toolResult: streamError,
-                      content: `${msg.toolName} failed`,
-                    }
-                  : m
-              )
-            )
-          }
-        } catch (error) {
-          if ((error as Error).name !== 'AbortError') {
-            appendAssistantError((error as Error).message)
-            updateMessages((prev) =>
-              prev.map((m) =>
-                m.id === messageId
-                  ? {
-                      ...m,
-                      actionStatus: 'error' as const,
-                      toolResult: (error as Error).message,
-                      content: `${msg.toolName} failed`,
-                    }
-                  : m
-              )
-            )
-          }
-        } finally {
-          setIsLoading(false)
-          abortControllerRef.current = null
-          activeAssistantMsgIdRef.current = null
-          startNewAssistantSegmentRef.current = false
-          saveCurrentSession()
-        }
-      } catch (error) {
-        updateMessages((prev) =>
-          prev.map((m) =>
-            m.id === messageId
-              ? {
-                  ...m,
-                  actionStatus: 'error' as const,
-                  toolResult: (error as Error).message,
-                  content: `${msg.toolName} failed`,
-                }
-              : m
-          )
-        )
-      }
+      await continueSession({
+        messageId,
+        sessionId,
+        url: '/api/v1/ai/execute/continue',
+        body: { sessionId },
+        statusText: 'executing',
+        clearFields: { pendingAction: undefined },
+        errorFields: {},
+        toolName: msg.toolName,
+      })
     },
-    [appendAssistantError, readSSEStream, saveCurrentSession, updateMessages]
+    [continueSession, updateMessageById]
   )
 
   const submitInput = useCallback(
@@ -867,181 +724,79 @@ export function useAIChat() {
       const inputRequest = msg.inputRequest
       const sessionId = inputRequest.sessionId?.trim()
       if (!sessionId) {
-        updateMessages((prev) =>
-          prev.map((m) =>
-            m.id === messageId
-              ? {
-                  ...m,
-                  actionStatus: 'error' as const,
-                  inputRequest: undefined,
-                  toolResult:
-                    'This input request has expired. Please ask the AI again.',
-                  content: `${msg.toolName} failed`,
-                }
-              : m
-          )
-        )
+        updateMessageById(messageId, (m) => ({
+          ...m,
+          actionStatus: 'error' as const,
+          inputRequest: undefined,
+          toolResult:
+            'This input request has expired. Please ask the AI again.',
+          content: `${msg.toolName} failed`,
+        }))
         return
       }
 
-      const clusterName = localStorage.getItem('current-cluster') || ''
-
-      try {
-        updateMessages((prev) =>
-          prev.map((m) =>
-            m.id === messageId
-              ? {
-                  ...m,
-                  actionStatus: 'pending' as const,
-                  inputRequest: undefined,
-                  content: `${msg.toolName} submitting`,
-                }
-              : m
-          )
-        )
-
-        setIsLoading(true)
-        try {
-          activeAssistantMsgIdRef.current = generateId()
-          startNewAssistantSegmentRef.current = false
-          abortControllerRef.current = new AbortController()
-
-          const response = await fetch(
-            withSubPath('/api/v1/ai/input/continue'),
-            {
-              method: 'POST',
-              credentials: 'include',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-cluster-name': clusterName,
-              },
-              body: JSON.stringify({ sessionId, values }),
-              signal: abortControllerRef.current.signal,
-            }
-          )
-
-          if (!response.ok) {
-            const errData = await response.json().catch(() => ({}))
-            throw new Error(
-              errData.error || `HTTP error! status: ${response.status}`
-            )
-          }
-
-          const streamError = await readSSEStream(response)
-          if (streamError) {
-            updateMessages((prev) =>
-              prev.map((m) =>
-                m.id === messageId
-                  ? {
-                      ...m,
-                      actionStatus: 'error' as const,
-                      inputRequest,
-                      toolResult: streamError,
-                      content: `${msg.toolName} failed`,
-                    }
-                  : m
-              )
-            )
-          }
-        } catch (error) {
-          if ((error as Error).name !== 'AbortError') {
-            appendAssistantError((error as Error).message)
-            updateMessages((prev) =>
-              prev.map((m) =>
-                m.id === messageId
-                  ? {
-                      ...m,
-                      actionStatus: 'error' as const,
-                      inputRequest,
-                      toolResult: (error as Error).message,
-                      content: `${msg.toolName} failed`,
-                    }
-                  : m
-              )
-            )
-          }
-        } finally {
-          setIsLoading(false)
-          abortControllerRef.current = null
-          activeAssistantMsgIdRef.current = null
-          startNewAssistantSegmentRef.current = false
-          saveCurrentSession()
-        }
-      } catch (error) {
-        updateMessages((prev) =>
-          prev.map((m) =>
-            m.id === messageId
-              ? {
-                  ...m,
-                  actionStatus: 'error' as const,
-                  inputRequest,
-                  toolResult: (error as Error).message,
-                  content: `${msg.toolName} failed`,
-                }
-              : m
-          )
-        )
-      }
+      await continueSession({
+        messageId,
+        sessionId,
+        url: '/api/v1/ai/input/continue',
+        body: { sessionId, values },
+        statusText: 'submitting',
+        clearFields: { inputRequest: undefined },
+        errorFields: { inputRequest },
+        toolName: msg.toolName,
+      })
     },
-    [appendAssistantError, readSSEStream, saveCurrentSession, updateMessages]
+    [continueSession, updateMessageById]
   )
 
   const denyAction = useCallback(
     (messageId: string) => {
-      updateMessages((prev) =>
-        prev.map((m) =>
-          m.id === messageId
-            ? {
-                ...m,
-                actionStatus: 'denied' as const,
-                pendingAction: undefined,
-                inputRequest: undefined,
-                content: `${m.toolName || 'request'} cancelled`,
-              }
-            : m
-        )
-      )
+      updateMessageById(messageId, (m) => ({
+        ...m,
+        actionStatus: 'denied' as const,
+        pendingAction: undefined,
+        inputRequest: undefined,
+        content: `${m.toolName || 'request'} cancelled`,
+      }))
     },
-    [updateMessages]
+    [updateMessageById]
   )
 
   const clearMessages = useCallback(() => {
     messagesRef.current = []
-    setMessages([])
-    setCurrentSessionId(null)
-  }, [])
+    commitMessages(() => [])
+    commitCurrentSessionId(null)
+    commitLoading(false)
+  }, [commitCurrentSessionId, commitLoading, commitMessages])
 
   const stopGeneration = useCallback(() => {
     abortControllerRef.current?.abort()
     abortControllerRef.current = null
-    setIsLoading(false)
-  }, [])
+    commitLoading(false)
+  }, [commitLoading])
 
   const loadSession = useCallback(
     (sessionId: string) => {
-      const session = history.find((s) => s.id === sessionId)
+      const session = historyRef.current.find((item) => item.id === sessionId)
       if (!session) return
 
       messagesRef.current = session.messages
-      setMessages(session.messages)
-      setCurrentSessionId(sessionId)
+      commitMessages(() => session.messages)
+      commitCurrentSessionId(sessionId)
     },
-    [history]
+    [commitCurrentSessionId, commitMessages]
   )
 
   const deleteSession = useCallback(
     (sessionId: string) => {
-      setHistory((prev) => {
-        const updated = prev.filter((s) => s.id !== sessionId)
-        saveHistoryToStorage(username, updated)
-        return updated
-      })
+      const nextHistory = deleteChatSession(historyRef.current, sessionId)
+      commitHistory(nextHistory)
 
-      if (currentSessionId === sessionId) {
+      if (currentSessionIdRef.current === sessionId) {
         clearMessages()
       }
     },
-    [clearMessages, currentSessionId, username]
+    [clearMessages, commitHistory]
   )
 
   const newSession = useCallback(() => {
@@ -1049,10 +804,10 @@ export function useAIChat() {
   }, [clearMessages])
 
   return {
-    messages,
-    isLoading,
-    history,
-    currentSessionId,
+    messages: state.messages,
+    isLoading: state.isLoading,
+    history: state.history,
+    currentSessionId: state.currentSessionId,
     sendMessage,
     executeAction,
     submitInput,

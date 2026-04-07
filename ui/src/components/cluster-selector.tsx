@@ -76,7 +76,9 @@ export function ClusterSelector() {
               <span
                 className={cn(
                   'text-xs truncate',
-                  cluster.error ? 'text-red-500' : 'text-muted-foreground'
+                  cluster.error
+                    ? 'text-red-500'
+                    : 'text-muted-foreground font-mono'
                 )}
                 title={cluster.error}
               >

@@ -1,11 +1,14 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { Ingress } from 'kubernetes-types/networking/v1'
 import { Link } from 'react-router-dom'
 
+import { createSearchFilter } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ResourceTable } from '@/components/resource-table'
+
+const filter = createSearchFilter<Ingress>((ns) => ns.metadata?.name)
 
 export function IngressListPage() {
   // Define column helper outside of any hooks
@@ -66,10 +69,6 @@ export function IngressListPage() {
     ],
     [columnHelper]
   )
-
-  const filter = useCallback((ns: Ingress, query: string) => {
-    return ns.metadata!.name!.toLowerCase().includes(query)
-  }, [])
 
   return (
     <ResourceTable

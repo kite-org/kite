@@ -7,7 +7,7 @@ import { Link, useParams } from 'react-router-dom'
 
 import { CustomResource, ResourceType } from '@/types/api'
 import { useResource } from '@/lib/api'
-import { getPrinterColumnValue } from '@/lib/k8s'
+import { createSearchFilter, getPrinterColumnValue } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,6 +18,15 @@ import {
 } from '@/components/ui/dialog'
 import { ResourceTable } from '@/components/resource-table'
 import { YamlEditor } from '@/components/yaml-editor'
+
+const searchQueryFilter = createSearchFilter<CustomResource>(
+  (cr) => cr.metadata?.name,
+  (cr) => cr.metadata?.namespace,
+  (cr) => cr.kind,
+  (cr) => cr.apiVersion,
+  (cr) => (cr.metadata?.labels ? Object.keys(cr.metadata.labels) : undefined),
+  (cr) => (cr.metadata?.labels ? Object.values(cr.metadata.labels) : undefined)
+)
 
 export function CRListPage() {
   const [isYamlDialogOpen, setIsYamlDialogOpen] = useState(false)
@@ -98,21 +107,6 @@ export function CRListPage() {
       )
     return [...baseColumns, ...(additionalColumns ?? [])]
   }, [columnHelper, crd, crdData?.spec.versions])
-
-  const searchQueryFilter = useCallback((cr: CustomResource, query: string) => {
-    const searchFields = [
-      cr.metadata?.name || '',
-      cr.metadata?.namespace || '',
-      cr.kind || '',
-      cr.apiVersion || '',
-      ...(cr.metadata?.labels ? Object.keys(cr.metadata.labels) : []),
-      ...(cr.metadata?.labels ? Object.values(cr.metadata.labels) : []),
-    ]
-
-    return searchFields.some((field) =>
-      field.toLowerCase().includes(query.toLowerCase())
-    )
-  }, [])
 
   if (isLoadingCRD) {
     return <div>Loading...</div>

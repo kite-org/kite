@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/zxh326/kite/pkg/common"
 	"golang.org/x/net/websocket"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -48,7 +49,7 @@ func NewTerminalSession(client *K8sClient, conn *websocket.Conn, namespace, podN
 
 func (session *TerminalSession) Start(ctx context.Context, subResource string) error {
 	req := session.k8sClient.ClientSet.CoreV1().RESTClient().Post().
-		Resource("pods").
+		Resource(string(common.Pods)).
 		Name(session.podName).
 		Namespace(session.namespace).
 		SubResource(subResource)

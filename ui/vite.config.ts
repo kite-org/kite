@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 
+import monacoEditorFeatures from './plugins/vite-plugin-monaco-editor'
 import { normalizeBasePath } from './src/lib/base-path'
 
 const devSubPath = normalizeBasePath(process.env.KITE_BASE)
@@ -16,8 +17,26 @@ function getDevBase() {
 function getManualChunk(id: string) {
   const normalizedId = id.replaceAll('\\', '/')
 
-  if (normalizedId.includes('/node_modules/recharts/')) {
-    return 'recharts'
+  if (
+    normalizedId.includes('/src/lib/monaco-runtime.ts') ||
+    normalizedId.includes('/node_modules/@monaco-editor/') ||
+    normalizedId.includes('/node_modules/monaco-editor/')
+  ) {
+    return 'monaco'
+  }
+
+  if (
+    normalizedId.includes('/src/components/terminal-content.tsx') ||
+    normalizedId.includes('/node_modules/@xterm/')
+  ) {
+    return 'terminal'
+  }
+
+  if (
+    normalizedId.includes('/src/components/log-viewer-content.tsx') ||
+    normalizedId.includes('/src/lib/ansi-parser.ts')
+  ) {
+    return 'log-viewer'
   }
 
   return undefined
@@ -51,12 +70,34 @@ function runtimeBaseHtmlPlugin(): Plugin {
 
 export default defineConfig(({ command }) => ({
   base: command === 'build' ? './' : getDevBase(),
-  plugins: [react(), tailwindcss(), runtimeBaseHtmlPlugin()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    monacoEditorFeatures({
+      features: [
+        'bracketMatching',
+        'clipboard',
+        'comment',
+        'cursorUndo',
+        'find',
+        'folding',
+        'indentation',
+        'lineSelection',
+        'linesOperations',
+        'readOnlyMessage',
+        'tokenization',
+        'toggleTabFocusMode',
+        'wordOperations',
+      ],
+    }),
+    runtimeBaseHtmlPlugin(),
+  ],
   envPrefix: ['VITE_', 'KITE_'],
   build: {
     outDir: '../static',
     emptyOutDir: true,
     chunkSizeWarningLimit: 3000,
+    modulePreload: true,
     rolldownOptions: {
       output: {
         manualChunks: getManualChunk,

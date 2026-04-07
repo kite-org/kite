@@ -1,10 +1,13 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { Link } from 'react-router-dom'
 
 import { Gateway } from '@/types/gateway'
+import { createSearchFilter } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
 import { ResourceTable } from '@/components/resource-table'
+
+const filter = createSearchFilter<Gateway>((gw) => gw.metadata?.name)
 
 export function GatewayListPage() {
   // Define column helper outside of any hooks
@@ -41,10 +44,6 @@ export function GatewayListPage() {
     ],
     [columnHelper]
   )
-
-  const filter = useCallback((ns: Gateway, query: string) => {
-    return ns.metadata!.name!.toLowerCase().includes(query)
-  }, [])
 
   return (
     <ResourceTable

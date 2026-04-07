@@ -19,6 +19,12 @@ type PromHandler struct {
 	metricsServerCacheLock sync.Mutex
 }
 
+var validDurations = map[string]bool{
+	"30m": true,
+	"1h":  true,
+	"24h": true,
+}
+
 func NewPromHandler() *PromHandler {
 	h := &PromHandler{
 		metricsServerCache: make(map[string][]prometheus.UsageDataPoint),
@@ -56,12 +62,6 @@ func (h *PromHandler) GetResourceUsageHistory(c *gin.Context) {
 	duration := c.DefaultQuery("duration", "1h")
 
 	// Validate duration parameter
-	validDurations := map[string]bool{
-		"30m": true,
-		"1h":  true,
-		"24h": true,
-	}
-
 	if !validDurations[duration] {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid duration. Must be one of: 30m, 1h, 24h"})
 		return
@@ -104,12 +104,6 @@ func (h *PromHandler) GetPodMetrics(c *gin.Context) {
 	labelSelector := c.Query("labelSelector")
 
 	// Validate duration parameter
-	validDurations := map[string]bool{
-		"30m": true,
-		"1h":  true,
-		"24h": true,
-	}
-
 	if !validDurations[duration] {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid duration. Must be one of: 30m, 1h, 24h"})
 		return

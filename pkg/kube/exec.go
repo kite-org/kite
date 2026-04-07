@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/zxh326/kite/pkg/common"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
@@ -26,7 +27,7 @@ type ExecOptions struct {
 // ExecCommand executes a command in a pod
 func (c *K8sClient) ExecCommand(ctx context.Context, opts ExecOptions) error {
 	req := c.ClientSet.CoreV1().RESTClient().Post().
-		Resource("pods").
+		Resource(string(common.Pods)).
 		Name(opts.PodName).
 		Namespace(opts.Namespace).
 		SubResource("exec")

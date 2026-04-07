@@ -51,7 +51,7 @@ export function ContainerTable(props: {
                 </Badge>
               )}
               {container.imagePullPolicy && (
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-xs font-mono">
                   {container.imagePullPolicy}
                 </Badge>
               )}

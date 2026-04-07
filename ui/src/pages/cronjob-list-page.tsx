@@ -1,9 +1,10 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { CronJob } from 'kubernetes-types/batch/v1'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
+import { createSearchFilter } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ResourceTable } from '@/components/resource-table'
@@ -15,6 +16,11 @@ function getSuspendBadge(cronjob: CronJob) {
     variant: isSuspended ? ('secondary' as const) : ('default' as const),
   }
 }
+
+const cronJobSearchFilter = createSearchFilter<CronJob>(
+  (cj) => cj.metadata?.name,
+  (cj) => cj.metadata?.namespace
+)
 
 export function CronJobListPage() {
   const { t } = useTranslation()
@@ -95,13 +101,6 @@ export function CronJobListPage() {
     ],
     [columnHelper, t]
   )
-
-  const cronJobSearchFilter = useCallback((cronjob: CronJob, query: string) => {
-    const lowerQuery = query.toLowerCase()
-    const name = cronjob.metadata?.name?.toLowerCase() || ''
-    const namespace = cronjob.metadata?.namespace?.toLowerCase() || ''
-    return name.includes(lowerQuery) || namespace.includes(lowerQuery)
-  }, [])
 
   return (
     <ResourceTable

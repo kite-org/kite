@@ -102,7 +102,7 @@ func (h *GenericResourceHandler[T, V]) GetResource(c *gin.Context, namespace, na
 	object := reflect.New(h.objectType).Interface().(T)
 	namespacedName := types.NamespacedName{Name: name}
 	if !h.isClusterScoped {
-		if namespace != "" && namespace != "_all" {
+		if namespace != "" && namespace != common.AllNamespaces {
 			namespacedName.Namespace = namespace
 		}
 	}

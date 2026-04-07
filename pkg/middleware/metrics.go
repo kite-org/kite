@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -42,7 +43,7 @@ func Metrics() gin.HandlerFunc {
 			route = c.Request.URL.Path
 		}
 		method := c.Request.Method
-		if method == "OPTIONS" {
+		if method == http.MethodOptions {
 			return
 		}
 		for _, path := range unlogPath {

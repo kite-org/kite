@@ -1,13 +1,19 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { IconCircleCheckFilled, IconLoader } from '@tabler/icons-react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { DaemonSet } from 'kubernetes-types/apps/v1'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
+import { createSearchFilter } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ResourceTable } from '@/components/resource-table'
+
+const daemonSetSearchFilter = createSearchFilter<DaemonSet>(
+  (d) => d.metadata?.name,
+  (d) => d.metadata?.namespace
+)
 
 export function DaemonSetListPage() {
   const { t } = useTranslation()
@@ -91,17 +97,6 @@ export function DaemonSetListPage() {
       }),
     ],
     [columnHelper, t]
-  )
-
-  // Custom filter for daemonset search
-  const daemonSetSearchFilter = useCallback(
-    (daemonSet: DaemonSet, query: string) => {
-      return (
-        daemonSet.metadata!.name!.toLowerCase().includes(query) ||
-        (daemonSet.metadata!.namespace?.toLowerCase() || '').includes(query)
-      )
-    },
-    []
   )
 
   return (

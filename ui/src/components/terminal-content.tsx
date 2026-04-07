@@ -18,6 +18,7 @@ import '@xterm/xterm/css/xterm.css'
 import { useTranslation } from 'react-i18next'
 
 import { TERMINAL_THEMES, TerminalTheme } from '@/types/themes'
+import { appendCurrentClusterParam } from '@/lib/current-cluster'
 import { toSimpleContainer } from '@/lib/k8s'
 import { getWebSocketUrl } from '@/lib/subpath'
 import { translateError } from '@/lib/utils'
@@ -297,13 +298,16 @@ export function Terminal({
 
     // WebSocket connection
     setIsConnected(false)
-    const currentCluster = localStorage.getItem('current-cluster')
+    const clusterParams = new URLSearchParams()
+    appendCurrentClusterParam(clusterParams)
+    const podParams = new URLSearchParams(clusterParams)
+    podParams.set('container', selectedContainer)
     const wsPath =
       type === 'pod'
-        ? `/api/v1/terminal/${namespace}/${selectedPod}/ws?container=${selectedContainer}&x-cluster-name=${currentCluster}`
+        ? `/api/v1/terminal/${namespace}/${selectedPod}/ws?${podParams.toString()}`
         : type === 'node'
-          ? `/api/v1/node-terminal/${nodeName}/ws?x-cluster-name=${currentCluster}`
-          : `/api/v1/kubectl-terminal/ws?x-cluster-name=${currentCluster}`
+          ? `/api/v1/node-terminal/${nodeName}/ws?${clusterParams.toString()}`
+          : `/api/v1/kubectl-terminal/ws?${clusterParams.toString()}`
     const wsUrl = getWebSocketUrl(wsPath)
     const websocket = new WebSocket(wsUrl)
     wsRef.current = websocket

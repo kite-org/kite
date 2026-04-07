@@ -7,77 +7,33 @@ import {
   useState,
 } from 'react'
 import * as React from 'react'
-import {
-  Icon,
-  IconArrowsHorizontal,
-  IconBell,
-  IconBox,
-  IconBoxMultiple,
-  IconClockHour4,
-  IconCode,
-  IconDatabase,
-  IconFileDatabase,
-  IconKey,
-  IconLoadBalancer,
-  IconLock,
-  IconMap,
-  IconNetwork,
-  IconPlayerPlay,
-  IconProps,
-  IconRocket,
-  IconRoute,
-  IconRouter,
-  IconServer2,
-  IconShield,
-  IconShieldCheck,
-  IconStack2,
-  IconTopologyBus,
-  IconUser,
-  IconUsers,
-} from '@tabler/icons-react'
+import { type Icon, type IconProps } from '@tabler/icons-react'
 
-import {
-  DefaultMenus,
-  SidebarConfig,
-  SidebarGroup,
-  SidebarItem,
-} from '@/types/sidebar'
+import { SidebarConfig, SidebarGroup, SidebarItem } from '@/types/sidebar'
 import { withSubPath } from '@/lib/subpath'
 
 import { useAuth } from './auth-context'
+import {
+  buildDefaultSidebarConfig,
+  getSidebarIconComponent,
+  SIDEBAR_CONFIG_VERSION,
+} from './sidebar-config-defaults'
 
-const iconMap = {
-  IconBox,
-  IconRocket,
-  IconStack2,
-  IconTopologyBus,
-  IconPlayerPlay,
-  IconClockHour4,
-  IconRouter,
-  IconNetwork,
-  IconLoadBalancer,
-  IconRoute,
-  IconFileDatabase,
-  IconDatabase,
-  IconMap,
-  IconLock,
-  IconUser,
-  IconShield,
-  IconUsers,
-  IconShieldCheck,
-  IconKey,
-  IconBoxMultiple,
-  IconServer2,
-  IconBell,
-  IconCode,
-  IconArrowsHorizontal,
+function toggleInArray(arr: string[], item: string): string[] {
+  const set = new Set(arr)
+  if (set.has(item)) set.delete(item)
+  else set.add(item)
+  return Array.from(set)
 }
 
-const getIconName = (iconComponent: React.ComponentType): string => {
-  const entry = Object.entries(iconMap).find(
-    ([, component]) => component === iconComponent
+function toggleGroupField(
+  groups: SidebarGroup[],
+  groupId: string,
+  field: 'visible' | 'collapsed'
+): SidebarGroup[] {
+  return groups.map((g) =>
+    g.id === groupId ? { ...g, [field]: !g[field] } : g
   )
-  return entry ? entry[0] : 'IconBox'
 }
 
 interface SidebarConfigContextType {
@@ -120,132 +76,6 @@ interface SidebarConfigProviderProps {
   children: React.ReactNode
 }
 
-const defaultMenus: DefaultMenus = {
-  'sidebar.groups.workloads': [
-    { titleKey: 'nav.pods', url: '/pods', icon: IconBox },
-    { titleKey: 'nav.deployments', url: '/deployments', icon: IconRocket },
-    {
-      titleKey: 'nav.statefulsets',
-      url: '/statefulsets',
-      icon: IconStack2,
-    },
-    {
-      titleKey: 'nav.daemonsets',
-      url: '/daemonsets',
-      icon: IconTopologyBus,
-    },
-    { titleKey: 'nav.jobs', url: '/jobs', icon: IconPlayerPlay },
-    { titleKey: 'nav.cronjobs', url: '/cronjobs', icon: IconClockHour4 },
-  ],
-  'sidebar.groups.traffic': [
-    { titleKey: 'nav.ingresses', url: '/ingresses', icon: IconRouter },
-    {
-      titleKey: 'nav.networkpolicies',
-      url: '/networkpolicies',
-      icon: IconShield,
-    },
-    { titleKey: 'nav.services', url: '/services', icon: IconNetwork },
-    { titleKey: 'nav.gateways', url: '/gateways', icon: IconLoadBalancer },
-    { titleKey: 'nav.httproutes', url: '/httproutes', icon: IconRoute },
-  ],
-  'sidebar.groups.storage': [
-    {
-      titleKey: 'sidebar.short.pvcs',
-      url: '/persistentvolumeclaims',
-      icon: IconFileDatabase,
-    },
-    {
-      titleKey: 'sidebar.short.pvs',
-      url: '/persistentvolumes',
-      icon: IconDatabase,
-    },
-    {
-      titleKey: 'nav.storageclasses',
-      url: '/storageclasses',
-      icon: IconFileDatabase,
-    },
-  ],
-  'sidebar.groups.config': [
-    { titleKey: 'nav.configMaps', url: '/configmaps', icon: IconMap },
-    { titleKey: 'nav.secrets', url: '/secrets', icon: IconLock },
-    {
-      titleKey: 'nav.horizontalpodautoscalers',
-      url: '/horizontalpodautoscalers',
-      icon: IconArrowsHorizontal,
-    },
-  ],
-  'sidebar.groups.security': [
-    {
-      titleKey: 'nav.serviceaccounts',
-      url: '/serviceaccounts',
-      icon: IconUser,
-    },
-    { titleKey: 'nav.roles', url: '/roles', icon: IconShield },
-    { titleKey: 'nav.rolebindings', url: '/rolebindings', icon: IconUsers },
-    {
-      titleKey: 'nav.clusterroles',
-      url: '/clusterroles',
-      icon: IconShieldCheck,
-    },
-    {
-      titleKey: 'nav.clusterrolebindings',
-      url: '/clusterrolebindings',
-      icon: IconKey,
-    },
-  ],
-  'sidebar.groups.other': [
-    {
-      titleKey: 'nav.namespaces',
-      url: '/namespaces',
-      icon: IconBoxMultiple,
-    },
-    { titleKey: 'nav.nodes', url: '/nodes', icon: IconServer2 },
-    { titleKey: 'nav.events', url: '/events', icon: IconBell },
-    { titleKey: 'nav.crds', url: '/crds', icon: IconCode },
-  ],
-}
-
-const CURRENT_CONFIG_VERSION = 1
-
-const defaultConfigs = (): SidebarConfig => {
-  const groups: SidebarGroup[] = []
-  let groupOrder = 0
-
-  Object.entries(defaultMenus).forEach(([groupKey, items]) => {
-    const groupId = groupKey
-      .toLowerCase()
-      .replace(/\./g, '-')
-      .replace(/\s+/g, '-')
-    const sidebarItems: SidebarItem[] = items.map((item, index) => ({
-      id: `${groupId}-${item.url.replace(/[^a-zA-Z0-9]/g, '-')}`,
-      titleKey: item.titleKey,
-      url: item.url,
-      icon: getIconName(item.icon),
-      visible: true,
-      pinned: false,
-      order: index,
-    }))
-
-    groups.push({
-      id: groupId,
-      nameKey: groupKey,
-      items: sidebarItems,
-      visible: true,
-      collapsed: false,
-      order: groupOrder++,
-    })
-  })
-
-  return {
-    version: CURRENT_CONFIG_VERSION,
-    groups,
-    hiddenItems: [],
-    pinnedItems: [],
-    groupOrder: groups.map((g) => g.id),
-    lastUpdated: Date.now(),
-  }
-}
-
 export const SidebarConfigProvider: React.FC<SidebarConfigProviderProps> = ({
   children,
 }) => {
@@ -260,12 +90,12 @@ export const SidebarConfigProvider: React.FC<SidebarConfigProviderProps> = ({
       setConfig(userConfig)
 
       const currentVersion = userConfig.version || 0
-      if (currentVersion < CURRENT_CONFIG_VERSION) {
+      if (currentVersion < SIDEBAR_CONFIG_VERSION) {
         setHasUpdate(true)
       }
       return
     }
-    setConfig(defaultConfigs())
+    setConfig(buildDefaultSidebarConfig())
   }, [user])
 
   const saveConfig = useCallback(
@@ -279,7 +109,7 @@ export const SidebarConfigProvider: React.FC<SidebarConfigProviderProps> = ({
         const configToSave = {
           ...newConfig,
           lastUpdated: Date.now(),
-          version: CURRENT_CONFIG_VERSION,
+          version: SIDEBAR_CONFIG_VERSION,
         }
 
         const response = await fetch(
@@ -320,15 +150,7 @@ export const SidebarConfigProvider: React.FC<SidebarConfigProviderProps> = ({
   const toggleItemVisibility = useCallback(
     (itemId: string) => {
       if (!config) return
-
-      const hiddenItems = new Set(config.hiddenItems)
-      if (hiddenItems.has(itemId)) {
-        hiddenItems.delete(itemId)
-      } else {
-        hiddenItems.add(itemId)
-      }
-
-      updateConfig({ hiddenItems: Array.from(hiddenItems) })
+      updateConfig({ hiddenItems: toggleInArray(config.hiddenItems, itemId) })
     },
     [config, updateConfig]
   )
@@ -336,15 +158,7 @@ export const SidebarConfigProvider: React.FC<SidebarConfigProviderProps> = ({
   const toggleItemPin = useCallback(
     (itemId: string) => {
       if (!config) return
-
-      const pinnedItems = new Set(config.pinnedItems)
-      if (pinnedItems.has(itemId)) {
-        pinnedItems.delete(itemId)
-      } else {
-        pinnedItems.add(itemId)
-      }
-
-      updateConfig({ pinnedItems: Array.from(pinnedItems) })
+      updateConfig({ pinnedItems: toggleInArray(config.pinnedItems, itemId) })
     },
     [config, updateConfig]
   )
@@ -352,12 +166,9 @@ export const SidebarConfigProvider: React.FC<SidebarConfigProviderProps> = ({
   const toggleGroupVisibility = useCallback(
     (groupId: string) => {
       if (!config) return
-
-      const groups = config.groups.map((group) =>
-        group.id === groupId ? { ...group, visible: !group.visible } : group
-      )
-
-      updateConfig({ groups })
+      updateConfig({
+        groups: toggleGroupField(config.groups, groupId, 'visible'),
+      })
     },
     [config, updateConfig]
   )
@@ -365,12 +176,9 @@ export const SidebarConfigProvider: React.FC<SidebarConfigProviderProps> = ({
   const toggleGroupCollapse = useCallback(
     (groupId: string) => {
       if (!config) return
-
-      const groups = config.groups.map((group) =>
-        group.id === groupId ? { ...group, collapsed: !group.collapsed } : group
-      )
-
-      updateConfig({ groups })
+      updateConfig({
+        groups: toggleGroupField(config.groups, groupId, 'collapsed'),
+      })
     },
     [config, updateConfig]
   )
@@ -518,14 +326,10 @@ export const SidebarConfigProvider: React.FC<SidebarConfigProviderProps> = ({
   )
 
   const resetConfig = useCallback(() => {
-    const newConfig = defaultConfigs()
+    const newConfig = buildDefaultSidebarConfig()
     saveConfig(newConfig)
     setHasUpdate(false)
   }, [saveConfig])
-
-  const getIconComponent = useCallback((iconName: string) => {
-    return iconMap[iconName as keyof typeof iconMap] || IconBox
-  }, [])
 
   useEffect(() => {
     const loadData = async () => {
@@ -546,7 +350,7 @@ export const SidebarConfigProvider: React.FC<SidebarConfigProviderProps> = ({
     toggleItemPin,
     toggleGroupCollapse,
     resetConfig,
-    getIconComponent,
+    getIconComponent: getSidebarIconComponent,
     createCustomGroup,
     addCRDToGroup,
     removeCRDToGroup,

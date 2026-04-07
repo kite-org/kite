@@ -114,7 +114,11 @@ export function ClusterManagement() {
               </Tooltip>
             )
           }
-          return <Badge variant="secondary">{cluster.version || '-'}</Badge>
+          return (
+            <Badge variant="secondary" className="font-mono">
+              {cluster.version || '-'}
+            </Badge>
+          )
         },
       },
       {

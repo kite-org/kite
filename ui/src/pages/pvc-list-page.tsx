@@ -1,12 +1,21 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { PersistentVolumeClaim } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
+import { createSearchFilter } from '@/lib/k8s'
 import { formatDate, parseBytes } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ResourceTable } from '@/components/resource-table'
+
+const pvcSearchFilter = createSearchFilter<PersistentVolumeClaim>(
+  (pvc) => pvc.metadata?.name,
+  (pvc) => pvc.metadata?.namespace,
+  (pvc) => pvc.spec?.volumeName,
+  (pvc) => pvc.spec?.storageClassName,
+  (pvc) => pvc.status?.phase
+)
 
 export function PVCListPage() {
   const { t } = useTranslation()
@@ -109,20 +118,6 @@ export function PVCListPage() {
       }),
     ],
     [columnHelper, t]
-  )
-
-  // Custom filter for pvc search
-  const pvcSearchFilter = useCallback(
-    (pvc: PersistentVolumeClaim, query: string) => {
-      return (
-        pvc.metadata!.name!.toLowerCase().includes(query) ||
-        (pvc.metadata!.namespace?.toLowerCase() || '').includes(query) ||
-        (pvc.spec!.volumeName?.toLowerCase() || '').includes(query) ||
-        (pvc.spec!.storageClassName?.toLowerCase() || '').includes(query) ||
-        (pvc.status!.phase?.toLowerCase() || '').includes(query)
-      )
-    },
-    []
   )
 
   return (

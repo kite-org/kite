@@ -96,7 +96,7 @@ export function ResourceCharts(props: ResourceChartsProps) {
               <CardTitle className="flex items-center justify-between">
                 <span>{resource.name}</span>
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="font-mono">
                 Requests: {resource.request.toFixed(1)} / Limits:{' '}
                 {resource.limit.toFixed(1)} / Total: {resource.total.toFixed(2)}{' '}
                 {resource.unit}
@@ -110,7 +110,7 @@ export function ResourceCharts(props: ResourceChartsProps) {
                       <span className="font-medium text-blue-600">
                         Requests
                       </span>
-                      <span>
+                      <span className="font-mono">
                         {resource.request.toFixed(1)} {resource.unit}
                       </span>
                     </div>
@@ -128,7 +128,7 @@ export function ResourceCharts(props: ResourceChartsProps) {
                         }}
                       />
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">
+                    <div className="text-xs text-muted-foreground mt-1 font-mono">
                       {resource.requestPercentage.toFixed(1)}% of capacity
                     </div>
                   </div>
@@ -138,7 +138,7 @@ export function ResourceCharts(props: ResourceChartsProps) {
                       <span className="font-medium text-orange-600">
                         Limits
                       </span>
-                      <span>
+                      <span className="font-mono">
                         {resource.limit.toFixed(1)} {resource.unit}
                       </span>
                     </div>
@@ -156,13 +156,13 @@ export function ResourceCharts(props: ResourceChartsProps) {
                         }}
                       />
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">
+                    <div className="text-xs text-muted-foreground mt-1 font-mono">
                       {resource.limitPercentage.toFixed(1)}% of capacity
                     </div>
                   </div>
                 </div>
 
-                <div className="text-xs text-muted-foreground ">
+                <div className="text-xs text-muted-foreground font-mono">
                   Available: {(resource.total - resource.request).toFixed(1)}{' '}
                   {resource.unit}
                 </div>

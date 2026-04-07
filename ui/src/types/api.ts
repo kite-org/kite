@@ -57,6 +57,12 @@ import {
 } from 'kubernetes-types/rbac/v1'
 import { StorageClass, StorageClassList } from 'kubernetes-types/storage/v1'
 
+import type { ResourceType } from '@/lib/resource-metadata'
+
+import { Gateway, HTTPRoute } from './gateway'
+
+export type { ResourceType } from '@/lib/resource-metadata'
+
 export interface CustomResource {
   apiVersion: string
   kind: string
@@ -89,46 +95,6 @@ export interface DeploymentRelatedResource {
   services: Service[]
 }
 
-// Resource type definitions
-export type ResourceType =
-  | 'pods'
-  | 'deployments'
-  | 'statefulsets'
-  | 'daemonsets'
-  | 'jobs'
-  | 'cronjobs'
-  | 'services'
-  | 'configmaps'
-  | 'secrets'
-  | 'ingresses'
-  | 'networkpolicies'
-  | 'namespaces'
-  | 'crds'
-  | 'crs'
-  | 'nodes'
-  | 'events'
-  | 'persistentvolumes'
-  | 'persistentvolumeclaims'
-  | 'storageclasses'
-  | 'podmetrics'
-  | 'replicasets'
-  | 'serviceaccounts'
-  | 'roles'
-  | 'rolebindings'
-  | 'clusterroles'
-  | 'clusterrolebindings'
-  | 'horizontalpodautoscalers'
-
-export const clusterScopeResources: ResourceType[] = [
-  'crds',
-  'namespaces',
-  'persistentvolumes',
-  'nodes',
-  'storageclasses',
-  'clusterroles',
-  'clusterrolebindings',
-]
-
 type listMetadataType = {
   continue?: string
   remainingItemCount?: number
@@ -146,6 +112,14 @@ export interface ResourcesTypeMap {
   jobs: JobList
   cronjobs: CronJobList
   services: ServiceList
+  gateways: {
+    items: Gateway[]
+    metadata?: listMetadataType
+  }
+  httproutes: {
+    items: HTTPRoute[]
+    metadata?: listMetadataType
+  }
   configmaps: ConfigMapList
   secrets: SecretList
   persistentvolumeclaims: PersistentVolumeClaimList
@@ -223,6 +197,8 @@ export interface ResourceTypeMap {
   jobs: Job
   cronjobs: CronJob
   services: Service
+  gateways: Gateway
+  httproutes: HTTPRoute
   configmaps: ConfigMap
   secrets: Secret
   persistentvolumeclaims: PersistentVolumeClaim

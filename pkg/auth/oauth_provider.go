@@ -181,6 +181,26 @@ func (g *GenericProvider) GetAuthURL(state string) string {
 	return g.AuthURL + "?" + params.Encode()
 }
 
+func (g *GenericProvider) makeTokenRequest(data url.Values) (*TokenResponse, error) {
+	req, err := http.NewRequest("POST", g.TokenURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var tokenResp TokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		return nil, err
+	}
+	return &tokenResp, nil
+}
+
 func (g *GenericProvider) ExchangeCodeForToken(code string) (*TokenResponse, error) {
 	data := url.Values{}
 	data.Set("client_id", g.Config.ClientID)
@@ -188,29 +208,7 @@ func (g *GenericProvider) ExchangeCodeForToken(code string) (*TokenResponse, err
 	data.Set("code", code)
 	data.Set("grant_type", "authorization_code")
 	data.Set("redirect_uri", g.Config.RedirectURL)
-
-	req, err := http.NewRequest("POST", g.TokenURL, strings.NewReader(data.Encode()))
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/json")
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	var tokenResp TokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		return nil, err
-	}
-
-	return &tokenResp, nil
+	return g.makeTokenRequest(data)
 }
 
 func (g *GenericProvider) RefreshToken(refreshToken string) (*TokenResponse, error) {
@@ -219,29 +217,7 @@ func (g *GenericProvider) RefreshToken(refreshToken string) (*TokenResponse, err
 	data.Set("client_secret", g.Config.ClientSecret)
 	data.Set("refresh_token", refreshToken)
 	data.Set("grant_type", "refresh_token")
-
-	req, err := http.NewRequest("POST", g.TokenURL, strings.NewReader(data.Encode()))
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/json")
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	var tokenResp TokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		return nil, err
-	}
-
-	return &tokenResp, nil
+	return g.makeTokenRequest(data)
 }
 
 // ErrNotInAllowedGroups is returned when a user successfully authenticates but does not belong to any specified AllowedGroups.

@@ -50,10 +50,7 @@ func CreateRole(c *gin.Context) {
 		return
 	}
 	// refresh in-memory config
-	select {
-	case SyncNow <- struct{}{}:
-	default:
-	}
+	TriggerSync()
 	c.JSON(http.StatusCreated, gin.H{"role": role})
 }
 
@@ -87,10 +84,7 @@ func UpdateRole(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update role: " + err.Error()})
 		return
 	}
-	select {
-	case SyncNow <- struct{}{}:
-	default:
-	}
+	TriggerSync()
 	c.JSON(http.StatusOK, gin.H{"role": role})
 }
 
@@ -106,10 +100,7 @@ func DeleteRole(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete role: " + err.Error()})
 		return
 	}
-	select {
-	case SyncNow <- struct{}{}:
-	default:
-	}
+	TriggerSync()
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
@@ -160,10 +151,7 @@ func AssignRole(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create assignment: " + err.Error()})
 		return
 	}
-	select {
-	case SyncNow <- struct{}{}:
-	default:
-	}
+	TriggerSync()
 	c.JSON(http.StatusCreated, gin.H{"assignment": assignment})
 }
 
@@ -185,9 +173,6 @@ func UnassignRole(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to remove assignment: " + err.Error()})
 		return
 	}
-	select {
-	case SyncNow <- struct{}{}:
-	default:
-	}
+	TriggerSync()
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }

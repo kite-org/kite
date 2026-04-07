@@ -137,7 +137,7 @@ export function ContainerInfoCard({
           </div>
           <div>
             <Label className={sectionLabelClassName}>Image Pull Policy</Label>
-            <p className={cn(bodyTextClassName, 'mt-1')}>
+            <p className={cn(bodyTextClassName, 'mt-1 font-mono')}>
               {container.imagePullPolicy || 'IfNotPresent'}
             </p>
           </div>

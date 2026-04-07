@@ -3,7 +3,14 @@ import { IconClipboardText } from '@tabler/icons-react'
 
 import { ResourceType } from '@/types/api'
 import { useDescribe } from '@/lib/api'
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 
 import { TextViewer } from './text-viewer'
 import { Button } from './ui/button'
@@ -22,6 +29,8 @@ export function DescribeDialog({
     enabled: isDescribeOpen,
     staleTime: 0,
   })
+  const title = `kubectl describe ${resourceType} ${namespace ? `-n ${namespace}` : ''} ${name}`
+  const description = `Displays the kubectl describe output for ${resourceType} ${name}.`
 
   return (
     <Dialog open={isDescribeOpen} onOpenChange={setIsDescribeOpen}>
@@ -32,10 +41,11 @@ export function DescribeDialog({
         </Button>
       </DialogTrigger>
       <DialogContent className="!max-w-dvw">
-        <TextViewer
-          title={`kubectl describe ${resourceType} ${namespace ? `-n ${namespace}` : ''} ${name}`}
-          value={describeText?.result || ''}
-        />
+        <DialogHeader className="sr-only">
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <TextViewer title={title} value={describeText?.result || ''} />
       </DialogContent>
     </Dialog>
   )

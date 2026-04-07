@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/zxh326/kite/pkg/cluster"
+	"github.com/zxh326/kite/pkg/common"
 	pkgmodel "github.com/zxh326/kite/pkg/model"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -215,24 +216,28 @@ func resourceSummaryDetails(kindLower string, item unstructured.Unstructured) []
 }
 
 func kindSpecificResourceSummaryDetails(kindLower string, item unstructured.Unstructured) []string {
-	switch kindLower {
-	case "pod", "pods":
+	m := common.LookupResource(kindLower)
+	if m == nil {
+		return nil
+	}
+	switch m.Plural {
+	case common.Pods:
 		return podSummaryDetails(item)
-	case "deployment", "deployments":
+	case common.Deployments:
 		return deploymentSummaryDetails(item)
-	case "statefulset", "statefulsets", "replicaset", "replicasets":
+	case common.StatefulSets, common.ReplicaSets:
 		return replicaSummaryDetails(item)
-	case "daemonset", "daemonsets":
+	case common.DaemonSets:
 		return daemonSetSummaryDetails(item)
-	case "service", "services", "svc":
+	case common.Services:
 		return serviceSummaryDetails(item)
-	case "node", "nodes":
+	case common.Nodes:
 		return nodeSummaryDetails(item)
-	case "namespace", "namespaces", "ns":
+	case common.Namespaces:
 		return namespaceSummaryDetails(item)
-	case "job", "jobs":
+	case common.Jobs:
 		return jobSummaryDetails(item)
-	case "pvc", "persistentvolumeclaim", "persistentvolumeclaims":
+	case common.PersistentVolumeClaims:
 		return pvcSummaryDetails(item)
 	default:
 		return nil

@@ -1,13 +1,19 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { Service } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
-import { getServiceExternalIP } from '@/lib/k8s'
+import { createSearchFilter, getServiceExternalIP } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ResourceTable } from '@/components/resource-table'
+
+const serviceSearchFilter = createSearchFilter<Service>(
+  (s) => s.metadata?.name,
+  (s) => s.spec?.type,
+  (s) => s.spec?.clusterIP
+)
 
 export function ServiceListPage() {
   const { t } = useTranslation()
@@ -95,15 +101,6 @@ export function ServiceListPage() {
     ],
     [columnHelper, t]
   )
-
-  // Custom filter for service search
-  const serviceSearchFilter = useCallback((service: Service, query: string) => {
-    return (
-      service.metadata!.name!.toLowerCase().includes(query) ||
-      (service.spec!.type?.toLowerCase() || '').includes(query) ||
-      (service.spec!.clusterIP?.toLowerCase() || '').includes(query)
-    )
-  }, [])
 
   return (
     <ResourceTable

@@ -1,12 +1,22 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { Event } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
+import { createSearchFilter } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ResourceTable } from '@/components/resource-table'
+
+const eventSearchFilter = createSearchFilter<Event>(
+  (e) => e.metadata?.name,
+  (e) => e.reason,
+  (e) => e.message,
+  (e) => e.type,
+  (e) => e.involvedObject?.name,
+  (e) => e.involvedObject?.kind
+)
 
 export function EventListPage() {
   const { t } = useTranslation()
@@ -105,18 +115,6 @@ export function EventListPage() {
     ],
     [columnHelper, t]
   )
-
-  const eventSearchFilter = useCallback((event: Event, query: string) => {
-    const lowerQuery = query.toLowerCase()
-    return (
-      (event.metadata?.name?.toLowerCase() || '').includes(lowerQuery) ||
-      (event.reason?.toLowerCase() || '').includes(lowerQuery) ||
-      (event.message?.toLowerCase() || '').includes(lowerQuery) ||
-      (event.type?.toLowerCase() || '').includes(lowerQuery) ||
-      (event.involvedObject?.name?.toLowerCase() || '').includes(lowerQuery) ||
-      (event.involvedObject?.kind?.toLowerCase() || '').includes(lowerQuery)
-    )
-  }, [])
 
   return (
     <ResourceTable<Event>

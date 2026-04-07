@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/cluster"
+	"github.com/zxh326/kite/pkg/common"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -16,7 +17,7 @@ type DeploymentHandler struct {
 func NewDeploymentHandler() *DeploymentHandler {
 	return &DeploymentHandler{
 		GenericResourceHandler: NewGenericResourceHandler[*appsv1.Deployment, *appsv1.DeploymentList](
-			"deployments",
+			string(common.Deployments),
 			false, // Deployments are namespaced resources
 			true,
 		),

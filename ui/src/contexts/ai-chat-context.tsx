@@ -8,12 +8,8 @@ import {
 } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 
-interface PageContext {
-  page: string
-  namespace: string
-  resourceName: string
-  resourceKind: string
-}
+import { PageContext } from '@/components/ai-chat/ai-chat-types'
+import { toSingularResource } from '@/components/ai-chat/ai-chat-utils'
 
 interface AIChatContextType {
   isOpen: boolean
@@ -24,40 +20,6 @@ interface AIChatContextType {
 }
 
 const AIChatContext = createContext<AIChatContextType | undefined>(undefined)
-
-const singularResourceMap: Record<string, string> = {
-  pods: 'pod',
-  services: 'service',
-  configmaps: 'configmap',
-  secrets: 'secret',
-  namespaces: 'namespace',
-  nodes: 'node',
-  persistentvolumeclaims: 'persistentvolumeclaim',
-  persistentvolumes: 'persistentvolume',
-  serviceaccounts: 'serviceaccount',
-  deployments: 'deployment',
-  statefulsets: 'statefulset',
-  daemonsets: 'daemonset',
-  replicasets: 'replicaset',
-  jobs: 'job',
-  cronjobs: 'cronjob',
-  ingresses: 'ingress',
-  networkpolicies: 'networkpolicy',
-  storageclasses: 'storageclass',
-  events: 'event',
-}
-
-function toSingularResource(resource: string) {
-  if (!resource) return resource
-  const normalized = resource.toLowerCase()
-  if (singularResourceMap[normalized]) {
-    return singularResourceMap[normalized]
-  }
-  if (normalized.endsWith('s')) {
-    return normalized.slice(0, -1)
-  }
-  return normalized
-}
 
 export function AIChatProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false)

@@ -28,6 +28,7 @@ import { toast } from 'sonner'
 
 import { ResourceType } from '@/types/api'
 import { deleteResource, useResources, useResourcesWatch } from '@/lib/api'
+import { getClusterScopedStorageKey } from '@/lib/current-cluster'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -89,8 +90,9 @@ export function ResourceTable<T>({
   const { t } = useTranslation()
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
-    const currentCluster = localStorage.getItem('current-cluster')
-    const storageKey = `${currentCluster}-${resourceName}-columnFilters`
+    const storageKey = getClusterScopedStorageKey(
+      `-${resourceName}-columnFilters`
+    )
     const savedFilters = sessionStorage.getItem(storageKey)
     return savedFilters ? JSON.parse(savedFilters) : []
   })
@@ -98,16 +100,18 @@ export function ResourceTable<T>({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [searchQuery, setSearchQuery] = useState<string>(() => {
-    const currentCluster = localStorage.getItem('current-cluster')
-    const storageKey = `${currentCluster}-${resourceName}-searchQuery`
+    const storageKey = getClusterScopedStorageKey(
+      `-${resourceName}-searchQuery`
+    )
     return sessionStorage.getItem(storageKey) || ''
   })
 
   const [columnVisibility, setColumnVisibility] = useState<
     Record<string, boolean>
   >(() => {
-    const currentCluster = localStorage.getItem('current-cluster')
-    const storageKey = `${currentCluster}-${resourceName}-columnVisibility`
+    const storageKey = getClusterScopedStorageKey(
+      `-${resourceName}-columnVisibility`
+    )
     const savedVisibility = localStorage.getItem(storageKey)
     if (savedVisibility) {
       return JSON.parse(savedVisibility)
@@ -121,8 +125,7 @@ export function ResourceTable<T>({
   })
 
   const [pagination, setPagination] = useState<PaginationState>(() => {
-    const currentCluster = localStorage.getItem('current-cluster')
-    const storageKey = `${currentCluster}-${resourceName}-pageSize`
+    const storageKey = getClusterScopedStorageKey(`-${resourceName}-pageSize`)
     const savedPageSize = sessionStorage.getItem(storageKey)
     return {
       pageIndex: 0,
@@ -134,13 +137,10 @@ export function ResourceTable<T>({
   const [selectedNamespace, setSelectedNamespace] = useState<
     string | undefined
   >(() => {
-    // Try to get the stored namespace from localStorage
     const storedNamespace = localStorage.getItem(
-      localStorage.getItem('current-cluster') + 'selectedNamespace'
+      getClusterScopedStorageKey('selectedNamespace')
     )
-    return clusterScope
-      ? undefined // No namespace for cluster scope
-      : storedNamespace || 'default' // Default to 'default' if not set
+    return clusterScope ? undefined : storedNamespace || 'default'
   })
   const effectiveNamespace = clusterScope ? undefined : selectedNamespace
   const [useSSE, setUseSSE] = useState(false)
@@ -180,7 +180,7 @@ export function ResourceTable<T>({
       return
     }
     const storedNamespace = localStorage.getItem(
-      localStorage.getItem('current-cluster') + 'selectedNamespace'
+      getClusterScopedStorageKey('selectedNamespace')
     )
     setSelectedNamespace(storedNamespace || 'default')
   }, [clusterScope, selectedNamespace])
@@ -189,8 +189,9 @@ export function ResourceTable<T>({
 
   // Update sessionStorage when search query changes
   useEffect(() => {
-    const currentCluster = localStorage.getItem('current-cluster')
-    const storageKey = `${currentCluster}-${resourceName}-searchQuery`
+    const storageKey = getClusterScopedStorageKey(
+      `-${resourceName}-searchQuery`
+    )
     if (searchQuery) {
       sessionStorage.setItem(storageKey, searchQuery)
     } else {
@@ -200,22 +201,23 @@ export function ResourceTable<T>({
 
   // Update sessionStorage when column visibility changes
   useEffect(() => {
-    const currentCluster = localStorage.getItem('current-cluster')
-    const storageKey = `${currentCluster}-${resourceName}-columnVisibility`
+    const storageKey = getClusterScopedStorageKey(
+      `-${resourceName}-columnVisibility`
+    )
     localStorage.setItem(storageKey, JSON.stringify(columnVisibility))
   }, [columnVisibility, resourceName])
 
   // Update sessionStorage when page size changes
   useEffect(() => {
-    const currentCluster = localStorage.getItem('current-cluster')
-    const storageKey = `${currentCluster}-${resourceName}-pageSize`
+    const storageKey = getClusterScopedStorageKey(`-${resourceName}-pageSize`)
     sessionStorage.setItem(storageKey, pagination.pageSize.toString())
   }, [pagination.pageSize, resourceName])
 
   // Update sessionStorage when column filters changes
   useEffect(() => {
-    const currentCluster = localStorage.getItem('current-cluster')
-    const storageKey = `${currentCluster}-${resourceName}-columnFilters`
+    const storageKey = getClusterScopedStorageKey(
+      `-${resourceName}-columnFilters`
+    )
     if (columnFilters.length > 0) {
       sessionStorage.setItem(storageKey, JSON.stringify(columnFilters))
     } else {
@@ -233,7 +235,7 @@ export function ResourceTable<T>({
     (value: string) => {
       if (setSelectedNamespace) {
         localStorage.setItem(
-          localStorage.getItem('current-cluster') + 'selectedNamespace',
+          getClusterScopedStorageKey('selectedNamespace'),
           value
         )
         setSelectedNamespace(value)

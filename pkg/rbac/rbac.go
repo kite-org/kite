@@ -100,7 +100,7 @@ func match(list []string, val string) bool {
 			return true
 		}
 
-		re, err := regexp.Compile(v)
+		re, err := regexp.Compile("^(?:" + v + ")$")
 		if err != nil {
 			klog.Error(err)
 			continue
@@ -121,7 +121,7 @@ func NoAccess(user, verb, resource, ns, cluster string) string {
 		return fmt.Sprintf("user %s does not have permission to %s %s on cluster %s",
 			user, verb, resource, cluster)
 	}
-	if ns == "_all" {
+	if ns == common.AllNamespaces {
 		ns = "All"
 	}
 	return fmt.Sprintf("user %s does not have permission to %s %s in namespace %s on cluster %s",

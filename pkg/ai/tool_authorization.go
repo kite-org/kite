@@ -24,7 +24,7 @@ func permissionNamespace(resource resourceInfo, namespace string) string {
 	}
 	namespace = strings.TrimSpace(namespace)
 	if namespace == "" {
-		return "_all"
+		return common.AllNamespaces
 	}
 	return namespace
 }
@@ -64,16 +64,16 @@ func requiredToolPermissions(ctx context.Context, cs *cluster.ClientSet, toolNam
 			return nil, err
 		}
 		return []toolPermission{{
-			Resource:  "pods",
+			Resource:  string(common.Pods),
 			Verb:      string(common.VerbLog),
 			Namespace: namespace,
 		}}, nil
 	case "get_cluster_overview":
 		return []toolPermission{
-			{Resource: "nodes", Verb: string(common.VerbGet), Namespace: ""},
-			{Resource: "pods", Verb: string(common.VerbGet), Namespace: "_all"},
-			{Resource: "namespaces", Verb: string(common.VerbGet), Namespace: ""},
-			{Resource: "services", Verb: string(common.VerbGet), Namespace: "_all"},
+			{Resource: string(common.Nodes), Verb: string(common.VerbGet), Namespace: ""},
+			{Resource: string(common.Pods), Verb: string(common.VerbGet), Namespace: common.AllNamespaces},
+			{Resource: string(common.Namespaces), Verb: string(common.VerbGet), Namespace: ""},
+			{Resource: string(common.Services), Verb: string(common.VerbGet), Namespace: common.AllNamespaces},
 		}, nil
 	case "create_resource":
 		obj, err := parseResourceYAML(args)
@@ -132,9 +132,9 @@ func requiredToolPermissions(ctx context.Context, cs *cluster.ClientSet, toolNam
 		// Require at least read permission on pods in all namespaces
 		// This ensures users can only query metrics if they have cluster-wide read access
 		return []toolPermission{{
-			Resource:  "pods",
+			Resource:  string(common.Pods),
 			Verb:      string(common.VerbGet),
-			Namespace: "_all",
+			Namespace: common.AllNamespaces,
 		}}, nil
 	default:
 		return nil, nil

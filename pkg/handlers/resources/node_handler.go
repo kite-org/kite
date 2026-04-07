@@ -27,7 +27,7 @@ type NodeHandler struct {
 func NewNodeHandler() *NodeHandler {
 	return &NodeHandler{
 		GenericResourceHandler: NewGenericResourceHandler[*corev1.Node, *corev1.NodeList](
-			"nodes",
+			string(common.Nodes),
 			true, // Nodes are cluster-scoped resources
 			true,
 		),

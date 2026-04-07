@@ -37,7 +37,7 @@ func discoverServices(ctx context.Context, k8sClient *kube.K8sClient, namespace 
 			serviceSelector := labels.SelectorFromSet(service.Spec.Selector)
 			if serviceSelector.Matches(labels.Set(selector.MatchLabels)) {
 				relatedServices = append(relatedServices, common.RelatedResource{
-					Type:      "services",
+					Type:      string(common.Services),
 					Namespace: service.Namespace,
 					Name:      service.Name,
 				})
@@ -57,7 +57,7 @@ func discoverIngressServices(namespace string, ingress *v1.Ingress) []common.Rel
 		}
 		seen[svcName] = struct{}{}
 		relatedServices = append(relatedServices, common.RelatedResource{
-			Type:      "services",
+			Type:      string(common.Services),
 			Namespace: namespace,
 			Name:      svcName,
 		})
@@ -127,21 +127,21 @@ func discoverConfigs(namespace string, podSpec *corev1.PodTemplateSpec) []common
 	var related []common.RelatedResource
 	for name := range configMapSet {
 		related = append(related, common.RelatedResource{
-			Type:      "configmaps",
+			Type:      string(common.ConfigMaps),
 			Name:      name,
 			Namespace: namespace,
 		})
 	}
 	for name := range secretSet {
 		related = append(related, common.RelatedResource{
-			Type:      "secrets",
+			Type:      string(common.Secrets),
 			Name:      name,
 			Namespace: namespace,
 		})
 	}
 	for name := range pvcSet {
 		related = append(related, common.RelatedResource{
-			Type:      "persistentvolumeclaims",
+			Type:      string(common.PersistentVolumeClaims),
 			Name:      name,
 			Namespace: namespace,
 		})
@@ -160,31 +160,31 @@ func checkInUsedConfigs(spec *corev1.PodTemplateSpec, name string, resourceType 
 	for _, container := range containers {
 		for _, envVar := range container.Env {
 			if envVar.ValueFrom != nil {
-				if resourceType == "configmaps" && envVar.ValueFrom.ConfigMapKeyRef != nil && envVar.ValueFrom.ConfigMapKeyRef.Name == name {
+				if resourceType == string(common.ConfigMaps) && envVar.ValueFrom.ConfigMapKeyRef != nil && envVar.ValueFrom.ConfigMapKeyRef.Name == name {
 					return true
 				}
-				if resourceType == "secrets" && envVar.ValueFrom.SecretKeyRef != nil && envVar.ValueFrom.SecretKeyRef.Name == name {
+				if resourceType == string(common.Secrets) && envVar.ValueFrom.SecretKeyRef != nil && envVar.ValueFrom.SecretKeyRef.Name == name {
 					return true
 				}
 			}
 		}
 		for _, envFrom := range container.EnvFrom {
-			if resourceType == "configmaps" && envFrom.ConfigMapRef != nil && envFrom.ConfigMapRef.Name == name {
+			if resourceType == string(common.ConfigMaps) && envFrom.ConfigMapRef != nil && envFrom.ConfigMapRef.Name == name {
 				return true
 			}
-			if resourceType == "secrets" && envFrom.SecretRef != nil && envFrom.SecretRef.Name == name {
+			if resourceType == string(common.Secrets) && envFrom.SecretRef != nil && envFrom.SecretRef.Name == name {
 				return true
 			}
 		}
 	}
 	for _, volume := range spec.Spec.Volumes {
-		if resourceType == "configmaps" && volume.ConfigMap != nil && volume.ConfigMap.Name == name {
+		if resourceType == string(common.ConfigMaps) && volume.ConfigMap != nil && volume.ConfigMap.Name == name {
 			return true
 		}
-		if resourceType == "secrets" && volume.Secret != nil && volume.Secret.SecretName == name {
+		if resourceType == string(common.Secrets) && volume.Secret != nil && volume.Secret.SecretName == name {
 			return true
 		}
-		if resourceType == "persistentvolumeclaims" && volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == name {
+		if resourceType == string(common.PersistentVolumeClaims) && volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == name {
 			return true
 		}
 	}
@@ -220,7 +220,7 @@ func discoveryWorkloads(ctx context.Context, k8sClient *kube.K8sClient, namespac
 	for _, deployment := range deploymentList.Items {
 		if checkInUsedConfigs(&deployment.Spec.Template, name, resourceType) {
 			related = append(related, common.RelatedResource{
-				Type:      "deployments",
+				Type:      string(common.Deployments),
 				Name:      deployment.Name,
 				Namespace: deployment.Namespace,
 			})
@@ -229,7 +229,7 @@ func discoveryWorkloads(ctx context.Context, k8sClient *kube.K8sClient, namespac
 	for _, statefulSet := range statefulSetList.Items {
 		if checkInUsedConfigs(&statefulSet.Spec.Template, name, resourceType) {
 			related = append(related, common.RelatedResource{
-				Type:      "statefulsets",
+				Type:      string(common.StatefulSets),
 				Name:      statefulSet.Name,
 				Namespace: statefulSet.Namespace,
 			})
@@ -238,7 +238,7 @@ func discoveryWorkloads(ctx context.Context, k8sClient *kube.K8sClient, namespac
 	for _, daemonSet := range daemonSetList.Items {
 		if checkInUsedConfigs(&daemonSet.Spec.Template, name, resourceType) {
 			related = append(related, common.RelatedResource{
-				Type:      "daemonsets",
+				Type:      string(common.DaemonSets),
 				Name:      daemonSet.Name,
 				Namespace: daemonSet.Namespace,
 			})
@@ -260,7 +260,7 @@ func discoverPodsByService(ctx context.Context, k8sClient *kube.K8sClient, servi
 		for _, addr := range subset.Addresses {
 			if addr.TargetRef != nil && addr.TargetRef.Kind == "Pod" {
 				relatedPods = append(relatedPods, common.RelatedResource{
-					Type:      "pods",
+					Type:      string(common.Pods),
 					Namespace: addr.TargetRef.Namespace,
 					Name:      addr.TargetRef.Name,
 				})
@@ -314,9 +314,9 @@ func GetRelatedResources(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to discover workloads: " + err.Error()})
 			return
 		} else {
-			if resourceType == "persistentvolumeclaims" {
+			if resourceType == string(common.PersistentVolumeClaims) {
 				result = append(result, common.RelatedResource{
-					Type: "persistentvolumes",
+					Type: string(common.PersistentVolumes),
 					Name: res.(*corev1.PersistentVolumeClaim).Spec.VolumeName,
 				})
 			}
@@ -396,7 +396,7 @@ func getHTTPRouteRelatedResouces(res *gatewayapiv1.HTTPRoute, namespace string) 
 		if parentRef.Kind != nil && *parentRef.Kind != "" {
 			parentResourceType = strings.ToLower(string(*parentRef.Kind)) + "s"
 		} else {
-			parentResourceType = "gateways"
+			parentResourceType = string(common.Gateways)
 		}
 		result = append(result, common.RelatedResource{
 			Type: parentResourceType,
@@ -417,9 +417,9 @@ func getHTTPRouteRelatedResouces(res *gatewayapiv1.HTTPRoute, namespace string) 
 			if backend.Kind != nil && *backend.Kind != "" {
 				backendType = strings.ToLower(string(*backend.Kind)) + "s"
 			} else {
-				backendType = "services"
+				backendType = string(common.Services)
 			}
-			if backendType == "services" {
+			if backendType == string(common.Services) {
 				apiVersion = corev1.SchemeGroupVersion.String()
 			}
 			result = append(result, common.RelatedResource{

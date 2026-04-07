@@ -11,8 +11,10 @@ import {
   ResourceType,
   ResourceTypeMap,
 } from '@/types/api'
+import { getResourceQueryKey } from '@/lib/resource-metadata'
 
 import { API_BASE_URL, apiClient } from '../api-client'
+import { appendCurrentClusterParam } from '../current-cluster'
 import { withSubPath } from '../subpath'
 import { fetchAPI } from './shared'
 
@@ -364,8 +366,7 @@ export function useResourcesWatch<T extends ResourceType>(
       params.append('labelSelector', options.labelSelector)
     if (options?.fieldSelector)
       params.append('fieldSelector', options.fieldSelector)
-    const cluster = localStorage.getItem('current-cluster')
-    if (cluster) params.append('x-cluster-name', cluster)
+    appendCurrentClusterParam(params)
     return withSubPath(
       `${API_BASE_URL}/${resource}/${ns}/watch?${params.toString()}`
     )
@@ -500,7 +501,7 @@ export const useResource = <T extends keyof ResourceTypeMap>(
 ) => {
   const ns = namespace || '_all'
   return useQuery({
-    queryKey: [resource.slice(0, -1), ns, name], // Remove 's' from resource name for singular
+    queryKey: getResourceQueryKey(resource, ns, name),
     queryFn: () => {
       return fetchResource<ResourceTypeMap[T]>(resource, name, ns)
     },

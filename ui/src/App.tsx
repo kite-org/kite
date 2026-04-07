@@ -1,11 +1,12 @@
 import './App.css'
 
-import { lazy, ReactNode, Suspense, useEffect } from 'react'
+import { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Outlet, useSearchParams } from 'react-router-dom'
 
 import { AIChatbox, StandaloneAIChatbox } from './components/ai-chat/ai-chatbox'
 import { AppSidebar } from './components/app-sidebar'
+import { FloatingTerminal } from './components/floating-terminal'
 import { GlobalSearch } from './components/global-search'
 import {
   GlobalSearchProvider,
@@ -18,23 +19,10 @@ import { AIChatProvider } from './contexts/ai-chat-context'
 import { ClusterProvider } from './contexts/cluster-context'
 import { TerminalProvider, useTerminal } from './contexts/terminal-context'
 import { useCluster } from './hooks/use-cluster'
-import { apiClient } from './lib/api-client'
-import { prefetchMonaco } from './lib/monaco-runtime'
-
-const FloatingTerminal = lazy(async () => {
-  const module = await import('./components/floating-terminal')
-  return { default: module.FloatingTerminal }
-})
 
 function ClusterGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
-  const { currentCluster, isLoading, error } = useCluster()
-
-  useEffect(() => {
-    apiClient.setClusterProvider(() => {
-      return currentCluster || localStorage.getItem('current-cluster')
-    })
-  }, [currentCluster])
+  const { isLoading, error } = useCluster()
 
   if (isLoading) {
     return (
@@ -85,12 +73,10 @@ function AppContent() {
           </div>
         </SidebarInset>
       </SidebarProvider>
-      <GlobalSearch open={isOpen} onOpenChange={closeSearch} />
-      {isTerminalOpen ? (
-        <Suspense fallback={null}>
-          <FloatingTerminal />
-        </Suspense>
+      {isOpen ? (
+        <GlobalSearch open={isOpen} onOpenChange={closeSearch} />
       ) : null}
+      {isTerminalOpen ? <FloatingTerminal /> : null}
       <AIChatbox />
       <Toaster />
     </>
@@ -98,10 +84,6 @@ function AppContent() {
 }
 
 function AppProviders({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    prefetchMonaco()
-  }, [])
-
   return (
     <TerminalProvider>
       <ClusterProvider>

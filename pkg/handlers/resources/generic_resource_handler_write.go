@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/cluster"
+	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -72,7 +73,7 @@ func (h *GenericResourceHandler[T, V]) Update(c *gin.Context) {
 	resource.SetName(name)
 	if !h.isClusterScoped {
 		namespace := c.Param("namespace")
-		if namespace != "" && namespace != "_all" {
+		if namespace != "" && namespace != common.AllNamespaces {
 			resource.SetNamespace(namespace)
 		}
 	}
@@ -109,7 +110,7 @@ func (h *GenericResourceHandler[T, V]) Patch(c *gin.Context) {
 	namespacedName := types.NamespacedName{Name: name}
 	if !h.isClusterScoped {
 		namespace := c.Param("namespace")
-		if namespace != "" && namespace != "_all" {
+		if namespace != "" && namespace != common.AllNamespaces {
 			namespacedName.Namespace = namespace
 		}
 	}
@@ -150,7 +151,7 @@ func (h *GenericResourceHandler[T, V]) Delete(c *gin.Context) {
 	namespacedName := types.NamespacedName{Name: name}
 	if !h.isClusterScoped {
 		namespace := c.Param("namespace")
-		if namespace != "" && namespace != "_all" {
+		if namespace != "" && namespace != common.AllNamespaces {
 			namespacedName.Namespace = namespace
 		}
 	}

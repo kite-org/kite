@@ -30,7 +30,7 @@ func (h *GenericResourceHandler[T, V]) list(c *gin.Context) (V, error) {
 	var listOpts []client.ListOption
 	namespace := c.Param("namespace")
 	if !h.isClusterScoped {
-		if namespace != "" && namespace != "_all" {
+		if namespace != "" && namespace != common.AllNamespaces {
 			listOpts = append(listOpts, client.InNamespace(namespace))
 		}
 	}
@@ -112,10 +112,10 @@ func (h *GenericResourceHandler[T, V]) list(c *gin.Context) (V, error) {
 		if anno != nil {
 			delete(anno, common.KubectlAnnotation)
 		}
-		if h.Name() == "namespaces" && !rbac.CanAccessNamespace(user, cs.Name, obj.GetName()) {
+		if h.Name() == string(common.Namespaces) && !rbac.CanAccessNamespace(user, cs.Name, obj.GetName()) {
 			continue
 		}
-		if namespace == "_all" && obj.GetNamespace() != "" && !rbac.CanAccessNamespace(user, cs.Name, obj.GetNamespace()) {
+		if namespace == common.AllNamespaces && obj.GetNamespace() != "" && !rbac.CanAccessNamespace(user, cs.Name, obj.GetNamespace()) {
 			continue
 		}
 		filterItems = append(filterItems, items[i])

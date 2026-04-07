@@ -1,39 +1,12 @@
 package utils
 
-import "strings"
+import (
+	"strings"
 
-var searchResourceAliases = map[string]string{
-	"po":                     "pods",
-	"pod":                    "pods",
-	"pods":                   "pods",
-	"svc":                    "services",
-	"service":                "services",
-	"services":               "services",
-	"pv":                     "persistentvolumes",
-	"persistentvolume":       "persistentvolumes",
-	"persistentvolumes":      "persistentvolumes",
-	"pvc":                    "persistentvolumeclaims",
-	"persistentvolumeclaim":  "persistentvolumeclaims",
-	"persistentvolumeclaims": "persistentvolumeclaims",
-	"cm":                     "configmaps",
-	"configmap":              "configmaps",
-	"configmaps":             "configmaps",
-	"secret":                 "secrets",
-	"secrets":                "secrets",
-	"dep":                    "deployments",
-	"deploy":                 "deployments",
-	"deployment":             "deployments",
-	"deployments":            "deployments",
-	"ds":                     "daemonsets",
-	"daemonset":              "daemonsets",
-	"daemonsets":             "daemonsets",
-	"statefulset":            "statefulsets",
-	"statefulsets":           "statefulsets",
-	"job":                    "jobs",
-	"jobs":                   "jobs",
-	"cronjob":                "cronjobs",
-	"cronjobs":               "cronjobs",
-}
+	"github.com/zxh326/kite/pkg/common"
+)
+
+var searchResourceAliases = common.SearchAliases()
 
 func GuessSearchResources(query string) (string, string) {
 	parts := strings.Fields(query)

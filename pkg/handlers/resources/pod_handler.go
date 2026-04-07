@@ -35,7 +35,7 @@ type PodHandler struct {
 
 func NewPodHandler() *PodHandler {
 	return &PodHandler{
-		GenericResourceHandler: NewGenericResourceHandler[*corev1.Pod, *corev1.PodList]("pods", false, true),
+		GenericResourceHandler: NewGenericResourceHandler[*corev1.Pod, *corev1.PodList](string(common.Pods), false, true),
 	}
 }
 
@@ -107,7 +107,7 @@ func (h *PodHandler) ListMetrics(c *gin.Context) (map[string]metricsv1.PodMetric
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
 	var metricsList metricsv1.PodMetricsList
 	var listOpts []client.ListOption
-	if namespace := c.Param("namespace"); namespace != "" && namespace != "_all" {
+	if namespace := c.Param("namespace"); namespace != "" && namespace != common.AllNamespaces {
 		listOpts = append(listOpts, client.InNamespace(namespace))
 	}
 	if labelSelector := c.Query("labelSelector"); labelSelector != "" {
@@ -174,7 +174,7 @@ func (h *PodHandler) List(c *gin.Context) {
 		}
 		result.Items[i] = item
 	}
-	c.JSON(200, result)
+	c.JSON(http.StatusOK, result)
 }
 
 func (h *PodHandler) Resize(c *gin.Context) {
@@ -194,7 +194,7 @@ func (h *PodHandler) Resize(c *gin.Context) {
 	namespace := c.Param("namespace")
 	oldPod := &corev1.Pod{}
 	namespacedName := types.NamespacedName{Name: name}
-	if namespace != "" && namespace != "_all" {
+	if namespace != "" && namespace != common.AllNamespaces {
 		namespacedName.Namespace = namespace
 	}
 	if err := cs.K8sClient.Get(c.Request.Context(), namespacedName, oldPod); err != nil {
@@ -260,8 +260,8 @@ func (h *PodHandler) registerCustomRoutes(group *gin.RouterGroup) {
 		user := c.MustGet("user").(model.User)
 		cs := c.MustGet("cluster").(*cluster.ClientSet)
 		namespace := c.Param("namespace")
-		if !rbac.CanAccess(user, "pods", string(common.VerbExec), cs.Name, namespace) {
-			c.JSON(http.StatusForbidden, gin.H{"error": rbac.NoAccess(user.Key(), string(common.VerbExec), "pods", namespace, cs.Name)})
+		if !rbac.CanAccess(user, string(common.Pods), string(common.VerbExec), cs.Name, namespace) {
+			c.JSON(http.StatusForbidden, gin.H{"error": rbac.NoAccess(user.Key(), string(common.VerbExec), string(common.Pods), namespace, cs.Name)})
 			c.Abort()
 			return
 		}
@@ -524,7 +524,7 @@ func (h *PodHandler) Watch(c *gin.Context) {
 	// Parse params
 	namespace := c.Param("namespace")
 	if namespace == "" {
-		namespace = "_all"
+		namespace = common.AllNamespaces
 	}
 	reduce := c.DefaultQuery("reduce", "false") == "true"
 	labelSelector := c.Query("labelSelector")
@@ -539,7 +539,7 @@ func (h *PodHandler) Watch(c *gin.Context) {
 	}
 
 	ns := namespace
-	if ns == "_all" {
+	if ns == common.AllNamespaces {
 		ns = ""
 	}
 	metricsMap, err := h.ListMetrics(c)

@@ -1,12 +1,21 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { PersistentVolume } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
+import { createSearchFilter } from '@/lib/k8s'
 import { formatDate, parseBytes } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ResourceTable } from '@/components/resource-table'
+
+const pvSearchFilter = createSearchFilter<PersistentVolume>(
+  (pv) => pv.metadata?.name,
+  (pv) => pv.spec?.storageClassName,
+  (pv) => pv.status?.phase,
+  (pv) => pv.spec?.claimRef?.name,
+  (pv) => pv.spec?.claimRef?.namespace
+)
 
 export function PVListPage() {
   const { t } = useTranslation()
@@ -115,17 +124,6 @@ export function PVListPage() {
     ],
     [columnHelper, t]
   )
-
-  // Custom filter for PV search
-  const pvSearchFilter = useCallback((pv: PersistentVolume, query: string) => {
-    return (
-      pv.metadata!.name!.toLowerCase().includes(query) ||
-      (pv.spec!.storageClassName?.toLowerCase() || '').includes(query) ||
-      (pv.status!.phase?.toLowerCase() || '').includes(query) ||
-      (pv.spec!.claimRef?.name?.toLowerCase() || '').includes(query) ||
-      (pv.spec!.claimRef?.namespace?.toLowerCase() || '').includes(query)
-    )
-  }, [])
 
   return (
     <ResourceTable

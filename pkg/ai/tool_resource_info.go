@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/zxh326/kite/pkg/cluster"
+	"github.com/zxh326/kite/pkg/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -23,63 +24,30 @@ type resourceInfo struct {
 }
 
 func resolveStaticResourceInfo(kind string) resourceInfo {
-	switch strings.ToLower(strings.TrimSpace(kind)) {
-	case "pod", "pods":
-		return resourceInfo{Kind: "Pod", Resource: "pods", Version: "v1"}
-	case "service", "services", "svc":
-		return resourceInfo{Kind: "Service", Resource: "services", Version: "v1"}
-	case "configmap", "configmaps", "cm":
-		return resourceInfo{Kind: "ConfigMap", Resource: "configmaps", Version: "v1"}
-	case "secret", "secrets":
-		return resourceInfo{Kind: "Secret", Resource: "secrets", Version: "v1"}
-	case "namespace", "namespaces", "ns":
-		return resourceInfo{Kind: "Namespace", Resource: "namespaces", Version: "v1", ClusterScoped: true}
-	case "node", "nodes":
-		return resourceInfo{Kind: "Node", Resource: "nodes", Version: "v1", ClusterScoped: true}
-	case "persistentvolumeclaim", "persistentvolumeclaims", "pvc":
-		return resourceInfo{Kind: "PersistentVolumeClaim", Resource: "persistentvolumeclaims", Version: "v1"}
-	case "persistentvolume", "persistentvolumes", "pv":
-		return resourceInfo{Kind: "PersistentVolume", Resource: "persistentvolumes", Version: "v1", ClusterScoped: true}
-	case "serviceaccount", "serviceaccounts", "sa":
-		return resourceInfo{Kind: "ServiceAccount", Resource: "serviceaccounts", Version: "v1"}
-	case "deployment", "deployments", "deploy":
-		return resourceInfo{Kind: "Deployment", Resource: "deployments", Group: "apps", Version: "v1"}
-	case "statefulset", "statefulsets", "sts":
-		return resourceInfo{Kind: "StatefulSet", Resource: "statefulsets", Group: "apps", Version: "v1"}
-	case "daemonset", "daemonsets", "ds":
-		return resourceInfo{Kind: "DaemonSet", Resource: "daemonsets", Group: "apps", Version: "v1"}
-	case "replicaset", "replicasets", "rs":
-		return resourceInfo{Kind: "ReplicaSet", Resource: "replicasets", Group: "apps", Version: "v1"}
-	case "job", "jobs":
-		return resourceInfo{Kind: "Job", Resource: "jobs", Group: "batch", Version: "v1"}
-	case "cronjob", "cronjobs", "cj":
-		return resourceInfo{Kind: "CronJob", Resource: "cronjobs", Group: "batch", Version: "v1"}
-	case "ingress", "ingresses", "ing":
-		return resourceInfo{Kind: "Ingress", Resource: "ingresses", Group: "networking.k8s.io", Version: "v1"}
-	case "networkpolicy", "networkpolicies", "netpol":
-		return resourceInfo{Kind: "NetworkPolicy", Resource: "networkpolicies", Group: "networking.k8s.io", Version: "v1"}
-	case "storageclass", "storageclasses", "sc":
-		return resourceInfo{Kind: "StorageClass", Resource: "storageclasses", Group: "storage.k8s.io", Version: "v1", ClusterScoped: true}
-	case "customresourcedefinition", "customresourcedefinitions", "crd", "crds":
-		return resourceInfo{Kind: "CustomResourceDefinition", Resource: "customresourcedefinitions", Group: "apiextensions.k8s.io", Version: "v1", ClusterScoped: true}
-	case "event", "events":
-		return resourceInfo{Kind: "Event", Resource: "events", Version: "v1"}
-	default:
-		kind = strings.TrimSpace(kind)
-		if kind == "" {
-			return resourceInfo{Kind: "Unknown", Resource: "unknowns", Version: "v1"}
+	if m := common.LookupResource(kind); m != nil {
+		return resourceInfo{
+			Kind:          m.Kind,
+			Resource:      string(m.Plural),
+			Group:         m.Group,
+			Version:       m.Version,
+			ClusterScoped: m.ClusterScoped,
 		}
-
-		kindLower := strings.ToLower(kind)
-		resource := kindLower
-		if !strings.HasSuffix(resource, "s") {
-			resource += "s"
-		}
-		if strings.HasSuffix(kindLower, "s") {
-			kind = strings.TrimSuffix(kind, "s")
-		}
-		return resourceInfo{Kind: kind, Resource: resource, Version: "v1"}
 	}
+
+	kind = strings.TrimSpace(kind)
+	if kind == "" {
+		return resourceInfo{Kind: "Unknown", Resource: "unknowns", Version: "v1"}
+	}
+
+	kindLower := strings.ToLower(kind)
+	resource := kindLower
+	if !strings.HasSuffix(resource, "s") {
+		resource += "s"
+	}
+	if strings.HasSuffix(kindLower, "s") {
+		kind = strings.TrimSuffix(kind, "s")
+	}
+	return resourceInfo{Kind: kind, Resource: resource, Version: "v1"}
 }
 
 func resolveResourceInfo(ctx context.Context, cs *cluster.ClientSet, kind string) resourceInfo {

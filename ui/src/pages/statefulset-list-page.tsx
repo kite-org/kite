@@ -1,13 +1,20 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { IconCircleCheckFilled, IconLoader } from '@tabler/icons-react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { StatefulSet } from 'kubernetes-types/apps/v1'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
+import { createSearchFilter } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ResourceTable } from '@/components/resource-table'
+
+const statefulSetSearchFilter = createSearchFilter<StatefulSet>(
+  (s) => s.metadata?.name,
+  (s) => s.metadata?.namespace,
+  (s) => s.spec?.serviceName
+)
 
 export function StatefulSetListPage() {
   const { t } = useTranslation()
@@ -93,20 +100,6 @@ export function StatefulSetListPage() {
       }),
     ],
     [columnHelper, t]
-  )
-
-  // Custom filter for statefulset search
-  const statefulSetSearchFilter = useCallback(
-    (statefulSet: StatefulSet, query: string) => {
-      return (
-        statefulSet.metadata!.name!.toLowerCase().includes(query) ||
-        (statefulSet.metadata!.namespace?.toLowerCase() || '').includes(
-          query
-        ) ||
-        (statefulSet.spec!.serviceName?.toLowerCase() || '').includes(query)
-      )
-    },
-    []
   )
 
   return (

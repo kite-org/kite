@@ -1,11 +1,14 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { Namespace } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
+import { createSearchFilter } from '@/lib/k8s'
 import { getAge } from '@/lib/utils'
 import { ResourceTable } from '@/components/resource-table'
+
+const filter = createSearchFilter<Namespace>((ns) => ns.metadata?.name)
 
 export function NamespaceListPage() {
   const { t } = useTranslation()
@@ -37,10 +40,6 @@ export function NamespaceListPage() {
     ],
     [columnHelper, t]
   )
-
-  const filter = useCallback((ns: Namespace, query: string) => {
-    return ns.metadata!.name!.toLowerCase().includes(query)
-  }, [])
 
   return (
     <ResourceTable

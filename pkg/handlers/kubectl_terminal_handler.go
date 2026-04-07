@@ -3,14 +3,13 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/net/websocket"
 
 	"github.com/zxh326/kite/pkg/cluster"
+	"github.com/zxh326/kite/pkg/handlers/wsutil"
 	"github.com/zxh326/kite/pkg/kube"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/rbac"
@@ -46,17 +45,17 @@ func (h *KubectlTerminalHandler) HandleKubectlTerminalWebSocket(c *gin.Context) 
 
 		// Only admin users can use the kubectl terminal
 		if !rbac.UserHasRole(user, model.DefaultAdminRole.Name) {
-			h.sendErrorMessage(conn, "kubectl terminal is only available to admin users")
+			wsutil.SendErrorMessage(conn, "kubectl terminal is only available to admin users")
 			return
 		}
 
 		setting, err := model.GetGeneralSetting()
 		if err != nil {
-			h.sendErrorMessage(conn, fmt.Sprintf("Failed to load settings: %v", err))
+			wsutil.SendErrorMessage(conn, fmt.Sprintf("Failed to load settings: %v", err))
 			return
 		}
 		if !setting.KubectlEnabled {
-			h.sendErrorMessage(conn, "kubectl terminal is disabled")
+			wsutil.SendErrorMessage(conn, "kubectl terminal is disabled")
 			return
 		}
 		kubectlImage := strings.TrimSpace(setting.KubectlImage)
@@ -69,8 +68,8 @@ func (h *KubectlTerminalHandler) HandleKubectlTerminalWebSocket(c *gin.Context) 
 
 		// Ensure the shared admin ServiceAccount + ClusterRoleBinding exist
 		if err := h.ensureAdminServiceAccount(ctx, cs); err != nil {
-			log.Printf("Failed to ensure kubectl admin SA: %v", err)
-			h.sendErrorMessage(conn, fmt.Sprintf("Failed to setup kubectl terminal: %v", err))
+			klog.Errorf("Failed to ensure kubectl admin SA: %v", err)
+			wsutil.SendErrorMessage(conn, fmt.Sprintf("Failed to setup kubectl terminal: %v", err))
 			return
 		}
 
@@ -78,8 +77,8 @@ func (h *KubectlTerminalHandler) HandleKubectlTerminalWebSocket(c *gin.Context) 
 
 		podName, err := h.createKubectlAgent(ctx, cs, instanceID, kubectlImage)
 		if err != nil {
-			log.Printf("Failed to create kubectl agent pod: %v", err)
-			h.sendErrorMessage(conn, fmt.Sprintf("Failed to create kubectl agent pod: %v", err))
+			klog.Errorf("Failed to create kubectl agent pod: %v", err)
+			wsutil.SendErrorMessage(conn, fmt.Sprintf("Failed to create kubectl agent pod: %v", err))
 			_ = h.cleanupPod(cs, instanceID)
 			return
 		}
@@ -87,13 +86,13 @@ func (h *KubectlTerminalHandler) HandleKubectlTerminalWebSocket(c *gin.Context) 
 		defer func() {
 			klog.Infof("Cleaning up kubectl pod %s", instanceID)
 			if err := h.cleanupPod(cs, instanceID); err != nil {
-				log.Printf("Failed to cleanup kubectl pod %s: %v", instanceID, err)
+				klog.Errorf("Failed to cleanup kubectl pod %s: %v", instanceID, err)
 			}
 		}()
 
-		if err := h.waitForPodReady(ctx, cs, conn, podName); err != nil {
-			log.Printf("Failed to wait for kubectl agent pod ready: %v", err)
-			h.sendErrorMessage(conn, fmt.Sprintf("Failed to wait for kubectl agent pod ready: %v", err))
+		if err := waitForAgentPodReady(ctx, cs, conn, podName, "kubectl agent ready!"); err != nil {
+			klog.Errorf("Failed to wait for kubectl agent pod ready: %v", err)
+			wsutil.SendErrorMessage(conn, fmt.Sprintf("Failed to wait for kubectl agent pod ready: %v", err))
 			return
 		}
 
@@ -188,40 +187,6 @@ func (h *KubectlTerminalHandler) createKubectlAgent(ctx context.Context, cs *clu
 	return podName, nil
 }
 
-func (h *KubectlTerminalHandler) waitForPodReady(ctx context.Context, cs *cluster.ClientSet, conn *websocket.Conn, podName string) error {
-	timeout := time.After(60 * time.Second)
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-	h.sendMessage(conn, "info", fmt.Sprintf("waiting for kubectl agent pod %s to be ready", podName))
-
-	var pod *corev1.Pod
-	var err error
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-timeout:
-			h.sendMessage(conn, "info", "")
-			h.sendErrorMessage(conn, utils.GetPodErrorMessage(pod))
-			return fmt.Errorf("timeout waiting for kubectl agent pod %s to be ready", podName)
-		case <-ticker.C:
-			pod, err = cs.K8sClient.ClientSet.CoreV1().Pods(common.AgentPodNamespace).Get(
-				ctx,
-				podName,
-				metav1.GetOptions{},
-			)
-			if err != nil {
-				continue
-			}
-			h.sendMessage(conn, "stdout", ".")
-			if utils.IsPodReady(pod) {
-				h.sendMessage(conn, "info", "kubectl agent ready!")
-				return nil
-			}
-		}
-	}
-}
-
 // cleanupPod deletes only the per-session pod (the admin SA/CRB are permanent).
 func (h *KubectlTerminalHandler) cleanupPod(cs *cluster.ClientSet, instanceID string) error {
 	ctx := context.TODO()
@@ -231,24 +196,4 @@ func (h *KubectlTerminalHandler) cleanupPod(cs *cluster.ClientSet, instanceID st
 		client.PropagationPolicy(metav1.DeletePropagationBackground),
 	}
 	return cs.K8sClient.DeleteAllOf(ctx, &corev1.Pod{}, opts...)
-}
-
-func (h *KubectlTerminalHandler) sendErrorMessage(conn *websocket.Conn, message string) {
-	msg := map[string]interface{}{
-		"type": "error",
-		"data": message,
-	}
-	if err := websocket.JSON.Send(conn, msg); err != nil {
-		log.Printf("Failed to send error message: %v", err)
-	}
-}
-
-func (h *KubectlTerminalHandler) sendMessage(conn *websocket.Conn, msgType, message string) {
-	msg := map[string]interface{}{
-		"type": msgType,
-		"data": message,
-	}
-	if err := websocket.JSON.Send(conn, msg); err != nil {
-		log.Printf("Failed to send message: %v", err)
-	}
 }

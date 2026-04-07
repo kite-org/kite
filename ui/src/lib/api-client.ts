@@ -1,18 +1,14 @@
 // API client with authentication support
+import { appendCurrentClusterHeader } from './current-cluster'
 import { withSubPath } from './subpath'
 
 class ApiClient {
   private baseUrl: string = ''
   private isRefreshing = false
   private refreshPromise: Promise<void> | null = null
-  private getCurrentCluster: (() => string | null) | null = null
 
   constructor(baseUrl: string = '') {
     this.baseUrl = baseUrl
-  }
-
-  setClusterProvider(provider: () => string | null) {
-    this.getCurrentCluster = provider
   }
 
   private async refreshToken(): Promise<void> {
@@ -53,11 +49,7 @@ class ApiClient {
       headers['Content-Type'] = 'application/json'
     }
 
-    // Add cluster header if available
-    const currentCluster = this.getCurrentCluster?.()
-    if (currentCluster) {
-      headers['x-cluster-name'] = currentCluster
-    }
+    appendCurrentClusterHeader(headers)
 
     const defaultOptions: RequestInit = {
       credentials: 'include',

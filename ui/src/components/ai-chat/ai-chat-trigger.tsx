@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/tooltip'
 
 const FAB_SIZE = 48
-const FAB_BASE_BOTTOM = 24
+const FAB_BASE_BOTTOM = 56
 const FAB_MIN_MARGIN = 16
 const FAB_DRAG_THRESHOLD = 4
 
@@ -160,7 +160,7 @@ export function AIChatTrigger({ onOpen }: { onOpen: () => void }) {
           onPointerCancel={handlePointerCancel}
           onLostPointerCapture={handleLostPointerCapture}
           style={{
-            bottom: `calc(env(safe-area-inset-bottom, 0px) + 1.5rem)`,
+            bottom: `calc(env(safe-area-inset-bottom, 0px) + ${FAB_BASE_BOTTOM}px)`,
             transform: `translate3d(0, ${translateY}px, 0)`,
             touchAction: 'none',
             willChange: 'transform',

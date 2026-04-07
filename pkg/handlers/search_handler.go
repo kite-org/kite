@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"sort"
 	"strconv"
@@ -18,6 +17,7 @@ import (
 	"github.com/zxh326/kite/pkg/middleware"
 	"github.com/zxh326/kite/pkg/utils"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/klog/v2"
 )
 
 type SearchHandler struct {
@@ -34,15 +34,15 @@ const (
 )
 
 var searchResourceOrder = map[string]int{
-	"deployments":  1,
-	"pods":         2,
-	"daemonsets":   3,
-	"statefulsets": 4,
-	"configmaps":   5,
-	"services":     6,
-	"secrets":      7,
-	"ingresses":    8,
-	"namespaces":   9,
+	string(common.Deployments):  1,
+	string(common.Pods):         2,
+	string(common.DaemonSets):   3,
+	string(common.StatefulSets): 4,
+	string(common.ConfigMaps):   5,
+	string(common.Services):     6,
+	string(common.Secrets):      7,
+	string(common.Ingresses):    8,
+	string(common.Namespaces):   9,
 }
 
 func NewSearchHandler() *SearchHandler {
@@ -84,13 +84,13 @@ func (h *SearchHandler) Search(c *gin.Context, query string, limit int) ([]commo
 		g.Go(func() (err error) {
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("search: resource %q panicked: %v", entry.name, r)
+					klog.Errorf("search: resource %q panicked: %v", entry.name, r)
 					hadFailure.Store(true)
 				}
 			}()
 			results, searchErr := entry.fn(c, q, int64(limit))
 			if searchErr != nil {
-				log.Printf("search: resource %q failed: %v", entry.name, searchErr)
+				klog.Errorf("search: resource %q failed: %v", entry.name, searchErr)
 				hadFailure.Store(true)
 				return nil
 			}

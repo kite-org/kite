@@ -37,6 +37,8 @@ var (
 
 	KiteEncryptKey = "kite-default-encryption-key-change-in-production"
 
+	AllNamespaces = "_all"
+
 	AnonymousUserEnabled = false
 
 	CookieExpirationSeconds = 2 * JWTExpirationSeconds // double jwt

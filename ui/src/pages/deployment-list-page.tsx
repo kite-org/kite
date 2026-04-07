@@ -1,15 +1,20 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { Deployment } from 'kubernetes-types/apps/v1'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 
-import { getDeploymentStatus } from '@/lib/k8s'
+import { createSearchFilter, getDeploymentStatus } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { DeploymentStatusIcon } from '@/components/deployment-status-icon'
 import { DeploymentCreateDialog } from '@/components/editors/deployment-create-dialog'
 import { ResourceTable } from '@/components/resource-table'
+
+const deploymentSearchFilter = createSearchFilter<Deployment>(
+  (d) => d.metadata?.name,
+  (d) => d.metadata?.namespace
+)
 
 export function DeploymentListPage() {
   const { t } = useTranslation()
@@ -74,17 +79,6 @@ export function DeploymentListPage() {
       }),
     ],
     [columnHelper, t]
-  )
-
-  // Custom filter for deployment search
-  const deploymentSearchFilter = useCallback(
-    (deployment: Deployment, query: string) => {
-      return (
-        deployment.metadata!.name!.toLowerCase().includes(query) ||
-        (deployment.metadata!.namespace?.toLowerCase() || '').includes(query)
-      )
-    },
-    []
   )
 
   const handleCreateClick = () => {

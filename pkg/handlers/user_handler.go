@@ -20,13 +20,13 @@ type createPasswordUser struct {
 func CreateSuperUser(c *gin.Context) {
 	var userreq createPasswordUser
 	if err := c.ShouldBindJSON(&userreq); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	uc, err := model.CountUsers()
 	if err != nil {
-		c.JSON(500, gin.H{"error": "failed to count users"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to count users"})
 		return
 	}
 
@@ -42,17 +42,17 @@ func CreateSuperUser(c *gin.Context) {
 	}
 
 	if err := model.AddSuperUser(user); err != nil {
-		c.JSON(500, gin.H{"error": "failed to create super user"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create super user"})
 		return
 	}
-	rbac.SyncNow <- struct{}{}
-	c.JSON(201, user)
+	rbac.TriggerSync()
+	c.JSON(http.StatusCreated, user)
 }
 
 func CreatePasswordUser(c *gin.Context) {
 	var userreq createPasswordUser
 	if err := c.ShouldBindJSON(&userreq); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	// check only admin or users count is zero
@@ -65,15 +65,15 @@ func CreatePasswordUser(c *gin.Context) {
 
 	_, err := model.GetUserByUsername(user.Username)
 	if err == nil {
-		c.JSON(400, gin.H{"error": "user already exists"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user already exists"})
 		return
 	}
 
 	if err := model.AddUser(user); err != nil {
-		c.JSON(500, gin.H{"error": "failed to create user"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
 		return
 	}
-	c.JSON(201, user)
+	c.JSON(http.StatusCreated, user)
 }
 
 func ListUsers(c *gin.Context) {
@@ -109,19 +109,19 @@ func ListUsers(c *gin.Context) {
 		role,
 	)
 	if err != nil {
-		c.JSON(500, gin.H{"error": "failed to list users"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list users"})
 		return
 	}
 	for i := range users {
 		users[i].Roles = rbac.GetUserRoles(users[i])
 	}
-	c.JSON(200, gin.H{"users": users, "total": total, "page": page, "size": size})
+	c.JSON(http.StatusOK, gin.H{"users": users, "total": total, "page": page, "size": size})
 }
 
 func UpdateUser(c *gin.Context) {
 	var id uint64
 	if _, err := fmt.Sscanf(c.Param("id"), "%d", &id); err != nil || id == 0 {
-		c.JSON(400, gin.H{"error": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
@@ -130,13 +130,13 @@ func UpdateUser(c *gin.Context) {
 		AvatarURL string `json:"avatar_url,omitempty"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	user, err := model.GetUserByID(id)
 	if err != nil {
-		c.JSON(404, gin.H{"error": "user not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
 	if req.Name != "" {
@@ -147,64 +147,64 @@ func UpdateUser(c *gin.Context) {
 	}
 
 	if err := model.UpdateUser(user); err != nil {
-		c.JSON(500, gin.H{"error": "failed to update user"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
 		return
 	}
-	c.JSON(200, user)
+	c.JSON(http.StatusOK, user)
 }
 
 func DeleteUser(c *gin.Context) {
 	var id uint
 	if _, err := fmt.Sscanf(c.Param("id"), "%d", &id); err != nil || id == 0 {
-		c.JSON(400, gin.H{"error": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
 	if err := model.DeleteUserByID(id); err != nil {
-		c.JSON(500, gin.H{"error": "failed to delete user"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete user"})
 		return
 	}
-	c.JSON(200, gin.H{"success": true})
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func ResetPassword(c *gin.Context) {
 	var id uint
 	if _, err := fmt.Sscanf(c.Param("id"), "%d", &id); err != nil || id == 0 {
-		c.JSON(400, gin.H{"error": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 	var req struct {
 		Password string `json:"password" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	if err := model.ResetPasswordByID(id, req.Password); err != nil {
-		c.JSON(500, gin.H{"error": "failed to reset password"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to reset password"})
 		return
 	}
-	c.JSON(200, gin.H{"success": true})
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func SetUserEnabled(c *gin.Context) {
 	var id uint
 	if _, err := fmt.Sscanf(c.Param("id"), "%d", &id); err != nil || id == 0 {
-		c.JSON(400, gin.H{"error": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 	var req struct {
 		Enabled bool `json:"enabled"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	if err := model.SetUserEnabled(id, req.Enabled); err != nil {
-		c.JSON(500, gin.H{"error": "failed to set enabled"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set enabled"})
 		return
 	}
-	c.JSON(200, gin.H{"success": true})
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func UpdateSidebarPreference(c *gin.Context) {
@@ -213,7 +213,7 @@ func UpdateSidebarPreference(c *gin.Context) {
 	if !isAdmin {
 		setting, err := model.GetGeneralSetting()
 		if err != nil {
-			c.JSON(500, gin.H{"error": "failed to load general setting"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load general setting"})
 			return
 		}
 		if strings.TrimSpace(setting.GlobalSidebarPreference) != "" {
@@ -225,16 +225,16 @@ func UpdateSidebarPreference(c *gin.Context) {
 		SidebarPreference string `json:"sidebar_preference" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	user.SidebarPreference = req.SidebarPreference
 	if err := model.UpdateUser(&user); err != nil {
 		klog.Errorf("failed to update sidebar preference for user %s: %v", user.Username, err)
-		c.JSON(500, gin.H{"error": "failed to update sidebar preference"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update sidebar preference"})
 		return
 	}
-	c.JSON(200, gin.H{"success": true})
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func UpdateGlobalSidebarPreference(c *gin.Context) {
@@ -242,17 +242,17 @@ func UpdateGlobalSidebarPreference(c *gin.Context) {
 		SidebarPreference string `json:"sidebar_preference" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	if _, err := model.UpdateGeneralSetting(map[string]interface{}{
 		"global_sidebar_preference": req.SidebarPreference,
 	}); err != nil {
 		klog.Errorf("failed to update global sidebar preference: %v", err)
-		c.JSON(500, gin.H{"error": "failed to update global sidebar preference"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update global sidebar preference"})
 		return
 	}
-	c.JSON(200, gin.H{"success": true})
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func ClearGlobalSidebarPreference(c *gin.Context) {
@@ -260,8 +260,8 @@ func ClearGlobalSidebarPreference(c *gin.Context) {
 		"global_sidebar_preference": "",
 	}); err != nil {
 		klog.Errorf("failed to clear global sidebar preference: %v", err)
-		c.JSON(500, gin.H{"error": "failed to clear global sidebar preference"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to clear global sidebar preference"})
 		return
 	}
-	c.JSON(200, gin.H{"success": true})
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }

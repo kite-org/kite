@@ -1,10 +1,13 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { Link } from 'react-router-dom'
 
 import { HTTPRoute } from '@/types/gateway'
+import { createSearchFilter } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
 import { ResourceTable } from '@/components/resource-table'
+
+const filter = createSearchFilter<HTTPRoute>((hr) => hr.metadata?.name)
 
 export function HTTPRouteListPage() {
   // Define column helper outside of any hooks
@@ -41,10 +44,6 @@ export function HTTPRouteListPage() {
     ],
     [columnHelper]
   )
-
-  const filter = useCallback((ns: HTTPRoute, query: string) => {
-    return ns.metadata!.name!.toLowerCase().includes(query)
-  }, [])
 
   return (
     <ResourceTable

@@ -113,5 +113,5 @@ func GetImageTags(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(200, tags)
+	c.JSON(http.StatusOK, tags)
 }

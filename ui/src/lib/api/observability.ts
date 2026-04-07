@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { OverviewData, PodMetrics, ResourceUsageHistory } from '@/types/api'
 
 import { API_BASE_URL } from '../api-client'
+import { appendCurrentClusterParam } from '../current-cluster'
 import { getWebSocketUrl } from '../subpath'
 import useWebSocket, { WebSocketMessage } from '../useWebSocket'
 import { fetchAPI } from './shared'
@@ -182,10 +183,7 @@ export const createLogsSSEStream = (
     params.append('sinceSeconds', options.sinceSeconds.toString())
   }
 
-  const currentCluster = localStorage.getItem('current-cluster')
-  if (currentCluster) {
-    params.append('x-cluster-name', currentCluster)
-  }
+  appendCurrentClusterParam(params)
 
   const endpoint = `${API_BASE_URL}/logs/${namespace}/${podName}?${params.toString()}`
   const eventSource = new EventSource(endpoint, {
@@ -484,10 +482,7 @@ export const useLogsWebSocket = (
       params.append('labelSelector', options.labelSelector)
     }
 
-    const currentCluster = localStorage.getItem('current-cluster')
-    if (currentCluster) {
-      params.append('x-cluster-name', currentCluster)
-    }
+    appendCurrentClusterParam(params)
 
     const wsPath = `/api/v1/logs/${namespace}/${podName}/ws?${params.toString()}`
     return getWebSocketUrl(wsPath)

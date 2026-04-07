@@ -1,11 +1,11 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { Pod } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
 import { PodWithMetrics } from '@/types/api'
-import { getPodStatus } from '@/lib/k8s'
+import { createSearchFilter, getPodStatus } from '@/lib/k8s'
 import { formatDate, getAge } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -16,6 +16,12 @@ import {
 import { MetricCell } from '@/components/metrics-cell'
 import { PodStatusIcon } from '@/components/pod-status-icon'
 import { ResourceTable } from '@/components/resource-table'
+
+const podSearchFilter = createSearchFilter<Pod>(
+  (p) => p.metadata?.name,
+  (p) => p.spec?.nodeName,
+  (p) => p.status?.podIP
+)
 
 export function PodListPage() {
   const { t } = useTranslation()
@@ -139,15 +145,6 @@ export function PodListPage() {
     ],
     [columnHelper, t]
   )
-
-  // Custom filter for pod search
-  const podSearchFilter = useCallback((pod: Pod, query: string) => {
-    return (
-      pod.metadata?.name?.toLowerCase().includes(query) ||
-      (pod.spec?.nodeName?.toLowerCase() || '').includes(query) ||
-      (pod.status?.podIP?.toLowerCase() || '').includes(query)
-    )
-  }, [])
 
   return (
     <ResourceTable<Pod>

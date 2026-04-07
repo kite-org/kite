@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/cluster"
+	"github.com/zxh326/kite/pkg/common"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,7 +18,7 @@ type EventHandler struct {
 func NewEventHandler() *EventHandler {
 	return &EventHandler{
 		GenericResourceHandler: *NewGenericResourceHandler[*corev1.Event, *corev1.EventList](
-			"events",
+			string(common.Events),
 			false,
 			false,
 		),

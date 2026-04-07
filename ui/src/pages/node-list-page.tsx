@@ -1,9 +1,10 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
 import { NodeWithMetrics } from '@/types/api'
+import { createSearchFilter } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { MetricCell } from '@/components/metrics-cell'
@@ -112,6 +113,14 @@ function getNodeIP(node: NodeWithMetrics): string {
   return 'N/A'
 }
 
+const nodeSearchFilter = createSearchFilter<NodeWithMetrics>(
+  (n) => n.metadata?.name,
+  (n) => n.status?.nodeInfo?.kubeletVersion,
+  (n) => getNodeStatus(n),
+  (n) => getNodeRoles(n),
+  (n) => getNodeIP(n)
+)
+
 export function NodeListPage() {
   const { t } = useTranslation()
 
@@ -218,7 +227,7 @@ export function NodeListPage() {
         cell: ({ getValue }) => {
           const version = getValue()
           return version ? (
-            <span className="text-sm">{version}</span>
+            <span className="text-sm font-mono">{version}</span>
           ) : (
             <span className="text-muted-foreground">N/A</span>
           )
@@ -257,25 +266,6 @@ export function NodeListPage() {
       }),
     ],
     [columnHelper, t]
-  )
-
-  // Custom filter for node search
-  const nodeSearchFilter = useCallback(
-    (node: NodeWithMetrics, query: string) => {
-      const lowerQuery = query.toLowerCase()
-      const roles = getNodeRoles(node)
-      const ip = getNodeIP(node)
-      return (
-        node.metadata!.name!.toLowerCase().includes(lowerQuery) ||
-        (node.status?.nodeInfo?.kubeletVersion?.toLowerCase() || '').includes(
-          lowerQuery
-        ) ||
-        getNodeStatus(node).toLowerCase().includes(lowerQuery) ||
-        roles.some((role) => role.toLowerCase().includes(lowerQuery)) ||
-        ip.toLowerCase().includes(lowerQuery)
-      )
-    },
-    []
   )
 
   return (

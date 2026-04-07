@@ -1,11 +1,17 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { Job } from 'kubernetes-types/batch/v1'
 import { Link } from 'react-router-dom'
 
+import { createSearchFilter } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ResourceTable } from '@/components/resource-table'
+
+const jobSearchFilter = createSearchFilter<Job>(
+  (j) => j.metadata?.name,
+  (j) => j.metadata?.namespace
+)
 
 export function JobListPage() {
   // Define column helper outside of any hooks
@@ -100,14 +106,6 @@ export function JobListPage() {
     ],
     [columnHelper]
   )
-
-  // Custom filter for job search
-  const jobSearchFilter = useCallback((job: Job, query: string) => {
-    return (
-      job.metadata!.name!.toLowerCase().includes(query) ||
-      (job.metadata!.namespace?.toLowerCase() || '').includes(query)
-    )
-  }, [])
 
   return (
     <ResourceTable

@@ -1,11 +1,19 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { CustomResourceDefinition } from 'kubernetes-types/apiextensions/v1'
 import { Link } from 'react-router-dom'
 
+import { createSearchFilter } from '@/lib/k8s'
 import { getAge } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ResourceTable } from '@/components/resource-table'
+
+const searchQueryFilter = createSearchFilter<CustomResourceDefinition>(
+  (crd) => crd.metadata?.name,
+  (crd) => crd.spec?.group,
+  (crd) => crd.spec?.scope,
+  (crd) => crd.spec?.versions?.map((v: { name: string }) => v.name)
+)
 
 export function CRDListPage() {
   // Define column helper outside of any hooks
@@ -27,7 +35,9 @@ export function CRDListPage() {
       columnHelper.accessor('spec.group', {
         header: 'Group',
         enableColumnFilter: true,
-        cell: ({ getValue }) => <span className=" text-sm">{getValue()}</span>,
+        cell: ({ getValue }) => (
+          <span className="text-sm font-mono">{getValue()}</span>
+        ),
       }),
       columnHelper.accessor('spec.versions', {
         header: 'Versions',
@@ -47,7 +57,7 @@ export function CRDListPage() {
                   <Badge
                     key={index}
                     variant={version.served ? 'default' : 'secondary'}
-                    className="text-xs"
+                    className="text-xs font-mono"
                   >
                     {version.name}
                   </Badge>
@@ -95,23 +105,6 @@ export function CRDListPage() {
       }),
     ],
     [columnHelper]
-  )
-
-  // Custom search filter for CRDs
-  const searchQueryFilter = useCallback(
-    (crd: CustomResourceDefinition, query: string) => {
-      const searchFields = [
-        crd.metadata?.name || '',
-        crd.spec?.group || '',
-        crd.spec?.scope || '',
-        ...(crd.spec?.versions?.map((v: { name: string }) => v.name) || []),
-      ]
-
-      return searchFields.some((field) =>
-        field.toLowerCase().includes(query.toLowerCase())
-      )
-    },
-    []
   )
 
   return (

@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/common"
+	"github.com/zxh326/kite/pkg/handlers/wsutil"
 	"github.com/zxh326/kite/pkg/kube"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/rbac"
@@ -44,10 +45,10 @@ func (h *TerminalHandler) HandleTerminalWebSocket(c *gin.Context) {
 		session := kube.NewTerminalSession(cs.K8sClient, ws, namespace, podName, container)
 		defer session.Close()
 
-		if !rbac.CanAccess(user, "pods", "exec", cs.Name, namespace) {
-			h.sendErrorMessage(
+		if !rbac.CanAccess(user, string(common.Pods), "exec", cs.Name, namespace) {
+			wsutil.SendErrorMessage(
 				ws,
-				rbac.NoAccess(user.Key(), string(common.VerbExec), "pods", namespace, cs.Name),
+				rbac.NoAccess(user.Key(), string(common.VerbExec), string(common.Pods), namespace, cs.Name),
 			)
 			return
 		}
@@ -56,15 +57,4 @@ func (h *TerminalHandler) HandleTerminalWebSocket(c *gin.Context) {
 			klog.Errorf("Terminal session error: %v", err)
 		}
 	}).ServeHTTP(c.Writer, c.Request)
-}
-
-// sendErrorMessage sends an error message through WebSocket
-func (h *TerminalHandler) sendErrorMessage(conn *websocket.Conn, message string) {
-	msg := map[string]interface{}{
-		"type": "error",
-		"data": message,
-	}
-	if err := websocket.JSON.Send(conn, msg); err != nil {
-		klog.Errorf("Failed to send error message: %v", err)
-	}
 }

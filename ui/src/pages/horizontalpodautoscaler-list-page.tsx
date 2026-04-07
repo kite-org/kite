@@ -1,8 +1,9 @@
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { HorizontalPodAutoscaler } from 'kubernetes-types/autoscaling/v2'
 import { Link } from 'react-router-dom'
 
+import { createSearchFilter } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
 import { ResourceTable } from '@/components/resource-table'
 
@@ -45,6 +46,13 @@ function getMetricUtilization(hpa: HorizontalPodAutoscaler): string {
 
   return results.join(', ')
 }
+
+const horizontalPodAutoscalerSearchFilter =
+  createSearchFilter<HorizontalPodAutoscaler>(
+    (hpa) => hpa.metadata?.name,
+    (hpa) => hpa.metadata?.namespace,
+    (hpa) => getHpaTargetInfo(hpa)
+  )
 
 export function HorizontalPodAutoscalerListPage() {
   const columnHelper = createColumnHelper<HorizontalPodAutoscaler>()
@@ -103,18 +111,6 @@ export function HorizontalPodAutoscalerListPage() {
       }),
     ],
     [columnHelper]
-  )
-
-  const horizontalPodAutoscalerSearchFilter = useCallback(
-    (hpa: HorizontalPodAutoscaler, query: string) => {
-      const queryLower = query.toLowerCase()
-      return (
-        hpa.metadata!.name!.toLowerCase().includes(queryLower) ||
-        (hpa.metadata!.namespace?.toLowerCase() || '').includes(queryLower) ||
-        getHpaTargetInfo(hpa).toLowerCase().includes(queryLower)
-      )
-    },
-    []
   )
 
   return (

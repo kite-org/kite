@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/cluster"
 )
@@ -26,7 +28,7 @@ func ClusterMiddleware(cm *cluster.ClusterManager) gin.HandlerFunc {
 		}
 		cluster, err := cm.GetClientSet(clusterName)
 		if err != nil {
-			c.JSON(404, gin.H{"error": err.Error()})
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			c.Abort()
 			return
 		}

@@ -3,13 +3,13 @@ import { Deployment } from 'kubernetes-types/apps/v1'
 import { Container, Pod, Service } from 'kubernetes-types/core/v1'
 import { ObjectMeta } from 'kubernetes-types/meta/v1'
 
-import {
-  clusterScopeResources,
-  CustomResource,
-  ResourceType,
-} from '@/types/api'
+import { CustomResource, ResourceType } from '@/types/api'
 import { DeploymentStatusType, PodStatus, SimpleContainer } from '@/types/k8s'
 
+import {
+  getResourceDetailPath,
+  isClusterScopedResource,
+} from './resource-metadata'
 import { getAge } from './utils'
 
 // This function retrieves the status of a Pod in Kubernetes.
@@ -353,13 +353,16 @@ export function getOwnerInfo(metadata?: ObjectMeta) {
 
   const resourcePath = ownerRef.kind.toLowerCase() + 's'
   if (isStandardK8sResource(ownerRef.kind)) {
-    const clusterScope = clusterScopeResources.includes(
-      resourcePath as ResourceType
-    )
     return {
       kind: ownerRef.kind,
       name: ownerRef.name,
-      path: `/${resourcePath}${clusterScope ? '' : `/${metadata.namespace}`}/${ownerRef.name}`,
+      path: getResourceDetailPath(
+        resourcePath,
+        ownerRef.name,
+        isClusterScopedResource(resourcePath as ResourceType)
+          ? undefined
+          : metadata.namespace
+      ),
       controller: ownerRef.controller || false,
     }
   } else {
@@ -435,4 +438,20 @@ export function toSimpleContainer(
       init: true,
     })),
   ]
+}
+
+export function createSearchFilter<T>(
+  ...fieldAccessors: Array<(item: T) => string | string[] | undefined>
+): (item: T, query: string) => boolean {
+  return (item, query) => {
+    const q = query.toLowerCase()
+    return fieldAccessors.some((accessor) => {
+      const value = accessor(item)
+      if (!value) return false
+      if (Array.isArray(value)) {
+        return value.some((v) => v.toLowerCase().includes(q))
+      }
+      return value.toLowerCase().includes(q)
+    })
+  }
 }

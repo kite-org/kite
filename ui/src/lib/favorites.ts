@@ -1,4 +1,5 @@
 import { SearchResult } from '@/lib/api'
+import { getClusterScopedStorageKey } from '@/lib/current-cluster'
 
 const FAVORITES_STORAGE_KEY = 'kite-favorites'
 
@@ -6,9 +7,10 @@ const FAVORITES_STORAGE_KEY = 'kite-favorites'
  * Get favorites from localStorage
  */
 export const getFavorites = (): SearchResult[] => {
-  const cluster = localStorage.getItem('current-cluster') || ''
   try {
-    const favorites = localStorage.getItem(cluster + FAVORITES_STORAGE_KEY)
+    const favorites = localStorage.getItem(
+      getClusterScopedStorageKey(FAVORITES_STORAGE_KEY)
+    )
     return favorites ? JSON.parse(favorites) : []
   } catch {
     return []
@@ -19,10 +21,9 @@ export const getFavorites = (): SearchResult[] => {
  * Save favorites to localStorage
  */
 export const saveFavorites = (favorites: SearchResult[]) => {
-  const cluster = localStorage.getItem('current-cluster') || ''
   try {
     localStorage.setItem(
-      cluster + FAVORITES_STORAGE_KEY,
+      getClusterScopedStorageKey(FAVORITES_STORAGE_KEY),
       JSON.stringify(favorites)
     )
   } catch (error) {
