@@ -1,3 +1,5 @@
+import { resourceCatalog } from './resource-catalog'
+
 interface ResourceMetadataBase {
   singular: string
   singularLabel: string
@@ -6,229 +8,24 @@ interface ResourceMetadataBase {
   clusterScope: boolean
 }
 
-export const resourceMetadataList = [
-  {
-    type: 'pods',
-    singular: 'pod',
-    singularLabel: 'Pod',
-    pluralLabel: 'Pods',
-    clusterScope: false,
-  },
-  {
-    type: 'deployments',
-    singular: 'deployment',
-    singularLabel: 'Deployment',
-    pluralLabel: 'Deployments',
-    shortLabel: 'Deploy',
-    clusterScope: false,
-  },
-  {
-    type: 'statefulsets',
-    singular: 'statefulset',
-    singularLabel: 'StatefulSet',
-    pluralLabel: 'StatefulSets',
-    shortLabel: 'STS',
-    clusterScope: false,
-  },
-  {
-    type: 'daemonsets',
-    singular: 'daemonset',
-    singularLabel: 'DaemonSet',
-    pluralLabel: 'DaemonSets',
-    shortLabel: 'Daemon',
-    clusterScope: false,
-  },
-  {
-    type: 'jobs',
-    singular: 'job',
-    singularLabel: 'Job',
-    pluralLabel: 'Jobs',
-    shortLabel: 'Job',
-    clusterScope: false,
-  },
-  {
-    type: 'cronjobs',
-    singular: 'cronjob',
-    singularLabel: 'CronJob',
-    pluralLabel: 'CronJobs',
-    clusterScope: false,
-  },
-  {
-    type: 'services',
-    singular: 'service',
-    singularLabel: 'Service',
-    pluralLabel: 'Services',
-    clusterScope: false,
-  },
-  {
-    type: 'gateways',
-    singular: 'gateway',
-    singularLabel: 'Gateway',
-    pluralLabel: 'Gateways',
-    clusterScope: false,
-  },
-  {
-    type: 'httproutes',
-    singular: 'httproute',
-    singularLabel: 'HTTPRoute',
-    pluralLabel: 'HTTPRoutes',
-    clusterScope: false,
-  },
-  {
-    type: 'configmaps',
-    singular: 'configmap',
-    singularLabel: 'ConfigMap',
-    pluralLabel: 'ConfigMaps',
-    clusterScope: false,
-  },
-  {
-    type: 'secrets',
-    singular: 'secret',
-    singularLabel: 'Secret',
-    pluralLabel: 'Secrets',
-    clusterScope: false,
-  },
-  {
-    type: 'ingresses',
-    singular: 'ingress',
-    singularLabel: 'Ingress',
-    pluralLabel: 'Ingresses',
-    clusterScope: false,
-  },
-  {
-    type: 'networkpolicies',
-    singular: 'networkpolicy',
-    singularLabel: 'NetworkPolicy',
-    pluralLabel: 'NetworkPolicies',
-    clusterScope: false,
-  },
-  {
-    type: 'namespaces',
-    singular: 'namespace',
-    singularLabel: 'Namespace',
-    pluralLabel: 'Namespaces',
-    clusterScope: true,
-  },
-  {
-    type: 'crds',
-    singular: 'crd',
-    singularLabel: 'CRD',
-    pluralLabel: 'CRDs',
-    clusterScope: true,
-  },
-  {
-    type: 'crs',
-    singular: 'custom resource',
-    singularLabel: 'Custom Resource',
-    pluralLabel: 'Custom Resources',
-    clusterScope: false,
-  },
-  {
-    type: 'nodes',
-    singular: 'node',
-    singularLabel: 'Node',
-    pluralLabel: 'Nodes',
-    clusterScope: true,
-  },
-  {
-    type: 'events',
-    singular: 'event',
-    singularLabel: 'Event',
-    pluralLabel: 'Events',
-    clusterScope: false,
-  },
-  {
-    type: 'persistentvolumes',
-    singular: 'persistentvolume',
-    singularLabel: 'PersistentVolume',
-    pluralLabel: 'PersistentVolumes',
-    shortLabel: 'PV',
-    clusterScope: true,
-  },
-  {
-    type: 'persistentvolumeclaims',
-    singular: 'persistentvolumeclaim',
-    singularLabel: 'PersistentVolumeClaim',
-    pluralLabel: 'PersistentVolumeClaims',
-    shortLabel: 'PVC',
-    clusterScope: false,
-  },
-  {
-    type: 'storageclasses',
-    singular: 'storageclass',
-    singularLabel: 'StorageClass',
-    pluralLabel: 'StorageClasses',
-    clusterScope: true,
-  },
-  {
-    type: 'podmetrics',
-    singular: 'podmetric',
-    singularLabel: 'PodMetrics',
-    pluralLabel: 'PodMetrics',
-    clusterScope: false,
-  },
-  {
-    type: 'replicasets',
-    singular: 'replicaset',
-    singularLabel: 'ReplicaSet',
-    pluralLabel: 'ReplicaSets',
-    clusterScope: false,
-  },
-  {
-    type: 'serviceaccounts',
-    singular: 'serviceaccount',
-    singularLabel: 'ServiceAccount',
-    pluralLabel: 'ServiceAccounts',
-    clusterScope: false,
-  },
-  {
-    type: 'roles',
-    singular: 'role',
-    singularLabel: 'Role',
-    pluralLabel: 'Roles',
-    clusterScope: false,
-  },
-  {
-    type: 'rolebindings',
-    singular: 'rolebinding',
-    singularLabel: 'RoleBinding',
-    pluralLabel: 'RoleBindings',
-    clusterScope: false,
-  },
-  {
-    type: 'clusterroles',
-    singular: 'clusterrole',
-    singularLabel: 'ClusterRole',
-    pluralLabel: 'ClusterRoles',
-    clusterScope: true,
-  },
-  {
-    type: 'clusterrolebindings',
-    singular: 'clusterrolebinding',
-    singularLabel: 'ClusterRoleBinding',
-    pluralLabel: 'ClusterRoleBindings',
-    clusterScope: true,
-  },
-  {
-    type: 'horizontalpodautoscalers',
-    singular: 'horizontalpodautoscaler',
-    singularLabel: 'HorizontalPodAutoscaler',
-    pluralLabel: 'HorizontalPodAutoscalers',
-    shortLabel: 'HPA',
-    clusterScope: false,
-  },
-] as const satisfies readonly (ResourceMetadataBase & { type: string })[]
-
-export type ResourceType = (typeof resourceMetadataList)[number]['type']
+export type ResourceType = (typeof resourceCatalog)[number]['type']
 
 export type ResourceMetadata = ResourceMetadataBase & {
   type: ResourceType
 }
 
+export const resourceMetadataList: readonly ResourceMetadata[] =
+  resourceCatalog.map((item) => ({
+    type: item.type,
+    singular: item.singular,
+    singularLabel: item.singularLabel,
+    pluralLabel: item.pluralLabel,
+    shortLabel: 'shortLabel' in item ? item.shortLabel : undefined,
+    clusterScope: item.clusterScope,
+  }))
+
 const resourceMetadataMap = new Map(
-  resourceMetadataList.map(
-    (item) => [item.type, item] satisfies [ResourceType, ResourceMetadata]
-  )
+  resourceMetadataList.map((item) => [item.type, item] as const)
 )
 
 export const clusterScopedResourceTypes = resourceMetadataList

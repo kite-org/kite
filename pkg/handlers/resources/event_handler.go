@@ -17,11 +17,7 @@ type EventHandler struct {
 
 func NewEventHandler() *EventHandler {
 	return &EventHandler{
-		GenericResourceHandler: *NewGenericResourceHandler[*corev1.Event, *corev1.EventList](
-			string(common.Events),
-			false,
-			false,
-		),
+		GenericResourceHandler: *NewGenericResourceHandler[*corev1.Event, *corev1.EventList](common.Events),
 	}
 }
 

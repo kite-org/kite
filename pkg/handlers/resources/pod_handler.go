@@ -35,7 +35,7 @@ type PodHandler struct {
 
 func NewPodHandler() *PodHandler {
 	return &PodHandler{
-		GenericResourceHandler: NewGenericResourceHandler[*corev1.Pod, *corev1.PodList](string(common.Pods), false, true),
+		GenericResourceHandler: NewGenericResourceHandler[*corev1.Pod, *corev1.PodList](common.Pods),
 	}
 }
 

@@ -1,32 +1,5 @@
 import type { ComponentType } from 'react'
-import {
-  IconArrowsHorizontal,
-  IconBell,
-  IconBox,
-  IconBoxMultiple,
-  IconClockHour4,
-  IconCode,
-  IconDatabase,
-  IconFileDatabase,
-  IconKey,
-  IconLoadBalancer,
-  IconLock,
-  IconMap,
-  IconNetwork,
-  IconPlayerPlay,
-  IconRocket,
-  IconRoute,
-  IconRouter,
-  IconServer2,
-  IconShield,
-  IconShieldCheck,
-  IconStack2,
-  IconTopologyBus,
-  IconUser,
-  IconUsers,
-  type Icon,
-  type IconProps,
-} from '@tabler/icons-react'
+import { IconBox, type Icon, type IconProps } from '@tabler/icons-react'
 
 import {
   DefaultMenus,
@@ -34,118 +7,46 @@ import {
   SidebarGroup,
   SidebarItem,
 } from '@/types/sidebar'
+import {
+  getResourceIconComponent,
+  resourceCatalog,
+  resourceIconMap,
+  sidebarGroupOrder,
+} from '@/lib/resource-catalog'
 
-const sidebarIconMap = {
-  IconBox,
-  IconRocket,
-  IconStack2,
-  IconTopologyBus,
-  IconPlayerPlay,
-  IconClockHour4,
-  IconRouter,
-  IconNetwork,
-  IconLoadBalancer,
-  IconRoute,
-  IconFileDatabase,
-  IconDatabase,
-  IconMap,
-  IconLock,
-  IconUser,
-  IconShield,
-  IconUsers,
-  IconShieldCheck,
-  IconKey,
-  IconBoxMultiple,
-  IconServer2,
-  IconBell,
-  IconCode,
-  IconArrowsHorizontal,
-} as const
-
-const defaultMenus: DefaultMenus = {
-  'sidebar.groups.workloads': [
-    { titleKey: 'nav.pods', url: '/pods', icon: IconBox },
-    { titleKey: 'nav.deployments', url: '/deployments', icon: IconRocket },
-    {
-      titleKey: 'nav.statefulsets',
-      url: '/statefulsets',
-      icon: IconStack2,
-    },
-    {
-      titleKey: 'nav.daemonsets',
-      url: '/daemonsets',
-      icon: IconTopologyBus,
-    },
-    { titleKey: 'nav.jobs', url: '/jobs', icon: IconPlayerPlay },
-    { titleKey: 'nav.cronjobs', url: '/cronjobs', icon: IconClockHour4 },
-  ],
-  'sidebar.groups.traffic': [
-    { titleKey: 'nav.ingresses', url: '/ingresses', icon: IconRouter },
-    {
-      titleKey: 'nav.networkpolicies',
-      url: '/networkpolicies',
-      icon: IconShield,
-    },
-    { titleKey: 'nav.services', url: '/services', icon: IconNetwork },
-    { titleKey: 'nav.gateways', url: '/gateways', icon: IconLoadBalancer },
-    { titleKey: 'nav.httproutes', url: '/httproutes', icon: IconRoute },
-  ],
-  'sidebar.groups.storage': [
-    {
-      titleKey: 'sidebar.short.pvcs',
-      url: '/persistentvolumeclaims',
-      icon: IconFileDatabase,
-    },
-    {
-      titleKey: 'sidebar.short.pvs',
-      url: '/persistentvolumes',
-      icon: IconDatabase,
-    },
-    {
-      titleKey: 'nav.storageclasses',
-      url: '/storageclasses',
-      icon: IconFileDatabase,
-    },
-  ],
-  'sidebar.groups.config': [
-    { titleKey: 'nav.configMaps', url: '/configmaps', icon: IconMap },
-    { titleKey: 'nav.secrets', url: '/secrets', icon: IconLock },
-    {
-      titleKey: 'nav.horizontalpodautoscalers',
-      url: '/horizontalpodautoscalers',
-      icon: IconArrowsHorizontal,
-    },
-  ],
-  'sidebar.groups.security': [
-    {
-      titleKey: 'nav.serviceaccounts',
-      url: '/serviceaccounts',
-      icon: IconUser,
-    },
-    { titleKey: 'nav.roles', url: '/roles', icon: IconShield },
-    { titleKey: 'nav.rolebindings', url: '/rolebindings', icon: IconUsers },
-    {
-      titleKey: 'nav.clusterroles',
-      url: '/clusterroles',
-      icon: IconShieldCheck,
-    },
-    {
-      titleKey: 'nav.clusterrolebindings',
-      url: '/clusterrolebindings',
-      icon: IconKey,
-    },
-  ],
-  'sidebar.groups.other': [
-    {
-      titleKey: 'nav.namespaces',
-      url: '/namespaces',
-      icon: IconBoxMultiple,
-    },
-    { titleKey: 'nav.nodes', url: '/nodes', icon: IconServer2 },
-    { titleKey: 'nav.events', url: '/events', icon: IconBell },
-    { titleKey: 'nav.crds', url: '/crds', icon: IconCode },
-  ],
+const sidebarIconMap = resourceIconMap
+type CatalogResource = (typeof resourceCatalog)[number]
+type SidebarResource = CatalogResource & {
+  sidebar: {
+    groupKey: (typeof sidebarGroupOrder)[number]
+    order: number
+    titleKey?: string
+  }
 }
+
+function hasSidebar(resource: CatalogResource): resource is SidebarResource {
+  return 'sidebar' in resource
+}
+
+const defaultMenus: DefaultMenus = Object.fromEntries(
+  sidebarGroupOrder.map((groupKey) => [groupKey, []])
+) as DefaultMenus
+
+resourceCatalog
+  .filter(hasSidebar)
+  .slice()
+  .sort((a, b) => a.sidebar.order - b.sidebar.order)
+  .forEach((resource) => {
+    const sidebar = resource.sidebar
+    defaultMenus[sidebar.groupKey].push({
+      titleKey:
+        sidebar.titleKey ||
+        ('titleKey' in resource ? resource.titleKey : undefined) ||
+        resource.pluralLabel,
+      url: `/${resource.type}`,
+      icon: getResourceIconComponent(resource.icon),
+    })
+  })
 
 export const SIDEBAR_CONFIG_VERSION = 1
 

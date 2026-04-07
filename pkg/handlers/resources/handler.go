@@ -51,36 +51,36 @@ var handlers = map[string]resourceHandler{}
 func RegisterRoutes(group *gin.RouterGroup) {
 	handlers = map[string]resourceHandler{
 		string(common.Pods):                     NewPodHandler(),
-		string(common.Namespaces):               NewGenericResourceHandler[*corev1.Namespace, *corev1.NamespaceList](string(common.Namespaces), true, false),
+		string(common.Namespaces):               NewGenericResourceHandler[*corev1.Namespace, *corev1.NamespaceList](common.Namespaces),
 		string(common.Nodes):                    NewNodeHandler(),
-		string(common.Services):                 NewGenericResourceHandler[*corev1.Service, *corev1.ServiceList](string(common.Services), false, true),
-		string(common.Endpoints):                NewGenericResourceHandler[*corev1.Endpoints, *corev1.EndpointsList](string(common.Endpoints), false, false),
-		string(common.EndpointSlices):           NewGenericResourceHandler[*discoveryv1.EndpointSlice, *discoveryv1.EndpointSliceList](string(common.EndpointSlices), false, false),
-		string(common.ConfigMaps):               NewGenericResourceHandler[*corev1.ConfigMap, *corev1.ConfigMapList](string(common.ConfigMaps), false, true),
-		string(common.Secrets):                  NewGenericResourceHandler[*corev1.Secret, *corev1.SecretList](string(common.Secrets), false, true),
-		string(common.PersistentVolumes):        NewGenericResourceHandler[*corev1.PersistentVolume, *corev1.PersistentVolumeList](string(common.PersistentVolumes), true, true),
-		string(common.PersistentVolumeClaims):   NewGenericResourceHandler[*corev1.PersistentVolumeClaim, *corev1.PersistentVolumeClaimList](string(common.PersistentVolumeClaims), false, true),
-		string(common.ServiceAccounts):          NewGenericResourceHandler[*corev1.ServiceAccount, *corev1.ServiceAccountList](string(common.ServiceAccounts), false, false),
-		string(common.CRDs):                     NewGenericResourceHandler[*apiextensionsv1.CustomResourceDefinition, *apiextensionsv1.CustomResourceDefinitionList](string(common.CRDs), true, false),
+		string(common.Services):                 NewGenericResourceHandler[*corev1.Service, *corev1.ServiceList](common.Services),
+		string(common.Endpoints):                NewGenericResourceHandler[*corev1.Endpoints, *corev1.EndpointsList](common.Endpoints),
+		string(common.EndpointSlices):           NewGenericResourceHandler[*discoveryv1.EndpointSlice, *discoveryv1.EndpointSliceList](common.EndpointSlices),
+		string(common.ConfigMaps):               NewGenericResourceHandler[*corev1.ConfigMap, *corev1.ConfigMapList](common.ConfigMaps),
+		string(common.Secrets):                  NewGenericResourceHandler[*corev1.Secret, *corev1.SecretList](common.Secrets),
+		string(common.PersistentVolumes):        NewGenericResourceHandler[*corev1.PersistentVolume, *corev1.PersistentVolumeList](common.PersistentVolumes),
+		string(common.PersistentVolumeClaims):   NewGenericResourceHandler[*corev1.PersistentVolumeClaim, *corev1.PersistentVolumeClaimList](common.PersistentVolumeClaims),
+		string(common.ServiceAccounts):          NewGenericResourceHandler[*corev1.ServiceAccount, *corev1.ServiceAccountList](common.ServiceAccounts),
+		string(common.CRDs):                     NewGenericResourceHandler[*apiextensionsv1.CustomResourceDefinition, *apiextensionsv1.CustomResourceDefinitionList](common.CRDs),
 		string(common.Events):                   NewEventHandler(),
 		string(common.Deployments):              NewDeploymentHandler(),
-		string(common.ReplicaSets):              NewGenericResourceHandler[*appsv1.ReplicaSet, *appsv1.ReplicaSetList](string(common.ReplicaSets), false, false),
-		string(common.StatefulSets):             NewGenericResourceHandler[*appsv1.StatefulSet, *appsv1.StatefulSetList](string(common.StatefulSets), false, false),
-		string(common.DaemonSets):               NewGenericResourceHandler[*appsv1.DaemonSet, *appsv1.DaemonSetList](string(common.DaemonSets), false, true),
-		string(common.Jobs):                     NewGenericResourceHandler[*batchv1.Job, *batchv1.JobList](string(common.Jobs), false, false),
-		string(common.CronJobs):                 NewGenericResourceHandler[*batchv1.CronJob, *batchv1.CronJobList](string(common.CronJobs), false, false),
-		string(common.Ingresses):                NewGenericResourceHandler[*networkingv1.Ingress, *networkingv1.IngressList](string(common.Ingresses), false, false),
-		string(common.NetworkPolicies):          NewGenericResourceHandler[*networkingv1.NetworkPolicy, *networkingv1.NetworkPolicyList](string(common.NetworkPolicies), false, false),
-		string(common.StorageClasses):           NewGenericResourceHandler[*storagev1.StorageClass, *storagev1.StorageClassList](string(common.StorageClasses), true, false),
-		string(common.Roles):                    NewGenericResourceHandler[*rbacv1.Role, *rbacv1.RoleList](string(common.Roles), false, false),
-		string(common.RoleBindings):             NewGenericResourceHandler[*rbacv1.RoleBinding, *rbacv1.RoleBindingList](string(common.RoleBindings), false, false),
-		string(common.ClusterRoles):             NewGenericResourceHandler[*rbacv1.ClusterRole, *rbacv1.ClusterRoleList](string(common.ClusterRoles), true, false),
-		string(common.ClusterRoleBindings):      NewGenericResourceHandler[*rbacv1.ClusterRoleBinding, *rbacv1.ClusterRoleBindingList](string(common.ClusterRoleBindings), true, false),
-		string(common.PodMetrics):               NewGenericResourceHandler[*metricsv1.PodMetrics, *metricsv1.PodMetricsList](string(common.PodMetrics), false, false),
-		string(common.NodeMetrics):              NewGenericResourceHandler[*metricsv1.NodeMetrics, *metricsv1.NodeMetricsList](string(common.NodeMetrics), false, false),
-		string(common.Gateways):                 NewGenericResourceHandler[*gatewayapiv1.Gateway, *gatewayapiv1.GatewayList](string(common.Gateways), false, false),
-		string(common.HTTPRoutes):               NewGenericResourceHandler[*gatewayapiv1.HTTPRoute, *gatewayapiv1.HTTPRouteList](string(common.HTTPRoutes), false, false),
-		string(common.HorizontalPodAutoscalers): NewGenericResourceHandler[*autoscalingv2.HorizontalPodAutoscaler, *autoscalingv2.HorizontalPodAutoscalerList](string(common.HorizontalPodAutoscalers), false, true),
+		string(common.ReplicaSets):              NewGenericResourceHandler[*appsv1.ReplicaSet, *appsv1.ReplicaSetList](common.ReplicaSets),
+		string(common.StatefulSets):             NewGenericResourceHandler[*appsv1.StatefulSet, *appsv1.StatefulSetList](common.StatefulSets),
+		string(common.DaemonSets):               NewGenericResourceHandler[*appsv1.DaemonSet, *appsv1.DaemonSetList](common.DaemonSets),
+		string(common.Jobs):                     NewGenericResourceHandler[*batchv1.Job, *batchv1.JobList](common.Jobs),
+		string(common.CronJobs):                 NewGenericResourceHandler[*batchv1.CronJob, *batchv1.CronJobList](common.CronJobs),
+		string(common.Ingresses):                NewGenericResourceHandler[*networkingv1.Ingress, *networkingv1.IngressList](common.Ingresses),
+		string(common.NetworkPolicies):          NewGenericResourceHandler[*networkingv1.NetworkPolicy, *networkingv1.NetworkPolicyList](common.NetworkPolicies),
+		string(common.StorageClasses):           NewGenericResourceHandler[*storagev1.StorageClass, *storagev1.StorageClassList](common.StorageClasses),
+		string(common.Roles):                    NewGenericResourceHandler[*rbacv1.Role, *rbacv1.RoleList](common.Roles),
+		string(common.RoleBindings):             NewGenericResourceHandler[*rbacv1.RoleBinding, *rbacv1.RoleBindingList](common.RoleBindings),
+		string(common.ClusterRoles):             NewGenericResourceHandler[*rbacv1.ClusterRole, *rbacv1.ClusterRoleList](common.ClusterRoles),
+		string(common.ClusterRoleBindings):      NewGenericResourceHandler[*rbacv1.ClusterRoleBinding, *rbacv1.ClusterRoleBindingList](common.ClusterRoleBindings),
+		string(common.PodMetrics):               NewGenericResourceHandler[*metricsv1.PodMetrics, *metricsv1.PodMetricsList](common.PodMetrics),
+		string(common.NodeMetrics):              NewGenericResourceHandler[*metricsv1.NodeMetrics, *metricsv1.NodeMetricsList](common.NodeMetrics),
+		string(common.Gateways):                 NewGenericResourceHandler[*gatewayapiv1.Gateway, *gatewayapiv1.GatewayList](common.Gateways),
+		string(common.HTTPRoutes):               NewGenericResourceHandler[*gatewayapiv1.HTTPRoute, *gatewayapiv1.HTTPRouteList](common.HTTPRoutes),
+		string(common.HorizontalPodAutoscalers): NewGenericResourceHandler[*autoscalingv2.HorizontalPodAutoscaler, *autoscalingv2.HorizontalPodAutoscalerList](common.HorizontalPodAutoscalers),
 	}
 
 	for name, handler := range handlers {
@@ -97,14 +97,7 @@ func RegisterRoutes(group *gin.RouterGroup) {
 		}
 	}
 
-	// Register related resources route for supported resource types
-	supportedRelatedResourceTypes := []string{
-		string(common.Pods), string(common.Deployments), string(common.StatefulSets),
-		string(common.DaemonSets), string(common.ConfigMaps), string(common.Secrets),
-		string(common.PersistentVolumeClaims), string(common.HTTPRoutes),
-		string(common.HorizontalPodAutoscalers), string(common.Services), string(common.Ingresses),
-	}
-	for _, resourceType := range supportedRelatedResourceTypes {
+	for _, resourceType := range common.RelatedResourceTypes() {
 		if handler, exists := handlers[resourceType]; exists && !handler.IsClusterScoped() {
 			g := group.Group("/" + resourceType)
 			g.GET("/:namespace/:name/related", func(c *gin.Context) {

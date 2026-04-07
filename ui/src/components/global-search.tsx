@@ -2,33 +2,23 @@ import { ComponentType, useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { useSidebarConfig } from '@/contexts/sidebar-config-context'
 import {
-  IconArrowsHorizontal,
-  IconBox,
-  IconBoxMultiple,
   IconLayoutDashboard,
-  IconLoadBalancer,
   IconLoader,
-  IconLock,
-  IconMap,
   IconMoon,
-  IconNetwork,
-  IconPlayerPlay,
-  IconRocket,
-  IconRoute,
-  IconRouter,
   IconServer,
-  IconServer2,
   IconSettings,
-  IconShield,
   IconStar,
   IconStarFilled,
   IconSun,
-  IconTopologyBus,
 } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { globalSearch, SearchResult } from '@/lib/api'
+import {
+  getResourceCatalogEntry,
+  getResourceIconComponent,
+} from '@/lib/resource-catalog'
 import { useCluster } from '@/hooks/use-cluster'
 import { useFavorites } from '@/hooks/use-favorites'
 import { Badge } from '@/components/ui/badge'
@@ -49,44 +39,11 @@ import {
 } from '@/components/ui/dialog'
 import { useAppearance } from '@/components/appearance-provider'
 
-// Define resource types and their display properties
-const RESOURCE_CONFIG: Record<
-  string,
-  {
-    label: string
-    icon: React.ComponentType<{ className?: string }>
-  }
-> = {
-  pods: { label: 'nav.pods', icon: IconBox },
-  deployments: { label: 'nav.deployments', icon: IconRocket },
-  services: { label: 'nav.services', icon: IconNetwork },
-  configmaps: { label: 'nav.configMaps', icon: IconMap },
-  secrets: { label: 'nav.secrets', icon: IconLock },
-  namespaces: {
-    label: 'nav.namespaces',
-    icon: IconBoxMultiple,
-  },
-  nodes: { label: 'nav.nodes', icon: IconServer2 },
-  jobs: { label: 'nav.jobs', icon: IconPlayerPlay },
-  ingresses: { label: 'nav.ingresses', icon: IconRouter },
-  networkpolicies: { label: 'nav.networkpolicies', icon: IconShield },
-  gateways: { label: 'nav.gateways', icon: IconLoadBalancer },
-  httproutes: { label: 'nav.httproutes', icon: IconRoute },
-  daemonsets: {
-    label: 'nav.daemonsets',
-    icon: IconTopologyBus,
-  },
-  horizontalpodautoscalers: {
-    label: 'nav.horizontalpodautoscalers',
-    icon: IconArrowsHorizontal,
-  },
-}
-
 interface SidebarSearchItem {
   id: string
   title: string
   url: string
-  Icon: React.ComponentType<{ className?: string }>
+  Icon: ComponentType<{ className?: string }>
   groupLabel?: string
   searchText: string
   isPinned: boolean
@@ -95,7 +52,7 @@ interface SidebarSearchItem {
 interface ActionSearchItem {
   id: string
   label: string
-  icon: React.ComponentType<{ className?: string }>
+  icon: ComponentType<{ className?: string }>
   searchText: string
   onSelect: () => void
 }
@@ -495,11 +452,18 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                 }
               >
                 {results.map((result) => {
-                  const config = RESOURCE_CONFIG[result.resourceType] || {
-                    label: result.resourceType,
-                    icon: IconBox, // Default icon if not found
-                  }
-                  const Icon = config.icon
+                  const metadata = getResourceCatalogEntry(result.resourceType)
+                  const titleKey =
+                    metadata && 'titleKey' in metadata
+                      ? metadata.titleKey
+                      : undefined
+                  const resourceLabel = titleKey
+                    ? t(titleKey, {
+                        defaultValue:
+                          metadata?.pluralLabel || result.resourceType,
+                      })
+                    : metadata?.pluralLabel || result.resourceType
+                  const Icon = getResourceIconComponent(metadata?.icon)
                   const isFav = isFavorite(result.id)
                   const path = result.namespace
                     ? `/${result.resourceType}/${result.namespace}/${result.name}`
@@ -508,8 +472,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                     <CommandItem
                       key={result.id}
                       value={`${result.name} ${result.namespace || ''} ${result.resourceType} ${
-                        RESOURCE_CONFIG[result.resourceType]?.label ||
-                        result.resourceType
+                        resourceLabel
                       }`}
                       onSelect={() => handleSelect(path)}
                       className="flex items-center gap-3 py-3"
@@ -518,14 +481,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{result.name}</span>
-                          <Badge className="text-xs">
-                            {RESOURCE_CONFIG[result.resourceType]?.label
-                              ? t(
-                                  RESOURCE_CONFIG[result.resourceType]
-                                    .label as string
-                                )
-                              : result.resourceType}
-                          </Badge>
+                          <Badge className="text-xs">{resourceLabel}</Badge>
                         </div>
                         {result.namespace && (
                           <div className="text-xs text-muted-foreground mt-1">

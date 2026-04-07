@@ -27,17 +27,16 @@ type GenericResourceHandler[T client.Object, V client.ObjectList] struct {
 }
 
 func NewGenericResourceHandler[T client.Object, V client.ObjectList](
-	name string,
-	isClusterScoped bool,
-	enableSearch bool,
+	resourceType common.ResourceType,
 ) *GenericResourceHandler[T, V] {
 	var obj T
 	var list V
+	meta := common.MustLookupResource(string(resourceType))
 
 	return &GenericResourceHandler[T, V]{
-		name:            name,
-		isClusterScoped: isClusterScoped,
-		enableSearch:    enableSearch,
+		name:            string(resourceType),
+		isClusterScoped: meta.ClusterScoped,
+		enableSearch:    meta.GlobalSearch,
 		objectType:      reflect.TypeOf(obj).Elem(),
 		listType:        reflect.TypeOf(list).Elem(),
 	}

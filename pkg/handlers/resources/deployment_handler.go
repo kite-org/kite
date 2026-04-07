@@ -16,11 +16,7 @@ type DeploymentHandler struct {
 
 func NewDeploymentHandler() *DeploymentHandler {
 	return &DeploymentHandler{
-		GenericResourceHandler: NewGenericResourceHandler[*appsv1.Deployment, *appsv1.DeploymentList](
-			string(common.Deployments),
-			false, // Deployments are namespaced resources
-			true,
-		),
+		GenericResourceHandler: NewGenericResourceHandler[*appsv1.Deployment, *appsv1.DeploymentList](common.Deployments),
 	}
 }
 

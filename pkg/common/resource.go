@@ -51,36 +51,38 @@ type ResourceMeta struct {
 	Version       string       // e.g. "v1"
 	ClusterScoped bool
 	Searchable    bool // whether this resource appears in search aliases
+	GlobalSearch  bool // whether this resource participates in global search
+	Related       bool // whether this resource exposes the related-resources API
 }
 
 // Registry is the single source of truth for all known resource types.
 var Registry = []ResourceMeta{
 	// Core v1
-	{Kind: "Pod", Singular: "pod", Plural: Pods, Short: []string{"po"}, Version: "v1", Searchable: true},
+	{Kind: "Pod", Singular: "pod", Plural: Pods, Short: []string{"po"}, Version: "v1", Searchable: true, GlobalSearch: true, Related: true},
 	{Kind: "Namespace", Singular: "namespace", Plural: Namespaces, Short: []string{"ns"}, Version: "v1", ClusterScoped: true},
-	{Kind: "Node", Singular: "node", Plural: Nodes, Version: "v1", ClusterScoped: true},
-	{Kind: "Service", Singular: "service", Plural: Services, Short: []string{"svc"}, Version: "v1", Searchable: true},
+	{Kind: "Node", Singular: "node", Plural: Nodes, Version: "v1", ClusterScoped: true, GlobalSearch: true},
+	{Kind: "Service", Singular: "service", Plural: Services, Short: []string{"svc"}, Version: "v1", Searchable: true, GlobalSearch: true, Related: true},
 	{Kind: "Endpoints", Singular: "endpoints", Plural: Endpoints, Short: []string{"ep"}, Version: "v1"},
 	{Kind: "EndpointSlice", Singular: "endpointslice", Plural: EndpointSlices, Version: "v1", Group: "discovery.k8s.io"},
-	{Kind: "ConfigMap", Singular: "configmap", Plural: ConfigMaps, Short: []string{"cm"}, Version: "v1", Searchable: true},
-	{Kind: "Secret", Singular: "secret", Plural: Secrets, Version: "v1", Searchable: true},
-	{Kind: "PersistentVolume", Singular: "persistentvolume", Plural: PersistentVolumes, Short: []string{"pv"}, Version: "v1", ClusterScoped: true, Searchable: true},
-	{Kind: "PersistentVolumeClaim", Singular: "persistentvolumeclaim", Plural: PersistentVolumeClaims, Short: []string{"pvc"}, Version: "v1", Searchable: true},
+	{Kind: "ConfigMap", Singular: "configmap", Plural: ConfigMaps, Short: []string{"cm"}, Version: "v1", Searchable: true, GlobalSearch: true, Related: true},
+	{Kind: "Secret", Singular: "secret", Plural: Secrets, Version: "v1", Searchable: true, GlobalSearch: true, Related: true},
+	{Kind: "PersistentVolume", Singular: "persistentvolume", Plural: PersistentVolumes, Short: []string{"pv"}, Version: "v1", ClusterScoped: true, Searchable: true, GlobalSearch: true},
+	{Kind: "PersistentVolumeClaim", Singular: "persistentvolumeclaim", Plural: PersistentVolumeClaims, Short: []string{"pvc"}, Version: "v1", Searchable: true, GlobalSearch: true, Related: true},
 	{Kind: "ServiceAccount", Singular: "serviceaccount", Plural: ServiceAccounts, Short: []string{"sa"}, Version: "v1"},
 	{Kind: "Event", Singular: "event", Plural: Events, Short: []string{"ev"}, Version: "v1"},
 
 	// apps/v1
-	{Kind: "Deployment", Singular: "deployment", Plural: Deployments, Short: []string{"deploy", "dep"}, Group: "apps", Version: "v1", Searchable: true},
+	{Kind: "Deployment", Singular: "deployment", Plural: Deployments, Short: []string{"deploy", "dep"}, Group: "apps", Version: "v1", Searchable: true, GlobalSearch: true, Related: true},
 	{Kind: "ReplicaSet", Singular: "replicaset", Plural: ReplicaSets, Short: []string{"rs"}, Group: "apps", Version: "v1"},
-	{Kind: "StatefulSet", Singular: "statefulset", Plural: StatefulSets, Short: []string{"sts"}, Group: "apps", Version: "v1", Searchable: true},
-	{Kind: "DaemonSet", Singular: "daemonset", Plural: DaemonSets, Short: []string{"ds"}, Group: "apps", Version: "v1", Searchable: true},
+	{Kind: "StatefulSet", Singular: "statefulset", Plural: StatefulSets, Short: []string{"sts"}, Group: "apps", Version: "v1", Searchable: true, Related: true},
+	{Kind: "DaemonSet", Singular: "daemonset", Plural: DaemonSets, Short: []string{"ds"}, Group: "apps", Version: "v1", Searchable: true, GlobalSearch: true, Related: true},
 
 	// batch/v1
 	{Kind: "Job", Singular: "job", Plural: Jobs, Group: "batch", Version: "v1", Searchable: true},
 	{Kind: "CronJob", Singular: "cronjob", Plural: CronJobs, Short: []string{"cj"}, Group: "batch", Version: "v1", Searchable: true},
 
 	// networking.k8s.io/v1
-	{Kind: "Ingress", Singular: "ingress", Plural: Ingresses, Short: []string{"ing"}, Group: "networking.k8s.io", Version: "v1"},
+	{Kind: "Ingress", Singular: "ingress", Plural: Ingresses, Short: []string{"ing"}, Group: "networking.k8s.io", Version: "v1", Related: true},
 	{Kind: "NetworkPolicy", Singular: "networkpolicy", Plural: NetworkPolicies, Short: []string{"netpol"}, Group: "networking.k8s.io", Version: "v1"},
 
 	// storage.k8s.io/v1
@@ -101,10 +103,10 @@ var Registry = []ResourceMeta{
 
 	// gateway.networking.k8s.io/v1
 	{Kind: "Gateway", Singular: "gateway", Plural: Gateways, Group: "gateway.networking.k8s.io", Version: "v1"},
-	{Kind: "HTTPRoute", Singular: "httproute", Plural: HTTPRoutes, Group: "gateway.networking.k8s.io", Version: "v1"},
+	{Kind: "HTTPRoute", Singular: "httproute", Plural: HTTPRoutes, Group: "gateway.networking.k8s.io", Version: "v1", Related: true},
 
 	// autoscaling/v2
-	{Kind: "HorizontalPodAutoscaler", Singular: "horizontalpodautoscaler", Plural: HorizontalPodAutoscalers, Short: []string{"hpa"}, Group: "autoscaling", Version: "v2"},
+	{Kind: "HorizontalPodAutoscaler", Singular: "horizontalpodautoscaler", Plural: HorizontalPodAutoscalers, Short: []string{"hpa"}, Group: "autoscaling", Version: "v2", GlobalSearch: true, Related: true},
 }
 
 // resourceIndex maps lowercase alias → *ResourceMeta for O(1) lookups.
@@ -130,6 +132,14 @@ func LookupResource(alias string) *ResourceMeta {
 	return resourceIndex[strings.ToLower(strings.TrimSpace(alias))]
 }
 
+func MustLookupResource(alias string) *ResourceMeta {
+	resource := LookupResource(alias)
+	if resource == nil {
+		panic("resource metadata not found: " + alias)
+	}
+	return resource
+}
+
 // SearchAliases builds the alias→plural map used by the search subsystem.
 // Only resources with Searchable=true are included.
 func SearchAliases() map[string]string {
@@ -146,4 +156,14 @@ func SearchAliases() map[string]string {
 		}
 	}
 	return m
+}
+
+func RelatedResourceTypes() []string {
+	resourceTypes := make([]string, 0)
+	for i := range Registry {
+		if Registry[i].Related {
+			resourceTypes = append(resourceTypes, string(Registry[i].Plural))
+		}
+	}
+	return resourceTypes
 }
