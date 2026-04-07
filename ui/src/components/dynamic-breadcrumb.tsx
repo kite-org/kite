@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router-dom'
 
-import { getResourceMetadata } from '@/lib/resource-catalog'
+import { getResourceCatalogEntry } from '@/lib/resource-catalog'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -29,7 +29,7 @@ export function DynamicBreadcrumb() {
     }
 
     // Helper function to create breadcrumb item
-    const createBreadcrumb = (
+    const createResourceBreadcrumb = (
       label: string,
       href?: string
     ): BreadcrumbSegment => {
@@ -37,17 +37,21 @@ export function DynamicBreadcrumb() {
         return { label: t('sidebar.short.pvcs'), href }
       }
 
-      const resource = getResourceMetadata(label)
+      const resource = getResourceCatalogEntry(label)
       if (!resource) {
         return { label, href }
       }
 
+      const titleKey = 'titleKey' in resource ? resource.titleKey : undefined
+      const shortLabel =
+        'shortLabel' in resource ? resource.shortLabel : undefined
+
       return {
-        label: resource.titleKey
-          ? t(resource.titleKey, {
-              defaultValue: resource.shortLabel || resource.pluralLabel,
+        label: titleKey
+          ? t(titleKey, {
+              defaultValue: shortLabel || resource.pluralLabel,
             })
-          : resource.shortLabel || resource.pluralLabel,
+          : shortLabel || resource.pluralLabel,
         href,
       }
     }
@@ -82,7 +86,11 @@ export function DynamicBreadcrumb() {
     // Generate breadcrumbs for each visible path segment
     visibleSegments.forEach((segment, index) => {
       const href = getSafeLink(index)
-      breadcrumbs.push(createBreadcrumb(segment, href))
+      breadcrumbs.push(
+        index === 0
+          ? createResourceBreadcrumb(segment, href)
+          : { label: segment, href }
+      )
     })
 
     return breadcrumbs
