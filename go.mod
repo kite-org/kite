@@ -3,10 +3,10 @@ module github.com/zxh326/kite
 go 1.25.0
 
 require (
-	github.com/anthropics/anthropic-sdk-go v1.27.1
+	github.com/anthropics/anthropic-sdk-go v1.32.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bytedance/mockey v1.4.5
-	github.com/gin-contrib/gzip v1.2.5
+	github.com/gin-contrib/gzip v1.2.6
 	github.com/gin-gonic/gin v1.12.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-ldap/ldap/v3 v3.4.13
