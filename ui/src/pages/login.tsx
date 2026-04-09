@@ -29,6 +29,7 @@ export function LoginPage() {
     loginWithCredentials,
     credentialProviders,
     oauthProviders,
+    skipLoginPage,
     isLoading,
   } = useAuth()
   const [searchParams] = useSearchParams()
@@ -50,6 +51,19 @@ export function LoginPage() {
       setCredentialsProvider(credentialProviders[0])
     }
   }, [credentialProviders, credentialsProvider])
+
+  // Auto-redirect to OAuth when admin has enabled "Skip login page"
+  useEffect(() => {
+    if (
+      !isLoading &&
+      !user &&
+      !error &&
+      skipLoginPage &&
+      oauthProviders.length === 1
+    ) {
+      login(oauthProviders[0])
+    }
+  }, [isLoading, user, error, skipLoginPage, oauthProviders, login])
 
   if (user && !isLoading) {
     return <Navigate to="/" replace />

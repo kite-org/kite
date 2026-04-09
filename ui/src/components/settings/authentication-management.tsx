@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconKey } from '@tabler/icons-react'
+import { IconKey, IconAlertTriangle } from '@tabler/icons-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -8,7 +8,9 @@ import {
   LDAPSetting,
   LDAPSettingUpdateRequest,
   updateLDAPSetting,
+  updateGeneralSetting,
   useLDAPSetting,
+  useGeneralSetting,
 } from '@/lib/api'
 import { translateError } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -65,20 +67,34 @@ export function AuthenticationManagement() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { data, error, isError, isLoading, refetch } = useLDAPSetting()
+  const { data: generalSetting } = useGeneralSetting()
   const [formData, setFormData] = useState<AuthenticationFormData>(
     createDefaultSettings
   )
+  const [passwordLoginEnabled, setPasswordLoginEnabled] = useState(true)
 
   useEffect(() => {
     setFormData(toFormData(data))
   }, [data])
 
+  useEffect(() => {
+    if (generalSetting) {
+      setPasswordLoginEnabled(!generalSetting.passwordLoginDisabled)
+    }
+  }, [generalSetting])
+
   const mutation = useMutation({
-    mutationFn: updateLDAPSetting,
+    mutationFn: (params: { ldap: LDAPSettingUpdateRequest; passwordLoginDisabled: boolean }) =>
+      Promise.all([
+        updateLDAPSetting(params.ldap),
+        updateGeneralSetting({
+          ...generalSetting!,
+          passwordLoginDisabled: params.passwordLoginDisabled,
+        }),
+      ]),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['ldap-setting'],
-      })
+      queryClient.invalidateQueries({ queryKey: ['ldap-setting'] })
+      queryClient.invalidateQueries({ queryKey: ['general-setting'] })
       toast.success(
         t(
           'authenticationManagement.messages.updated',
@@ -104,7 +120,7 @@ export function AuthenticationManagement() {
       return
     }
 
-    const payload: LDAPSettingUpdateRequest = {
+    const ldapPayload: LDAPSettingUpdateRequest = {
       enabled: formData.enabled,
       serverUrl: formData.serverUrl.trim(),
       useStartTLS: formData.useStartTLS,
@@ -118,10 +134,13 @@ export function AuthenticationManagement() {
       groupNameAttribute: formData.groupNameAttribute.trim(),
     }
     if (formData.bindPassword !== '') {
-      payload.bindPassword = formData.bindPassword
+      ldapPayload.bindPassword = formData.bindPassword
     }
 
-    mutation.mutate(payload)
+    mutation.mutate({
+      ldap: ldapPayload,
+      passwordLoginDisabled: !passwordLoginEnabled,
+    })
   }
 
   if (isLoading && !data) {
@@ -166,6 +185,52 @@ export function AuthenticationManagement() {
         </CardHeader>
 
         <CardContent className="space-y-4">
+          <div className="rounded-lg border">
+            <div className="flex items-center justify-between p-3">
+              <div className="space-y-1">
+                <Label className="text-sm font-medium">
+                  {t(
+                    'authenticationManagement.password.title',
+                    'Password Login'
+                  )}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    'authenticationManagement.password.description',
+                    'Allow users to sign in with a username and password.'
+                  )}
+                </p>
+              </div>
+              <Switch
+                checked={passwordLoginEnabled}
+                onCheckedChange={setPasswordLoginEnabled}
+                disabled={!generalSetting}
+              />
+            </div>
+
+            {!passwordLoginEnabled && (
+              <div className="border-t p-3">
+                <div className="flex gap-3 rounded-md bg-amber-500/10 border border-amber-500/30 p-3">
+                  <IconAlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                  <div className="space-y-1 text-sm">
+                    <p className="font-medium text-amber-600 dark:text-amber-400">
+                      {t(
+                        'authenticationManagement.password.warning.title',
+                        'Warning: You may lose access!'
+                      )}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {t(
+                        'authenticationManagement.password.warning.description',
+                        'Verify that your LDAP or OAuth provider is working before saving. Without a working alternative login method, you will be locked out and can only recover by resetting the database.'
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="rounded-lg border">
             <div className="flex items-center justify-between p-3">
               <div className="space-y-1">
@@ -427,7 +492,7 @@ export function AuthenticationManagement() {
           </div>
 
           <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={mutation.isPending}>
+            <Button onClick={handleSave} disabled={mutation.isPending || !generalSetting}>
               {t('common.save', 'Save')}
             </Button>
           </div>
