@@ -27,23 +27,20 @@ func (h *AuthHandler) GetProviders(c *gin.Context) {
 
 	oauthProviders := uniqueStrings(h.manager.GetAvailableProviders())
 
-	ldapSetting, err := model.GetLDAPSetting()
+	setting, err := model.GetLDAPSetting()
 	if err != nil {
 		klog.Warningf("Failed to load ldap setting for providers: %v", err)
-	} else if ldapSetting.Enabled {
+	} else if setting.Enabled {
 		credentialProviders = append(credentialProviders, model.AuthProviderLDAP)
 	}
 
 	credentialProviders = uniqueStrings(credentialProviders)
 	providers := append(append([]string{}, credentialProviders...), oauthProviders...)
 
-	skipLoginPage := generalSetting != nil && generalSetting.SkipLoginPage
-
 	c.JSON(http.StatusOK, gin.H{
 		"providers":           providers,
 		"credentialProviders": credentialProviders,
 		"oauthProviders":      oauthProviders,
-		"skipLoginPage":       skipLoginPage,
 	})
 }
 

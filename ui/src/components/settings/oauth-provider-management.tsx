@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { IconEdit, IconKey, IconPlus, IconTrash, IconPlayerSkipForward } from '@tabler/icons-react'
+import { useCallback, useMemo, useState } from 'react'
+import { IconEdit, IconKey, IconPlus, IconTrash } from '@tabler/icons-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
@@ -12,15 +12,11 @@ import {
   OAuthProviderCreateRequest,
   OAuthProviderUpdateRequest,
   updateOAuthProvider,
-  updateGeneralSetting,
-  useGeneralSetting,
   useOAuthProviderList,
 } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'
 
 import { Action, ActionTable } from '../action-table'
@@ -32,36 +28,6 @@ export function OAuthProviderManagement() {
 
   // Use real API to fetch OAuth providers
   const { data: providers = [], isLoading, error } = useOAuthProviderList()
-  const { data: generalSetting } = useGeneralSetting()
-  const [skipLoginPage, setSkipLoginPage] = useState(false)
-
-  useEffect(() => {
-    if (generalSetting) {
-      setSkipLoginPage(generalSetting.skipLoginPage ?? false)
-    }
-  }, [generalSetting])
-
-  const skipLoginMutation = useMutation({
-    mutationFn: (skip: boolean) => {
-      if (!generalSetting) return Promise.reject(new Error('Settings not loaded'))
-      return updateGeneralSetting({
-        ...generalSetting,
-        skipLoginPage: skip,
-      })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['general-setting'] })
-      toast.success(
-        t(
-          'authenticationManagement.messages.updated',
-          'Authentication settings updated'
-        )
-      )
-    },
-    onError: (error) => {
-      toast.error(String(error))
-    },
-  })
 
   const [showProviderDialog, setShowProviderDialog] = useState(false)
   const [editingProvider, setEditingProvider] = useState<OAuthProvider | null>(
@@ -327,44 +293,6 @@ export function OAuthProviderManagement() {
                   'Add your first OAuth provider'
                 )}
               </p>
-            </div>
-          )}
-
-          {generalSetting?.passwordLoginDisabled && providers.length === 1 && (
-            <div className="rounded-lg border mt-4">
-              <div className="flex items-center justify-between p-3">
-                <div className="flex items-center gap-3">
-                  <IconPlayerSkipForward className="h-5 w-5 text-muted-foreground" />
-                  <div className="space-y-1">
-                    <Label className="text-sm font-medium">
-                      {t(
-                        'oauthManagement.skipLogin.title',
-                        'Skip login page'
-                      )}
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      {t(
-                        'oauthManagement.skipLogin.description',
-                        'OAuth is the only login method.'
-                      )}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {t(
-                        'oauthManagement.skipLogin.hint',
-                        'Enable this to redirect users straight to your OAuth provider instead of showing the login page.'
-                      )}
-                    </p>
-                  </div>
-                </div>
-                <Switch
-                  checked={skipLoginPage}
-                  onCheckedChange={(checked) => {
-                    setSkipLoginPage(checked)
-                    skipLoginMutation.mutate(checked)
-                  }}
-                  disabled={skipLoginMutation.isPending || !generalSetting}
-                />
-              </div>
             </div>
           )}
         </CardContent>

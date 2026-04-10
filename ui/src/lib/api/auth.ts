@@ -32,7 +32,6 @@ function normalizeAuthProviderCatalog(
       providers: data.providers || [],
       credentialProviders: data.credentialProviders || [],
       oauthProviders: data.oauthProviders || [],
-      skipLoginPage: data.skipLoginPage ?? false,
     }
   }
 
@@ -49,7 +48,6 @@ function normalizeAuthProviderCatalog(
     providers,
     credentialProviders,
     oauthProviders,
-    skipLoginPage: data.skipLoginPage ?? false,
   }
 }
 

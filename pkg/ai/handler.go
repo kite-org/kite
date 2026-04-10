@@ -209,7 +209,6 @@ func HandleGetGeneralSetting(c *gin.Context) {
 		"enableAnalytics":    setting.EnableAnalytics,
 		"enableVersionCheck": setting.EnableVersionCheck,
 		"passwordLoginDisabled": setting.PasswordLoginDisabled,
-		"skipLoginPage":         setting.SkipLoginPage,
 	})
 }
 
@@ -226,7 +225,6 @@ type UpdateGeneralSettingRequest struct {
 	EnableAnalytics       bool    `json:"enableAnalytics"`
 	EnableVersionCheck    bool    `json:"enableVersionCheck"`
 	PasswordLoginDisabled bool    `json:"passwordLoginDisabled"`
-	SkipLoginPage         bool    `json:"skipLoginPage"`
 }
 
 func HandleUpdateGeneralSetting(c *gin.Context) {
@@ -302,7 +300,6 @@ func HandleUpdateGeneralSetting(c *gin.Context) {
 		"enable_analytics":     req.EnableAnalytics,
 		"enable_version_check": req.EnableVersionCheck,
 		"password_login_disabled": req.PasswordLoginDisabled,
-		"skip_login_page":        req.SkipLoginPage,
 	}
 	if shouldUpdateAIAPIKey {
 		updates["ai_api_key"] = model.SecretString(aiAPIKey)
@@ -329,7 +326,6 @@ func HandleUpdateGeneralSetting(c *gin.Context) {
 		"enableAnalytics":    updated.EnableAnalytics,
 		"enableVersionCheck": updated.EnableVersionCheck,
 		"passwordLoginDisabled": updated.PasswordLoginDisabled,
-		"skipLoginPage":         updated.SkipLoginPage,
 	})
 }
 

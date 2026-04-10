@@ -93,7 +93,9 @@ export function AuthenticationManagement() {
         }),
       ]),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ldap-setting'] })
+      queryClient.invalidateQueries({
+        queryKey: ['ldap-setting'],
+      })
       queryClient.invalidateQueries({ queryKey: ['general-setting'] })
       toast.success(
         t(
@@ -120,7 +122,7 @@ export function AuthenticationManagement() {
       return
     }
 
-    const ldapPayload: LDAPSettingUpdateRequest = {
+    const payload: LDAPSettingUpdateRequest = {
       enabled: formData.enabled,
       serverUrl: formData.serverUrl.trim(),
       useStartTLS: formData.useStartTLS,
@@ -134,11 +136,11 @@ export function AuthenticationManagement() {
       groupNameAttribute: formData.groupNameAttribute.trim(),
     }
     if (formData.bindPassword !== '') {
-      ldapPayload.bindPassword = formData.bindPassword
+      payload.bindPassword = formData.bindPassword
     }
 
     mutation.mutate({
-      ldap: ldapPayload,
+      ldap: payload,
       passwordLoginDisabled: !passwordLoginEnabled,
     })
   }

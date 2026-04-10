@@ -35,7 +35,6 @@ interface AuthContextType {
   globalSidebarPreference: string
   credentialProviders: CredentialProvider[]
   oauthProviders: string[]
-  skipLoginPage: boolean
   login: (provider?: string) => Promise<void>
   loginWithCredentials: (
     provider: CredentialProvider,
@@ -79,12 +78,10 @@ function normalizeUser(user: AuthUser): User {
 function applyAuthProviderCatalog(
   catalog: AuthProviderCatalog,
   setCredentialProviders: (providers: CredentialProvider[]) => void,
-  setOAuthProviders: (providers: string[]) => void,
-  setSkipLoginPage: (skip: boolean) => void
+  setOAuthProviders: (providers: string[]) => void
 ) {
   setCredentialProviders(catalog.credentialProviders)
   setOAuthProviders(catalog.oauthProviders)
-  setSkipLoginPage(catalog.skipLoginPage ?? false)
 }
 
 function applyCurrentUser(
@@ -110,7 +107,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     CredentialProvider[]
   >([])
   const [oauthProviders, setOAuthProviders] = useState<string[]>([])
-  const [skipLoginPage, setSkipLoginPage] = useState(false)
 
   const { refetch: refetchAuthProviders } = useAuthProviders({
     enabled: false,
@@ -143,8 +139,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         applyAuthProviderCatalog(
           providersResult.data,
           setCredentialProviders,
-          setOAuthProviders,
-          setSkipLoginPage
+          setOAuthProviders
         )
       }
 
@@ -228,7 +223,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       globalSidebarPreference,
       credentialProviders,
       oauthProviders,
-      skipLoginPage,
       login,
       loginWithCredentials,
       logout,
@@ -242,7 +236,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       globalSidebarPreference,
       credentialProviders,
       oauthProviders,
-      skipLoginPage,
       login,
       loginWithCredentials,
       logout,

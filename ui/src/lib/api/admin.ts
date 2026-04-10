@@ -355,7 +355,6 @@ export interface GeneralSetting {
   enableAnalytics: boolean
   enableVersionCheck: boolean
   passwordLoginDisabled: boolean
-  skipLoginPage: boolean
 }
 
 export interface GeneralSettingUpdateRequest {
@@ -371,7 +370,6 @@ export interface GeneralSettingUpdateRequest {
   enableAnalytics?: boolean
   enableVersionCheck?: boolean
   passwordLoginDisabled?: boolean
-  skipLoginPage?: boolean
 }
 
 export type CredentialProvider = 'password' | 'ldap'
@@ -380,7 +378,6 @@ export interface AuthProviderCatalog {
   providers: string[]
   credentialProviders: CredentialProvider[]
   oauthProviders: string[]
-  skipLoginPage: boolean
 }
 
 export interface LDAPSetting {
