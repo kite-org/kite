@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { IconKey, IconAlertTriangle } from '@tabler/icons-react'
+import { IconAlertTriangle, IconKey } from '@tabler/icons-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -7,10 +7,10 @@ import { toast } from 'sonner'
 import {
   LDAPSetting,
   LDAPSettingUpdateRequest,
-  updateLDAPSetting,
   updateGeneralSetting,
-  useLDAPSetting,
+  updateLDAPSetting,
   useGeneralSetting,
+  useLDAPSetting,
 } from '@/lib/api'
 import { translateError } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -84,7 +84,10 @@ export function AuthenticationManagement() {
   }, [generalSetting])
 
   const mutation = useMutation({
-    mutationFn: (params: { ldap: LDAPSettingUpdateRequest; passwordLoginDisabled: boolean }) =>
+    mutationFn: (params: {
+      ldap: LDAPSettingUpdateRequest
+      passwordLoginDisabled: boolean
+    }) =>
       Promise.all([
         updateLDAPSetting(params.ldap),
         updateGeneralSetting({
@@ -494,7 +497,10 @@ export function AuthenticationManagement() {
           </div>
 
           <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={mutation.isPending || !generalSetting}>
+            <Button
+              onClick={handleSave}
+              disabled={mutation.isPending || !generalSetting}
+            >
               {t('common.save', 'Save')}
             </Button>
           </div>
