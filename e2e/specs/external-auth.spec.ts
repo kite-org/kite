@@ -104,7 +104,11 @@ async function configureLDAPViaUI(page: Page) {
   await page.goto('/settings?tab=oauth')
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
 
-  const ldapSwitch = page.getByRole('switch').first()
+  const ldapSection = page
+    .locator('div.rounded-lg.border')
+    .filter({ has: page.getByText(/^LDAP$/) })
+    .first()
+  const ldapSwitch = ldapSection.getByRole('switch')
   if ((await ldapSwitch.getAttribute('data-state')) !== 'checked') {
     await ldapSwitch.click()
   }
