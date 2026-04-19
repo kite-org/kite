@@ -138,6 +138,7 @@ func (h *GenericResourceHandler[T, V]) Search(c *gin.Context, q string, limit in
 		return nil, nil
 	}
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
+	user := c.MustGet("user").(model.User)
 	ctx := c.Request.Context()
 	objectList := reflect.New(h.listType).Interface().(V)
 	var listOpts []client.ListOption
@@ -170,6 +171,12 @@ func (h *GenericResourceHandler[T, V]) Search(c *gin.Context, q string, limit in
 			continue
 		}
 		if !isLabelSearch && !strings.Contains(strings.ToLower(obj.GetName()), strings.ToLower(q)) {
+			continue
+		}
+		if h.Name() == string(common.Namespaces) && !rbac.CanAccessNamespace(user, cs.Name, obj.GetName()) {
+			continue
+		}
+		if obj.GetNamespace() != "" && !rbac.CanAccessNamespace(user, cs.Name, obj.GetNamespace()) {
 			continue
 		}
 		result := common.SearchResult{
