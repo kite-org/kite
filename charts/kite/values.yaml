@@ -58,17 +58,6 @@ jwtSecret: ""
 # Ignored if using existingSecret
 encryptKey: "kite-default-encryption-key-change-in-production"
 
-# Superuser configuration
-# Used to create an initial superuser account on first startup
-# If superUser.create is false, will be setup in landing page
-# First install will create the superuser automatically
-# Subsequent installs/update will not modify the user
-# Ignored if using existingSecret
-superUser:
-  create: false
-  username: "admin"
-  password: ""
-
 # Secret handling
 # By default the chart will create a Kubernetes Secret containing sensitive values.
 secret:
@@ -80,10 +69,6 @@ secret:
   #  KITE_ENCRYPT_KEY
   #  DB_TYPE supported values: sqlite, postgres, mysql (defaults to sqlite if not set)
   #  DB_DSN (not required for sqlite)
-  # 
-  #  see superUser section for more details
-  #  KITE_USERNAME (optional for superuser)
-  #  KITE_PASSWORD (optional for superuser)
   # if set, the db.dsn and db.type values from the chart will be ignored.
   existingSecret: ""
 
@@ -130,6 +115,90 @@ db:
 extraEnvs:
   # - name: "EXAMPLE_ENV"
   #   value: "example_value"
+
+# Application configuration from values
+# When enabled, the specified sections become read-only in the UI.
+# You can either provide an existing Secret containing a config.yaml key,
+# or define the configuration inline below.
+config:
+  enabled: false
+  # Name of an existing Secret containing a `config.yaml` key.
+  # When set, the inline config below is ignored.
+  # The user is responsible for creating and managing this Secret.
+  # Example: kubectl create secret generic kite-config --from-file=config.yaml=./my-config.yaml
+  existingSecret: ""
+  # --- Inline configuration (used when existingSecret is empty) ---
+  # Super user configuration (created if the user doesn't exist, password updated on restart)
+  # superUser:
+  #   username: "admin"
+  #   password: "change-me-in-production"
+  # Sensitive values support ${ENV_VAR} placeholders, expanded from environment
+  # variables at startup. Use extraEnvs to inject secrets from Kubernetes Secrets:
+  #
+  # extraEnvs:
+  #   - name: PROD_KUBECONFIG
+  #     valueFrom:
+  #       secretKeyRef:
+  #         name: my-cluster-secrets
+  #         key: prod-kubeconfig
+  #   - name: OAUTH_SECRET
+  #     valueFrom:
+  #       secretKeyRef:
+  #         name: my-oauth-secrets
+  #         key: google-client-secret
+  #
+  # Then reference them in the config below:
+  # clusters:
+  #   - name: production
+  #     config: "${PROD_KUBECONFIG}"
+  # oauth:
+  #   - name: google
+  #     clientSecret: "${OAUTH_SECRET}"
+  #
+  # Cluster configurations
+  # clusters:
+  #   - name: production
+  #     description: "Production cluster"
+  #     config: |
+  #       apiVersion: v1
+  #       kind: Config
+  #       ...
+  #     prometheusURL: "http://prometheus:9090"
+  #     default: true
+  #   - name: in-cluster
+  #     inCluster: true
+  #
+  # OAuth provider configurations
+  # oauth:
+  #   - name: google
+  #     clientId: "xxx.apps.googleusercontent.com"
+  #     clientSecret: "secret-value"
+  #     issuer: "https://accounts.google.com"
+  #     scopes: "openid,profile,email"
+  #     enabled: true
+  #
+  # LDAP configuration
+  # ldap:
+  #   enabled: true
+  #   serverUrl: "ldap://ldap.example.com:389"
+  #   bindDn: "cn=admin,dc=example,dc=com"
+  #   bindPassword: "secret"
+  #   userBaseDn: "ou=users,dc=example,dc=com"
+  #   groupBaseDn: "ou=groups,dc=example,dc=com"
+  #
+  # RBAC configuration (roles and role mappings)
+  # rbac:
+  #   roles:
+  #     - name: admin
+  #       description: "Full access"
+  #       clusters: ["*"]
+  #       namespaces: ["*"]
+  #       resources: ["*"]
+  #       verbs: ["*"]
+  #   roleMapping:
+  #     - name: admin
+  #       users: ["alice"]
+  #       oidcGroups: ["admins"]
 
 # This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
 serviceAccount:

@@ -54,7 +54,20 @@ var (
 	APIKeyProvider = "api_key"
 
 	AgentPodNamespace = "kube-system"
+
+	// ConfigFilePath is the path to the external config file (set via KITE_CONFIG_FILE env)
+	ConfigFilePath = ""
+
+	// ManagedSections tracks which configuration sections are managed by the config file.
+	// Keys: "clusters", "oauth", "ldap", "rbac", "superUser"
+	ManagedSections = map[string]bool{}
 )
+
+const ManagedSectionError = "This section is managed by configuration file and cannot be modified through the UI"
+
+func IsSectionManaged(section string) bool {
+	return ManagedSections[section]
+}
 
 func LoadEnvs() {
 	if secret := os.Getenv("JWT_SECRET"); secret != "" {
@@ -118,6 +131,10 @@ func LoadEnvs() {
 		}
 		Base = strings.TrimRight(v, "/")
 		klog.Infof("Using base path: %s", Base)
+	}
+
+	if v := os.Getenv("KITE_CONFIG_FILE"); v != "" {
+		ConfigFilePath = v
 	}
 
 	if v := os.Getenv("CORS_ALLOWED_ORIGINS"); v != "" {

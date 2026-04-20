@@ -36,6 +36,7 @@ func registerBaseRoutes(r *gin.RouterGroup) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 	r.GET("/api/v1/init_check", handlers.InitCheck)
+	r.GET("/api/v1/managed-sections", handlers.GetManagedSections)
 	r.GET("/api/v1/version", version.GetVersion)
 }
 

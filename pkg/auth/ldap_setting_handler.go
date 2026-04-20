@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
 )
 
@@ -35,6 +36,11 @@ func (h *AuthHandler) GetLDAPSetting(c *gin.Context) {
 }
 
 func (h *AuthHandler) UpdateLDAPSetting(c *gin.Context) {
+	if common.IsSectionManaged("ldap") {
+		c.JSON(http.StatusForbidden, gin.H{"error": common.ManagedSectionError})
+		return
+	}
+
 	var req UpdateLDAPSettingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid request: %v", err)})

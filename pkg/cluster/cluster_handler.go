@@ -82,6 +82,11 @@ func (cm *ClusterManager) GetClusterList(c *gin.Context) {
 }
 
 func (cm *ClusterManager) CreateCluster(c *gin.Context) {
+	if common.IsSectionManaged("clusters") {
+		c.JSON(http.StatusForbidden, gin.H{"error": common.ManagedSectionError})
+		return
+	}
+
 	var req struct {
 		Name          string `json:"name" binding:"required"`
 		Description   string `json:"description"`
@@ -135,6 +140,11 @@ func (cm *ClusterManager) CreateCluster(c *gin.Context) {
 }
 
 func (cm *ClusterManager) UpdateCluster(c *gin.Context) {
+	if common.IsSectionManaged("clusters") {
+		c.JSON(http.StatusForbidden, gin.H{"error": common.ManagedSectionError})
+		return
+	}
+
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -201,6 +211,11 @@ func (cm *ClusterManager) UpdateCluster(c *gin.Context) {
 }
 
 func (cm *ClusterManager) DeleteCluster(c *gin.Context) {
+	if common.IsSectionManaged("clusters") {
+		c.JSON(http.StatusForbidden, gin.H{"error": common.ManagedSectionError})
+		return
+	}
+
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -234,6 +249,11 @@ func (cm *ClusterManager) DeleteCluster(c *gin.Context) {
 }
 
 func (cm *ClusterManager) ImportClustersFromKubeconfig(c *gin.Context) {
+	if common.IsSectionManaged("clusters") {
+		c.JSON(http.StatusForbidden, gin.H{"error": common.ManagedSectionError})
+		return
+	}
+
 	var clusterReq common.ImportClustersRequest
 	if err := c.ShouldBindJSON(&clusterReq); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

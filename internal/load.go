@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/zxh326/kite/pkg/cluster"
+	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/rbac"
 	"k8s.io/client-go/tools/clientcmd"
@@ -67,13 +68,15 @@ func loadClusters() error {
 	return nil
 }
 
-// LoadConfigFromEnv loads configuration from environment variables.
 func LoadConfigFromEnv() {
-	if err := loadUser(); err != nil {
-		klog.Warningf("Failed to migrate env to db user: %v", err)
+	if !common.IsSectionManaged("superUser") {
+		if err := loadUser(); err != nil {
+			klog.Warningf("Failed to migrate env to db user: %v", err)
+		}
 	}
-
-	if err := loadClusters(); err != nil {
-		klog.Warningf("Failed to migrate env to db cluster: %v", err)
+	if !common.IsSectionManaged("clusters") {
+		if err := loadClusters(); err != nil {
+			klog.Warningf("Failed to migrate env to db cluster: %v", err)
+		}
 	}
 }

@@ -28,7 +28,10 @@ func initializeApp() (*cluster.ClusterManager, error) {
 
 	rbac.InitRBAC()
 	handlers.InitTemplates()
-	internal.LoadConfigFromEnv()
+	internal.LoadConfigFromFile(common.ConfigFilePath)
+	if common.ConfigFilePath == "" {
+		internal.LoadConfigFromEnv()
+	}
 
 	return cluster.NewClusterManager()
 }

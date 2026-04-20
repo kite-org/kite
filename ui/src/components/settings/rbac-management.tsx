@@ -19,12 +19,14 @@ import {
   updateRole,
   useRoleList,
 } from '@/lib/api'
+import { useManagedSections } from '@/lib/api/system'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'
 
 import { Action, ActionTable } from '../action-table'
 import { Badge } from '../ui/badge'
+import { ManagedBanner } from './managed-banner'
 import { RBACAssignmentDialog } from './rbac-assignment-dialog'
 import { RBACDialog } from './rbac-dialog'
 
@@ -33,6 +35,8 @@ export function RBACManagement() {
   const queryClient = useQueryClient()
 
   const { data: roles = [], isLoading, error } = useRoleList()
+  const { data: managedSections } = useManagedSections()
+  const isManaged = !!managedSections?.rbac
 
   const [showDialog, setShowDialog] = useState(false)
   const [editingRole, setEditingRole] = useState<Role | null>(null)
@@ -155,46 +159,49 @@ export function RBACManagement() {
   )
 
   const actions = useMemo<Action<Role>[]>(
-    () => [
-      {
-        label: (
-          <>
-            <IconShieldCheck className="h-4 w-4" />
-            {t('common.assign', 'Assign')}
-          </>
-        ),
-        onClick: (r) => {
-          setAssigningRole(r)
-          setShowAssignDialog(true)
-        },
-      },
-      {
-        label: (
-          <>
-            <IconEdit className="h-4 w-4" />
-            {t('common.edit', 'Edit')}
-          </>
-        ),
-        shouldDisable: (role) => !!role.isSystem,
-        onClick: (role) => {
-          setEditingRole(role)
-          setShowDialog(true)
-        },
-      },
-      {
-        label: (
-          <div className="inline-flex items-center gap-2 text-destructive">
-            <IconTrash className="h-4 w-4" />
-            {t('common.delete', 'Delete')}
-          </div>
-        ),
-        shouldDisable: (role) => !!role.isSystem,
-        onClick: (role) => {
-          setDeletingRole(role)
-        },
-      },
-    ],
-    [t]
+    () =>
+      isManaged
+        ? []
+        : [
+            {
+              label: (
+                <>
+                  <IconShieldCheck className="h-4 w-4" />
+                  {t('common.assign', 'Assign')}
+                </>
+              ),
+              onClick: (r) => {
+                setAssigningRole(r)
+                setShowAssignDialog(true)
+              },
+            },
+            {
+              label: (
+                <>
+                  <IconEdit className="h-4 w-4" />
+                  {t('common.edit', 'Edit')}
+                </>
+              ),
+              shouldDisable: (role) => !!role.isSystem,
+              onClick: (role) => {
+                setEditingRole(role)
+                setShowDialog(true)
+              },
+            },
+            {
+              label: (
+                <div className="inline-flex items-center gap-2 text-destructive">
+                  <IconTrash className="h-4 w-4" />
+                  {t('common.delete', 'Delete')}
+                </div>
+              ),
+              shouldDisable: (role) => !!role.isSystem,
+              onClick: (role) => {
+                setDeletingRole(role)
+              },
+            },
+          ],
+    [t, isManaged]
   )
 
   const createMutation = useMutation({
@@ -326,6 +333,7 @@ export function RBACManagement() {
 
   return (
     <div className="space-y-6">
+      {isManaged && <ManagedBanner />}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -335,16 +343,18 @@ export function RBACManagement() {
                 {t('rbac.title', 'Role Management')}
               </CardTitle>
             </div>
-            <Button
-              onClick={() => {
-                setEditingRole(null)
-                setShowDialog(true)
-              }}
-              className="gap-2"
-            >
-              <IconPlus className="h-4 w-4" />
-              {t('rbac.actions.add', 'Add Role')}
-            </Button>
+            {!isManaged && (
+              <Button
+                onClick={() => {
+                  setEditingRole(null)
+                  setShowDialog(true)
+                }}
+                className="gap-2"
+              >
+                <IconPlus className="h-4 w-4" />
+                {t('rbac.actions.add', 'Add Role')}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>

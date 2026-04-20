@@ -69,3 +69,18 @@ export const importClusters = async (
 ): Promise<void> => {
   await apiClient.post('/admin/clusters/import', request)
 }
+
+// Managed sections - tracks which config sections are managed by config file
+export type ManagedSections = Record<string, boolean>
+
+export const fetchManagedSections = (): Promise<ManagedSections> => {
+  return fetchAPI<ManagedSections>('/managed-sections')
+}
+
+export const useManagedSections = () => {
+  return useQuery({
+    queryKey: ['managed-sections'],
+    queryFn: fetchManagedSections,
+    staleTime: 1000 * 60 * 5, // 5 minutes - this rarely changes
+  })
+}

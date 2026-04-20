@@ -73,6 +73,10 @@ spec:
             - name: KITE_BASE
               value: {{ .Values.basePath }}
             {{- end }}
+            {{- if .Values.config.enabled }}
+            - name: KITE_CONFIG_FILE
+              value: /etc/kite/config.yaml
+            {{- end }}
           {{- with .Values.extraEnvs }}
           {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -92,12 +96,25 @@ spec:
           {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- if .Values.config.enabled }}
+            - name: kite-config
+              mountPath: /etc/kite
+              readOnly: true
+          {{- end }}
           {{- if and (eq .Values.db.type "sqlite")}}
             - name: {{ include "kite.fullname" . }}-storage
               mountPath: {{ .Values.db.sqlite.persistence.mountPath }}
           {{- end }}
       volumes:
-      {{- if eq .Values.db.type "sqlite"}} 
+      {{- if .Values.config.enabled }}
+        - name: kite-config
+          secret:
+            secretName: {{ .Values.config.existingSecret | default (printf "%s-config" (include "kite.fullname" .)) }}
+            items:
+              - key: config.yaml
+                path: config.yaml
+      {{- end }}
+      {{- if eq .Values.db.type "sqlite"}}
         - name: {{ include "kite.fullname" . }}-storage
       {{- if .Values.db.sqlite.persistence.pvc.enabled }}
           persistentVolumeClaim:

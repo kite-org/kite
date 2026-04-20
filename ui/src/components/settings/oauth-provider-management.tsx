@@ -14,12 +14,14 @@ import {
   updateOAuthProvider,
   useOAuthProviderList,
 } from '@/lib/api'
+import { useManagedSections } from '@/lib/api/system'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'
 
 import { Action, ActionTable } from '../action-table'
+import { ManagedBanner } from './managed-banner'
 import { OAuthProviderDialog } from './oauth-provider-dialog'
 
 export function OAuthProviderManagement() {
@@ -28,6 +30,8 @@ export function OAuthProviderManagement() {
 
   // Use real API to fetch OAuth providers
   const { data: providers = [], isLoading, error } = useOAuthProviderList()
+  const { data: managedSections } = useManagedSections()
+  const isManaged = !!managedSections?.oauth
 
   const [showProviderDialog, setShowProviderDialog] = useState(false)
   const [editingProvider, setEditingProvider] = useState<OAuthProvider | null>(
@@ -97,32 +101,35 @@ export function OAuthProviderManagement() {
   )
 
   const actions = useMemo<Action<OAuthProvider>[]>(
-    () => [
-      {
-        label: (
-          <>
-            <IconEdit className="h-4 w-4" />
-            {t('common.edit', 'Edit')}
-          </>
-        ),
-        onClick: (provider) => {
-          setEditingProvider(provider)
-          setShowProviderDialog(true)
-        },
-      },
-      {
-        label: (
-          <div className="inline-flex items-center gap-2 text-destructive">
-            <IconTrash className="h-4 w-4" />
-            {t('common.delete', 'Delete')}
-          </div>
-        ),
-        onClick: (provider) => {
-          setDeletingProvider(provider)
-        },
-      },
-    ],
-    [t]
+    () =>
+      isManaged
+        ? []
+        : [
+            {
+              label: (
+                <>
+                  <IconEdit className="h-4 w-4" />
+                  {t('common.edit', 'Edit')}
+                </>
+              ),
+              onClick: (provider) => {
+                setEditingProvider(provider)
+                setShowProviderDialog(true)
+              },
+            },
+            {
+              label: (
+                <div className="inline-flex items-center gap-2 text-destructive">
+                  <IconTrash className="h-4 w-4" />
+                  {t('common.delete', 'Delete')}
+                </div>
+              ),
+              onClick: (provider) => {
+                setDeletingProvider(provider)
+              },
+            },
+          ],
+    [t, isManaged]
   )
 
   // Create provider mutation
@@ -254,6 +261,7 @@ export function OAuthProviderManagement() {
 
   return (
     <div className="space-y-6">
+      {isManaged && <ManagedBanner />}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -263,16 +271,18 @@ export function OAuthProviderManagement() {
                 {t('oauthManagement.title', 'OAuth Provider Management')}
               </CardTitle>
             </div>
-            <Button
-              onClick={() => {
-                setEditingProvider(null)
-                setShowProviderDialog(true)
-              }}
-              className="gap-2"
-            >
-              <IconPlus className="h-4 w-4" />
-              {t('oauthManagement.actions.add', 'Add Provider')}
-            </Button>
+            {!isManaged && (
+              <Button
+                onClick={() => {
+                  setEditingProvider(null)
+                  setShowProviderDialog(true)
+                }}
+                className="gap-2"
+              >
+                <IconPlus className="h-4 w-4" />
+                {t('oauthManagement.actions.add', 'Add Provider')}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>

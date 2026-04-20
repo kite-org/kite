@@ -2,9 +2,7 @@
 
 Kite 默认支持一些环境变量，来改变一些配置项的默认值。
 
-- **KITE_USERNAME**：设置初始管理员用户名。可通过初始化页面中创建
-- **KITE_PASSWORD**：设置初始管理员密码。可通过初始化页面中创建
-- **KUBECONFIG**：Kubernetes 配置文件路径, 默认值为 `~/.kube/config`，当 kite 没有配置集群时默认从此路径发现并导入集群到 Kite。可通过初始化页面中导入集群
+- **KITE_CONFIG_FILE**：配置文件路径。设置后，Kite 从该文件加载集群、OAuth、LDAP、RBAC 和超级用户设置。详见[配置文件](/zh/config/config-file)。
 - **ANONYMOUS_USER_ENABLED**：启用匿名用户访问，默认值为 `false`，当启用后所有访问将不再需要身份验证，并且默认拥有最高权限。
 
 - **JWT_SECRET**：用于签名和验证 JWT 的密钥

@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
 )
 
@@ -36,6 +37,11 @@ func GetRole(c *gin.Context) {
 
 // CreateRole creates a new role
 func CreateRole(c *gin.Context) {
+	if common.IsSectionManaged("rbac") {
+		c.JSON(http.StatusForbidden, gin.H{"error": common.ManagedSectionError})
+		return
+	}
+
 	var role model.Role
 	if err := c.ShouldBindJSON(&role); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -56,6 +62,11 @@ func CreateRole(c *gin.Context) {
 
 // UpdateRole updates an existing role
 func UpdateRole(c *gin.Context) {
+	if common.IsSectionManaged("rbac") {
+		c.JSON(http.StatusForbidden, gin.H{"error": common.ManagedSectionError})
+		return
+	}
+
 	id := c.Param("id")
 	dbID, err := strconv.ParseUint(id, 10, 32)
 	if err != nil {
@@ -90,6 +101,11 @@ func UpdateRole(c *gin.Context) {
 
 // DeleteRole deletes a role and its assignments
 func DeleteRole(c *gin.Context) {
+	if common.IsSectionManaged("rbac") {
+		c.JSON(http.StatusForbidden, gin.H{"error": common.ManagedSectionError})
+		return
+	}
+
 	id := c.Param("id")
 	dbID, err := strconv.ParseUint(id, 10, 32)
 	if err != nil {
@@ -112,6 +128,11 @@ type roleAssignmentReq struct {
 
 // AssignRole assigns a role to a user or group
 func AssignRole(c *gin.Context) {
+	if common.IsSectionManaged("rbac") {
+		c.JSON(http.StatusForbidden, gin.H{"error": common.ManagedSectionError})
+		return
+	}
+
 	id := c.Param("id")
 	dbID, err := strconv.ParseUint(id, 10, 32)
 	if err != nil {
@@ -157,6 +178,11 @@ func AssignRole(c *gin.Context) {
 
 // UnassignRole removes an assignment. Accepts query params subjectType and subject.
 func UnassignRole(c *gin.Context) {
+	if common.IsSectionManaged("rbac") {
+		c.JSON(http.StatusForbidden, gin.H{"error": common.ManagedSectionError})
+		return
+	}
+
 	id := c.Param("id")
 	dbID, err := strconv.ParseUint(id, 10, 32)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
 )
 
@@ -28,6 +29,11 @@ func (h *AuthHandler) ListOAuthProviders(c *gin.Context) {
 }
 
 func (h *AuthHandler) CreateOAuthProvider(c *gin.Context) {
+	if common.IsSectionManaged("oauth") {
+		c.JSON(http.StatusForbidden, gin.H{"error": common.ManagedSectionError})
+		return
+	}
+
 	var provider model.OAuthProvider
 	if err := c.ShouldBindJSON(&provider); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -71,6 +77,11 @@ func (h *AuthHandler) CreateOAuthProvider(c *gin.Context) {
 }
 
 func (h *AuthHandler) UpdateOAuthProvider(c *gin.Context) {
+	if common.IsSectionManaged("oauth") {
+		c.JSON(http.StatusForbidden, gin.H{"error": common.ManagedSectionError})
+		return
+	}
+
 	id := c.Param("id")
 	var provider model.OAuthProvider
 	if err := c.ShouldBindJSON(&provider); err != nil {
@@ -139,6 +150,11 @@ func (h *AuthHandler) UpdateOAuthProvider(c *gin.Context) {
 }
 
 func (h *AuthHandler) DeleteOAuthProvider(c *gin.Context) {
+	if common.IsSectionManaged("oauth") {
+		c.JSON(http.StatusForbidden, gin.H{"error": common.ManagedSectionError})
+		return
+	}
+
 	id := c.Param("id")
 	dbID, err := strconv.ParseUint(id, 10, 32)
 	if err != nil {

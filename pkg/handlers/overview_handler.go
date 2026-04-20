@@ -166,20 +166,32 @@ func GetOverview(c *gin.Context) {
 	c.JSON(http.StatusOK, overview)
 }
 
+func GetManagedSections(c *gin.Context) {
+	c.JSON(http.StatusOK, common.ManagedSections)
+}
+
 func InitCheck(c *gin.Context) {
 	step := 0
 	uc, _ := model.CountUsers()
 	if uc == 0 && !common.AnonymousUserEnabled {
 		c.SetCookie("auth_token", "", -1, "/", "", false, true)
 		c.JSON(http.StatusOK, gin.H{"initialized": false, "step": step})
+		return
 	}
 	if uc > 0 || common.AnonymousUserEnabled {
 		step++
 	}
-	cc, _ := model.CountClusters()
-	if cc > 0 {
+
+	// If clusters are managed by config file, skip the cluster setup step
+	if common.IsSectionManaged("clusters") {
 		step++
+	} else {
+		cc, _ := model.CountClusters()
+		if cc > 0 {
+			step++
+		}
 	}
+
 	initialized := step == 2
 	c.JSON(http.StatusOK, gin.H{"initialized": initialized, "step": step})
 }

@@ -14,6 +14,7 @@ import {
   updateCluster,
   useClusterList,
 } from '@/lib/api'
+import { useManagedSections } from '@/lib/api/system'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,12 +27,15 @@ import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialo
 
 import { Action, ActionTable } from '../action-table'
 import { ClusterDialog } from './cluster-dialog'
+import { ManagedBanner } from './managed-banner'
 
 export function ClusterManagement() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const { data: clusters = [], isLoading, error } = useClusterList()
+  const { data: managedSections } = useManagedSections()
+  const isManaged = !!managedSections?.clusters
 
   const [showClusterDialog, setShowClusterDialog] = useState(false)
   const [editingCluster, setEditingCluster] = useState<Cluster | null>(null)
@@ -149,33 +153,36 @@ export function ClusterManagement() {
   )
 
   const actions = useMemo<Action<Cluster>[]>(
-    () => [
-      {
-        label: (
-          <>
-            <IconEdit className="h-4 w-4" />
-            {t('common.edit', 'Edit')}
-          </>
-        ),
-        onClick: (cluster) => {
-          setEditingCluster(cluster)
-          setShowClusterDialog(true)
-        },
-      },
-      {
-        label: (
-          <div className="inline-flex items-center gap-2 text-destructive">
-            <IconTrash className="h-4 w-4" />
-            {t('common.delete', 'Delete')}
-          </div>
-        ),
-        shouldDisable: (cluster) => cluster.isDefault,
-        onClick: (cluster) => {
-          setDeletingCluster(cluster)
-        },
-      },
-    ],
-    [t]
+    () =>
+      isManaged
+        ? []
+        : [
+            {
+              label: (
+                <>
+                  <IconEdit className="h-4 w-4" />
+                  {t('common.edit', 'Edit')}
+                </>
+              ),
+              onClick: (cluster) => {
+                setEditingCluster(cluster)
+                setShowClusterDialog(true)
+              },
+            },
+            {
+              label: (
+                <div className="inline-flex items-center gap-2 text-destructive">
+                  <IconTrash className="h-4 w-4" />
+                  {t('common.delete', 'Delete')}
+                </div>
+              ),
+              shouldDisable: (cluster) => cluster.isDefault,
+              onClick: (cluster) => {
+                setDeletingCluster(cluster)
+              },
+            },
+          ],
+    [t, isManaged]
   )
 
   const createMutation = useMutation({
@@ -282,6 +289,7 @@ export function ClusterManagement() {
 
   return (
     <div className="space-y-6">
+      {isManaged && <ManagedBanner />}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -291,16 +299,18 @@ export function ClusterManagement() {
                 {t('clusterManagement.title', 'Cluster Management')}
               </CardTitle>
             </div>
-            <Button
-              onClick={() => {
-                setEditingCluster(null)
-                setShowClusterDialog(true)
-              }}
-              className="gap-2"
-            >
-              <IconPlus className="h-4 w-4" />
-              {t('clusterManagement.actions.add', 'Add Cluster')}
-            </Button>
+            {!isManaged && (
+              <Button
+                onClick={() => {
+                  setEditingCluster(null)
+                  setShowClusterDialog(true)
+                }}
+                className="gap-2"
+              >
+                <IconPlus className="h-4 w-4" />
+                {t('clusterManagement.actions.add', 'Add Cluster')}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
