@@ -2,7 +2,7 @@
 
 Kite 默认支持一些环境变量，来改变一些配置项的默认值。
 
-- **KITE_CONFIG_FILE**：配置文件路径。设置后，Kite 从该文件加载集群、OAuth、LDAP、RBAC 和超级用户设置。详见[配置文件](/zh/config/config-file)。
+- **KITE_CONFIG_FILE**：配置文件路径。该功能仅适用于 Kite `v0.10.0` 及以上版本。设置后，Kite 从该文件加载集群、OAuth、LDAP、RBAC 和超级用户设置。详见[配置文件](/zh/config/config-file)。
 - **KITE_USERNAME**：兼容旧配置的超级用户名环境变量。仅在未设置 `KITE_CONFIG_FILE` 时，用于环境变量到数据库配置的迁移。
 - **KITE_PASSWORD**：兼容旧配置的超级用户密码环境变量。仅在未设置 `KITE_CONFIG_FILE` 时，用于环境变量到数据库配置的迁移。
 - **KUBECONFIG**：兼容旧配置的 kubeconfig 环境变量。仅在未设置 `KITE_CONFIG_FILE` 时读取并导入集群配置。

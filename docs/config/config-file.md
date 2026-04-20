@@ -4,6 +4,8 @@ Kite supports loading cluster, OAuth/LDAP, and RBAC configuration from a YAML fi
 
 This is useful for GitOps workflows where configuration is version-controlled and applied via Helm.
 
+> Available in Kite `v0.10.0` and later.
+
 ## How It Works
 
 1. Kite reads a YAML config file from the path specified by the `KITE_CONFIG_FILE` environment variable.

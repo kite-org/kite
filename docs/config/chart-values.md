@@ -57,6 +57,8 @@ This document describes all available configuration options for the Kite Helm Ch
 
 Kite supports loading cluster, OAuth/LDAP, and RBAC configuration from a YAML config file. When enabled, managed sections become read-only in the UI.
 
+Available in Kite `v0.10.0` and later.
+
 See [Configuration File](./config-file) for the full config file format, usage examples, and reference.
 
 | Parameter               | Description                                                                    | Default |

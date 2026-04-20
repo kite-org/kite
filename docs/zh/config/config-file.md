@@ -4,6 +4,8 @@ Kite 支持通过 YAML 配置文件来管理集群、OAuth/LDAP 和 RBAC 配置�
 
 这对于 GitOps 工作流非常有用，配置可以版本控制并通过 Helm 部署。
 
+> 该功能仅适用于 Kite `v0.10.0` 及以上版本。
+
 ## 工作原理
 
 1. Kite 从 `KITE_CONFIG_FILE` 环境变量指定的路径读取 YAML 配置文件。
