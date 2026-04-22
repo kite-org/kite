@@ -239,6 +239,9 @@ func (g *GenericProvider) GetUserInfo(accessToken string) (*model.User, error) {
 		AvatarURL:  extractAvatarURL(userInfo),
 		OIDCGroups: g.extractOIDCGroups(userInfo, accessToken),
 	}
+	if user.Username == "" {
+		user.Username = user.Key()
+	}
 	if !isAllowedGroup(user.OIDCGroups, g.AllowedGroups) {
 		klog.Warningf("User %s is not in any allowed groups %v (user groups: %v)", user.Username, g.AllowedGroups, user.OIDCGroups)
 		return nil, ErrNotInAllowedGroups
