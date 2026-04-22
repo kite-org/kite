@@ -373,19 +373,6 @@ func TestLoadConfigFromFile_EmptyPath(t *testing.T) {
 	}
 }
 
-// TestLoadConfigFromFile_InvalidFile tests handling of a non-existent file.
-func TestLoadConfigFromFile_InvalidFile(t *testing.T) {
-	saveManagedSections(t)
-
-	LoadConfigFromFile("/tmp/nonexistent-kite-config-test.yaml")
-
-	for _, section := range []string{"clusters", "oauth", "ldap", "rbac"} {
-		if common.IsSectionManaged(section) {
-			t.Errorf("section %q should NOT be managed when file doesn't exist", section)
-		}
-	}
-}
-
 // TestLoadConfigFromFile_StartupOverwrite tests that config file overwrites existing DB data.
 func TestLoadConfigFromFile_StartupOverwrite(t *testing.T) {
 	setupTestDB(t)

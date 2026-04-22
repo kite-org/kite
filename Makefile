@@ -99,7 +99,7 @@ static: ui/src/**/*.tsx ui/src/**/*.ts ui/index.html ui/**/*.css ui/package.json
 
 backend: ${BINARY_NAME} ## Build backend only
 
-$(BINARY_NAME): main.go pkg/**/*.go go.mod static
+$(BINARY_NAME): main.go pkg/**/*.go go.mod static *.go **/*.go
 	@echo "🏗️ Building backend..."
 	CGO_ENABLED=0 go build -trimpath $(LDFLAGS) -o $(BINARY_NAME) .
 

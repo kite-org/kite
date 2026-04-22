@@ -99,7 +99,7 @@ func LoadConfigFromFile(path string) {
 
 	cfg, _, err := readConfigFile(path)
 	if err != nil {
-		klog.Errorf("%v", err)
+		klog.Fatalf("%v", err)
 		return
 	}
 
