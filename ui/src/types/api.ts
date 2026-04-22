@@ -375,6 +375,7 @@ export interface Role {
 export interface UserItem {
   id: number
   username: string
+  sub?: string
   provider: string
   createdAt: string
   lastLoginAt?: string

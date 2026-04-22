@@ -1,6 +1,8 @@
 package internal
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"os"
 	"strings"
 
@@ -21,6 +23,8 @@ type KiteConfig struct {
 	LDAP      *LDAPConfig      `yaml:"ldap"`
 	RBAC      *RBACConfig      `yaml:"rbac"`
 }
+
+type AppliedSections map[string]bool
 
 type SuperUserConfig struct {
 	Username string `yaml:"username"`
@@ -93,27 +97,43 @@ func LoadConfigFromFile(path string) {
 		return
 	}
 
-	data, err := os.ReadFile(path)
+	cfg, _, err := readConfigFile(path)
 	if err != nil {
-		klog.Fatalf("Failed to read config file %s: %v", path, err)
+		klog.Errorf("%v", err)
 		return
 	}
+
+	sections := applyConfig(path, cfg)
+	common.SetManagedSections(sections)
+}
+
+func readConfigFile(path string) (*KiteConfig, [sha256.Size]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, [sha256.Size]byte{}, fmt.Errorf("failed to read config file %s: %w", path, err)
+	}
+	hash := sha256.Sum256(data)
 
 	// Expand ${ENV_VAR} placeholders from environment
 	expanded := os.ExpandEnv(string(data))
 
 	var cfg KiteConfig
 	if err := yaml.Unmarshal([]byte(expanded), &cfg); err != nil {
-		klog.Fatalf("Failed to parse config file %s: %v", path, err)
+		return nil, hash, fmt.Errorf("failed to parse config file %s: %w", path, err)
 	}
 
+	return &cfg, hash, nil
+}
+
+func applyConfig(path string, cfg *KiteConfig) AppliedSections {
+	sections := AppliedSections{}
 	klog.Infof("Loading configuration from file: %s", path)
 
 	if cfg.Clusters != nil {
 		if err := applyClusters(cfg.Clusters); err != nil {
 			klog.Errorf("Failed to apply cluster config: %v", err)
 		} else {
-			common.ManagedSections["clusters"] = true
+			sections["clusters"] = true
 			klog.Infof("Applied %d cluster(s) from config file", len(cfg.Clusters))
 		}
 	}
@@ -122,7 +142,7 @@ func LoadConfigFromFile(path string) {
 		if err := applyOAuth(cfg.OAuth); err != nil {
 			klog.Errorf("Failed to apply OAuth config: %v", err)
 		} else {
-			common.ManagedSections["oauth"] = true
+			sections["oauth"] = true
 			klog.Infof("Applied %d OAuth provider(s) from config file", len(cfg.OAuth))
 		}
 	}
@@ -131,7 +151,7 @@ func LoadConfigFromFile(path string) {
 		if err := applyLDAP(cfg.LDAP); err != nil {
 			klog.Errorf("Failed to apply LDAP config: %v", err)
 		} else {
-			common.ManagedSections["ldap"] = true
+			sections["ldap"] = true
 			klog.Info("Applied LDAP settings from config file")
 		}
 	}
@@ -140,7 +160,7 @@ func LoadConfigFromFile(path string) {
 		if err := applyRBAC(cfg.RBAC); err != nil {
 			klog.Errorf("Failed to apply RBAC config: %v", err)
 		} else {
-			common.ManagedSections["rbac"] = true
+			sections["rbac"] = true
 			klog.Infof("Applied RBAC config from config file (%d roles, %d mappings)",
 				len(cfg.RBAC.Roles), len(cfg.RBAC.RoleMapping))
 		}
@@ -149,13 +169,15 @@ func LoadConfigFromFile(path string) {
 	// Apply super user AFTER RBAC so the admin role assignment
 	// is not wiped by applyRBAC's "delete all assignments" step.
 	if cfg.SuperUser != nil && cfg.SuperUser.Username != "" && cfg.SuperUser.Password != "" {
-		common.ManagedSections["superUser"] = true
 		if err := applySuperUser(cfg.SuperUser); err != nil {
 			klog.Errorf("Failed to apply super user config: %v", err)
 		} else {
+			sections["superUser"] = true
 			klog.Infof("Applied super user %q from config file", cfg.SuperUser.Username)
 		}
 	}
+
+	return sections
 }
 
 func applySuperUser(cfg *SuperUserConfig) error {

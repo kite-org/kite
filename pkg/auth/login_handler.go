@@ -104,7 +104,6 @@ func (h *AuthHandler) handleCredentialLogin(c *gin.Context, provider string, aut
 	user, err := authenticate(username, req.Password)
 	if err != nil {
 		errMsg := fmt.Sprintf("%s login failed for %s: %v", strings.ToUpper(provider), username, err)
-		klog.Warning(errMsg)
 		if isCredentialFailure(err) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": errMsg})
 			return

@@ -240,7 +240,7 @@ var (
 	syncNow = make(chan struct{}, 1)
 )
 
-func triggerClusterSync() {
+func TriggerClusterSync() {
 	select {
 	case syncNow <- struct{}{}:
 	default:

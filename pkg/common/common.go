@@ -3,6 +3,7 @@ package common
 import (
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -61,12 +62,27 @@ var (
 	// ManagedSections tracks which configuration sections are managed by the config file.
 	// Keys: "clusters", "oauth", "ldap", "rbac", "superUser"
 	ManagedSections = map[string]bool{}
+	managedMu       sync.RWMutex
 )
 
 const ManagedSectionError = "This section is managed by configuration file and cannot be modified through the UI"
 
 func IsSectionManaged(section string) bool {
+	managedMu.RLock()
+	defer managedMu.RUnlock()
 	return ManagedSections[section]
+}
+
+func SetManagedSections(sections map[string]bool) {
+	managedMu.Lock()
+	defer managedMu.Unlock()
+
+	ManagedSections = make(map[string]bool, len(sections))
+	for section, managed := range sections {
+		if managed {
+			ManagedSections[section] = true
+		}
+	}
 }
 
 func LoadEnvs() {

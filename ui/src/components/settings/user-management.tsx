@@ -62,6 +62,10 @@ import { Action } from '../action-table'
 import { Badge } from '../ui/badge'
 import UserRoleAssignment from './user-role-assignment'
 
+function userSubjectName(user: UserItem): string {
+  return user.username || user.name || user.sub || String(user.id)
+}
+
 export function UserManagement() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -616,7 +620,9 @@ export function UserManagement() {
           if (!o) setAssigning(null)
         }}
         subject={
-          assigning ? { type: 'user', name: assigning.username } : undefined
+          assigning
+            ? { type: 'user', name: userSubjectName(assigning) }
+            : undefined
         }
       />
 

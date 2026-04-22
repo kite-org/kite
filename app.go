@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/internal"
@@ -13,7 +15,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func initializeApp() (*cluster.ClusterManager, error) {
+func initializeApp(ctx context.Context) (*cluster.ClusterManager, error) {
 	common.LoadEnvs()
 	if klog.V(1).Enabled() {
 		gin.SetMode(gin.DebugMode)
@@ -33,7 +35,14 @@ func initializeApp() (*cluster.ClusterManager, error) {
 		internal.LoadConfigFromEnv()
 	}
 
-	return cluster.NewClusterManager()
+	cm, err := cluster.NewClusterManager()
+	if err != nil {
+		return nil, err
+	}
+	if err := internal.StartConfigWatcher(ctx, common.ConfigFilePath); err != nil {
+		klog.Warningf("Failed to watch config file: %v", err)
+	}
+	return cm, nil
 }
 
 func buildEngine(cm *cluster.ClusterManager) *gin.Engine {

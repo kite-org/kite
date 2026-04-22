@@ -24,10 +24,14 @@ func main() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	cm, err := initializeApp()
+	appCtx, cancelApp := context.WithCancel(context.Background())
+
+	cm, err := initializeApp(appCtx)
 	if err != nil {
+		cancelApp()
 		log.Fatalf("Failed to initialize app: %v", err)
 	}
+	defer cancelApp()
 
 	srv := &http.Server{
 		Addr:              ":" + common.Port,
@@ -49,6 +53,7 @@ func main() {
 	<-quit
 
 	klog.Info("Shutting down server...")
+	cancelApp()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
