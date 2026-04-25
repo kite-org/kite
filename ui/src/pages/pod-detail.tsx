@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconAdjustments, IconExternalLink } from '@tabler/icons-react'
+import { IconAdjustments } from '@tabler/icons-react'
 import { Container, Pod } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
-import { resizePod, updateResource, useResource } from '@/lib/api'
-import { getPodErrorMessage, getPodStatus } from '@/lib/k8s'
-import { withSubPath } from '@/lib/subpath'
-import { formatDate, translateError } from '@/lib/utils'
+import {
+  resizePod,
+  updateResource,
+  useResource,
+  useResourcesEvents,
+} from '@/lib/api'
+import { isVersionAtLeast, translateError } from '@/lib/utils'
 import { useCluster } from '@/hooks/use-cluster'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -23,15 +25,12 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { ContainerInfoCard } from '@/components/container-info-card'
-import { ContainerTable } from '@/components/container-table'
 import { ResourceEditor } from '@/components/editors/resource-editor'
 import { EventTable } from '@/components/event-table'
-import { LabelsAnno } from '@/components/lables-anno'
 import { LogViewer } from '@/components/log-viewer'
-import { OwnerInfoDisplay } from '@/components/owner-info-display'
 import { PodFileBrowser } from '@/components/pod-file-browser'
 import { PodMonitoring } from '@/components/pod-monitoring'
-import { PodStatusIcon } from '@/components/pod-status-icon'
+import { PodOverview } from '@/components/pod-overview'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
 import { ContainerSelector } from '@/components/selector/container-selector'
 import { Terminal } from '@/components/terminal'
@@ -59,6 +58,11 @@ export function PodDetail(props: { namespace: string; name: string }) {
     error: podError,
     refetch,
   } = useResource('pods', name, namespace)
+  const { data: podEvents, isLoading: isEventsLoading } = useResourcesEvents(
+    'pods',
+    name,
+    namespace
+  )
 
   useEffect(() => {
     if (!pod || !pod?.spec?.containers?.length) {
@@ -84,7 +88,7 @@ export function PodDetail(props: { namespace: string; name: string }) {
 
   const handleSaveYaml = async (content: Pod) => {
     await updateResource('pods', name, namespace, content)
-    toast.success('YAML saved successfully')
+    toast.success(t('pods.yamlSavedSuccess'))
     await refetch()
   }
 
@@ -112,8 +116,6 @@ export function PodDetail(props: { namespace: string; name: string }) {
     }
   }
 
-  const podStatus = useMemo(() => getPodStatus(pod), [pod])
-
   const clusterVersion = useMemo(
     () => clusters.find((cluster) => cluster.name === currentCluster)?.version,
     [clusters, currentCluster]
@@ -124,14 +126,13 @@ export function PodDetail(props: { namespace: string; name: string }) {
   )
   const resizeAvailable =
     resizeSupported && (pod?.spec?.containers?.length ?? 0) > 0
-
   const extraTabs = useMemo<ResourceDetailShellTab<Pod>[]>(
     () => [
       {
         value: 'containers',
         label: (
           <>
-            Containers
+            {t('pods.tabs.containers')}
             <Badge variant="secondary">
               {(pod?.spec?.containers?.length || 0) +
                 (pod?.spec?.initContainers?.length || 0)}
@@ -175,7 +176,7 @@ export function PodDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'logs',
-        label: 'Logs',
+        label: t('pods.tabs.logs'),
         content: (
           <LogViewer
             namespace={namespace}
@@ -187,7 +188,7 @@ export function PodDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'terminal',
-        label: 'Terminal',
+        label: t('pods.tabs.terminal'),
         content: (
           <Terminal
             namespace={namespace}
@@ -199,7 +200,7 @@ export function PodDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'files',
-        label: 'Files',
+        label: t('pods.tabs.files'),
         content: (
           <PodFileBrowser
             namespace={namespace}
@@ -213,7 +214,7 @@ export function PodDetail(props: { namespace: string; name: string }) {
         value: 'volumes',
         label: (
           <>
-            Volumes
+            {t('pods.tabs.volumes')}
             {pod?.spec?.volumes && (
               <Badge variant="secondary">{pod.spec.volumes.length}</Badge>
             )}
@@ -230,7 +231,7 @@ export function PodDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'related',
-        label: 'Related',
+        label: t('pods.tabs.related'),
         content: (
           <RelatedResourcesTable
             resource="pods"
@@ -241,14 +242,14 @@ export function PodDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'events',
-        label: 'Events',
+        label: t('pods.tabs.events'),
         content: (
           <EventTable resource="pods" name={name} namespace={namespace} />
         ),
       },
       {
         value: 'monitor',
-        label: 'Monitor',
+        label: t('pods.tabs.monitor'),
         content: (
           <PodMonitoring
             namespace={namespace}
@@ -259,9 +260,8 @@ export function PodDetail(props: { namespace: string; name: string }) {
         ),
       },
     ],
-    [isLoading, name, namespace, pod]
+    [isLoading, name, namespace, pod, t]
   )
-
   return (
     <>
       <ResourceDetailShell
@@ -276,221 +276,13 @@ export function PodDetail(props: { namespace: string; name: string }) {
         onSaveYaml={handleSaveYaml}
         overview={
           pod ? (
-            <div className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Status Overview</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <PodStatusIcon
-                          status={podStatus?.reason}
-                          className="w-4 h-4"
-                        />
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Phase</p>
-                        <p className="text-sm font-medium">
-                          {podStatus.reason}
-                        </p>
-                        <p className="text-xs text-red-500">
-                          {getPodErrorMessage(pod)}
-                        </p>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Ready Containers
-                      </p>
-                      <p className="text-sm font-medium">
-                        {podStatus.readyContainers} /{' '}
-                        {podStatus.totalContainers}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Restart Count
-                      </p>
-                      <p className="text-sm font-medium">
-                        {podStatus.restartString}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Node</p>
-                      <p className="text-sm font-medium truncate">
-                        {pod.spec?.nodeName ? (
-                          <Link
-                            to={`/nodes/${pod.spec.nodeName}`}
-                            className="app-link"
-                          >
-                            {pod.spec.nodeName}
-                          </Link>
-                        ) : (
-                          'Not assigned'
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Pod Information</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">
-                        Created
-                      </Label>
-                      <p className="text-sm">
-                        {formatDate(
-                          pod.metadata?.creationTimestamp || '',
-                          true
-                        )}
-                      </p>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">
-                        Started
-                      </Label>
-                      <p className="text-sm">
-                        {pod.status?.startTime
-                          ? formatDate(pod.status.startTime)
-                          : 'Not started'}
-                      </p>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">
-                        Pod IP
-                      </Label>
-                      <p className="text-sm font-mono">
-                        {pod.status?.podIP || 'Not assigned'}
-                      </p>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">
-                        Host IP
-                      </Label>
-                      <p className="text-sm font-mono">
-                        {pod.status?.hostIP || 'Not assigned'}
-                      </p>
-                    </div>
-                    <OwnerInfoDisplay metadata={pod.metadata} />
-                    <div>
-                      <Label className="text-xs text-muted-foreground">
-                        Ports
-                      </Label>
-                      <div className="flex flex-wrap items-center gap-1">
-                        {pod.spec?.containers
-                          .flatMap((c) => c.ports || [])
-                          .map((port, index, array) => (
-                            <span
-                              key={`${port.containerPort}-${port.protocol}`}
-                            >
-                              <a
-                                href={withSubPath(
-                                  `/api/v1/namespaces/${namespace}/pods/${name}:${port.containerPort}/proxy/`
-                                )}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-mono app-link inline-flex items-center gap-1"
-                              >
-                                {port.name && `${port.name}:`}
-                                {port.containerPort}
-                                <IconExternalLink className="w-3 h-3" />
-                              </a>
-                              {index < array.length - 1 && ', '}
-                            </span>
-                          ))}
-                        {(!pod.spec?.containers ||
-                          pod.spec.containers.length === 0 ||
-                          pod.spec.containers.every(
-                            (c) => !c.ports || c.ports.length === 0
-                          )) && <span>No ports defined</span>}
-                      </div>
-                    </div>
-                  </div>
-                  <LabelsAnno
-                    labels={pod.metadata?.labels || {}}
-                    annotations={pod.metadata?.annotations || {}}
-                  />
-                </CardContent>
-              </Card>
-
-              {pod.spec?.initContainers &&
-                pod.spec.initContainers.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>
-                        Init Containers ({pod.spec.initContainers.length})
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {pod.spec.initContainers.map((container) => (
-                          <ContainerTable
-                            key={container.name}
-                            container={container}
-                            init
-                          />
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    Containers ({pod.spec?.containers?.length || 0})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {pod.spec?.containers?.map((container) => (
-                      <ContainerTable
-                        key={container.name}
-                        container={container}
-                      />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {pod.status?.conditions && pod.status.conditions.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Conditions</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {pod.status.conditions.map((condition, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center gap-3 p-2 border rounded"
-                        >
-                          <Badge
-                            variant={
-                              condition.status === 'True'
-                                ? 'default'
-                                : 'secondary'
-                            }
-                          >
-                            {condition.type}
-                          </Badge>
-                          <span className="text-sm">{condition.message}</span>
-                          <span className="text-xs text-muted-foreground ml-auto">
-                            {formatDate(condition.lastTransitionTime || '')}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+            <PodOverview
+              pod={pod}
+              namespace={namespace}
+              name={name}
+              events={podEvents}
+              isEventsLoading={isEventsLoading}
+            />
           ) : null
         }
         headerActions={
@@ -564,33 +356,4 @@ export function PodDetail(props: { namespace: string; name: string }) {
       </Dialog>
     </>
   )
-}
-
-const isVersionAtLeast = (version: string | undefined, target: string) => {
-  const parsed = parseVersion(version)
-  const targetParsed = parseVersion(target)
-  if (!parsed || !targetParsed) {
-    return false
-  }
-  for (let i = 0; i < 3; i += 1) {
-    if (parsed[i] > targetParsed[i]) {
-      return true
-    }
-    if (parsed[i] < targetParsed[i]) {
-      return false
-    }
-  }
-  return true
-}
-
-const parseVersion = (version: string | undefined) => {
-  if (!version) {
-    return null
-  }
-  const cleaned = version.trim().replace(/^v/, '')
-  const match = cleaned.match(/^(\d+)\.(\d+)\.(\d+)/)
-  if (!match) {
-    return null
-  }
-  return [Number(match[1]), Number(match[2]), Number(match[3])]
 }

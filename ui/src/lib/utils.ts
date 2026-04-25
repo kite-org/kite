@@ -56,6 +56,35 @@ export function getAge(timestamp: string): string {
   }
 }
 
+export function isVersionAtLeast(version: string | undefined, target: string) {
+  const parsed = parseVersion(version)
+  const targetParsed = parseVersion(target)
+  if (!parsed || !targetParsed) {
+    return false
+  }
+  for (let i = 0; i < 3; i += 1) {
+    if (parsed[i] > targetParsed[i]) {
+      return true
+    }
+    if (parsed[i] < targetParsed[i]) {
+      return false
+    }
+  }
+  return true
+}
+
+function parseVersion(version: string | undefined) {
+  if (!version) {
+    return null
+  }
+  const cleaned = version.trim().replace(/^v/, '')
+  const match = cleaned.match(/^(\d+)\.(\d+)\.(\d+)/)
+  if (!match) {
+    return null
+  }
+  return [Number(match[1]), Number(match[2]), Number(match[3])]
+}
+
 export function formatDate(timestamp: string, addTo = false): string {
   const date = new Date(timestamp)
   const s = format(date, 'yyyy-MM-dd HH:mm:ss')

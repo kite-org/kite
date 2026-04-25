@@ -2,10 +2,11 @@ import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import { IconLoader, IconRefresh, IconTrash } from '@tabler/icons-react'
 import * as yaml from 'js-yaml'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { type ResourceType } from '@/types/api'
-import { translateError } from '@/lib/utils'
+import { cn, translateError } from '@/lib/utils'
 import { usePageTitle } from '@/hooks/use-page-title'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -68,7 +69,7 @@ export function ResourceDetailShell<T>({
   headerActions,
   yamlToolbar,
   loadingMessage,
-  yamlTabLabel = 'YAML',
+  yamlTabLabel,
   showDelete = true,
 }: ResourceDetailShellProps<T>) {
   const { t } = useTranslation()
@@ -77,6 +78,8 @@ export function ResourceDetailShell<T>({
   const [refreshKey, setRefreshKey] = useState(0)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [searchParams] = useSearchParams()
+  const isIframe = searchParams.get('iframe') === 'true'
 
   usePageTitle(name ? `${name} (${resourceLabel})` : resourceLabel)
 
@@ -130,7 +133,7 @@ export function ResourceDetailShell<T>({
     const resolvedTabs: ResourceDetailShellTab<T>[] = [
       {
         value: 'overview',
-        label: 'Overview',
+        label: t('common.overview'),
         content: overview,
       },
     ]
@@ -140,7 +143,7 @@ export function ResourceDetailShell<T>({
     if (onSaveYaml) {
       resolvedTabs.push({
         value: 'yaml',
-        label: yamlTabLabel,
+        label: yamlTabLabel || t('common.yaml'),
         content: (
           <div className="space-y-4">
             {yamlToolbar ? (
@@ -153,7 +156,7 @@ export function ResourceDetailShell<T>({
             <YamlEditor
               key={refreshKey}
               value={yamlContent}
-              title="YAML Configuration"
+              title={t('common.yamlConfiguration')}
               onSave={(value) => {
                 void handleSaveYaml(value as T)
               }}
@@ -174,6 +177,7 @@ export function ResourceDetailShell<T>({
     onSaveYaml,
     overview,
     shellContext,
+    t,
     refreshKey,
     yamlContent,
     yamlTabLabel,
@@ -223,13 +227,14 @@ export function ResourceDetailShell<T>({
   }
 
   return (
-    <div className="space-y-2">
+    <div className={cn(isIframe && 'px-4 py-3 lg:px-6')}>
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
-          <h1 className="text-lg font-bold">{name}</h1>
+          <h1 className="text-lg font-extrabold">{name}</h1>
           {namespace ? (
             <p className="text-muted-foreground">
-              Namespace: <span className="font-medium">{namespace}</span>
+              {t('common.namespace')}:{' '}
+              <span className="font-medium">{namespace}</span>
             </p>
           ) : null}
         </div>
@@ -241,7 +246,7 @@ export function ResourceDetailShell<T>({
             onClick={handleRefresh}
           >
             <IconRefresh className="w-4 h-4" />
-            Refresh
+            {t('common.refresh')}
           </Button>
           <DescribeDialog
             resourceType={resourceType}
@@ -256,13 +261,20 @@ export function ResourceDetailShell<T>({
               onClick={() => setIsDeleteDialogOpen(true)}
             >
               <IconTrash className="w-4 h-4" />
-              Delete
+              {t('common.delete')}
             </Button>
           )}
         </div>
       </div>
 
       <ResponsiveTabs
+        className="gap-2"
+        stickyHeaderClassName={cn(
+          'sticky z-40 bg-background px-4',
+          isIframe
+            ? 'top-0 -mx-4 lg:-mx-6 lg:px-6'
+            : 'top-(--header-height) -mx-4 lg:-mx-6 lg:px-6'
+        )}
         tabs={tabs.map((tab) => ({
           value: tab.value,
           label: tab.label,

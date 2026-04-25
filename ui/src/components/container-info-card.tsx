@@ -72,12 +72,14 @@ export function ContainerInfoCard({
   container,
   status,
   init,
+  defaultExpanded = false,
 }: {
   container: Container
   status?: ContainerStatus
   init?: boolean
+  defaultExpanded?: boolean
 }) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(defaultExpanded)
 
   const hasMore =
     (container.ports && container.ports.length > 0) ||

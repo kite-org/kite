@@ -1,6 +1,12 @@
 import jsonpath from 'jsonpath'
 import { Deployment } from 'kubernetes-types/apps/v1'
-import { Container, Pod, Service } from 'kubernetes-types/core/v1'
+import {
+  Container,
+  ContainerStatus,
+  Event as KubernetesEvent,
+  Pod,
+  Service,
+} from 'kubernetes-types/core/v1'
 import { ObjectMeta } from 'kubernetes-types/meta/v1'
 
 import { CustomResource, ResourceType } from '@/types/api'
@@ -193,6 +199,64 @@ export function getPodStatus(pod?: Pod): PodStatus {
     reason,
     restartString: restartsStr,
   }
+}
+
+export type PodPort = {
+  containerName: string
+  port: NonNullable<Container['ports']>[number]
+}
+
+export function getPodPorts(pod: Pod): PodPort[] {
+  return (pod.spec?.containers || []).flatMap((container) =>
+    (container.ports || []).map((port) => ({
+      containerName: container.name,
+      port,
+    }))
+  )
+}
+
+export function getContainerState(status?: ContainerStatus) {
+  if (status?.state?.running) {
+    return 'Running'
+  }
+  if (status?.state?.terminated) {
+    return (
+      status.state.terminated.reason ||
+      (status.state.terminated.exitCode === 0 ? 'Completed' : 'Terminated')
+    )
+  }
+  if (status?.state?.waiting) {
+    return status.state.waiting.reason || 'Waiting'
+  }
+  return 'Waiting'
+}
+
+export function getLastContainerState(status?: ContainerStatus) {
+  if (status?.lastState?.terminated) {
+    const terminated = status.lastState.terminated
+    return [
+      terminated.reason || 'Terminated',
+      terminated.exitCode !== undefined ? `exit ${terminated.exitCode}` : '',
+    ]
+      .filter(Boolean)
+      .join(', ')
+  }
+  if (status?.lastState?.waiting) {
+    return status.lastState.waiting.reason || 'Waiting'
+  }
+  if (status?.lastState?.running) {
+    return 'Running'
+  }
+  return undefined
+}
+
+export function getEventTime(event: KubernetesEvent) {
+  const timestamp =
+    event.lastTimestamp ||
+    event.eventTime ||
+    event.metadata?.creationTimestamp ||
+    event.firstTimestamp
+  return timestamp ? new Date(timestamp) : new Date(0)
 }
 
 // Helper function to check if pod phase is terminal

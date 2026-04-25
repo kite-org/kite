@@ -63,7 +63,7 @@ function AppContent() {
     <>
       <SidebarProvider>
         <AppSidebar variant="inset" />
-        <SidebarInset className="h-screen overflow-y-auto scrollbar-hide">
+        <SidebarInset className="h-screen overflow-y-auto overscroll-none scrollbar-hide">
           <SiteHeader />
           <div className="@container/main">
             <div className="flex flex-col gap-4 py-4 md:gap-6">

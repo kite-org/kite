@@ -4,6 +4,7 @@ import { IconExternalLink, IconLoader } from '@tabler/icons-react'
 import { RelatedResources, ResourceType } from '@/types/api'
 import { useRelatedResources } from '@/lib/api'
 import { getCRDResourcePath, isStandardK8sResource } from '@/lib/k8s'
+import { getResourceMetadata } from '@/lib/resource-catalog'
 import { withSubPath } from '@/lib/subpath'
 import {
   Dialog,
@@ -79,6 +80,7 @@ export function RelatedResourcesTable(props: {
 
 function RelatedResourceCell({ rs }: { rs: RelatedResources }) {
   const [open, setOpen] = useState(false)
+  const metadata = getResourceMetadata(rs.type)
 
   const path = useMemo(() => {
     if (isStandardK8sResource(rs.type)) {
@@ -92,9 +94,9 @@ function RelatedResourceCell({ rs }: { rs: RelatedResources }) {
       <DialogTrigger asChild>
         <div className="font-medium app-link cursor-pointer">{rs.name}</div>
       </DialogTrigger>
-      <DialogContent className="!h-[calc(100dvh-1rem)] !max-w-[calc(100vw-1rem)] flex min-h-0 flex-col md:!h-[80%] md:!max-w-[60%]">
-        <DialogHeader className="flex flex-row justify-between items-center">
-          <DialogTitle className="capitalize">{rs.type}</DialogTitle>
+      <DialogContent className="!h-[calc(100dvh-1rem)] !max-w-[calc(100vw-1rem)] flex min-h-0 flex-col gap-0 p-0 md:!h-[80%] md:!max-w-[60%]">
+        <DialogHeader className="flex flex-row items-center justify-between border-b px-4 py-3 pr-14">
+          <DialogTitle>{metadata?.singularLabel || rs.type}</DialogTitle>
           <a href={withSubPath(path)} target="_blank" rel="noopener noreferrer">
             <Button
               variant="outline"
