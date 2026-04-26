@@ -67,7 +67,7 @@ export function PodOverviewSidebar({
   )
 }
 
-function CompactRelatedResourcesCard({
+export function CompactRelatedResourcesCard({
   resources,
   isLoading,
 }: {
@@ -238,7 +238,7 @@ function PodPortsCard({
   )
 }
 
-function MetadataListCard({
+export function MetadataListCard({
   title,
   entries,
 }: {
@@ -289,7 +289,7 @@ function MetadataListCard({
   )
 }
 
-function CompactEventsCard({
+export function CompactEventsCard({
   events,
   isLoading,
 }: {

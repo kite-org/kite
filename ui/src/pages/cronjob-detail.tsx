@@ -1,13 +1,11 @@
 import { useMemo, useState } from 'react'
 import {
-  IconLoader,
   IconPlayerPause,
   IconPlayerPlay,
   IconPlayerPlayFilled,
 } from '@tabler/icons-react'
 import { CronJob, Job } from 'kubernetes-types/batch/v1'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import {
@@ -15,15 +13,20 @@ import {
   updateResource,
   useResource,
   useResources,
+  useResourcesEvents,
 } from '@/lib/api'
-import { formatDate, translateError } from '@/lib/utils'
+import {
+  formatJobStatusBadge,
+  getJobStatusBadge,
+  type JobStatusBadge,
+} from '@/lib/job-status'
+import { formatDate, getAge, translateError } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { ContainerTable } from '@/components/container-table'
+import { Card, CardContent } from '@/components/ui/card'
+import { ContainerInfoCard } from '@/components/container-info-card'
+import { CronJobJobLink, CronJobOverview } from '@/components/cronjob-overview'
 import { EventTable } from '@/components/event-table'
-import { LabelsAnno } from '@/components/lables-anno'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
 import { ResourceHistoryTable } from '@/components/resource-history-table'
 import { Column, SimpleTable } from '@/components/simple-table'
@@ -33,33 +36,6 @@ import {
   ResourceDetailShell,
   type ResourceDetailShellTab,
 } from './resource-detail-shell'
-
-interface JobStatusBadge {
-  label: string
-  variant: 'default' | 'secondary' | 'destructive' | 'outline'
-}
-
-function getJobStatusBadge(job: Job): JobStatusBadge {
-  const conditions = job.status?.conditions || []
-  const completed = conditions.find(
-    (condition) => condition.type === 'Complete'
-  )
-  const failed = conditions.find((condition) => condition.type === 'Failed')
-
-  if (failed?.status === 'True') {
-    return { label: 'Failed', variant: 'destructive' }
-  }
-
-  if (completed?.status === 'True') {
-    return { label: 'Complete', variant: 'default' }
-  }
-
-  if ((job.status?.active || 0) > 0) {
-    return { label: 'Running', variant: 'secondary' }
-  }
-
-  return { label: 'Pending', variant: 'outline' }
-}
 
 export function CronJobDetail(props: { namespace: string; name: string }) {
   const { namespace, name } = props
@@ -82,22 +58,8 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
   } = useResources('jobs', namespace, {
     disable: !namespace,
   })
-
-  const cronJobStatus = useMemo(() => {
-    if (!cronjob) {
-      return { label: '-', variant: 'secondary' as const }
-    }
-    if (cronjob.spec?.suspend) {
-      return { label: 'Suspended', variant: 'secondary' as const }
-    }
-    if ((cronjob.status?.active?.length || 0) > 0) {
-      return { label: 'Active', variant: 'default' as const }
-    }
-    if (cronjob.status?.lastSuccessfulTime) {
-      return { label: 'Idle', variant: 'outline' as const }
-    }
-    return { label: 'Pending', variant: 'outline' as const }
-  }, [cronjob])
+  const { data: cronJobEvents, isLoading: isEventsLoading } =
+    useResourcesEvents('cronjobs', name, namespace)
 
   const cronJobJobs = useMemo(() => {
     if (!jobs) return [] as Job[]
@@ -116,55 +78,40 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
     })
   }, [cronJobJobs])
 
-  const activeJobs = useMemo(() => {
-    if (!cronjob) return [] as Job[]
-    const activeNames = new Set(
-      (cronjob.status?.active || [])
-        .map((ref) => ref.name)
-        .filter((val): val is string => Boolean(val))
-    )
-    return cronJobJobs.filter((job) =>
-      activeNames.has(job.metadata?.name || '')
-    )
-  }, [cronjob, cronJobJobs])
-
   const jobColumns = useMemo<Column<Job>[]>(
     () => [
       {
-        header: 'Name',
+        header: t('cronjobs.jobsTable.name', 'Name'),
         accessor: (job) => job,
         align: 'left',
         cell: (value) => {
           const job = value as Job
+          return <CronJobJobLink job={job} />
+        },
+      },
+      {
+        header: t('common.status'),
+        accessor: (job) => getJobStatusBadge(job),
+        cell: (value) => {
+          const badge = value as JobStatusBadge
           return (
-            <Link
-              to={`/jobs/${job.metadata?.namespace}/${job.metadata?.name}`}
-              className="app-link"
-            >
-              {job.metadata?.name}
-            </Link>
+            <Badge variant={badge.variant}>
+              {formatJobStatusBadge(badge, t, 'cronjobs.jobStatuses')}
+            </Badge>
           )
         },
       },
       {
-        header: 'Status',
-        accessor: (job) => getJobStatusBadge(job),
-        cell: (value) => {
-          const badge = value as JobStatusBadge
-          return <Badge variant={badge.variant}>{badge.label}</Badge>
-        },
-      },
-      {
-        header: 'Succeeded',
+        header: t('cronjobs.jobsTable.succeeded', 'Succeeded'),
         accessor: (job) => {
           const succeeded = job.status?.succeeded || 0
-          const completions = job.spec?.completions || 1
+          const completions = job.spec?.completions ?? 1
           return `${succeeded}/${completions}`
         },
         cell: (value) => <span className="text-sm">{value as string}</span>,
       },
       {
-        header: 'Started',
+        header: t('cronjobs.jobsTable.started', 'Started'),
         accessor: (job) => job.status?.startTime,
         cell: (value) =>
           value ? (
@@ -176,7 +123,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
           ),
       },
       {
-        header: 'Completed',
+        header: t('cronjobs.jobsTable.completed', 'Completed'),
         accessor: (job) => job.status?.completionTime,
         cell: (value) =>
           value ? (
@@ -187,8 +134,20 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
             <span className="text-sm text-muted-foreground">-</span>
           ),
       },
+      {
+        header: t('cronjobs.jobsTable.age', 'Age'),
+        accessor: (job) => job.metadata?.creationTimestamp,
+        cell: (value) =>
+          value ? (
+            <span className="text-sm text-muted-foreground tabular-nums">
+              {getAge(value as string)}
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground">-</span>
+          ),
+      },
     ],
-    []
+    [t]
   )
 
   const handleRefresh = async () => {
@@ -275,12 +234,22 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
 
   const templateSpec =
     cronjob?.spec?.jobTemplate?.spec?.template?.spec || undefined
-  const initContainers = templateSpec?.initContainers || []
+  const initContainers = useMemo(
+    () => templateSpec?.initContainers || [],
+    [templateSpec?.initContainers]
+  )
   const containers = useMemo(
     () => templateSpec?.containers || [],
     [templateSpec?.containers]
   )
-  const volumes = templateSpec?.volumes
+  const volumes = useMemo(
+    () => templateSpec?.volumes || [],
+    [templateSpec?.volumes]
+  )
+  const allContainers = useMemo(
+    () => [...initContainers, ...containers],
+    [containers, initContainers]
+  )
 
   const extraTabs = useMemo<ResourceDetailShellTab<CronJob>[]>(() => {
     const tabs: ResourceDetailShellTab<CronJob>[] = [
@@ -288,19 +257,20 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
         value: 'jobs',
         label: (
           <>
-            Jobs{' '}
-            {cronJobJobs && (
-              <Badge variant="secondary">{cronJobJobs.length}</Badge>
-            )}
+            {t('cronjobs.tabs.jobs', 'Jobs')}
+            <Badge variant="secondary">{cronJobJobs.length}</Badge>
           </>
         ),
         content: (
           <Card>
-            <CardContent>
+            <CardContent className="pt-6">
               <SimpleTable<Job>
                 data={sortedJobs}
                 columns={jobColumns}
-                emptyMessage="No jobs found for this CronJob"
+                emptyMessage={t(
+                  'cronjobs.noJobs',
+                  'No jobs found for this CronJob'
+                )}
                 pagination={{
                   enabled: true,
                   pageSize: 20,
@@ -312,8 +282,56 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
         ),
       },
       {
+        value: 'containers',
+        label: (
+          <>
+            {t('cronjobs.tabs.containers', 'Containers')}
+            <Badge variant="secondary">
+              {containers.length + initContainers.length}
+            </Badge>
+          </>
+        ),
+        content: (
+          <div className="space-y-4">
+            {initContainers.length > 0 ? (
+              <div className="space-y-3">
+                {initContainers.map((container) => (
+                  <ContainerInfoCard
+                    key={container.name}
+                    container={container}
+                    init
+                  />
+                ))}
+              </div>
+            ) : null}
+            <div className="space-y-3">
+              {containers.map((container) => (
+                <ContainerInfoCard key={container.name} container={container} />
+              ))}
+            </div>
+          </div>
+        ),
+      },
+      {
+        value: 'volumes',
+        label: (
+          <>
+            {t('cronjobs.tabs.volumes', 'Volumes')}
+            <Badge variant="secondary">{volumes.length}</Badge>
+          </>
+        ),
+        content: (
+          <VolumeTable
+            namespace={namespace}
+            volumes={volumes}
+            containers={allContainers}
+            isLoading={isLoading}
+          />
+        ),
+      },
+      {
         value: 'related',
-        label: 'Related',
+        label: t('cronjobs.tabs.related', 'Related'),
         content: (
           <RelatedResourcesTable
             resource="cronjobs"
@@ -323,15 +341,8 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
         ),
       },
       {
-        value: 'events',
-        label: 'Events',
-        content: (
-          <EventTable resource="cronjobs" name={name} namespace={namespace} />
-        ),
-      },
-      {
         value: 'history',
-        label: 'History',
+        label: t('cronjobs.tabs.history', 'History'),
         content: cronjob ? (
           <ResourceHistoryTable
             resourceType="cronjobs"
@@ -341,31 +352,28 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
           />
         ) : null,
       },
-    ]
-
-    if (volumes) {
-      tabs.push({
-        value: 'volumes',
-        label: 'Volumes',
+      {
+        value: 'events',
+        label: t('cronjobs.tabs.events', 'Events'),
         content: (
-          <VolumeTable
-            namespace={namespace}
-            volumes={volumes}
-            containers={containers}
-          />
+          <EventTable resource="cronjobs" name={name} namespace={namespace} />
         ),
-      })
-    }
+      },
+    ]
 
     return tabs
   }, [
-    containers,
+    allContainers,
     cronJobJobs,
     cronjob,
+    containers,
+    initContainers,
+    isLoading,
     jobColumns,
     name,
     namespace,
     sortedJobs,
+    t,
     volumes,
   ])
 
@@ -382,186 +390,15 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
       onSaveYaml={handleSaveYaml}
       overview={
         cronjob ? (
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Status Overview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-4">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Status
-                    </Label>
-                    <Badge variant={cronJobStatus.variant}>
-                      {cronJobStatus.label}
-                    </Badge>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Schedule
-                    </Label>
-                    <p className="text-sm font-medium">
-                      {cronjob.spec?.schedule || '-'}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Active Jobs
-                    </Label>
-                    <p className="text-sm font-medium">
-                      {cronjob.status?.active?.length || 0}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Last Schedule
-                    </Label>
-                    <p className="text-sm font-medium">
-                      {cronjob.status?.lastScheduleTime
-                        ? formatDate(cronjob.status.lastScheduleTime, true)
-                        : '-'}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>CronJob Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Created
-                    </Label>
-                    <p className="text-sm">
-                      {formatDate(
-                        cronjob.metadata?.creationTimestamp || '',
-                        true
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Concurrency Policy
-                    </Label>
-                    <p className="text-sm">
-                      {cronjob.spec?.concurrencyPolicy || 'Allow'}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Starting Deadline
-                    </Label>
-                    <p className="text-sm">
-                      {cronjob.spec?.startingDeadlineSeconds
-                        ? `${cronjob.spec.startingDeadlineSeconds} seconds`
-                        : 'Not set'}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Successful Jobs History
-                    </Label>
-                    <p className="text-sm">
-                      {cronjob.spec?.successfulJobsHistoryLimit ?? 3}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Failed Jobs History
-                    </Label>
-                    <p className="text-sm">
-                      {cronjob.spec?.failedJobsHistoryLimit ?? 1}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Time Zone
-                    </Label>
-                    <p className="text-sm">
-                      {cronjob.spec?.timeZone || 'Cluster default'}
-                    </p>
-                  </div>
-                </div>
-                <LabelsAnno
-                  labels={cronjob.metadata?.labels || {}}
-                  annotations={cronjob.metadata?.annotations || {}}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Active Jobs</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoadingJobs ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <IconLoader className="w-4 h-4 animate-spin" />
-                    Loading active jobs...
-                  </div>
-                ) : activeJobs.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {activeJobs.map((job) => (
-                      <Badge key={job.metadata?.uid} variant="secondary">
-                        <Link
-                          to={`/jobs/${job.metadata?.namespace}/${job.metadata?.name}`}
-                          className="hover:underline"
-                        >
-                          {job.metadata?.name}
-                        </Link>
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No active jobs currently running.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {initContainers.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    Init Containers ({initContainers.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {initContainers.map((container) => (
-                      <ContainerTable
-                        key={container.name}
-                        container={container}
-                        init
-                      />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Containers ({containers.length})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {containers.map((container) => (
-                    <ContainerTable
-                      key={container.name}
-                      container={container}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <CronJobOverview
+            cronjob={cronjob}
+            namespace={namespace}
+            name={name}
+            jobs={sortedJobs}
+            isJobsLoading={isLoadingJobs}
+            events={cronJobEvents}
+            isEventsLoading={isEventsLoading}
+          />
         ) : null
       }
       headerActions={
@@ -590,7 +427,12 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
           </Button>
         </>
       }
-      extraTabs={extraTabs}
+      preYamlTabs={extraTabs.filter((tab) =>
+        ['jobs', 'containers'].includes(tab.value)
+      )}
+      extraTabs={extraTabs.filter(
+        (tab) => !['jobs', 'containers'].includes(tab.value)
+      )}
     />
   )
 }

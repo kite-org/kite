@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { IconReload, IconScale } from '@tabler/icons-react'
 import { Deployment } from 'kubernetes-types/apps/v1'
-import { Container } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -9,13 +8,13 @@ import {
   patchResource,
   updateResource,
   useResource,
+  useResourcesEvents,
   useResourcesWatch,
 } from '@/lib/api'
 import { getDeploymentStatus, toSimpleContainer } from '@/lib/k8s'
-import { formatDate, translateError } from '@/lib/utils'
+import { translateError } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -23,10 +22,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { ContainerTable } from '@/components/container-table'
-import { DeploymentStatusIcon } from '@/components/deployment-status-icon'
+import { ContainerInfoCard } from '@/components/container-info-card'
+import { DeploymentOverview } from '@/components/deployment-overview'
 import { EventTable } from '@/components/event-table'
-import { LabelsAnno } from '@/components/lables-anno'
 import { LogViewer } from '@/components/log-viewer'
 import { PodMonitoring } from '@/components/pod-monitoring'
 import { PodTable } from '@/components/pod-table'
@@ -70,6 +68,8 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
       enabled: !!deployment?.spec?.selector.matchLabels,
     }
   )
+  const { data: deploymentEvents, isLoading: isEventsLoading } =
+    useResourcesEvents('deployments', name, namespace)
 
   useEffect(() => {
     if (deployment) {
@@ -95,7 +95,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
 
   const handleSaveYaml = async (content: Deployment) => {
     await updateResource('deployments', name, namespace, content)
-    toast.success('YAML saved successfully')
+    toast.success(t('detail.status.yamlSaved'))
     setRefreshInterval(1000)
   }
 
@@ -110,7 +110,9 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
         'kite.kubernetes.io/restartedAt'
       ] = new Date().toISOString()
       await updateResource('deployments', name, namespace, updated)
-      toast.success('Deployment restart initiated')
+      toast.success(
+        t('detail.status.restartInitiated', { resource: 'Deployment' })
+      )
       setIsRestartPopoverOpen(false)
       setRefreshInterval(1000)
     } catch (err) {
@@ -124,7 +126,12 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
       await patchResource('deployments', name, namespace, {
         spec: { replicas: scaleReplicas },
       })
-      toast.success(`Deployment scaled to ${scaleReplicas} replicas`)
+      toast.success(
+        t('detail.status.scaledTo', {
+          resource: 'Deployment',
+          replicas: scaleReplicas,
+        })
+      )
       setIsScalePopoverOpen(false)
       setRefreshInterval(1000)
     } catch (err) {
@@ -132,87 +139,92 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
     }
   }, [t, deployment, name, namespace, scaleReplicas])
 
-  const handleContainerUpdate = async (
-    updatedContainer: Container,
-    init = false
-  ) => {
-    if (!deployment) return
-    try {
-      const updated = { ...deployment }
-      const containers = init
-        ? updated.spec?.template?.spec?.initContainers
-        : updated.spec?.template?.spec?.containers
-      if (containers) {
-        const idx = containers.findIndex(
-          (c) => c.name === updatedContainer.name
-        )
-        if (idx >= 0) containers[idx] = updatedContainer
-      }
-      await updateResource('deployments', name, namespace, updated)
-      toast.success(`Container ${updatedContainer.name} updated successfully`)
-      setRefreshInterval(1000)
-    } catch (err) {
-      toast.error(translateError(err, t))
-    }
-  }
-
-  const { status } = deployment || {}
-  const readyReplicas = status?.readyReplicas || 0
-  const totalReplicas = status?.replicas || 0
-
   const extraTabs = useMemo<ResourceDetailShellTab<Deployment>[]>(() => {
     const tabs: ResourceDetailShellTab<Deployment>[] = []
+    const pods = relatedPods || []
+    const containers = deployment?.spec?.template.spec?.containers || []
+    const initContainers = deployment?.spec?.template.spec?.initContainers || []
 
-    if (relatedPods) {
-      tabs.push(
-        {
-          value: 'pods',
-          label: (
-            <>
-              Pods <Badge variant="secondary">{relatedPods.length}</Badge>
-            </>
-          ),
-          content: (
-            <PodTable
-              pods={relatedPods}
-              isLoading={isLoadingPods}
-              labelSelector={labelSelector}
-            />
-          ),
-        },
-        {
-          value: 'logs',
-          label: 'Logs',
-          content: (
-            <LogViewer
+    tabs.push(
+      {
+        value: 'pods',
+        label: (
+          <>
+            {t('deployments.tabs.pods')}
+            <Badge variant="secondary">{pods.length}</Badge>
+          </>
+        ),
+        content: (
+          <PodTable
+            pods={pods}
+            isLoading={isLoadingPods}
+            labelSelector={labelSelector}
+          />
+        ),
+      },
+      {
+        value: 'containers',
+        label: (
+          <>
+            {t('deployments.tabs.containers')}
+            <Badge variant="secondary">
+              {containers.length + initContainers.length}
+            </Badge>
+          </>
+        ),
+        content: (
+          <div className="space-y-4">
+            {initContainers.length > 0 ? (
+              <div className="space-y-3">
+                {initContainers.map((container) => (
+                  <ContainerInfoCard
+                    key={container.name}
+                    container={container}
+                    init
+                  />
+                ))}
+              </div>
+            ) : null}
+            <div className="space-y-3">
+              {containers.map((container) => (
+                <ContainerInfoCard key={container.name} container={container} />
+              ))}
+            </div>
+          </div>
+        ),
+      },
+      {
+        value: 'logs',
+        label: t('deployments.tabs.logs'),
+        content: (
+          <LogViewer
+            namespace={namespace}
+            pods={pods}
+            containers={containers}
+            initContainers={initContainers}
+            labelSelector={labelSelector}
+          />
+        ),
+      },
+      {
+        value: 'terminal',
+        label: t('deployments.tabs.terminal'),
+        content:
+          pods.length > 0 ? (
+            <Terminal
               namespace={namespace}
-              pods={relatedPods}
-              containers={deployment?.spec?.template.spec?.containers}
-              initContainers={deployment?.spec?.template.spec?.initContainers}
-              labelSelector={labelSelector}
+              pods={pods}
+              containers={containers}
+              initContainers={initContainers}
             />
-          ),
-        },
-        {
-          value: 'terminal',
-          label: 'Terminal',
-          content:
-            relatedPods.length > 0 ? (
-              <Terminal
-                namespace={namespace}
-                pods={relatedPods}
-                containers={deployment?.spec?.template.spec?.containers}
-                initContainers={deployment?.spec?.template.spec?.initContainers}
-              />
-            ) : null,
-        }
-      )
-    }
+          ) : null,
+      }
+    )
 
     tabs.push(
       {
         value: 'related',
-        label: 'Related',
+        label: t('deployments.tabs.related'),
         content: (
           <RelatedResourcesTable
             resource="deployments"
@@ -223,7 +235,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'history',
-        label: 'History',
+        label: t('deployments.tabs.history'),
         content: deployment ? (
           <ResourceHistoryTable
             resourceType="deployments"
@@ -240,7 +252,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
         value: 'volumes',
         label: (
           <>
-            Volumes{' '}
+            {t('deployments.tabs.volumes')}
             <Badge variant="secondary">
               {deployment.spec.template.spec.volumes.length}
             </Badge>
@@ -263,7 +275,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
     tabs.push(
       {
         value: 'events',
-        label: 'Events',
+        label: t('deployments.tabs.events'),
         content: (
           <EventTable
             resource="deployments"
@@ -274,13 +286,13 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'monitor',
-        label: 'Monitor',
+        label: t('deployments.tabs.monitor'),
         content: (
           <PodMonitoring
             namespace={namespace}
-            pods={relatedPods}
-            containers={deployment?.spec?.template.spec?.containers}
-            initContainers={deployment?.spec?.template.spec?.initContainers}
+            pods={pods}
+            containers={containers}
+            initContainers={initContainers}
             labelSelector={labelSelector}
           />
         ),
@@ -296,6 +308,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
     name,
     namespace,
     relatedPods,
+    t,
   ])
 
   return (
@@ -311,192 +324,15 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
       onSaveYaml={handleSaveYaml}
       overview={
         deployment ? (
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Status Overview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <DeploymentStatusIcon
-                        status={getDeploymentStatus(deployment)}
-                      />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Status</p>
-                      <p className="text-sm font-medium">
-                        {getDeploymentStatus(deployment)}
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Ready Replicas
-                    </p>
-                    <p className="text-sm font-medium">
-                      {readyReplicas} / {totalReplicas}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Updated Replicas
-                    </p>
-                    <p className="text-sm font-medium">
-                      {status?.updatedReplicas || 0}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Available Replicas
-                    </p>
-                    <p className="text-sm font-medium">
-                      {status?.availableReplicas || 0}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Deployment Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Created
-                    </Label>
-                    <p className="text-sm">
-                      {formatDate(
-                        deployment.metadata?.creationTimestamp || '',
-                        true
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Strategy
-                    </Label>
-                    <p className="text-sm">
-                      {deployment.spec?.strategy?.type || 'RollingUpdate'}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Replicas
-                    </Label>
-                    <p className="text-sm">{deployment.spec?.replicas || 0}</p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Selector
-                    </Label>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {Object.entries(
-                        deployment.spec?.selector?.matchLabels || {}
-                      ).map(([key, value]) => (
-                        <Badge
-                          key={key}
-                          variant="secondary"
-                          className="text-xs"
-                        >
-                          {key}: {value}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <LabelsAnno
-                  labels={deployment.metadata?.labels || {}}
-                  annotations={deployment.metadata?.annotations || {}}
-                />
-              </CardContent>
-            </Card>
-            {deployment.spec?.template.spec?.initContainers?.length &&
-              deployment.spec.template.spec.initContainers.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>
-                      Init Containers (
-                      {deployment.spec.template.spec.initContainers.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {deployment.spec.template.spec.initContainers.map(
-                        (container) => (
-                          <ContainerTable
-                            key={container.name}
-                            container={container}
-                            onContainerUpdate={(c) =>
-                              handleContainerUpdate(c, true)
-                            }
-                          />
-                        )
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  Containers (
-                  {deployment.spec?.template?.spec?.containers?.length || 0})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {deployment.spec?.template?.spec?.containers?.map(
-                    (container) => (
-                      <ContainerTable
-                        key={container.name}
-                        container={container}
-                        onContainerUpdate={(c) => handleContainerUpdate(c)}
-                      />
-                    )
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-            {status?.conditions && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Conditions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {status.conditions.map((condition, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-3 p-2 border rounded"
-                      >
-                        <Badge
-                          variant={
-                            condition.status === 'True'
-                              ? 'default'
-                              : 'secondary'
-                          }
-                        >
-                          {condition.type}
-                        </Badge>
-                        <span className="text-sm">{condition.message}</span>
-                        <span className="text-xs text-muted-foreground ml-auto">
-                          {formatDate(
-                            condition.lastTransitionTime ||
-                              condition.lastUpdateTime ||
-                              ''
-                          )}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          <DeploymentOverview
+            deployment={deployment}
+            namespace={namespace}
+            name={name}
+            pods={relatedPods}
+            isPodsLoading={isLoadingPods}
+            events={deploymentEvents}
+            isEventsLoading={isEventsLoading}
+          />
         ) : null
       }
       headerActions={
@@ -508,24 +344,28 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">
                 <IconScale className="w-4 h-4" />
-                Scale
+                {t('detail.buttons.scale')}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80" align="end">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <h4 className="font-medium">Scale Deployment</h4>
+                  <h4 className="font-medium">
+                    {t('detail.dialogs.scaleDeployment.title')}
+                  </h4>
                   <p className="text-sm text-muted-foreground">
-                    Adjust the number of replicas for this deployment.
+                    {t('detail.dialogs.scaleDeployment.description')}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="replicas">Replicas</Label>
+                  <Label htmlFor="replicas">
+                    {t('detail.dialogs.scaleDeployment.replicas')}
+                  </Label>
                   <div className="flex items-center gap-1">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-9 w-9 p-0"
+                      className="size-9 p-0"
                       onClick={() =>
                         setScaleReplicas(Math.max(0, scaleReplicas - 1))
                       }
@@ -546,7 +386,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-9 w-9 p-0"
+                      className="size-9 p-0"
                       onClick={() => setScaleReplicas(scaleReplicas + 1)}
                     >
                       +
@@ -555,7 +395,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                 </div>
                 <Button onClick={handleScale} className="w-full">
                   <IconScale className="w-4 h-4 mr-2" />
-                  Scale
+                  {t('detail.dialogs.scaleDeployment.scaleButton')}
                 </Button>
               </div>
             </PopoverContent>
@@ -567,17 +407,17 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">
                 <IconReload className="w-4 h-4" />
-                Restart
+                {t('detail.buttons.restart')}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80" align="end">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <h4 className="font-medium">Restart Deployment</h4>
+                  <h4 className="font-medium">
+                    {t('detail.dialogs.restartDeployment.title')}
+                  </h4>
                   <p className="text-sm text-muted-foreground">
-                    This will restart all pods in the deployment by updating the
-                    deployment&apos;s template with a new restart annotation.
-                    This action cannot be undone.
+                    {t('detail.dialogs.restartDeployment.description')}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -586,7 +426,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                     onClick={() => setIsRestartPopoverOpen(false)}
                     className="flex-1"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </Button>
                   <Button
                     onClick={() => {
@@ -596,7 +436,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                     className="flex-1"
                   >
                     <IconReload className="w-4 h-4 mr-2" />
-                    Restart
+                    {t('detail.dialogs.restartDeployment.restartButton')}
                   </Button>
                 </div>
               </div>
@@ -604,7 +444,12 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
           </Popover>
         </>
       }
-      extraTabs={extraTabs}
+      preYamlTabs={extraTabs.filter((tab) =>
+        ['pods', 'containers'].includes(tab.value)
+      )}
+      extraTabs={extraTabs.filter(
+        (tab) => !['pods', 'containers'].includes(tab.value)
+      )}
     />
   )
 }

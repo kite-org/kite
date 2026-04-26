@@ -1,21 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import {
-  IconCircleCheckFilled,
-  IconExclamationCircle,
-  IconLoader,
-  IconReload,
-  IconScale,
-} from '@tabler/icons-react'
+import { IconReload, IconScale } from '@tabler/icons-react'
 import { StatefulSet } from 'kubernetes-types/apps/v1'
-import { Container } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { updateResource, useResource, useResourcesWatch } from '@/lib/api'
-import { formatDate, translateError } from '@/lib/utils'
+import {
+  updateResource,
+  useResource,
+  useResourcesEvents,
+  useResourcesWatch,
+} from '@/lib/api'
+import { translateError } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -23,14 +20,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { ContainerTable } from '@/components/container-table'
+import { ContainerInfoCard } from '@/components/container-info-card'
 import { EventTable } from '@/components/event-table'
-import { LabelsAnno } from '@/components/lables-anno'
 import { LogViewer } from '@/components/log-viewer'
 import { PodMonitoring } from '@/components/pod-monitoring'
 import { PodTable } from '@/components/pod-table'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
 import { ResourceHistoryTable } from '@/components/resource-history-table'
+import { StatefulSetOverview } from '@/components/statefulset-overview'
 import { Terminal } from '@/components/terminal'
 import { VolumeTable } from '@/components/volume-table'
 
@@ -69,6 +66,8 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
       enabled: !!statefulset?.spec?.selector.matchLabels,
     }
   )
+  const { data: statefulSetEvents, isLoading: isEventsLoading } =
+    useResourcesEvents('statefulsets', name, namespace)
 
   useEffect(() => {
     if (statefulset) {
@@ -147,113 +146,110 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
     }
   }
 
-  const handleContainerUpdate = async (
-    updatedContainer: Container,
-    init = false
-  ) => {
-    try {
-      const updated = { ...statefulset } as StatefulSet
-      const containers = init
-        ? updated.spec?.template?.spec?.initContainers
-        : updated.spec?.template?.spec?.containers
-      if (containers) {
-        const idx = containers.findIndex(
-          (c: Container) => c.name === updatedContainer.name
-        )
-        if (idx !== -1) containers[idx] = updatedContainer
-      }
-      await updateResource('statefulsets', name, namespace, updated)
-      toast.success('Container updated successfully')
-      setRefreshInterval(1000)
-    } catch (err) {
-      toast.error(translateError(err, t))
-    }
-  }
-
-  const spec = statefulset?.spec
-  const status = statefulset?.status
-  const readyReplicas = status?.readyReplicas || 0
-  const replicas = status?.replicas || 0
-  const currentReplicas = status?.currentReplicas || 0
-  const updatedReplicas = status?.updatedReplicas || 0
-  const isAvailable = readyReplicas === replicas && replicas > 0
-  const isPending = currentReplicas < replicas
-
   const extraTabs = useMemo<ResourceDetailShellTab<StatefulSet>[]>(() => {
-    const tabs: ResourceDetailShellTab<StatefulSet>[] = []
+    const pods = relatedPods || []
+    const containers = statefulset?.spec?.template?.spec?.containers || []
+    const initContainers =
+      statefulset?.spec?.template?.spec?.initContainers || []
+    const volumes = statefulset?.spec?.template?.spec?.volumes || []
+    const allContainers = [...initContainers, ...containers]
 
-    if (relatedPods) {
-      tabs.push(
-        {
-          value: 'pods',
-          label: (
-            <>
-              Pods <Badge variant="secondary">{relatedPods.length}</Badge>
-            </>
-          ),
-          content: (
-            <PodTable
-              pods={relatedPods}
-              isLoading={isLoadingPods}
-              labelSelector={labelSelector}
-            />
-          ),
-        },
-        {
-          value: 'logs',
-          label: 'Logs',
-          content: (
-            <LogViewer
+    return [
+      {
+        value: 'pods',
+        label: (
+          <>
+            {t('statefulsets.tabs.pods', { defaultValue: 'Pods' })}
+            <Badge variant="secondary">{pods.length}</Badge>
+          </>
+        ),
+        content: (
+          <PodTable
+            pods={pods}
+            isLoading={isLoadingPods}
+            labelSelector={labelSelector}
+          />
+        ),
+      },
+      {
+        value: 'containers',
+        label: (
+          <>
+            {t('statefulsets.tabs.containers', {
+              defaultValue: 'Containers',
+            })}
+            <Badge variant="secondary">
+              {containers.length + initContainers.length}
+            </Badge>
+          </>
+        ),
+        content: (
+          <div className="space-y-4">
+            {initContainers.length > 0 ? (
+              <div className="space-y-3">
+                {initContainers.map((container) => (
+                  <ContainerInfoCard
+                    key={container.name}
+                    container={container}
+                    init
+                  />
+                ))}
+              </div>
+            ) : null}
+            <div className="space-y-3">
+              {containers.map((container) => (
+                <ContainerInfoCard key={container.name} container={container} />
+              ))}
+            </div>
+          </div>
+        ),
+      },
+      {
+        value: 'logs',
+        label: t('statefulsets.tabs.logs', { defaultValue: 'Logs' }),
+        content: (
+          <LogViewer
+            namespace={namespace}
+            pods={pods}
+            containers={containers}
+            initContainers={initContainers}
+            labelSelector={labelSelector}
+          />
+        ),
+      },
+      {
+        value: 'terminal',
+        label: t('statefulsets.tabs.terminal', { defaultValue: 'Terminal' }),
+        content:
+          pods.length > 0 ? (
+            <Terminal
               namespace={namespace}
-              pods={relatedPods}
-              containers={spec?.template.spec?.containers}
-              initContainers={spec?.template.spec?.initContainers}
-              labelSelector={labelSelector}
+              pods={pods}
+              containers={containers}
+              initContainers={initContainers}
             />
-          ),
-        },
-        {
-          value: 'terminal',
-          label: 'Terminal',
-          content:
-            relatedPods.length > 0 ? (
-              <Terminal
-                namespace={namespace}
-                pods={relatedPods}
-                containers={spec?.template.spec?.containers}
-                initContainers={spec?.template.spec?.initContainers}
-              />
-            ) : null,
-        }
-      )
-    }
-
-    if (spec?.template?.spec?.volumes) {
-      tabs.push({
+          ) : null,
+      },
+      {
         value: 'volumes',
         label: (
           <>
-            Volumes{' '}
-            <Badge variant="secondary">
-              {spec.template.spec.volumes.length}
-            </Badge>
+            {t('statefulsets.tabs.volumes', { defaultValue: 'Volumes' })}
+            <Badge variant="secondary">{volumes.length}</Badge>
           </>
         ),
         content: (
           <VolumeTable
             namespace={namespace}
-            volumes={spec.template.spec.volumes}
-            containers={spec.template.spec?.containers}
+            volumes={volumes}
+            containers={allContainers}
             isLoading={isLoading}
           />
         ),
-      })
-    }
-
-    tabs.push(
+      },
       {
         value: 'related',
-        label: 'Related',
+        label: t('statefulsets.tabs.related', { defaultValue: 'Related' }),
         content: (
           <RelatedResourcesTable
             resource="statefulsets"
@@ -263,19 +259,8 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
         ),
       },
       {
-        value: 'events',
-        label: 'Events',
-        content: (
-          <EventTable
-            resource="statefulsets"
-            name={name}
-            namespace={namespace}
-          />
-        ),
-      },
-      {
         value: 'history',
-        label: 'History',
+        label: t('statefulsets.tabs.history', { defaultValue: 'History' }),
         content: statefulset ? (
           <ResourceHistoryTable
             resourceType="statefulsets"
@@ -286,22 +271,31 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
         ) : null,
       },
       {
+        value: 'events',
+        label: t('statefulsets.tabs.events', { defaultValue: 'Events' }),
+        content: (
+          <EventTable
+            resource="statefulsets"
+            name={name}
+            namespace={namespace}
+          />
+        ),
+      },
+      {
         value: 'monitor',
-        label: 'Monitor',
+        label: t('statefulsets.tabs.monitor', { defaultValue: 'Monitor' }),
         content: (
           <PodMonitoring
             namespace={namespace}
-            pods={relatedPods}
-            containers={spec?.template.spec?.containers}
-            initContainers={spec?.template.spec?.initContainers}
-            defaultQueryName={relatedPods?.[0]?.metadata?.generateName}
+            pods={pods}
+            containers={containers}
+            initContainers={initContainers}
+            defaultQueryName={pods[0]?.metadata?.generateName}
             labelSelector={labelSelector}
           />
         ),
-      }
-    )
-
-    return tabs
+      },
+    ]
   }, [
     isLoading,
     isLoadingPods,
@@ -309,8 +303,8 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
     name,
     namespace,
     relatedPods,
-    spec,
     statefulset,
+    t,
   ])
 
   return (
@@ -326,144 +320,15 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
       onSaveYaml={handleSaveYaml}
       overview={
         statefulset ? (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Status Overview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      {isPending ? (
-                        <IconExclamationCircle className="w-4 h-4 fill-gray-500" />
-                      ) : isAvailable ? (
-                        <IconCircleCheckFilled className="w-4 h-4 fill-green-500" />
-                      ) : (
-                        <IconLoader className="w-4 h-4 animate-spin fill-amber-500" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Status</p>
-                      <p className="text-sm font-medium">
-                        {isPending
-                          ? 'Pending'
-                          : isAvailable
-                            ? 'Available'
-                            : 'In Progress'}
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Ready Replicas
-                    </p>
-                    <p className="text-sm font-medium">
-                      {readyReplicas} / {replicas}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Current Replicas
-                    </p>
-                    <p className="text-sm font-medium">{currentReplicas}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Updated Replicas
-                    </p>
-                    <p className="text-sm font-medium">{updatedReplicas}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>StatefulSet Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">Created</Label>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDate(
-                        statefulset.metadata?.creationTimestamp || ''
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Service Name</Label>
-                    <p className="text-sm text-muted-foreground">
-                      {spec?.serviceName || 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">
-                      Update Strategy
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      {spec?.updateStrategy?.type || 'RollingUpdate'}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">
-                      Pod Management Policy
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      {spec?.podManagementPolicy || 'OrderedReady'}
-                    </p>
-                  </div>
-                </div>
-                <LabelsAnno
-                  labels={statefulset.metadata?.labels || {}}
-                  annotations={statefulset.metadata?.annotations || {}}
-                />
-              </CardContent>
-            </Card>
-            {spec?.template?.spec?.initContainers && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Init Containers</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {spec.template.spec.initContainers.map(
-                      (container: Container) => (
-                        <ContainerTable
-                          key={container.name}
-                          container={container}
-                          onContainerUpdate={(c) =>
-                            handleContainerUpdate(c, true)
-                          }
-                          init
-                        />
-                      )
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            {spec?.template?.spec?.containers && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Containers</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {spec.template.spec.containers.map(
-                      (container: Container) => (
-                        <ContainerTable
-                          key={container.name}
-                          container={container}
-                          onContainerUpdate={handleContainerUpdate}
-                        />
-                      )
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          <StatefulSetOverview
+            statefulset={statefulset}
+            namespace={namespace}
+            name={name}
+            pods={relatedPods}
+            isPodsLoading={isLoadingPods}
+            events={statefulSetEvents}
+            isEventsLoading={isEventsLoading}
+          />
         ) : null
       }
       headerActions={
@@ -553,7 +418,12 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
           </Popover>
         </>
       }
-      extraTabs={extraTabs}
+      preYamlTabs={extraTabs.filter((tab) =>
+        ['pods', 'containers'].includes(tab.value)
+      )}
+      extraTabs={extraTabs.filter(
+        (tab) => !['pods', 'containers'].includes(tab.value)
+      )}
     />
   )
 }

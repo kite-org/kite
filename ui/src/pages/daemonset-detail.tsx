@@ -1,29 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
-import {
-  IconCircleCheckFilled,
-  IconExclamationCircle,
-  IconLoader,
-  IconReload,
-} from '@tabler/icons-react'
+import { IconReload } from '@tabler/icons-react'
 import { DaemonSet } from 'kubernetes-types/apps/v1'
-import { Container } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { updateResource, useResource, useResourcesWatch } from '@/lib/api'
-import { formatDate, translateError } from '@/lib/utils'
+import {
+  updateResource,
+  useResource,
+  useResourcesEvents,
+  useResourcesWatch,
+} from '@/lib/api'
+import { translateError } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { ContainerTable } from '@/components/container-table'
+import { ContainerInfoCard } from '@/components/container-info-card'
+import { DaemonSetOverview } from '@/components/daemonset-overview'
 import { EventTable } from '@/components/event-table'
-import { LabelsAnno } from '@/components/lables-anno'
 import { LogViewer } from '@/components/log-viewer'
 import { PodMonitoring } from '@/components/pod-monitoring'
 import { PodTable } from '@/components/pod-table'
@@ -76,6 +73,8 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
       enabled: !!daemonset?.spec?.selector.matchLabels,
     }
   )
+  const { data: daemonsetEvents, isLoading: isEventsLoading } =
+    useResourcesEvents('daemonsets', name, namespace)
 
   const handleSaveYaml = async (content: DaemonSet) => {
     await updateResource('daemonsets', name, namespace, content)
@@ -103,103 +102,103 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
     }
   }
 
-  const handleContainerUpdate = async (
-    updatedContainer: Container,
-    init = false
-  ) => {
-    if (!daemonset) return
-    try {
-      const updated = JSON.parse(JSON.stringify(daemonset)) as DaemonSet
-      const containers = init
-        ? updated.spec?.template?.spec?.initContainers
-        : updated.spec?.template?.spec?.containers
-      if (containers) {
-        const idx = containers.findIndex(
-          (c) => c.name === updatedContainer.name
-        )
-        if (idx !== -1) containers[idx] = updatedContainer
-      }
-      await updateResource('daemonsets', name, namespace, updated)
-      toast.success('Container updated successfully')
-      setRefreshInterval(1000)
-    } catch (err) {
-      toast.error(translateError(err, t))
-    }
-  }
-
-  const spec = daemonset?.spec
-  const status = daemonset?.status
-  const readyReplicas = status?.numberReady || 0
-  const desiredReplicas = status?.desiredNumberScheduled || 0
-  const currentReplicas = status?.currentNumberScheduled || 0
-  const isAvailable = (status?.numberAvailable || 0) > 0
-  const isPending = currentReplicas < desiredReplicas
-
   const extraTabs = useMemo<ResourceDetailShellTab<DaemonSet>[]>(() => {
     const tabs: ResourceDetailShellTab<DaemonSet>[] = []
+    const pods = relatedPods || []
+    const templateSpec = daemonset?.spec?.template.spec
+    const containers = templateSpec?.containers || []
+    const initContainers = templateSpec?.initContainers || []
 
-    if (relatedPods) {
-      tabs.push(
-        {
-          value: 'pods',
-          label: (
-            <>
-              Pods <Badge variant="secondary">{relatedPods.length}</Badge>
-            </>
-          ),
-          content: (
-            <PodTable
-              pods={relatedPods}
-              isLoading={isLoadingPods}
-              labelSelector={labelSelector}
-            />
-          ),
-        },
-        {
-          value: 'logs',
-          label: 'Logs',
-          content: (
-            <LogViewer
+    tabs.push(
+      {
+        value: 'pods',
+        label: (
+          <>
+            {t('daemonsets.tabs.pods', { defaultValue: 'Pods' })}
+            <Badge variant="secondary">{pods.length}</Badge>
+          </>
+        ),
+        content: (
+          <PodTable
+            pods={pods}
+            isLoading={isLoadingPods}
+            labelSelector={labelSelector}
+          />
+        ),
+      },
+      {
+        value: 'containers',
+        label: (
+          <>
+            {t('daemonsets.tabs.containers', { defaultValue: 'Containers' })}
+            <Badge variant="secondary">
+              {containers.length + initContainers.length}
+            </Badge>
+          </>
+        ),
+        content: (
+          <div className="space-y-4">
+            {initContainers.length > 0 ? (
+              <div className="space-y-3">
+                {initContainers.map((container) => (
+                  <ContainerInfoCard
+                    key={container.name}
+                    container={container}
+                    init
+                  />
+                ))}
+              </div>
+            ) : null}
+            <div className="space-y-3">
+              {containers.map((container) => (
+                <ContainerInfoCard key={container.name} container={container} />
+              ))}
+            </div>
+          </div>
+        ),
+      },
+      {
+        value: 'logs',
+        label: t('daemonsets.tabs.logs', { defaultValue: 'Logs' }),
+        content: (
+          <LogViewer
+            namespace={namespace}
+            pods={pods}
+            containers={containers}
+            initContainers={initContainers}
+            labelSelector={labelSelector}
+          />
+        ),
+      },
+      {
+        value: 'terminal',
+        label: t('daemonsets.tabs.terminal', { defaultValue: 'Terminal' }),
+        content:
+          pods.length > 0 ? (
+            <Terminal
               namespace={namespace}
-              pods={relatedPods}
-              containers={spec?.template.spec?.containers}
-              initContainers={spec?.template.spec?.initContainers}
-              labelSelector={labelSelector}
+              pods={pods}
+              containers={containers}
+              initContainers={initContainers}
             />
-          ),
-        },
-        {
-          value: 'terminal',
-          label: 'Terminal',
-          content:
-            relatedPods.length > 0 ? (
-              <Terminal
-                namespace={namespace}
-                pods={relatedPods}
-                containers={spec?.template.spec?.containers}
-                initContainers={spec?.template.spec?.initContainers}
-              />
-            ) : null,
-        }
-      )
-    }
+          ) : null,
+      }
+    )
 
-    if (spec?.template?.spec?.volumes) {
+    if (templateSpec?.volumes) {
       tabs.push({
         value: 'volumes',
         label: (
           <>
-            Volumes{' '}
-            <Badge variant="secondary">
-              {spec.template.spec.volumes.length}
-            </Badge>
+            {t('daemonsets.tabs.volumes', { defaultValue: 'Volumes' })}
+            <Badge variant="secondary">{templateSpec.volumes.length}</Badge>
           </>
         ),
         content: (
           <VolumeTable
             namespace={namespace}
-            volumes={spec.template.spec.volumes}
-            containers={spec.template.spec?.containers}
+            volumes={templateSpec.volumes}
+            containers={[...initContainers, ...containers]}
             isLoading={isLoading}
           />
         ),
@@ -209,7 +208,7 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
     tabs.push(
       {
         value: 'related',
-        label: 'Related',
+        label: t('daemonsets.tabs.related', { defaultValue: 'Related' }),
         content: (
           <RelatedResourcesTable
             resource="daemonsets"
@@ -219,15 +218,8 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
         ),
       },
       {
-        value: 'events',
-        label: 'Events',
-        content: (
-          <EventTable resource="daemonsets" name={name} namespace={namespace} />
-        ),
-      },
-      {
         value: 'history',
-        label: 'History',
+        label: t('daemonsets.tabs.history', { defaultValue: 'History' }),
         content: daemonset ? (
           <ResourceHistoryTable
             resourceType="daemonsets"
@@ -238,15 +230,22 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
         ) : null,
       },
       {
+        value: 'events',
+        label: t('daemonsets.tabs.events', { defaultValue: 'Events' }),
+        content: (
+          <EventTable resource="daemonsets" name={name} namespace={namespace} />
+        ),
+      },
+      {
         value: 'monitor',
-        label: 'Monitor',
+        label: t('daemonsets.tabs.monitor', { defaultValue: 'Monitor' }),
         content: (
           <PodMonitoring
             namespace={namespace}
-            pods={relatedPods}
-            containers={spec?.template.spec?.containers}
-            initContainers={spec?.template.spec?.initContainers}
-            defaultQueryName={relatedPods?.[0]?.metadata?.generateName}
+            pods={pods}
+            containers={containers}
+            initContainers={initContainers}
+            defaultQueryName={pods[0]?.metadata?.generateName}
             labelSelector={labelSelector}
           />
         ),
@@ -262,7 +261,7 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
     name,
     namespace,
     relatedPods,
-    spec,
+    t,
   ])
 
   return (
@@ -278,131 +277,15 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
       onSaveYaml={handleSaveYaml}
       overview={
         daemonset ? (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Status Overview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      {isPending ? (
-                        <IconExclamationCircle className="w-4 h-4 fill-gray-500" />
-                      ) : isAvailable ? (
-                        <IconCircleCheckFilled className="w-4 h-4 fill-green-500" />
-                      ) : (
-                        <IconLoader className="w-4 h-4 animate-spin fill-amber-500" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Status</p>
-                      <p className="text-sm font-medium">
-                        {isPending
-                          ? 'Pending'
-                          : isAvailable
-                            ? 'Available'
-                            : 'In Progress'}
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Ready Replicas
-                    </p>
-                    <p className="text-sm font-medium">
-                      {readyReplicas} / {desiredReplicas}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Current Scheduled
-                    </p>
-                    <p className="text-sm font-medium">{currentReplicas}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Desired Scheduled
-                    </p>
-                    <p className="text-sm font-medium">{desiredReplicas}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>DaemonSet Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Created
-                    </Label>
-                    <p className="text-sm">
-                      {formatDate(
-                        daemonset.metadata?.creationTimestamp || '',
-                        true
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Strategy
-                    </Label>
-                    <p className="text-sm">
-                      {spec?.updateStrategy?.type || 'RollingUpdate'}
-                    </p>
-                  </div>
-                </div>
-                <LabelsAnno
-                  labels={daemonset.metadata?.labels || {}}
-                  annotations={daemonset.metadata?.annotations || {}}
-                />
-              </CardContent>
-            </Card>
-            {spec?.template?.spec?.initContainers && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Init Containers</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {spec.template.spec.initContainers.map((container) => (
-                      <ContainerTable
-                        key={container.name}
-                        container={container}
-                        onContainerUpdate={(c) =>
-                          handleContainerUpdate(c, true)
-                        }
-                        init
-                      />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            {spec?.template?.spec?.containers && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Containers</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {spec.template.spec.containers.map((container) => (
-                      <ContainerTable
-                        key={container.name}
-                        container={container}
-                        onContainerUpdate={(c) =>
-                          handleContainerUpdate(c, false)
-                        }
-                      />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          <DaemonSetOverview
+            daemonset={daemonset}
+            namespace={namespace}
+            name={name}
+            pods={relatedPods}
+            isPodsLoading={isLoadingPods}
+            events={daemonsetEvents}
+            isEventsLoading={isEventsLoading}
+          />
         ) : null
       }
       headerActions={
@@ -448,7 +331,12 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
           </PopoverContent>
         </Popover>
       }
-      extraTabs={extraTabs}
+      preYamlTabs={extraTabs.filter((tab) =>
+        ['pods', 'containers'].includes(tab.value)
+      )}
+      extraTabs={extraTabs.filter(
+        (tab) => !['pods', 'containers'].includes(tab.value)
+      )}
     />
   )
 }
