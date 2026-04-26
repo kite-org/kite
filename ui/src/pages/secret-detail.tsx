@@ -1,20 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import * as yaml from 'js-yaml'
 import { Secret } from 'kubernetes-types/core/v1'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { updateResource, useResource } from '@/lib/api'
-import { formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
 import { EventTable } from '@/components/event-table'
 import { KeyValueDataViewer } from '@/components/key-value-data-viewer'
-import { LabelsAnno } from '@/components/lables-anno'
-import { OwnerInfoDisplay } from '@/components/owner-info-display'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
 import { ResourceHistoryTable } from '@/components/resource-history-table'
+import { ResourceOverview } from '@/components/resource-overview'
 
 import {
   ResourceDetailShell,
@@ -76,6 +73,7 @@ function SecretYamlToolbar({
 
 export function SecretDetail(props: { namespace: string; name: string }) {
   const { namespace, name } = props
+  const { t } = useTranslation()
   const [showDecodedYaml, setShowDecodedYaml] = useState(false)
 
   const { data, isLoading, isError, error, refetch } = useResource(
@@ -83,6 +81,13 @@ export function SecretDetail(props: { namespace: string; name: string }) {
     name,
     namespace
   )
+  const dataCount = data ? Object.keys(data.data || {}).length : 0
+  const dataSize = data
+    ? Object.values(data.data || {}).reduce(
+        (total, value) => total + value.length,
+        0
+      )
+    : 0
 
   const handleSaveYaml = async (content: Secret) => {
     await updateResource('secrets', name, namespace, content)
@@ -97,11 +102,7 @@ export function SecretDetail(props: { namespace: string; name: string }) {
         label: (
           <>
             Data
-            {data && (
-              <Badge variant="secondary">
-                {Object.keys(data.data || {}).length}
-              </Badge>
-            )}
+            {data && <Badge variant="secondary">{dataCount}</Badge>}
           </>
         ),
         content: data ? (
@@ -144,7 +145,7 @@ export function SecretDetail(props: { namespace: string; name: string }) {
         ) : null,
       },
     ],
-    [data, name, namespace]
+    [data, dataCount, name, namespace]
   )
 
   return (
@@ -168,70 +169,31 @@ export function SecretDetail(props: { namespace: string; name: string }) {
       )}
       overview={
         data ? (
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Secret Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Created
-                    </Label>
-                    <p className="text-sm">
-                      {formatDate(data.metadata!.creationTimestamp!, true)}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Type
-                    </Label>
-                    <p className="text-sm">
-                      <Badge variant="outline">{data.type || 'Opaque'}</Badge>
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Keys
-                    </Label>
-                    <p className="text-sm">
-                      {Object.keys(data.data || {}).length}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Size
-                    </Label>
-                    <p className="text-sm">
-                      {Object.values(data.data || {}).reduce(
-                        (total, value) => total + value.length,
-                        0
-                      )}{' '}
-                      bytes
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">UID</Label>
-                    <p className="text-sm font-mono">{data.metadata!.uid}</p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Resource Version
-                    </Label>
-                    <p className="text-sm font-mono">
-                      {data.metadata!.resourceVersion}
-                    </p>
-                  </div>
-                  <OwnerInfoDisplay metadata={data.metadata} />
-                </div>
-                <LabelsAnno
-                  labels={data.metadata!.labels || {}}
-                  annotations={data.metadata!.annotations || {}}
-                />
-              </CardContent>
-            </Card>
-          </div>
+          <ResourceOverview
+            resourceType="secrets"
+            name={name}
+            namespace={namespace}
+            metadata={data.metadata}
+            fields={[
+              {
+                label: t('resourceDetail.type'),
+                value: <Badge variant="outline">{data.type || 'Opaque'}</Badge>,
+              },
+              {
+                label: t('resourceDetail.keys'),
+                value: dataCount,
+              },
+              {
+                label: t('resourceDetail.size'),
+                value: `${dataSize} ${t('resourceDetail.bytes')}`,
+              },
+              {
+                label: t('resourceDetail.resourceVersion'),
+                value: data.metadata?.resourceVersion || '-',
+                mono: true,
+              },
+            ]}
+          />
         ) : null
       }
       preYamlTabs={tabs.slice(0, 1)}

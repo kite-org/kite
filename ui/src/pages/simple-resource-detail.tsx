@@ -1,15 +1,12 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { ResourceType, ResourceTypeMap } from '@/types/api'
 import { updateResource, useResource } from '@/lib/api'
-import { formatDate } from '@/lib/utils'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
 import { EventTable } from '@/components/event-table'
-import { LabelsAnno } from '@/components/lables-anno'
-import { OwnerInfoDisplay } from '@/components/owner-info-display'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
 import { ResourceHistoryTable } from '@/components/resource-history-table'
+import { ResourceOverview } from '@/components/resource-overview'
 
 import { getResourceLabel } from './resource-definitions'
 import {
@@ -23,6 +20,7 @@ export function SimpleResourceDetail<T extends ResourceType>(props: {
   namespace?: string
 }) {
   const { namespace, name, resourceType } = props
+  const { t } = useTranslation()
 
   const { data, isLoading, error, refetch } = useResource(
     resourceType,
@@ -90,38 +88,19 @@ export function SimpleResourceDetail<T extends ResourceType>(props: {
       onSaveYaml={handleSaveYaml}
       overview={
         data ? (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="capitalize">
-                  {resourceLabel} Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Created
-                    </Label>
-                    <p className="text-sm">
-                      {formatDate(data.metadata?.creationTimestamp || '')}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">UID</Label>
-                    <p className="text-sm font-mono">
-                      {data.metadata?.uid || 'N/A'}
-                    </p>
-                  </div>
-                  <OwnerInfoDisplay metadata={data.metadata} />
-                </div>
-                <LabelsAnno
-                  labels={data.metadata?.labels || {}}
-                  annotations={data.metadata?.annotations || {}}
-                />
-              </CardContent>
-            </Card>
-          </div>
+          <ResourceOverview
+            resourceType={resourceType}
+            name={name}
+            namespace={namespace}
+            metadata={data.metadata}
+            fields={[
+              {
+                label: t('resourceDetail.resourceVersion'),
+                value: data.metadata?.resourceVersion || '-',
+                mono: true,
+              },
+            ]}
+          />
         ) : null
       }
       extraTabs={tabs}

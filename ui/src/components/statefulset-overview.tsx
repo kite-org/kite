@@ -199,7 +199,7 @@ function StatefulSetInformationCard({
       <CardHeader className="px-3 py-2.5 !pb-2.5">
         <CardTitle className="text-balance text-sm">
           {t('statefulsets.statefulSetInformation', {
-            defaultValue: 'StatefulSet Information',
+            defaultValue: 'Information',
           })}
         </CardTitle>
       </CardHeader>

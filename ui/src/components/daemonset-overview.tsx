@@ -205,7 +205,7 @@ function DaemonSetInformationCard({ daemonset }: { daemonset: DaemonSet }) {
       <CardHeader className="px-3 py-2.5 !pb-2.5">
         <CardTitle className="text-balance text-sm">
           {t('daemonsets.daemonSetInformation', {
-            defaultValue: 'DaemonSet Information',
+            defaultValue: 'Information',
           })}
         </CardTitle>
       </CardHeader>

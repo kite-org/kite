@@ -1,15 +1,12 @@
 import { useMemo } from 'react'
 import { ConfigMap } from 'kubernetes-types/core/v1'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { updateResource, useResource } from '@/lib/api'
-import { formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
 import { KeyValueDataViewer } from '@/components/key-value-data-viewer'
-import { LabelsAnno } from '@/components/lables-anno'
-import { OwnerInfoDisplay } from '@/components/owner-info-display'
+import { ResourceOverview } from '@/components/resource-overview'
 
 import {
   ResourceDetailShell,
@@ -18,6 +15,7 @@ import {
 
 export function ConfigMapDetail(props: { namespace: string; name: string }) {
   const { namespace, name } = props
+  const { t } = useTranslation()
 
   const { data, isLoading, isError, error, refetch } = useResource(
     'configmaps',
@@ -89,48 +87,31 @@ export function ConfigMapDetail(props: { namespace: string; name: string }) {
       onSaveYaml={handleSaveYaml}
       overview={
         data ? (
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>ConfigMap Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Created
-                    </Label>
-                    <p className="text-sm">
-                      {formatDate(data.metadata!.creationTimestamp!, true)}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Keys
-                    </Label>
-                    <p className="text-sm">{totalCount}</p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">UID</Label>
-                    <p className="text-sm font-mono">{data.metadata!.uid}</p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Resource Version
-                    </Label>
-                    <p className="text-sm font-mono">
-                      {data.metadata!.resourceVersion}
-                    </p>
-                  </div>
-                  <OwnerInfoDisplay metadata={data.metadata} />
-                </div>
-                <LabelsAnno
-                  labels={data.metadata!.labels || {}}
-                  annotations={data.metadata!.annotations || {}}
-                />
-              </CardContent>
-            </Card>
-          </div>
+          <ResourceOverview
+            resourceType="configmaps"
+            name={name}
+            namespace={namespace}
+            metadata={data.metadata}
+            fields={[
+              {
+                label: t('resourceDetail.keys'),
+                value: totalCount,
+              },
+              {
+                label: t('resourceDetail.data'),
+                value: dataCount,
+              },
+              {
+                label: t('resourceDetail.binaryData'),
+                value: binaryDataCount,
+              },
+              {
+                label: t('resourceDetail.resourceVersion'),
+                value: data.metadata?.resourceVersion || '-',
+                mono: true,
+              },
+            ]}
+          />
         ) : null
       }
       preYamlTabs={tabs}

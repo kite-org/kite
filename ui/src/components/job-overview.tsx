@@ -181,7 +181,7 @@ function JobInformationCard({ job }: { job: Job }) {
     <Card className="gap-0 overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
       <CardHeader className="px-3 py-2.5 !pb-2.5">
         <CardTitle className="text-balance text-sm">
-          {t('jobs.jobInformation', { defaultValue: 'Job Information' })}
+          {t('jobs.jobInformation', { defaultValue: 'Information' })}
         </CardTitle>
       </CardHeader>
       <CardContent className="px-3 pb-3 pt-1">
