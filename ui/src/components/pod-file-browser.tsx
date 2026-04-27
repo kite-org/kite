@@ -25,6 +25,7 @@ import { translateError } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Table,
   TableBody,
@@ -202,7 +203,7 @@ export function PodFileBrowser({
           refetch={refetch}
         />
       ) : (
-        <div className="border rounded-md min-w-full max-h-[calc(100dvh-250px)] overflow-y-auto overscroll-y-contain scrollbar-hide">
+        <ScrollArea className="border rounded-md min-w-full max-h-[calc(100dvh-250px)]">
           <Table>
             <TableHeader>
               <TableRow>
@@ -309,7 +310,7 @@ export function PodFileBrowser({
               )}
             </TableBody>
           </Table>
-        </div>
+        </ScrollArea>
       )}
     </div>
   )

@@ -37,7 +37,7 @@ test('custom role grants namespaces and denies nodes', async ({
   const roleDialog = page.getByRole('dialog', { name: 'Add Role' })
   await expect(roleDialog).toBeVisible()
 
-  await roleDialog.getByLabel('Role Name').fill(roleName)
+  await roleDialog.getByLabel(/^Role \*$/).fill(roleName)
   await roleDialog.getByLabel('Description').fill('Namespaces read only')
 
   await roleDialog

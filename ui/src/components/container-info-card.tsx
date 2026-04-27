@@ -4,12 +4,14 @@ import {
   ContainerState,
   ContainerStatus,
 } from 'kubernetes-types/core/v1'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, Edit3 } from 'lucide-react'
 
 import { cn, formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+
+import { ContainerEditDialog } from './container-edit-dialog'
 
 const sectionLabelClassName =
   'text-balance text-xs font-medium text-muted-foreground uppercase'
@@ -73,13 +75,16 @@ export function ContainerInfoCard({
   status,
   init,
   defaultExpanded = false,
+  onContainerUpdate,
 }: {
   container: Container
   status?: ContainerStatus
   init?: boolean
   defaultExpanded?: boolean
+  onContainerUpdate?: (updatedContainer: Container) => void
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
 
   const hasMore =
     (container.ports && container.ports.length > 0) ||
@@ -123,6 +128,18 @@ export function ContainerInfoCard({
             <Badge variant="destructive" className="tabular-nums">
               {status.restartCount} restarts
             </Badge>
+          )}
+          {onContainerUpdate && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              aria-label={`Edit container ${container.name}`}
+              onClick={() => setEditDialogOpen(true)}
+            >
+              <Edit3 className="size-4" />
+            </Button>
           )}
         </div>
       </div>
@@ -519,6 +536,15 @@ export function ContainerInfoCard({
           </div>
         )}
       </div>
+
+      {onContainerUpdate ? (
+        <ContainerEditDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          container={container}
+          onSave={onContainerUpdate}
+        />
+      ) : null}
     </div>
   )
 }

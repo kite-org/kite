@@ -97,6 +97,7 @@
       "externalIP": "External IP",
       "failed": "Failed",
       "firstSeen": "First Seen",
+      "from": "From",
       "groupsClaim": "Groups Claim",
       "oidcGroup": "OIDC Group",
       "oidcGroups": "OIDC Groups",

@@ -1,4 +1,5 @@
 import './App.css'
+import 'overlayscrollbars/overlayscrollbars.css'
 
 import { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -14,6 +15,7 @@ import {
   useGlobalSearch,
 } from './components/global-search-provider'
 import { SiteHeader } from './components/site-header'
+import { ScrollArea } from './components/ui/scroll-area'
 import { SidebarInset, SidebarProvider } from './components/ui/sidebar'
 import { Toaster } from './components/ui/sonner'
 import { AIChatProvider } from './contexts/ai-chat-context'
@@ -63,17 +65,19 @@ function AppContent() {
     <>
       <SidebarProvider>
         <AppSidebar variant="inset" />
-        <SidebarInset className="h-screen overflow-y-auto overscroll-none scrollbar-hide">
+        <SidebarInset className="h-screen overflow-hidden">
           <SiteHeader />
-          <div className="@container/main">
-            <div className="flex flex-col gap-4 py-4 md:gap-6">
-              <div className="px-4 lg:px-6">
-                <ErrorBoundary>
-                  <Outlet />
-                </ErrorBoundary>
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="@container/main">
+              <div className="flex flex-col gap-4 py-4 md:gap-6">
+                <div className="px-4 lg:px-6">
+                  <ErrorBoundary>
+                    <Outlet />
+                  </ErrorBoundary>
+                </div>
               </div>
             </div>
-          </div>
+          </ScrollArea>
         </SidebarInset>
       </SidebarProvider>
       {isOpen ? (

@@ -212,7 +212,7 @@ export function InitializationPage() {
             </div>
           </div>
 
-          <Card className="shadow-lg border">
+          <Card>
             <CardHeader className="text-center pb-6">
               <CardTitle className="text-xl">
                 {t('initialization.title')}

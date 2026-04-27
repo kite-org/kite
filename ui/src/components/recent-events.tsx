@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 export function RecentEvents() {
   const { t } = useTranslation()
@@ -60,17 +61,19 @@ export function RecentEvents() {
           <div className="h-4  bg-muted rounded w-1/2"></div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2 scrollbar-hide overflow-auto">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-start gap-3 animate-pulse">
-                <div className="w-4 h-4  bg-muted rounded-full mt-1"></div>
-                <div className="flex-1 space-y-2">
-                  <div className="h-4  bg-muted rounded w-3/4"></div>
-                  <div className="h-3  bg-muted rounded w-1/2"></div>
+          <ScrollArea className="max-h-72">
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-start gap-3 animate-pulse">
+                  <div className="w-4 h-4  bg-muted rounded-full mt-1"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4  bg-muted rounded w-3/4"></div>
+                    <div className="h-3  bg-muted rounded w-1/2"></div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </ScrollArea>
         </CardContent>
       </Card>
     )
@@ -99,7 +102,7 @@ export function RecentEvents() {
         <CardDescription>Latest cluster events</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="max-h-72 overflow-y-auto scrollbar-hide">
+        <ScrollArea className="max-h-72">
           <div className="space-y-4">
             {events.map((event, index) => (
               <div
@@ -156,7 +159,7 @@ export function RecentEvents() {
               </div>
             ))}
           </div>
-        </div>
+        </ScrollArea>
       </CardContent>
     </Card>
   )

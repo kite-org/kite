@@ -1,10 +1,14 @@
 import { useMemo, useState } from 'react'
 import { IconExternalLink, IconLoader } from '@tabler/icons-react'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { RelatedResources, ResourceType } from '@/types/api'
 import { useRelatedResources } from '@/lib/api'
 import { getCRDResourcePath, isStandardK8sResource } from '@/lib/k8s'
-import { getResourceMetadata } from '@/lib/resource-catalog'
+import {
+  getResourceDetailPath,
+  getResourceMetadata,
+} from '@/lib/resource-catalog'
 import { withSubPath } from '@/lib/subpath'
 import {
   Dialog,
@@ -80,14 +84,31 @@ export function RelatedResourcesTable(props: {
 
 function RelatedResourceCell({ rs }: { rs: RelatedResources }) {
   const [open, setOpen] = useState(false)
+  const [searchParams] = useSearchParams()
   const metadata = getResourceMetadata(rs.type)
+  const isIframe = searchParams.get('iframe') === 'true'
 
   const path = useMemo(() => {
     if (isStandardK8sResource(rs.type)) {
-      return `/${rs.type}/${rs.namespace ? `${rs.namespace}/` : ''}${rs.name}`
+      return getResourceDetailPath(
+        metadata?.type || rs.type,
+        rs.name,
+        rs.namespace
+      )
     }
     return getCRDResourcePath(rs.type, rs.apiVersion!, rs.namespace, rs.name)
-  }, [rs])
+  }, [metadata?.type, rs])
+
+  if (isIframe) {
+    return (
+      <Link
+        to={`${path}?iframe=true`}
+        className="font-medium app-link cursor-pointer"
+      >
+        {rs.name}
+      </Link>
+    )
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

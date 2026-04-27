@@ -190,7 +190,7 @@ export function LoginPage() {
             <p className="text-gray-600">{t('login.kubernetesDashboard')}</p>
           </div>
 
-          <Card className="shadow-sm border">
+          <Card>
             <CardHeader className="text-center">
               <CardTitle className="text-xl">{t('login.signIn')}</CardTitle>
               <CardDescription className="text-gray-600">

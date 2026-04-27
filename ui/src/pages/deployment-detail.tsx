@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { IconReload, IconScale } from '@tabler/icons-react'
 import { Deployment } from 'kubernetes-types/apps/v1'
+import type { Container } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -139,6 +140,42 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
     }
   }, [t, deployment, name, namespace, scaleReplicas])
 
+  const handleContainerUpdate = useCallback(
+    async (updatedContainer: Container, init: boolean) => {
+      if (!deployment) return
+      try {
+        const updated = JSON.parse(JSON.stringify(deployment)) as Deployment
+        const templateSpec = updated.spec!.template.spec!
+
+        if (init) {
+          templateSpec.initContainers = (templateSpec.initContainers || []).map(
+            (container) =>
+              container.name === updatedContainer.name
+                ? updatedContainer
+                : container
+          )
+        } else {
+          templateSpec.containers = templateSpec.containers.map((container) =>
+            container.name === updatedContainer.name
+              ? updatedContainer
+              : container
+          )
+        }
+
+        await updateResource('deployments', name, namespace, updated)
+        toast.success(
+          t('common.messages.containerUpdated', {
+            defaultValue: 'Container updated successfully',
+          })
+        )
+        setRefreshInterval(1000)
+      } catch (err) {
+        toast.error(translateError(err, t))
+      }
+    },
+    [deployment, name, namespace, t]
+  )
+
   const extraTabs = useMemo<ResourceDetailShellTab<Deployment>[]>(() => {
     const tabs: ResourceDetailShellTab<Deployment>[] = []
     const pods = relatedPods || []
@@ -181,13 +218,22 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                     key={container.name}
                     container={container}
                     init
+                    onContainerUpdate={(updatedContainer) =>
+                      handleContainerUpdate(updatedContainer, true)
+                    }
                   />
                 ))}
               </div>
             ) : null}
             <div className="space-y-3">
               {containers.map((container) => (
-                <ContainerInfoCard key={container.name} container={container} />
+                <ContainerInfoCard
+                  key={container.name}
+                  container={container}
+                  onContainerUpdate={(updatedContainer) =>
+                    handleContainerUpdate(updatedContainer, false)
+                  }
+                />
               ))}
             </div>
           </div>
@@ -305,6 +351,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
     isLoading,
     isLoadingPods,
     labelSelector,
+    handleContainerUpdate,
     name,
     namespace,
     relatedPods,

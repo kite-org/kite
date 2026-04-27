@@ -3,6 +3,7 @@ import { useMemo, type ReactNode } from 'react'
 
 import type { ColorTheme } from './color-theme-provider'
 import { ColorThemeProvider, useColorTheme } from './color-theme-provider'
+import { DisplayScaleProvider, useDisplayScale } from './display-scale-provider'
 import { FontProvider, useFont } from './font-provider'
 import { ThemeProvider, useTheme } from './theme-provider'
 
@@ -17,6 +18,9 @@ type AppearanceProviderProps = {
   // Font
   defaultFont?: 'system' | 'maple' | 'jetbrains'
   fontStorageKey?: string
+  // Display scale
+  defaultDisplayScale?: number
+  displayScaleStorageKey?: string
 }
 
 export function AppearanceProvider({
@@ -27,6 +31,8 @@ export function AppearanceProvider({
   colorThemeStorageKey = 'vite-ui-color-theme',
   defaultFont = 'maple',
   fontStorageKey = 'vite-ui-font',
+  defaultDisplayScale = 95,
+  displayScaleStorageKey = 'vite-ui-display-scale',
 }: AppearanceProviderProps) {
   return (
     <ThemeProvider defaultTheme={defaultTheme} storageKey={themeStorageKey}>
@@ -34,9 +40,14 @@ export function AppearanceProvider({
         defaultColorTheme={defaultColorTheme}
         storageKey={colorThemeStorageKey}
       >
-        <FontProvider defaultFont={defaultFont} storageKey={fontStorageKey}>
-          {children}
-        </FontProvider>
+        <DisplayScaleProvider
+          defaultDisplayScale={defaultDisplayScale}
+          storageKey={displayScaleStorageKey}
+        >
+          <FontProvider defaultFont={defaultFont} storageKey={fontStorageKey}>
+            {children}
+          </FontProvider>
+        </DisplayScaleProvider>
       </ColorThemeProvider>
     </ThemeProvider>
   )
@@ -48,6 +59,7 @@ export default AppearanceProvider
 export function useAppearance() {
   const { theme, actualTheme, setTheme } = useTheme()
   const { colorTheme, setColorTheme } = useColorTheme()
+  const { displayScale, setDisplayScale } = useDisplayScale()
   const { font, setFont } = useFont()
 
   return useMemo(
@@ -57,9 +69,21 @@ export function useAppearance() {
       setTheme,
       colorTheme,
       setColorTheme,
+      displayScale,
+      setDisplayScale,
       font,
       setFont,
     }),
-    [theme, actualTheme, colorTheme, font, setTheme, setColorTheme, setFont]
+    [
+      theme,
+      actualTheme,
+      colorTheme,
+      displayScale,
+      font,
+      setTheme,
+      setColorTheme,
+      setDisplayScale,
+      setFont,
+    ]
   )
 }

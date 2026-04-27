@@ -428,7 +428,11 @@ const resourceCatalogMap = new Map(
 )
 
 const resourceMetadataMap = new Map(
-  resourceMetadataList.map((item) => [item.type, item] as const)
+  resourceMetadataList.flatMap((item) =>
+    [item.type, item.singular, item.singularLabel, item.pluralLabel]
+      .concat(item.shortLabel ? [item.shortLabel] : [])
+      .map((alias) => [alias.toLowerCase(), item] as const)
+  )
 )
 
 export function getResourceCatalogEntry(resource?: string | null) {
@@ -443,7 +447,7 @@ export function getResourceMetadata(resource?: string | null) {
     return undefined
   }
   return (
-    resourceMetadataMap.get(resource as ResourceType) ??
+    resourceMetadataMap.get(resource.toLowerCase()) ??
     fallbackMetadata(resource)
   )
 }

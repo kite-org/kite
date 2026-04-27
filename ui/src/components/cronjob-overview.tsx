@@ -451,12 +451,14 @@ export function CronJobJobLink({
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  const [searchParams] = useSearchParams()
   const jobName = job.metadata?.name || '-'
   const namespace = job.metadata?.namespace
   const path =
     namespace && job.metadata?.name
       ? `/jobs/${namespace}/${job.metadata.name}`
       : undefined
+  const isIframe = searchParams.get('iframe') === 'true'
 
   if (!path) {
     return (
@@ -466,6 +468,21 @@ export function CronJobJobLink({
       >
         {jobName}
       </span>
+    )
+  }
+
+  if (isIframe) {
+    return (
+      <Link
+        to={`${path}?iframe=true`}
+        className={cn(
+          'app-link block max-w-full cursor-pointer truncate text-left font-mono',
+          className
+        )}
+        title={jobName}
+      >
+        {jobName}
+      </Link>
     )
   }
 

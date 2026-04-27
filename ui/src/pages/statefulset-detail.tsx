@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { IconReload, IconScale } from '@tabler/icons-react'
 import { StatefulSet } from 'kubernetes-types/apps/v1'
+import type { Container } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -146,6 +147,42 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
     }
   }
 
+  const handleContainerUpdate = useCallback(
+    async (updatedContainer: Container, init: boolean) => {
+      if (!statefulset) return
+      try {
+        const updated = JSON.parse(JSON.stringify(statefulset)) as StatefulSet
+        const templateSpec = updated.spec!.template.spec!
+
+        if (init) {
+          templateSpec.initContainers = (templateSpec.initContainers || []).map(
+            (container) =>
+              container.name === updatedContainer.name
+                ? updatedContainer
+                : container
+          )
+        } else {
+          templateSpec.containers = templateSpec.containers.map((container) =>
+            container.name === updatedContainer.name
+              ? updatedContainer
+              : container
+          )
+        }
+
+        await updateResource('statefulsets', name, namespace, updated)
+        toast.success(
+          t('common.messages.containerUpdated', {
+            defaultValue: 'Container updated successfully',
+          })
+        )
+        setRefreshInterval(1000)
+      } catch (err) {
+        toast.error(translateError(err, t))
+      }
+    },
+    [name, namespace, statefulset, t]
+  )
+
   const extraTabs = useMemo<ResourceDetailShellTab<StatefulSet>[]>(() => {
     const pods = relatedPods || []
     const containers = statefulset?.spec?.template?.spec?.containers || []
@@ -192,13 +229,22 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
                     key={container.name}
                     container={container}
                     init
+                    onContainerUpdate={(updatedContainer) =>
+                      handleContainerUpdate(updatedContainer, true)
+                    }
                   />
                 ))}
               </div>
             ) : null}
             <div className="space-y-3">
               {containers.map((container) => (
-                <ContainerInfoCard key={container.name} container={container} />
+                <ContainerInfoCard
+                  key={container.name}
+                  container={container}
+                  onContainerUpdate={(updatedContainer) =>
+                    handleContainerUpdate(updatedContainer, false)
+                  }
+                />
               ))}
             </div>
           </div>
@@ -297,6 +343,7 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
       },
     ]
   }, [
+    handleContainerUpdate,
     isLoading,
     isLoadingPods,
     labelSelector,

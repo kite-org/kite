@@ -268,7 +268,7 @@ export function ResourceDetailShell<T>({
       </div>
 
       <ResponsiveTabs
-        className="gap-2"
+        className={namespace ? 'gap-2' : 'gap-4'}
         stickyHeaderClassName={cn(
           'sticky z-40 bg-background px-4',
           isIframe
