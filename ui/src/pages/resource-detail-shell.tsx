@@ -133,7 +133,7 @@ export function ResourceDetailShell<T>({
     const resolvedTabs: ResourceDetailShellTab<T>[] = [
       {
         value: 'overview',
-        label: t('common.overview'),
+        label: t('common.tabs.overview'),
         content: overview,
       },
     ]
@@ -143,7 +143,7 @@ export function ResourceDetailShell<T>({
     if (onSaveYaml) {
       resolvedTabs.push({
         value: 'yaml',
-        label: yamlTabLabel || t('common.yaml'),
+        label: yamlTabLabel || t('common.tabs.yaml'),
         content: (
           <div className="space-y-4">
             {yamlToolbar ? (
@@ -156,7 +156,7 @@ export function ResourceDetailShell<T>({
             <YamlEditor
               key={refreshKey}
               value={yamlContent}
-              title={t('common.yamlConfiguration')}
+              title={t('common.fields.yamlConfiguration')}
               onSave={(value) => {
                 void handleSaveYaml(value as T)
               }}
@@ -233,7 +233,7 @@ export function ResourceDetailShell<T>({
           <h1 className="text-lg font-extrabold">{name}</h1>
           {namespace ? (
             <p className="text-muted-foreground">
-              {t('common.namespace')}:{' '}
+              {t('common.fields.namespace')}:{' '}
               <span className="font-medium">{namespace}</span>
             </p>
           ) : null}
@@ -246,7 +246,7 @@ export function ResourceDetailShell<T>({
             onClick={handleRefresh}
           >
             <IconRefresh className="w-4 h-4" />
-            {t('common.refresh')}
+            {t('common.actions.refresh')}
           </Button>
           <DescribeDialog
             resourceType={resourceType}
@@ -261,7 +261,7 @@ export function ResourceDetailShell<T>({
               onClick={() => setIsDeleteDialogOpen(true)}
             >
               <IconTrash className="w-4 h-4" />
-              {t('common.delete')}
+              {t('common.actions.delete')}
             </Button>
           )}
         </div>

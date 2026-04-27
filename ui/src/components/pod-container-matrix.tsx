@@ -1,10 +1,12 @@
-import { IconBulb } from '@tabler/icons-react'
+import type { ReactNode } from 'react'
+import { IconBulb, IconFileText, IconTerminal2 } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 
 import { usePodMetrics } from '@/lib/api'
 import { getContainerState, getLastContainerState } from '@/lib/k8s'
 import { cn, formatDate, getAge } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -14,10 +16,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 import type { PodOverviewContainer } from './pod-overview-types'
 
 type TranslationFn = ReturnType<typeof useTranslation>['t']
+export type PodContainerAction = 'details' | 'logs' | 'terminal'
 
 export function PodContainersCard({
   containers,
@@ -28,7 +36,10 @@ export function PodContainersCard({
   containers: PodOverviewContainer[]
   namespace: string
   podName: string
-  onContainerSelect: (item: PodOverviewContainer) => void
+  onContainerSelect: (
+    item: PodOverviewContainer,
+    action?: PodContainerAction
+  ) => void
 }) {
   const { t } = useTranslation()
 
@@ -36,7 +47,7 @@ export function PodContainersCard({
     <Card className="gap-0 overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
       <CardHeader className="px-3 py-2.5 !pb-2.5">
         <CardTitle className="text-balance text-sm">
-          {t('pods.containers')} ({containers.length})
+          {t('common.fields.containers')} ({containers.length})
         </CardTitle>
       </CardHeader>
       <CardContent className="px-0">
@@ -50,18 +61,20 @@ export function PodContainersCard({
           </colgroup>
           <TableHeader>
             <TableRow>
-              <TableHead className="px-4">{t('pods.container')}</TableHead>
-              <TableHead className="px-1 text-center">
-                {t('pods.state')}
+              <TableHead className="px-4">
+                {t('common.fields.container')}
               </TableHead>
               <TableHead className="px-1 text-center">
-                {t('pods.restart')}
+                {t('common.fields.state')}
               </TableHead>
               <TableHead className="px-1 text-center">
-                {t('pods.cpu')}
+                {t('common.fields.restart')}
               </TableHead>
               <TableHead className="px-1 text-center">
-                {t('pods.memory')}
+                {t('common.fields.cpu')}
+              </TableHead>
+              <TableHead className="px-1 text-center">
+                {t('common.fields.memory')}
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -113,7 +126,10 @@ function PodOverviewContainerRow({
   item: PodOverviewContainer
   namespace: string
   podName: string
-  onContainerSelect: (item: PodOverviewContainer) => void
+  onContainerSelect: (
+    item: PodOverviewContainer,
+    action?: PodContainerAction
+  ) => void
 }) {
   const { t } = useTranslation()
   const { container, init, status } = item
@@ -133,22 +149,22 @@ function PodOverviewContainerRow({
     typeof status?.started === 'boolean'
       ? status.started
         ? startedAt
-          ? `${t('pods.startedShort')} ${t('common.timeAgo', {
+          ? t('common.messages.startedAgo', {
               time: getAge(startedAt),
-            })}`
-          : t('pods.startedShort')
-        : t('pods.notStarted')
+            })
+          : t('common.messages.startedShort')
+        : t('common.messages.notStarted')
       : undefined
 
   return (
-    <TableRow>
+    <TableRow className="group/container-row">
       <TableCell className="px-4">
         <div className="min-w-0 space-y-1">
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-h-6 min-w-0 items-center gap-0.5">
             <Badge
               asChild
               variant="outline"
-              className="max-w-full justify-start truncate border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
+              className="min-w-0 max-w-full shrink justify-start truncate border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
             >
               <button
                 type="button"
@@ -158,6 +174,20 @@ function PodOverviewContainerRow({
                 {container.name}
               </button>
             </Badge>
+            <span className="hidden shrink-0 items-center gap-0 group-hover/container-row:inline-flex group-focus-within/container-row:inline-flex">
+              <ContainerQuickAction
+                label={`${t('common.tabs.logs')}: ${container.name}`}
+                onClick={() => onContainerSelect(item, 'logs')}
+              >
+                <IconFileText className="size-3.5" />
+              </ContainerQuickAction>
+              <ContainerQuickAction
+                label={`${t('common.tabs.terminal')}: ${container.name}`}
+                onClick={() => onContainerSelect(item, 'terminal')}
+              >
+                <IconTerminal2 className="size-3.5" />
+              </ContainerQuickAction>
+            </span>
             {init ? (
               <Badge variant="secondary" className="text-xs">
                 {container.restartPolicy === 'Always' ? 'Sidecar' : 'Init'}
@@ -224,6 +254,34 @@ function PodOverviewContainerRow({
   )
 }
 
+function ContainerQuickAction({
+  label,
+  onClick,
+  children,
+}: {
+  label: string
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-6 text-muted-foreground hover:text-foreground"
+          aria-label={label}
+          onClick={onClick}
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
 function UsageSummary({
   points,
   value,
@@ -239,8 +297,8 @@ function UsageSummary({
   const hasUsage = value !== '-'
   const summary =
     hasUsage || limit
-      ? `${hasUsage ? value : t('pods.noMetricData')} / ${limit || '-'}`
-      : t('pods.noMetricData')
+      ? `${hasUsage ? value : t('common.messages.noData')} / ${limit || '-'}`
+      : t('common.messages.noData')
 
   return (
     <div className="mx-auto flex w-[82%] max-w-full flex-col items-center justify-center gap-0.5 tabular-nums">

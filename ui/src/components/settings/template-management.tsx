@@ -56,10 +56,10 @@ export function TemplateManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['templates'] })
       toast.success(
-        t(
-          'templateManagement.messages.created',
-          'Template created successfully'
-        )
+        t('common.messages.created', {
+          resource: t('common.fields.template', 'Template'),
+          defaultValue: 'Template created successfully',
+        })
       )
       setIsDialogOpen(false)
     },
@@ -80,10 +80,10 @@ export function TemplateManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['templates'] })
       toast.success(
-        t(
-          'templateManagement.messages.updated',
-          'Template updated successfully'
-        )
+        t('common.messages.updated', {
+          resource: t('common.fields.template', 'Template'),
+          defaultValue: 'Template updated successfully',
+        })
       )
       setIsDialogOpen(false)
     },
@@ -98,10 +98,10 @@ export function TemplateManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['templates'] })
       toast.success(
-        t(
-          'templateManagement.messages.deleted',
-          'Template deleted successfully'
-        )
+        t('common.messages.deleted', {
+          resource: t('common.fields.template', 'Template'),
+          defaultValue: 'Template deleted successfully',
+        })
       )
       setDeletingTemplate(null)
     },
@@ -133,7 +133,7 @@ export function TemplateManagement() {
   const handleSubmit = async () => {
     if (!formData.name || !formData.yaml) {
       toast.error(
-        t('templateManagement.errors.required', 'Name and YAML are required')
+        t('common.messages.nameAndYamlRequired', 'Name and YAML are required')
       )
       return
     }
@@ -154,7 +154,7 @@ export function TemplateManagement() {
     () => [
       {
         id: 'name',
-        header: t('common.name', 'Name'),
+        header: t('common.fields.name', 'Name'),
         accessorFn: (row) => row.name,
         cell: ({ row }) => (
           <div className="font-medium">{row.original.name}</div>
@@ -162,7 +162,7 @@ export function TemplateManagement() {
       },
       {
         id: 'description',
-        header: t('common.description', 'Description'),
+        header: t('common.fields.description', 'Description'),
         accessorFn: (row) => row.description,
         cell: ({ row }) => (
           <div className="text-muted-foreground">
@@ -180,7 +180,7 @@ export function TemplateManagement() {
         label: (
           <>
             <IconEdit className="h-4 w-4" />
-            {t('common.edit', 'Edit')}
+            {t('common.actions.edit', 'Edit')}
           </>
         ),
         onClick: (item) => handleOpenDialog(item),
@@ -189,7 +189,7 @@ export function TemplateManagement() {
         label: (
           <div className="inline-flex items-center gap-2 text-destructive">
             <IconTrash className="h-4 w-4" />
-            {t('common.delete', 'Delete')}
+            {t('common.actions.delete', 'Delete')}
           </div>
         ),
         onClick: (item) => setDeletingTemplate(item),
@@ -201,7 +201,7 @@ export function TemplateManagement() {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="text-muted-foreground">
-          {t('common.loading', 'Loading...')}
+          {t('common.messages.loading', 'Loading...')}
         </div>
       </div>
     )
@@ -215,18 +215,19 @@ export function TemplateManagement() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <IconTemplate className="h-5 w-5" />
-                {t('templateManagement.title', 'Templates')}
+                {t('common.fields.templates', 'Templates')}
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 {t(
-                  'templateManagement.description',
+                  'common.messages.manageTemplatesDescription',
                   'Manage resource templates for creating new resources.'
                 )}
               </p>
             </div>
             <Button onClick={() => handleOpenDialog()} className="gap-2">
               <IconPlus className="h-4 w-4" />
-              {t('templateManagement.actions.add', 'Add Template')}
+              {t('common.actions.add', 'Add')}{' '}
+              {t('common.fields.template', 'Template')}
             </Button>
           </div>
         </CardHeader>
@@ -236,10 +237,10 @@ export function TemplateManagement() {
             <div className="text-center py-8 text-muted-foreground">
               <IconTemplate className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>
-                {t(
-                  'templateManagement.empty.description',
-                  'No templates found'
-                )}
+                {t('common.messages.noItemsFound', {
+                  resource: t('common.fields.templates', 'templates'),
+                  defaultValue: 'No templates found',
+                })}
               </p>
             </div>
           )}
@@ -251,25 +252,25 @@ export function TemplateManagement() {
           <DialogHeader>
             <DialogTitle>
               {editingTemplate
-                ? t('templateManagement.dialog.editTitle', 'Edit Template')
-                : t('templateManagement.dialog.createTitle', 'Create Template')}
+                ? `${t('common.actions.edit', 'Edit')} ${t('common.fields.template', 'Template')}`
+                : `${t('common.actions.create', 'Create')} ${t('common.fields.template', 'Template')}`}
             </DialogTitle>
             <DialogDescription>
               {editingTemplate
-                ? t(
-                    'templateManagement.dialog.updateDescription',
-                    'Update existing template'
-                  )
-                : t(
-                    'templateManagement.dialog.createDescription',
-                    'Add a new resource template'
-                  )}
+                ? t('common.messages.updateExistingItem', {
+                    resource: t('common.fields.template', 'template'),
+                    defaultValue: 'Update existing template',
+                  })
+                : t('common.messages.addNewItem', {
+                    resource: t('common.fields.template', 'template'),
+                    defaultValue: 'Add a new resource template',
+                  })}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 space-y-4 overflow-y-auto py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">{t('common.name', 'Name')}</Label>
+              <Label htmlFor="name">{t('common.fields.name', 'Name')}</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -282,7 +283,7 @@ export function TemplateManagement() {
               {editingTemplate && (
                 <p className="text-xs text-muted-foreground">
                   {t(
-                    'templateManagement.hints.nameImmutable',
+                    'common.messages.nameImmutable',
                     'Name cannot be changed after creation'
                   )}
                 </p>
@@ -290,7 +291,7 @@ export function TemplateManagement() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">
-                {t('common.description', 'Description')}
+                {t('common.fields.description', 'Description')}
               </Label>
               <Input
                 id="description"
@@ -302,7 +303,9 @@ export function TemplateManagement() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="yaml">{t('common.yaml', 'YAML Content')}</Label>
+              <Label htmlFor="yaml">
+                {t('common.fields.yamlContent', 'YAML Content')}
+              </Label>
               <SimpleYamlEditor
                 value={formData.yaml}
                 onChange={(value) =>
@@ -315,9 +318,11 @@ export function TemplateManagement() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              {t('common.cancel', 'Cancel')}
+              {t('common.actions.cancel', 'Cancel')}
             </Button>
-            <Button onClick={handleSubmit}>{t('common.save', 'Save')}</Button>
+            <Button onClick={handleSubmit}>
+              {t('common.actions.save', 'Save')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

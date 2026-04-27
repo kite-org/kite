@@ -53,7 +53,7 @@ function ErrorFallback({
       <IconAlertTriangle className="h-10 w-10 text-destructive" />
       <div className="space-y-1">
         <p className="font-semibold text-sm">
-          {t('error.somethingWentWrong', 'Something went wrong')}
+          {t('common.messages.somethingWentWrong', 'Something went wrong')}
         </p>
         <p className="text-muted-foreground text-xs max-w-sm break-all">
           {error.message}
@@ -61,7 +61,7 @@ function ErrorFallback({
       </div>
       <Button size="sm" variant="outline" onClick={onReset}>
         <IconRefresh className="mr-1 h-3.5 w-3.5" />
-        {t('error.tryAgain', 'Try again')}
+        {t('common.actions.retry', 'Try again')}
       </Button>
     </div>
   )

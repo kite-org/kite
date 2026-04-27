@@ -28,7 +28,7 @@ export function DeploymentListPage() {
   const columns = useMemo(
     () => [
       columnHelper.accessor('metadata.name', {
-        header: t('common.name'),
+        header: t('common.fields.name'),
         cell: ({ row }) => (
           <div className="font-medium app-link">
             <Link
@@ -43,7 +43,7 @@ export function DeploymentListPage() {
       }),
       columnHelper.accessor((row) => row.status?.readyReplicas ?? 0, {
         id: 'ready',
-        header: t('deployments.ready'),
+        header: t('common.fields.ready'),
         cell: ({ row }) => {
           const status = row.original.status
           const ready = status?.readyReplicas || 0
@@ -56,7 +56,7 @@ export function DeploymentListPage() {
         },
       }),
       columnHelper.accessor('status.conditions', {
-        header: t('common.status'),
+        header: t('common.fields.status'),
         cell: ({ row }) => {
           const status = getDeploymentStatus(row.original)
           return (
@@ -68,7 +68,7 @@ export function DeploymentListPage() {
         },
       }),
       columnHelper.accessor('metadata.creationTimestamp', {
-        header: t('common.created'),
+        header: t('common.fields.created'),
         cell: ({ getValue }) => {
           const dateStr = formatDate(getValue() || '')
 

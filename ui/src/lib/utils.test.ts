@@ -196,7 +196,7 @@ describe('RBAC helpers', () => {
           options?.cluster,
         ].join('|')
       }
-      if (key === 'common.error') {
+      if (key === 'common.messages.error') {
         return `common:${options?.error}`
       }
       return key

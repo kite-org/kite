@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { IconAdjustments } from '@tabler/icons-react'
 import { Container, Pod } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import {
@@ -47,6 +48,8 @@ export function PodDetail(props: { namespace: string; name: string }) {
   const [selectedContainerName, setSelectedContainerName] = useState<string>()
   const [resizeContainer, setResizeContainer] = useState<Container | null>(null)
   const [isResizing, setIsResizing] = useState(false)
+  const [searchParams] = useSearchParams()
+  const tabContainerName = searchParams.get('container') || undefined
 
   const { t } = useTranslation()
   const { clusters, currentCluster } = useCluster()
@@ -88,7 +91,7 @@ export function PodDetail(props: { namespace: string; name: string }) {
 
   const handleSaveYaml = async (content: Pod) => {
     await updateResource('pods', name, namespace, content)
-    toast.success(t('pods.yamlSavedSuccess'))
+    toast.success(t('common.messages.yamlSaved'))
     await refetch()
   }
 
@@ -132,7 +135,7 @@ export function PodDetail(props: { namespace: string; name: string }) {
         value: 'containers',
         label: (
           <>
-            {t('pods.tabs.containers')}
+            {t('common.tabs.containers')}
             <Badge variant="secondary">
               {(pod?.spec?.containers?.length || 0) +
                 (pod?.spec?.initContainers?.length || 0)}
@@ -176,31 +179,33 @@ export function PodDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'logs',
-        label: t('pods.tabs.logs'),
+        label: t('common.tabs.logs'),
         content: (
           <LogViewer
             namespace={namespace}
             podName={name}
             containers={pod?.spec?.containers}
             initContainers={pod?.spec?.initContainers}
+            selectedContainerName={tabContainerName}
           />
         ),
       },
       {
         value: 'terminal',
-        label: t('pods.tabs.terminal'),
+        label: t('common.tabs.terminal'),
         content: (
           <Terminal
             namespace={namespace}
             podName={name}
             containers={pod?.spec?.containers}
             initContainers={pod?.spec?.initContainers}
+            selectedContainerName={tabContainerName}
           />
         ),
       },
       {
         value: 'files',
-        label: t('pods.tabs.files'),
+        label: t('common.tabs.files'),
         content: (
           <PodFileBrowser
             namespace={namespace}
@@ -214,7 +219,7 @@ export function PodDetail(props: { namespace: string; name: string }) {
         value: 'volumes',
         label: (
           <>
-            {t('pods.tabs.volumes')}
+            {t('common.tabs.volumes')}
             {pod?.spec?.volumes && (
               <Badge variant="secondary">{pod.spec.volumes.length}</Badge>
             )}
@@ -231,7 +236,7 @@ export function PodDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'related',
-        label: t('pods.tabs.related'),
+        label: t('common.tabs.related'),
         content: (
           <RelatedResourcesTable
             resource="pods"
@@ -242,14 +247,14 @@ export function PodDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'events',
-        label: t('pods.tabs.events'),
+        label: t('common.tabs.events'),
         content: (
           <EventTable resource="pods" name={name} namespace={namespace} />
         ),
       },
       {
         value: 'monitor',
-        label: t('pods.tabs.monitor'),
+        label: t('common.tabs.monitor'),
         content: (
           <PodMonitoring
             namespace={namespace}
@@ -260,7 +265,7 @@ export function PodDetail(props: { namespace: string; name: string }) {
         ),
       },
     ],
-    [isLoading, name, namespace, pod, t]
+    [isLoading, name, namespace, pod, t, tabContainerName]
   )
   return (
     <>
@@ -310,7 +315,7 @@ export function PodDetail(props: { namespace: string; name: string }) {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>{t('pods.container')}</Label>
+              <Label>{t('common.fields.container')}</Label>
               <ContainerSelector
                 containers={(pod?.spec?.containers || []).map((item) => ({
                   name: item.name,
@@ -343,13 +348,13 @@ export function PodDetail(props: { namespace: string; name: string }) {
               variant="outline"
               onClick={() => setIsResizeDialogOpen(false)}
             >
-              {t('common.cancel')}
+              {t('common.actions.cancel')}
             </Button>
             <Button
               onClick={handleResizeSave}
               disabled={!resizeContainer || isResizing}
             >
-              {t('common.save')}
+              {t('common.actions.save')}
             </Button>
           </DialogFooter>
         </DialogContent>

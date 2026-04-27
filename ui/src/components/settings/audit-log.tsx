@@ -112,13 +112,13 @@ export function AuditLog() {
     (operationType: string) => {
       switch (operationType.toLowerCase()) {
         case 'create':
-          return t('resourceHistory.create')
+          return t('common.actions.create')
         case 'update':
-          return t('resourceHistory.update')
+          return t('common.actions.update')
         case 'delete':
-          return t('resourceHistory.delete')
+          return t('common.actions.delete')
         case 'apply':
-          return t('resourceHistory.apply')
+          return t('common.actions.apply')
         default:
           return operationType
       }
@@ -130,7 +130,7 @@ export function AuditLog() {
     () => [
       {
         id: 'time',
-        header: t('auditLog.table.time', 'Time'),
+        header: t('common.fields.time', 'Time'),
         cell: ({ row }) => (
           <span className="text-muted-foreground text-sm">
             {formatDate(row.original.createdAt)}
@@ -139,7 +139,7 @@ export function AuditLog() {
       },
       {
         id: 'operator',
-        header: t('auditLog.table.operator', 'Operator'),
+        header: t('common.fields.operator', 'Operator'),
         cell: ({ row }) => (
           <div className="font-medium">
             {row.original.operator?.username || '-'}
@@ -158,7 +158,7 @@ export function AuditLog() {
       },
       {
         id: 'operationType',
-        header: t('auditLog.table.operation', 'Operation'),
+        header: t('common.fields.operation', 'Operation'),
         cell: ({ row }) => (
           <Badge variant={getOperationTypeColor(row.original.operationType)}>
             {getOperationTypeLabel(row.original.operationType)}
@@ -167,7 +167,7 @@ export function AuditLog() {
       },
       {
         id: 'resource',
-        header: t('auditLog.table.resource', 'Resource'),
+        header: t('common.fields.resource', 'Resource'),
         cell: ({ row }) => {
           const resource = row.original
           const name = resource.namespace
@@ -187,7 +187,7 @@ export function AuditLog() {
         ? [
             {
               id: 'cluster',
-              header: t('auditLog.table.cluster', 'Cluster'),
+              header: t('common.fields.cluster', 'Cluster'),
               cell: ({ row }: { row: { original: ResourceHistory } }) => (
                 <span className="text-sm text-muted-foreground">
                   {row.original.clusterName || '-'}
@@ -198,18 +198,18 @@ export function AuditLog() {
         : []),
       {
         id: 'status',
-        header: t('auditLog.table.status', 'Status'),
+        header: t('common.fields.status', 'Status'),
         cell: ({ row }) => (
           <Badge variant={row.original.success ? 'default' : 'destructive'}>
             {row.original.success
-              ? t('auditLog.status.success', 'Success')
-              : t('auditLog.status.failed', 'Failed')}
+              ? t('status.success', 'Success')
+              : t('status.failed', 'Failed')}
           </Badge>
         ),
       },
       {
         id: 'actions',
-        header: t('auditLog.table.actions', 'Actions'),
+        header: t('common.fields.actions', 'Actions'),
         cell: ({ row }) => {
           const item = row.original
           if (!item.success) {
@@ -224,7 +224,7 @@ export function AuditLog() {
                 disabled={!item.errorMessage}
               >
                 <IconAlertCircle className="w-4 h-4 mr-1" />
-                {t('auditLog.actions.viewError', 'View Error')}
+                {t('common.actions.viewError', 'View Error')}
               </Button>
             )
           }
@@ -239,7 +239,7 @@ export function AuditLog() {
               disabled={!item.resourceYaml && !item.previousYaml}
             >
               <IconEye className="w-4 h-4 mr-1" />
-              {t('auditLog.actions.viewDiff', 'View Diff')}
+              {t('common.actions.viewDiff', 'View Diff')}
             </Button>
           )
         },
@@ -262,21 +262,30 @@ export function AuditLog() {
     if (isLoading) {
       return (
         <div className="py-10 text-center text-muted-foreground">
-          {t('auditLog.loading', 'Loading audit logs...')}
+          {t('common.messages.loadingResource', {
+            resource: t('common.fields.auditLogs', 'audit logs'),
+            defaultValue: 'Loading audit logs...',
+          })}
         </div>
       )
     }
     if (error) {
       return (
         <div className="py-10 text-center text-destructive">
-          {t('auditLog.loadFailed', 'Failed to load audit logs')}
+          {t('common.messages.failedToLoad', {
+            resource: t('common.fields.auditLogs', 'audit logs'),
+            defaultValue: 'Failed to load audit logs',
+          })}
         </div>
       )
     }
     if ((auditData?.data.length ?? 0) === 0) {
       return (
         <div className="py-10 text-center text-muted-foreground">
-          {t('auditLog.empty', 'No audit logs found')}
+          {t('common.messages.noItemsFound', {
+            resource: t('common.fields.auditLogs', 'audit logs'),
+            defaultValue: 'No audit logs found',
+          })}
         </div>
       )
     }
@@ -291,10 +300,10 @@ export function AuditLog() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>{t('auditLog.title', 'Audit Logs')}</CardTitle>
+            <CardTitle>{t('common.fields.auditLogs', 'Audit Logs')}</CardTitle>
             <p className="text-muted-foreground text-sm">
               {t(
-                'auditLog.description',
+                'common.messages.auditLogsDescription',
                 'Track who changed resources and review YAML diffs'
               )}
             </p>
@@ -302,7 +311,7 @@ export function AuditLog() {
           <div className="flex items-center gap-3">
             <Input
               placeholder={t(
-                'auditLog.filters.search',
+                'common.placeholders.searchResourceName',
                 'Search resource name...'
               )}
               value={searchQuery}
@@ -316,29 +325,29 @@ export function AuditLog() {
               <SelectTrigger className="w-44">
                 <SelectValue
                   placeholder={t(
-                    'auditLog.filters.operation',
+                    'common.values.allOperations',
                     'All operations'
                   )}
                 />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">
-                  {t('auditLog.filters.allOperations', 'All operations')}
+                  {t('common.values.allOperations', 'All operations')}
                 </SelectItem>
                 <SelectItem value="create">
-                  {t('resourceHistory.create')}
+                  {t('common.actions.create')}
                 </SelectItem>
                 <SelectItem value="update">
-                  {t('resourceHistory.update')}
+                  {t('common.actions.update')}
                 </SelectItem>
                 <SelectItem value="delete">
-                  {t('resourceHistory.delete')}
+                  {t('common.actions.delete')}
                 </SelectItem>
                 <SelectItem value="apply">
-                  {t('resourceHistory.apply')}
+                  {t('common.actions.apply')}
                 </SelectItem>
                 <SelectItem value="patch">
-                  {t('resourceHistory.patch')}
+                  {t('common.actions.patch')}
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -349,12 +358,12 @@ export function AuditLog() {
               >
                 <SelectTrigger className="w-56">
                   <SelectValue
-                    placeholder={t('auditLog.filters.cluster', 'All clusters')}
+                    placeholder={t('common.values.allClusters', 'All clusters')}
                   />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">
-                    {t('auditLog.filters.allClusters', 'All clusters')}
+                    {t('common.values.allClusters', 'All clusters')}
                   </SelectItem>
                   {clusters.map((cluster) => (
                     <SelectItem key={cluster.name} value={cluster.name}>
@@ -370,12 +379,12 @@ export function AuditLog() {
             >
               <SelectTrigger className="w-56">
                 <SelectValue
-                  placeholder={t('auditLog.filters.user', 'All users')}
+                  placeholder={t('common.values.allUsers', 'All users')}
                 />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">
-                  {t('auditLog.filters.allUsers', 'All users')}
+                  {t('common.values.allUsers', 'All users')}
                 </SelectItem>
                 {(usersData?.users ?? []).map((user) => (
                   <SelectItem key={user.id} value={String(user.id)}>
@@ -421,7 +430,7 @@ export function AuditLog() {
           }}
           original={selectedHistory.previousYaml || ''}
           modified={selectedHistory.resourceYaml || ''}
-          title={t('auditLog.diffTitle', 'YAML Diff')}
+          title={t('common.fields.yamlDiff', 'YAML Diff')}
           height={560}
         />
       )}
@@ -438,12 +447,12 @@ export function AuditLog() {
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>
-              {t('auditLog.errorTitle', 'Error Details')}
+              {t('common.fields.errorDetails', 'Error Details')}
             </DialogTitle>
           </DialogHeader>
           <div className="text-sm text-muted-foreground whitespace-pre-wrap">
             {selectedHistory?.errorMessage ||
-              t('auditLog.noErrorMessage', 'No error message')}
+              t('common.messages.noErrorMessage', 'No error message')}
           </div>
         </DialogContent>
       </Dialog>

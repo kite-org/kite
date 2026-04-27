@@ -65,16 +65,10 @@ export function ClusterManagement() {
     (cluster: Cluster) => {
       if (!cluster.enabled) {
         return (
-          <Badge variant="secondary">
-            {t('clusterManagement.status.disabled', 'Disabled')}
-          </Badge>
+          <Badge variant="secondary">{t('status.disabled', 'Disabled')}</Badge>
         )
       }
-      return (
-        <Badge variant="default">
-          {t('clusterManagement.status.enabled', 'Enabled')}
-        </Badge>
-      )
+      return <Badge variant="default">{t('status.enabled', 'Enabled')}</Badge>
     },
     [t]
   )
@@ -83,7 +77,7 @@ export function ClusterManagement() {
     () => [
       {
         id: 'name',
-        header: t('clusterManagement.table.name', 'Name'),
+        header: t('common.fields.name', 'Name'),
         cell: ({ row: { original: cluster } }) => (
           <div>
             <div className="flex items-center gap-2">
@@ -100,7 +94,7 @@ export function ClusterManagement() {
       },
       {
         id: 'version',
-        header: t('common.version', 'Version'),
+        header: t('common.fields.version', 'Version'),
         cell: ({ row: { original: cluster } }) => {
           if (cluster.error) {
             return (
@@ -123,12 +117,12 @@ export function ClusterManagement() {
       },
       {
         id: 'type',
-        header: t('clusterManagement.table.type', 'Type'),
+        header: t('common.fields.type', 'Type'),
         cell: ({ row: { original: cluster } }) => getClusterTypeBadge(cluster),
       },
       {
         id: 'status',
-        header: t('clusterManagement.table.status', 'Status'),
+        header: t('common.fields.status', 'Status'),
         cell: ({ row: { original: cluster } }) => (
           <div className="flex items-center gap-3">
             {getStatusBadge(cluster)}
@@ -137,7 +131,7 @@ export function ClusterManagement() {
       },
       {
         id: 'Prometheus',
-        header: t('clusterManagement.table.Prometheus', 'Prometheus'),
+        header: t('common.fields.prometheus', 'Prometheus'),
         cell: ({ row: { original: cluster } }) => (
           <div className="text-sm text-muted-foreground">
             {cluster.prometheusURL ? 'Yes' : 'No'}
@@ -154,7 +148,7 @@ export function ClusterManagement() {
         label: (
           <>
             <IconEdit className="h-4 w-4" />
-            {t('common.edit', 'Edit')}
+            {t('common.actions.edit', 'Edit')}
           </>
         ),
         onClick: (cluster) => {
@@ -166,7 +160,7 @@ export function ClusterManagement() {
         label: (
           <div className="inline-flex items-center gap-2 text-destructive">
             <IconTrash className="h-4 w-4" />
-            {t('common.delete', 'Delete')}
+            {t('common.actions.delete', 'Delete')}
           </div>
         ),
         shouldDisable: (cluster) => cluster.isDefault,
@@ -264,7 +258,7 @@ export function ClusterManagement() {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="text-muted-foreground">
-          {t('common.loading', 'Loading...')}
+          {t('common.messages.loading', 'Loading...')}
         </div>
       </div>
     )

@@ -69,16 +69,16 @@ export function StatefulSetOverview({
       <div className="grid gap-3 xl:grid-cols-3">
         <div className="space-y-3 xl:col-span-2">
           <WorkloadPodsCard
-            title={t('statefulsets.pods', { defaultValue: 'Pods' })}
+            title={t('common.fields.pods', { defaultValue: 'Pods' })}
             pods={pods || []}
             isLoading={isPodsLoading}
-            loadingText={t('statefulsets.loadingPods', {
+            loadingText={t('common.messages.loadingPods', {
               defaultValue: 'Loading pods...',
             })}
-            emptyText={t('statefulsets.noPods', {
+            emptyText={t('common.messages.noPods', {
               defaultValue: 'No pods found',
             })}
-            ageLabel={t('statefulsets.age', { defaultValue: 'Age' })}
+            ageLabel={t('common.fields.age', { defaultValue: 'Age' })}
           />
           <StatefulSetInformationCard statefulset={statefulset} />
         </div>
@@ -93,11 +93,11 @@ export function StatefulSetOverview({
             isLoading={isRelatedLoading}
           />
           {Object.keys(labels).length > 0 ? (
-            <MetadataListCard title="statefulsets.labels" entries={labels} />
+            <MetadataListCard title="common.fields.labels" entries={labels} />
           ) : null}
           {Object.keys(annotations).length > 0 ? (
             <MetadataListCard
-              title="statefulsets.annotations"
+              title="common.fields.annotations"
               entries={annotations}
             />
           ) : null}
@@ -116,7 +116,7 @@ function StatefulSetSummaryGrid({ statefulset }: { statefulset: StatefulSet }) {
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
       <WorkloadSummaryCard
-        label={t('common.status')}
+        label={t('common.fields.status')}
         value={
           <span className="inline-flex min-w-0 items-center gap-2">
             <DeploymentStatusIcon
@@ -130,30 +130,30 @@ function StatefulSetSummaryGrid({ statefulset }: { statefulset: StatefulSet }) {
         }
       />
       <WorkloadSummaryCard
-        label={t('common.desired')}
+        label={t('common.fields.desired')}
         value={desiredReplicas}
-        detail={t('statefulsets.replicas', { defaultValue: 'Replicas' })}
+        detail={t('common.fields.replicas', { defaultValue: 'Replicas' })}
       />
       <WorkloadSummaryCard
-        label={t('statefulsets.ready', { defaultValue: 'Ready' })}
+        label={t('common.fields.ready', { defaultValue: 'Ready' })}
         value={`${status?.readyReplicas || 0}/${desiredReplicas}`}
-        detail={t('statefulsets.replicas', { defaultValue: 'Replicas' })}
+        detail={t('common.fields.replicas', { defaultValue: 'Replicas' })}
       />
       <WorkloadSummaryCard
-        label={t('statefulsets.current', { defaultValue: 'Current' })}
+        label={t('common.fields.current', { defaultValue: 'Current' })}
         value={status?.currentReplicas || 0}
-        detail={t('statefulsets.replicas', { defaultValue: 'Replicas' })}
+        detail={t('common.fields.replicas', { defaultValue: 'Replicas' })}
       />
       <WorkloadSummaryCard
-        label={t('statefulsets.updated', { defaultValue: 'Updated' })}
+        label={t('common.fields.updated', { defaultValue: 'Updated' })}
         value={status?.updatedReplicas || 0}
-        detail={t('statefulsets.replicas', { defaultValue: 'Replicas' })}
+        detail={t('common.fields.replicas', { defaultValue: 'Replicas' })}
       />
       <WorkloadSummaryCard
-        label={t('common.created')}
+        label={t('common.fields.created')}
         value={
           statefulset.metadata?.creationTimestamp
-            ? t('common.timeAgo', {
+            ? t('common.messages.timeAgo', {
                 time: getAge(statefulset.metadata.creationTimestamp),
               })
             : '-'
@@ -161,7 +161,7 @@ function StatefulSetSummaryGrid({ statefulset }: { statefulset: StatefulSet }) {
         detail={
           statefulset.metadata?.creationTimestamp
             ? formatDate(statefulset.metadata.creationTimestamp)
-            : t('pods.notCreated')
+            : t('common.messages.notCreated')
         }
       />
     </div>
@@ -198,7 +198,7 @@ function StatefulSetInformationCard({
     <Card className="gap-0 overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
       <CardHeader className="px-3 py-2.5 !pb-2.5">
         <CardTitle className="text-balance text-sm">
-          {t('statefulsets.statefulSetInformation', {
+          {t('common.fields.information', {
             defaultValue: 'Information',
           })}
         </CardTitle>
@@ -207,7 +207,7 @@ function StatefulSetInformationCard({
         <div className="space-y-3">
           <div className="grid gap-x-6 gap-y-3 md:grid-cols-2">
             <WorkloadInfoBlock
-              label={t('statefulsets.owner', { defaultValue: 'Owner' })}
+              label={t('common.fields.owner', { defaultValue: 'Owner' })}
               truncate={!!ownerInfo}
             >
               {ownerInfo ? (
@@ -219,12 +219,12 @@ function StatefulSetInformationCard({
                 </Link>
               ) : (
                 <span className="text-muted-foreground">
-                  {t('common.none')}
+                  {t('common.values.none')}
                 </span>
               )}
             </WorkloadInfoBlock>
             <WorkloadInfoBlock
-              label={t('statefulsets.selector', { defaultValue: 'Selector' })}
+              label={t('common.fields.selector', { defaultValue: 'Selector' })}
               truncate={selectorEntries.length === 0}
             >
               {selectorEntries.length > 0 ? (
@@ -245,7 +245,7 @@ function StatefulSetInformationCard({
               )}
             </WorkloadInfoBlock>
             <WorkloadInfoBlock
-              label={t('statefulsets.images', { defaultValue: 'Images' })}
+              label={t('common.fields.images', { defaultValue: 'Images' })}
               truncate={false}
               className="md:col-span-2"
             >
@@ -255,7 +255,7 @@ function StatefulSetInformationCard({
 
           <div className="grid gap-x-8 gap-y-2 border-t border-border/60 pt-3 md:grid-cols-2">
             <WorkloadInfoRow
-              label={t('statefulsets.serviceName', {
+              label={t('common.fields.serviceName', {
                 defaultValue: 'Service Name',
               })}
               mono
@@ -263,7 +263,7 @@ function StatefulSetInformationCard({
               {statefulset.spec?.serviceName || '-'}
             </WorkloadInfoRow>
             <WorkloadInfoRow
-              label={t('statefulsets.strategy', { defaultValue: 'Strategy' })}
+              label={t('common.fields.strategy', { defaultValue: 'Strategy' })}
             >
               {statefulset.spec?.updateStrategy?.type || 'RollingUpdate'}
             </WorkloadInfoRow>
@@ -275,14 +275,14 @@ function StatefulSetInformationCard({
               {statefulset.spec?.podManagementPolicy || 'OrderedReady'}
             </WorkloadInfoRow>
             <WorkloadInfoRow
-              label={t('statefulsets.persistentVolumeClaims', {
+              label={t('common.fields.persistentVolumeClaims', {
                 defaultValue: 'Persistent Volume Claims',
               })}
             >
               {persistentVolumeClaimsCount}
             </WorkloadInfoRow>
             <WorkloadInfoRow
-              label={t('statefulsets.serviceAccount', {
+              label={t('common.fields.serviceAccount', {
                 defaultValue: 'Service Account',
               })}
               mono
@@ -290,14 +290,14 @@ function StatefulSetInformationCard({
               {templateSpec?.serviceAccountName || 'default'}
             </WorkloadInfoRow>
             <WorkloadInfoRow
-              label={t('statefulsets.containers', {
+              label={t('common.fields.containers', {
                 defaultValue: 'Containers',
               })}
             >
               {containersCount}
             </WorkloadInfoRow>
             <WorkloadInfoRow
-              label={t('statefulsets.volumes', { defaultValue: 'Volumes' })}
+              label={t('common.fields.volumes', { defaultValue: 'Volumes' })}
             >
               {volumesCount > 0 ? (
                 <Link to={volumeTabSearch} className="app-link">
@@ -309,7 +309,7 @@ function StatefulSetInformationCard({
             </WorkloadInfoRow>
             {revision ? (
               <WorkloadInfoRow
-                label={t('statefulsets.revision', {
+                label={t('common.fields.revision', {
                   defaultValue: 'Revision',
                 })}
                 mono
@@ -319,7 +319,7 @@ function StatefulSetInformationCard({
             ) : null}
             {statefulset.status?.currentRevision ? (
               <WorkloadInfoRow
-                label={t('statefulsets.currentRevision', {
+                label={t('common.fields.currentRevision', {
                   defaultValue: 'Current Revision',
                 })}
                 mono
@@ -329,7 +329,7 @@ function StatefulSetInformationCard({
             ) : null}
             {statefulset.status?.updateRevision ? (
               <WorkloadInfoRow
-                label={t('statefulsets.updateRevision', {
+                label={t('common.fields.updateRevision', {
                   defaultValue: 'Update Revision',
                 })}
                 mono
@@ -339,7 +339,7 @@ function StatefulSetInformationCard({
             ) : null}
             {statefulset.status?.observedGeneration !== undefined ? (
               <WorkloadInfoRow
-                label={t('statefulsets.observedGeneration', {
+                label={t('common.fields.observedGeneration', {
                   defaultValue: 'Observed Generation',
                 })}
               >
@@ -395,5 +395,5 @@ function formatStatefulSetStatus(value: string, t: TranslationFn) {
   const key = value
     .replace(/\s+(\w)/g, (_, letter: string) => letter.toUpperCase())
     .replace(/^./, (letter) => letter.toLowerCase())
-  return t(`statefulsets.statuses.${key}`, { defaultValue: value })
+  return t(`status.${key}`, { defaultValue: value })
 }

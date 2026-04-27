@@ -119,10 +119,10 @@ export function AuthenticationManagement() {
       toast.error(
         isError
           ? translateError(error, t)
-          : t(
-              'authenticationManagement.errors.loadFailed',
-              'Failed to load LDAP settings'
-            )
+          : t('common.messages.failedToLoad', {
+              resource: t('authenticationManagement.title', 'Authentication'),
+              defaultValue: 'Failed to load LDAP settings',
+            })
       )
       return
     }
@@ -154,7 +154,7 @@ export function AuthenticationManagement() {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="text-muted-foreground">
-          {t('common.loading', 'Loading...')}
+          {t('common.messages.loading', 'Loading...')}
         </div>
       </div>
     )
@@ -174,7 +174,7 @@ export function AuthenticationManagement() {
             {translateError(error, t)}
           </div>
           <Button variant="outline" onClick={() => refetch()}>
-            {t('common.retry', 'Retry')}
+            {t('common.actions.retry', 'Retry')}
           </Button>
         </CardContent>
       </Card>
@@ -196,14 +196,11 @@ export function AuthenticationManagement() {
             <div className="flex items-center justify-between p-3">
               <div className="space-y-1">
                 <Label className="text-sm font-medium">
-                  {t(
-                    'authenticationManagement.password.title',
-                    'Password Login'
-                  )}
+                  {t('common.fields.passwordLogin', 'Password Login')}
                 </Label>
                 <p className="text-xs text-muted-foreground">
                   {t(
-                    'authenticationManagement.password.description',
+                    'common.messages.passwordLoginDescription',
                     'Allow users to sign in with a username and password.'
                   )}
                 </p>
@@ -222,13 +219,13 @@ export function AuthenticationManagement() {
                   <div className="space-y-1 text-sm">
                     <p className="font-medium text-amber-600 dark:text-amber-400">
                       {t(
-                        'authenticationManagement.password.warning.title',
+                        'common.messages.passwordLoginWarningTitle',
                         'Warning: You may lose access!'
                       )}
                     </p>
                     <p className="text-muted-foreground">
                       {t(
-                        'authenticationManagement.password.warning.description',
+                        'common.messages.passwordLoginWarningDescription',
                         'Verify that your LDAP or OAuth provider is working before saving. Without a working alternative login method, you will be locked out and can only recover by resetting the database.'
                       )}
                     </p>
@@ -503,7 +500,7 @@ export function AuthenticationManagement() {
               onClick={handleSave}
               disabled={mutation.isPending || !generalSetting}
             >
-              {t('common.save', 'Save')}
+              {t('common.actions.save', 'Save')}
             </Button>
           </div>
         </CardContent>

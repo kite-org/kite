@@ -25,7 +25,7 @@ export function PVListPage() {
   const columns = useMemo(
     () => [
       columnHelper.accessor('metadata.name', {
-        header: t('common.name'),
+        header: t('common.fields.name'),
         cell: ({ row }) => (
           <div className="font-medium app-link">
             <Link to={`/persistentvolumes/${row.original.metadata!.name}`}>
@@ -35,7 +35,7 @@ export function PVListPage() {
         ),
       }),
       columnHelper.accessor('status.phase', {
-        header: t('common.status'),
+        header: t('common.fields.status'),
         enableColumnFilter: true,
         cell: ({ getValue }) => {
           const phase = getValue() || 'Unknown'
@@ -58,7 +58,7 @@ export function PVListPage() {
         },
       }),
       columnHelper.accessor('spec.storageClassName', {
-        header: t('pvs.storageClass'),
+        header: t('common.fields.storageClass'),
         enableColumnFilter: true,
         cell: ({ getValue }) => {
           const scName = getValue()
@@ -75,26 +75,26 @@ export function PVListPage() {
       columnHelper.accessor(
         (row) => parseBytes(row.spec?.capacity?.storage || '0'),
         {
-          header: t('pvs.capacity'),
+          header: t('common.fields.capacity'),
           cell: ({ row }) => row.original.spec?.capacity?.storage || '-',
         }
       ),
       columnHelper.accessor('spec.accessModes', {
-        header: t('pvs.accessModes'),
+        header: t('common.fields.accessModes'),
         cell: ({ getValue }) => {
           const modes = getValue() || []
           return modes.join(', ') || '-'
         },
       }),
       columnHelper.accessor('spec.persistentVolumeReclaimPolicy', {
-        header: t('pvs.reclaimPolicy'),
+        header: t('common.fields.reclaimPolicy'),
         cell: ({ getValue }) => {
           const policy = getValue()
           return policy || '-'
         },
       }),
       columnHelper.accessor('spec.claimRef', {
-        header: t('pvs.claim'),
+        header: t('common.fields.claim'),
         cell: ({ getValue }) => {
           const claimRef = getValue()
           if (claimRef && claimRef.name && claimRef.namespace) {
@@ -112,7 +112,7 @@ export function PVListPage() {
         },
       }),
       columnHelper.accessor('metadata.creationTimestamp', {
-        header: t('common.created'),
+        header: t('common.fields.created'),
         cell: ({ getValue }) => {
           const dateStr = formatDate(getValue() || '')
 

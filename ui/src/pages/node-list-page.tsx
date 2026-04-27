@@ -131,7 +131,7 @@ export function NodeListPage() {
   const columns = useMemo(
     () => [
       columnHelper.accessor('metadata.name', {
-        header: t('common.name'),
+        header: t('common.fields.name'),
         cell: ({ row }) => (
           <div className="font-medium app-link">
             <Link to={`/nodes/${row.original.metadata!.name}`}>
@@ -142,7 +142,7 @@ export function NodeListPage() {
       }),
       columnHelper.accessor((row) => getNodeStatus(row), {
         id: 'status',
-        header: t('common.status'),
+        header: t('common.fields.status'),
         cell: ({ getValue }) => {
           const status = getValue()
           return (
@@ -256,7 +256,7 @@ export function NodeListPage() {
         },
       }),
       columnHelper.accessor('metadata.creationTimestamp', {
-        header: t('common.created'),
+        header: t('common.fields.created'),
         cell: ({ getValue }) => {
           const dateStr = formatDate(getValue() || '')
           return (

@@ -52,7 +52,7 @@ function APIKeyDialogContent({
     e.preventDefault()
 
     if (!name.trim()) {
-      setError(t('common.required', 'This field is required'))
+      setError(t('common.values.required', 'This field is required'))
       return
     }
 
@@ -63,11 +63,12 @@ function APIKeyDialogContent({
     <DialogContent>
       <DialogHeader>
         <DialogTitle>
-          {t('apikeyManagement.dialog.title', 'Create API Key')}
+          {t('common.actions.create', 'Create')}{' '}
+          {t('common.fields.apiKey', 'API Key')}
         </DialogTitle>
         <DialogDescription>
           {t(
-            'apikeyManagement.dialog.description',
+            'common.messages.createApiKeyDescription',
             'Create a new API key for programmatic access.'
           )}
         </DialogDescription>
@@ -76,13 +77,11 @@ function APIKeyDialogContent({
       <form onSubmit={handleSubmit}>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="name">
-              {t('apikeyManagement.dialog.name', 'Name')}
-            </Label>
+            <Label htmlFor="name">{t('common.fields.name', 'Name')}</Label>
             <Input
               id="name"
               placeholder={t(
-                'apikeyManagement.dialog.namePlaceholder',
+                'common.placeholders.apiKeyName',
                 'e.g., CI API Key'
               )}
               value={name}
@@ -101,12 +100,12 @@ function APIKeyDialogContent({
             variant="outline"
             onClick={() => onOpenChange(false)}
           >
-            {t('common.cancel', 'Cancel')}
+            {t('common.actions.cancel', 'Cancel')}
           </Button>
           <Button type="submit" disabled={isLoading}>
             {isLoading
-              ? t('common.creating', 'Creating...')
-              : t('common.create', 'Create')}
+              ? t('common.messages.creating', 'Creating...')
+              : t('common.actions.create', 'Create')}
           </Button>
         </DialogFooter>
       </form>

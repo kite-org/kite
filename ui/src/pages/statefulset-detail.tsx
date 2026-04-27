@@ -159,7 +159,7 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
         value: 'pods',
         label: (
           <>
-            {t('statefulsets.tabs.pods', { defaultValue: 'Pods' })}
+            {t('common.tabs.pods', { defaultValue: 'Pods' })}
             <Badge variant="secondary">{pods.length}</Badge>
           </>
         ),
@@ -175,7 +175,7 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
         value: 'containers',
         label: (
           <>
-            {t('statefulsets.tabs.containers', {
+            {t('common.tabs.containers', {
               defaultValue: 'Containers',
             })}
             <Badge variant="secondary">
@@ -206,7 +206,7 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'logs',
-        label: t('statefulsets.tabs.logs', { defaultValue: 'Logs' }),
+        label: t('common.tabs.logs', { defaultValue: 'Logs' }),
         content: (
           <LogViewer
             namespace={namespace}
@@ -219,7 +219,7 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'terminal',
-        label: t('statefulsets.tabs.terminal', { defaultValue: 'Terminal' }),
+        label: t('common.tabs.terminal', { defaultValue: 'Terminal' }),
         content:
           pods.length > 0 ? (
             <Terminal
@@ -234,7 +234,7 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
         value: 'volumes',
         label: (
           <>
-            {t('statefulsets.tabs.volumes', { defaultValue: 'Volumes' })}
+            {t('common.tabs.volumes', { defaultValue: 'Volumes' })}
             <Badge variant="secondary">{volumes.length}</Badge>
           </>
         ),
@@ -249,7 +249,7 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'related',
-        label: t('statefulsets.tabs.related', { defaultValue: 'Related' }),
+        label: t('common.tabs.related', { defaultValue: 'Related' }),
         content: (
           <RelatedResourcesTable
             resource="statefulsets"
@@ -260,7 +260,7 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'history',
-        label: t('statefulsets.tabs.history', { defaultValue: 'History' }),
+        label: t('common.tabs.history', { defaultValue: 'History' }),
         content: statefulset ? (
           <ResourceHistoryTable
             resourceType="statefulsets"
@@ -272,7 +272,7 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'events',
-        label: t('statefulsets.tabs.events', { defaultValue: 'Events' }),
+        label: t('common.tabs.events', { defaultValue: 'Events' }),
         content: (
           <EventTable
             resource="statefulsets"
@@ -283,7 +283,7 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'monitor',
-        label: t('statefulsets.tabs.monitor', { defaultValue: 'Monitor' }),
+        label: t('common.tabs.monitor', { defaultValue: 'Monitor' }),
         content: (
           <PodMonitoring
             namespace={namespace}

@@ -87,7 +87,7 @@ export function LoginPage() {
   }
 
   const credentialTabLabel = {
-    password: t('login.tabs.password', 'Password'),
+    password: t('common.fields.password', 'Password'),
     ldap: t('login.tabs.ldap', 'LDAP'),
   } satisfies Record<CredentialProvider, string>
 
@@ -280,7 +280,7 @@ export function LoginPage() {
                       >
                         <div className="space-y-2">
                           <Label htmlFor="username">
-                            {t('login.username')}
+                            {t('common.fields.username')}
                           </Label>
                           <Input
                             id="username"
@@ -293,7 +293,7 @@ export function LoginPage() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="password">
-                            {t('login.password')}
+                            {t('common.fields.password')}
                           </Label>
                           <Input
                             id="password"

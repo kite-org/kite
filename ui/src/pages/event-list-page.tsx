@@ -57,7 +57,7 @@ export function EventListPage() {
       ),
       columnHelper.accessor((row) => row.type, {
         id: 'type',
-        header: t('events.type'),
+        header: t('common.fields.type'),
         enableColumnFilter: true,
         cell: ({ getValue }) => {
           const type = getValue() || ''
@@ -67,14 +67,14 @@ export function EventListPage() {
       }),
       columnHelper.accessor((row) => row.reason, {
         id: 'reason',
-        header: t('events.reason'),
+        header: t('common.fields.reason'),
         cell: ({ getValue }) => (
           <div className="font-medium">{getValue() || '-'}</div>
         ),
       }),
       columnHelper.accessor((row) => row.message, {
         id: 'message',
-        header: t('events.message'),
+        header: t('common.fields.message'),
         cell: ({ getValue }) => (
           <div className="text-sm max-w-md whitespace-pre-wrap break-words">
             {getValue() || '-'}
@@ -83,7 +83,7 @@ export function EventListPage() {
       }),
       columnHelper.accessor((row) => row.reportingComponent, {
         id: 'source',
-        header: t('events.source'),
+        header: t('common.fields.source'),
         cell: ({ getValue }) => (
           <div className="text-muted-foreground text-sm max-w-sm whitespace-pre-wrap break-words">
             {getValue() || '-'}
@@ -92,7 +92,7 @@ export function EventListPage() {
       }),
       columnHelper.accessor((row) => row.count, {
         id: 'count',
-        header: t('events.count'),
+        header: t('common.fields.count'),
         cell: ({ getValue }) => {
           const count = getValue() || 1
           return <span className="text-muted-foreground text-sm">{count}</span>
@@ -103,7 +103,7 @@ export function EventListPage() {
           row.lastTimestamp || row.eventTime || row.metadata?.creationTimestamp,
         {
           id: 'lastSeen',
-          header: t('events.lastSeen'),
+          header: t('common.fields.lastSeen'),
           cell: ({ getValue }) => {
             const dateStr = formatDate(getValue() || '')
             return (

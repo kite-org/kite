@@ -79,16 +79,16 @@ export function DaemonSetOverview({
       <div className="grid gap-3 xl:grid-cols-3">
         <div className="space-y-3 xl:col-span-2">
           <WorkloadPodsCard
-            title={t('daemonsets.pods', { defaultValue: 'Pods' })}
+            title={t('common.fields.pods', { defaultValue: 'Pods' })}
             pods={pods || []}
             isLoading={isPodsLoading}
-            loadingText={t('daemonsets.loadingPods', {
+            loadingText={t('common.messages.loadingPods', {
               defaultValue: 'Loading pods...',
             })}
-            emptyText={t('daemonsets.noPods', {
+            emptyText={t('common.messages.noPods', {
               defaultValue: 'No pods found',
             })}
-            ageLabel={t('daemonsets.age', { defaultValue: 'Age' })}
+            ageLabel={t('common.fields.age', { defaultValue: 'Age' })}
           />
           <DaemonSetInformationCard daemonset={daemonset} />
         </div>
@@ -103,10 +103,13 @@ export function DaemonSetOverview({
             isLoading={isRelatedLoading}
           />
           {Object.keys(labels).length > 0 ? (
-            <MetadataListCard title="pods.labels" entries={labels} />
+            <MetadataListCard title="common.fields.labels" entries={labels} />
           ) : null}
           {Object.keys(annotations).length > 0 ? (
-            <MetadataListCard title="pods.annotations" entries={annotations} />
+            <MetadataListCard
+              title="common.fields.annotations"
+              entries={annotations}
+            />
           ) : null}
         </div>
       </div>
@@ -123,7 +126,7 @@ function DaemonSetSummaryGrid({ daemonset }: { daemonset: DaemonSet }) {
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
       <WorkloadSummaryCard
-        label={t('common.status')}
+        label={t('common.fields.status')}
         value={
           <span className="inline-flex min-w-0 items-center gap-2">
             <DaemonSetStatusIcon
@@ -137,30 +140,30 @@ function DaemonSetSummaryGrid({ daemonset }: { daemonset: DaemonSet }) {
         }
       />
       <WorkloadSummaryCard
-        label={t('common.desired')}
+        label={t('common.fields.desired')}
         value={desiredPods}
-        detail={t('daemonsets.podUnits', { defaultValue: 'pods' })}
+        detail={t('common.units.pods', { defaultValue: 'pods' })}
       />
       <WorkloadSummaryCard
-        label={t('daemonsets.ready', { defaultValue: 'Ready' })}
+        label={t('common.fields.ready', { defaultValue: 'Ready' })}
         value={`${status?.numberReady || 0}/${desiredPods}`}
-        detail={t('daemonsets.podUnits', { defaultValue: 'pods' })}
+        detail={t('common.units.pods', { defaultValue: 'pods' })}
       />
       <WorkloadSummaryCard
-        label={t('daemonsets.upToDate', { defaultValue: 'Up to date' })}
+        label={t('common.fields.upToDate', { defaultValue: 'Up to date' })}
         value={status?.updatedNumberScheduled || 0}
-        detail={t('daemonsets.podUnits', { defaultValue: 'pods' })}
+        detail={t('common.units.pods', { defaultValue: 'pods' })}
       />
       <WorkloadSummaryCard
-        label={t('daemonsets.available', { defaultValue: 'Available' })}
+        label={t('common.fields.available', { defaultValue: 'Available' })}
         value={status?.numberAvailable || 0}
-        detail={t('daemonsets.podUnits', { defaultValue: 'pods' })}
+        detail={t('common.units.pods', { defaultValue: 'pods' })}
       />
       <WorkloadSummaryCard
-        label={t('common.created')}
+        label={t('common.fields.created')}
         value={
           daemonset.metadata?.creationTimestamp
-            ? t('common.timeAgo', {
+            ? t('common.messages.timeAgo', {
                 time: getAge(daemonset.metadata.creationTimestamp),
               })
             : '-'
@@ -168,7 +171,7 @@ function DaemonSetSummaryGrid({ daemonset }: { daemonset: DaemonSet }) {
         detail={
           daemonset.metadata?.creationTimestamp
             ? formatDate(daemonset.metadata.creationTimestamp)
-            : t('daemonsets.notCreated', { defaultValue: 'Not created' })
+            : t('common.messages.notCreated', { defaultValue: 'Not created' })
         }
       />
     </div>
@@ -204,7 +207,7 @@ function DaemonSetInformationCard({ daemonset }: { daemonset: DaemonSet }) {
     <Card className="gap-0 overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
       <CardHeader className="px-3 py-2.5 !pb-2.5">
         <CardTitle className="text-balance text-sm">
-          {t('daemonsets.daemonSetInformation', {
+          {t('common.fields.information', {
             defaultValue: 'Information',
           })}
         </CardTitle>
@@ -213,7 +216,7 @@ function DaemonSetInformationCard({ daemonset }: { daemonset: DaemonSet }) {
         <div className="space-y-3">
           <div className="grid gap-x-6 gap-y-3 md:grid-cols-2">
             <WorkloadInfoBlock
-              label={t('daemonsets.owner', { defaultValue: 'Owner' })}
+              label={t('common.fields.owner', { defaultValue: 'Owner' })}
               truncate={!!ownerInfo}
             >
               {ownerInfo ? (
@@ -225,12 +228,12 @@ function DaemonSetInformationCard({ daemonset }: { daemonset: DaemonSet }) {
                 </Link>
               ) : (
                 <span className="text-muted-foreground">
-                  {t('common.none')}
+                  {t('common.values.none')}
                 </span>
               )}
             </WorkloadInfoBlock>
             <WorkloadInfoBlock
-              label={t('daemonsets.selector', { defaultValue: 'Selector' })}
+              label={t('common.fields.selector', { defaultValue: 'Selector' })}
               truncate={selectorEntries.length === 0}
             >
               {selectorEntries.length > 0 ? (
@@ -251,7 +254,7 @@ function DaemonSetInformationCard({ daemonset }: { daemonset: DaemonSet }) {
               )}
             </WorkloadInfoBlock>
             <WorkloadInfoBlock
-              label={t('daemonsets.images', { defaultValue: 'Images' })}
+              label={t('common.fields.images', { defaultValue: 'Images' })}
               truncate={false}
               className="md:col-span-2"
             >
@@ -261,12 +264,12 @@ function DaemonSetInformationCard({ daemonset }: { daemonset: DaemonSet }) {
 
           <div className="grid gap-x-8 gap-y-2 border-t border-border/60 pt-3 md:grid-cols-2">
             <WorkloadInfoRow
-              label={t('daemonsets.strategy', { defaultValue: 'Strategy' })}
+              label={t('common.fields.strategy', { defaultValue: 'Strategy' })}
             >
               {updateStrategy?.type || 'RollingUpdate'}
             </WorkloadInfoRow>
             <WorkloadInfoRow
-              label={t('daemonsets.maxUnavailable', {
+              label={t('common.fields.maxUnavailable', {
                 defaultValue: 'maxUnavailable',
               })}
             >
@@ -275,7 +278,7 @@ function DaemonSetInformationCard({ daemonset }: { daemonset: DaemonSet }) {
                 : '-'}
             </WorkloadInfoRow>
             <WorkloadInfoRow
-              label={t('daemonsets.serviceAccount', {
+              label={t('common.fields.serviceAccount', {
                 defaultValue: 'Service Account',
               })}
               mono
@@ -283,14 +286,14 @@ function DaemonSetInformationCard({ daemonset }: { daemonset: DaemonSet }) {
               {templateSpec?.serviceAccountName || 'default'}
             </WorkloadInfoRow>
             <WorkloadInfoRow
-              label={t('daemonsets.containers', {
+              label={t('common.fields.containers', {
                 defaultValue: 'Containers',
               })}
             >
               {containersCount}
             </WorkloadInfoRow>
             <WorkloadInfoRow
-              label={t('daemonsets.volumes', { defaultValue: 'Volumes' })}
+              label={t('common.fields.volumes', { defaultValue: 'Volumes' })}
             >
               {volumesCount > 0 ? (
                 <Link to={volumeTabSearch} className="app-link">
@@ -301,14 +304,14 @@ function DaemonSetInformationCard({ daemonset }: { daemonset: DaemonSet }) {
               )}
             </WorkloadInfoRow>
             <WorkloadInfoRow
-              label={t('daemonsets.minReadySeconds', {
+              label={t('common.fields.minReadySeconds', {
                 defaultValue: 'minReadySeconds',
               })}
             >
               {daemonset.spec?.minReadySeconds ?? 0}s
             </WorkloadInfoRow>
             <WorkloadInfoRow
-              label={t('daemonsets.observedGeneration', {
+              label={t('common.fields.observedGeneration', {
                 defaultValue: 'observedGeneration',
               })}
             >
@@ -316,7 +319,9 @@ function DaemonSetInformationCard({ daemonset }: { daemonset: DaemonSet }) {
             </WorkloadInfoRow>
             {revision ? (
               <WorkloadInfoRow
-                label={t('daemonsets.revision', { defaultValue: 'Revision' })}
+                label={t('common.fields.revision', {
+                  defaultValue: 'Revision',
+                })}
               >
                 {revision}
               </WorkloadInfoRow>
@@ -407,5 +412,5 @@ function formatDaemonSetStatus(value: DaemonSetStatus, t: TranslationFn) {
   const key = value
     .replace(/\s+(\w)/g, (_, letter: string) => letter.toUpperCase())
     .replace(/^./, (letter) => letter.toLowerCase())
-  return t(`daemonsets.statuses.${key}`, { defaultValue: value })
+  return t(`status.${key}`, { defaultValue: value })
 }

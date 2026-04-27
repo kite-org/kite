@@ -90,26 +90,26 @@ export function ServiceDetail(props: { name: string; namespace?: string }) {
             metadata={data.metadata}
             fields={[
               {
-                label: t('resourceDetail.type'),
+                label: t('common.fields.type'),
                 value: data.spec?.type || 'ClusterIP',
               },
               {
-                label: t('resourceDetail.clusterIP'),
+                label: t('common.fields.clusterIP'),
                 value: data.spec?.clusterIP || '-',
                 mono: true,
               },
               {
-                label: t('resourceDetail.externalIP'),
+                label: t('common.fields.externalIP'),
                 value: getServiceExternalIP(data),
                 mono: true,
               },
               {
-                label: t('resourceDetail.selector'),
+                label: t('common.fields.selector'),
                 value: <ServiceSelector labels={data.spec?.selector || {}} />,
                 truncate: false,
               },
               {
-                label: t('resourceDetail.resourceVersion'),
+                label: t('common.fields.resourceVersion'),
                 value: data.metadata?.resourceVersion || '-',
                 mono: true,
               },
@@ -164,7 +164,7 @@ function ServicePorts({
   if (ports.length === 0) {
     return (
       <div className="text-sm text-muted-foreground">
-        {t('resourceDetail.noPorts')}
+        {t('common.messages.noPorts')}
       </div>
     )
   }

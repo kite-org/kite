@@ -86,7 +86,7 @@ function OAuthProviderDialogContent({
     if (!hasIssuer && !hasUrls) {
       setValidationError(
         t(
-          'oauthManagement.dialog.validation.issuerOrUrl',
+          'common.messages.issuerOrOAuthUrlRequired',
           'Please fill in either Issuer or OAuth URL (Authorization, Token, User Info)'
         )
       )
@@ -164,7 +164,7 @@ function OAuthProviderDialogContent({
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <h3 className="text-lg font-medium">
-              {t('oauthManagement.dialog.section.basic', 'Basic Information')}
+              {t('common.fields.basicInformation', 'Basic Information')}
             </h3>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -192,7 +192,7 @@ function OAuthProviderDialogContent({
                 value={formData.scopes}
                 onChange={handleInputChange('scopes')}
                 placeholder={t(
-                  'oauthManagement.dialog.scopesPlaceholder',
+                  'common.placeholders.scopes',
                   'openid,profile,email'
                 )}
               />
@@ -245,7 +245,7 @@ function OAuthProviderDialogContent({
         <div className="space-y-4">
           <div className="space-y-2">
             <h3 className="text-lg font-medium">
-              {t('oauthManagement.dialog.section.endpoint', 'OAuth Endpoints')}
+              {t('common.fields.oauthEndpoints', 'OAuth Endpoints')}
             </h3>
           </div>
           <div className="space-y-2">
@@ -257,13 +257,13 @@ function OAuthProviderDialogContent({
               value={formData.issuer}
               onChange={handleInputChange('issuer')}
               placeholder={t(
-                'oauthManagement.dialog.issuerPlaceholder',
+                'common.placeholders.issuer',
                 'https://provider.com (auto discovery)'
               )}
             />
           </div>
           <div className="text-center text-sm text-muted-foreground py-2">
-            {t('oauthManagement.dialog.or', 'or')}
+            {t('common.values.or', 'or')}
           </div>
           <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
@@ -275,7 +275,7 @@ function OAuthProviderDialogContent({
                 value={formData.authUrl}
                 onChange={handleInputChange('authUrl')}
                 placeholder={t(
-                  'oauthManagement.dialog.authUrlPlaceholder',
+                  'common.placeholders.authUrl',
                   'https://provider.com/oauth/authorize'
                 )}
               />
@@ -289,7 +289,7 @@ function OAuthProviderDialogContent({
                 value={formData.tokenUrl}
                 onChange={handleInputChange('tokenUrl')}
                 placeholder={t(
-                  'oauthManagement.dialog.tokenUrlPlaceholder',
+                  'common.placeholders.tokenUrl',
                   'https://provider.com/oauth/token'
                 )}
               />
@@ -303,7 +303,7 @@ function OAuthProviderDialogContent({
                 value={formData.userInfoUrl}
                 onChange={handleInputChange('userInfoUrl')}
                 placeholder={t(
-                  'oauthManagement.dialog.userInfoUrlPlaceholder',
+                  'common.placeholders.userInfoUrl',
                   'https://provider.com/oauth/userinfo'
                 )}
               />
@@ -315,51 +315,48 @@ function OAuthProviderDialogContent({
         <div className="space-y-4">
           <div className="space-y-2">
             <h3 className="text-lg font-medium">
-              {t(
-                'oauthManagement.dialog.section.advanced',
-                'Advanced Settings'
-              )}
+              {t('common.fields.advancedSettings', 'Advanced Settings')}
             </h3>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="usernameClaim">
-                {t('oauthManagement.dialog.usernameClaim', 'Username Claim')}
+                {t('common.fields.usernameClaim', 'Username Claim')}
               </Label>
               <Input
                 id="usernameClaim"
                 value={formData.usernameClaim}
                 onChange={handleInputChange('usernameClaim')}
                 placeholder={t(
-                  'oauthManagement.dialog.usernameClaimPlaceholder',
+                  'common.placeholders.usernameClaim',
                   'e.g., preferred_username'
                 )}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="groupsClaim">
-                {t('oauthManagement.dialog.groupsClaim', 'Groups Claim')}
+                {t('common.fields.groupsClaim', 'Groups Claim')}
               </Label>
               <Input
                 id="groupsClaim"
                 value={formData.groupsClaim}
                 onChange={handleInputChange('groupsClaim')}
                 placeholder={t(
-                  'oauthManagement.dialog.groupsClaimPlaceholder',
+                  'common.placeholders.groupsClaim',
                   'e.g., memberOf'
                 )}
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="allowedGroups">
-                {t('oauthManagement.dialog.allowedGroups', 'Allowed Groups')}
+                {t('common.fields.allowedGroups', 'Allowed Groups')}
               </Label>
               <Input
                 id="allowedGroups"
                 value={formData.allowedGroups}
                 onChange={handleInputChange('allowedGroups')}
                 placeholder={t(
-                  'oauthManagement.dialog.allowedGroupsPlaceholder',
+                  'common.placeholders.allowedGroups',
                   'e.g., admin, developers (comma separated)'
                 )}
               />
@@ -370,7 +367,7 @@ function OAuthProviderDialogContent({
         {/* Section 4: Enable */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium">
-            {t('oauthManagement.dialog.section.status', 'Status')}
+            {t('common.fields.status', 'Status')}
           </h3>
           <div className="flex items-center space-x-2">
             <Switch
@@ -394,12 +391,12 @@ function OAuthProviderDialogContent({
             variant="outline"
             onClick={() => onOpenChange(false)}
           >
-            {t('common.cancel', 'Cancel')}
+            {t('common.actions.cancel', 'Cancel')}
           </Button>
           <Button type="submit">
             {isEditMode
-              ? t('common.update', 'Update')
-              : t('common.create', 'Create')}
+              ? t('common.actions.update', 'Update')
+              : t('common.actions.create', 'Create')}
           </Button>
         </DialogFooter>
       </form>

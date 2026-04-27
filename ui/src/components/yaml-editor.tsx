@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { IconCheck, IconEdit, IconLoader, IconX } from '@tabler/icons-react'
 import * as yaml from 'js-yaml'
 import type { editor as monacoEditor } from 'monaco-editor'
+import { useTranslation } from 'react-i18next'
 
 import { ResourceType, ResourceTypeMap } from '@/types/api'
 import { MonacoEditor } from '@/lib/monaco-loader'
@@ -42,13 +43,14 @@ export function YamlEditor<T extends ResourceType>({
   value,
   readOnly = false,
   showControls = true,
-  title = 'YAML Configuration',
+  title,
   onChange,
   onSave,
   onCancel,
   isSaving = false,
   className,
 }: YamlEditorProps<T>) {
+  const { t } = useTranslation()
   const [isEditing, setIsEditing] = useState(true)
   const [editorValue, setEditorValue] = useState(value)
   const [isValidYaml, setIsValidYaml] = useState(true)
@@ -86,7 +88,9 @@ export function YamlEditor<T extends ResourceType>({
       // Delay showing the error message
       validationTimeoutRef.current = setTimeout(() => {
         setValidationError(
-          error instanceof Error ? error.message.split('\n')[0] : 'Invalid YAML'
+          error instanceof Error
+            ? error.message.split('\n')[0]
+            : t('common.messages.invalidYaml', 'Invalid YAML')
         )
       }, 1000) // 1 second delay only for error message display
     }
@@ -97,7 +101,7 @@ export function YamlEditor<T extends ResourceType>({
         clearTimeout(validationTimeoutRef.current)
       }
     }
-  }, [editorValue])
+  }, [editorValue, t])
 
   const handleEditorChange = (value: string | undefined) => {
     const newValue = value || ''
@@ -134,12 +138,13 @@ export function YamlEditor<T extends ResourceType>({
   }
 
   const effectiveReadOnly = readOnly || !isEditing
+  const editorTitle = title ?? t('common.fields.yamlConfiguration')
 
   return (
     <Card className={className}>
       <CardHeader className="flex flex-row items-center justify-between">
         <div className="space-y-1">
-          <CardTitle>{title}</CardTitle>
+          <CardTitle>{editorTitle}</CardTitle>
         </div>
         <div className="flex items-center gap-4">
           {showControls && (
@@ -156,7 +161,7 @@ export function YamlEditor<T extends ResourceType>({
                     ) : (
                       <IconCheck className="w-4 h-4 mr-2" />
                     )}
-                    Save
+                    {t('common.actions.save')}
                   </Button>
                   <Button
                     size="sm"
@@ -165,7 +170,7 @@ export function YamlEditor<T extends ResourceType>({
                     disabled={isSaving}
                   >
                     <IconX className="w-4 h-4 mr-2" />
-                    Cancel
+                    {t('common.actions.cancel')}
                   </Button>
                 </>
               ) : (
@@ -176,7 +181,7 @@ export function YamlEditor<T extends ResourceType>({
                   disabled={readOnly}
                 >
                   <IconEdit className="w-4 h-4 mr-2" />
-                  Edit
+                  {t('common.actions.edit')}
                 </Button>
               )}
             </div>
@@ -203,7 +208,7 @@ export function YamlEditor<T extends ResourceType>({
                 value={editorValue}
                 loading={
                   <div className="flex h-full items-center justify-center text-muted-foreground">
-                    Loading editor...
+                    {t('common.messages.loadingEditor', 'Loading editor...')}
                   </div>
                 }
                 beforeMount={(monaco) => {

@@ -25,7 +25,7 @@ export function StatefulSetListPage() {
   const columns = useMemo(
     () => [
       columnHelper.accessor('metadata.name', {
-        header: t('common.name'),
+        header: t('common.fields.name'),
         cell: ({ row }) => (
           <div className="font-medium app-link">
             <Link
@@ -40,7 +40,7 @@ export function StatefulSetListPage() {
       }),
       columnHelper.accessor((row) => row.status?.readyReplicas ?? 0, {
         id: 'ready',
-        header: t('deployments.ready'),
+        header: t('common.fields.ready'),
         cell: ({ row }) => {
           const status = row.original.status
           const ready = status?.readyReplicas || 0
@@ -53,14 +53,14 @@ export function StatefulSetListPage() {
         },
       }),
       columnHelper.accessor('status.conditions', {
-        header: t('common.status'),
+        header: t('common.fields.status'),
         cell: ({ row }) => {
           const readyReplicas = row.original.status?.readyReplicas || 0
           const replicas = row.original.status?.replicas || 0
           const isAvailable = readyReplicas === replicas
           const status = isAvailable
-            ? t('deployments.available')
-            : t('common.loading')
+            ? t('common.fields.available')
+            : t('common.messages.loading')
           if (replicas === 0) {
             return (
               <Badge
@@ -85,11 +85,11 @@ export function StatefulSetListPage() {
         },
       }),
       columnHelper.accessor('spec.serviceName', {
-        header: t('services.serviceName'),
+        header: t('common.fields.serviceName'),
         cell: ({ getValue }) => getValue() || '-',
       }),
       columnHelper.accessor('metadata.creationTimestamp', {
-        header: t('common.created'),
+        header: t('common.fields.created'),
         cell: ({ getValue }) => {
           const dateStr = formatDate(getValue() || '')
 

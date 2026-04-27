@@ -166,7 +166,7 @@ export function GeneralManagement() {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="text-muted-foreground">
-          {t('common.loading', 'Loading...')}
+          {t('common.messages.loading', 'Loading...')}
         </div>
       </div>
     )
@@ -208,7 +208,7 @@ export function GeneralManagement() {
             <div className="space-y-4 border-t p-3">
               <div className="space-y-2">
                 <Label htmlFor="general-ai-provider">
-                  {t('generalManagement.aiAgent.form.provider', 'Provider')}
+                  {t('common.fields.provider', 'Provider')}
                 </Label>
                 <Select
                   value={formData.aiProvider}
@@ -227,17 +227,9 @@ export function GeneralManagement() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="openai">
-                      {t(
-                        'generalManagement.aiAgent.form.providers.openai',
-                        'OpenAI Compatible'
-                      )}
-                    </SelectItem>
+                    <SelectItem value="openai">OpenAI Compatible</SelectItem>
                     <SelectItem value="anthropic">
-                      {t(
-                        'generalManagement.aiAgent.form.providers.anthropic',
-                        'Anthropic Compatible'
-                      )}
+                      Anthropic Compatible
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -458,7 +450,7 @@ export function GeneralManagement() {
 
         <div className="flex justify-end">
           <Button onClick={handleSave} disabled={mutation.isPending}>
-            {t('common.save', 'Save')}
+            {t('common.actions.save', 'Save')}
           </Button>
         </div>
       </CardContent>

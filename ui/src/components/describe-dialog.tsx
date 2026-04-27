@@ -32,7 +32,7 @@ export function DescribeDialog({
     staleTime: 0,
   })
   const title = `kubectl describe ${resourceType} ${namespace ? `-n ${namespace}` : ''} ${name}`
-  const description = t('common.describeOutputDescription', {
+  const description = t('common.messages.describeOutputDescription', {
     resourceType,
     name,
   })
@@ -42,7 +42,7 @@ export function DescribeDialog({
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <IconClipboardText className="w-4 h-4" />
-          {t('common.describe')}
+          {t('common.actions.describe')}
         </Button>
       </DialogTrigger>
       <DialogContent className="!max-w-dvw">

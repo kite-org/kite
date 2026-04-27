@@ -42,7 +42,7 @@ export function AIChatHistoryPanel({
       <div className="flex h-11 shrink-0 items-center justify-between border-b bg-muted/50 px-3">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Clock className="h-4 w-4" />
-          {t('aiChat.history.title', 'Chat History')}
+          {t('common.fields.chatHistory', 'Chat History')}
         </div>
         <Button
           variant="ghost"
@@ -64,7 +64,7 @@ export function AIChatHistoryPanel({
           }}
         >
           <MessageSquarePlus className="h-4 w-4" />
-          {t('aiChat.history.newChat', 'New Chat')}
+          {t('common.actions.newChat', 'New Chat')}
         </Button>
       </div>
 
@@ -73,7 +73,7 @@ export function AIChatHistoryPanel({
           <div className="flex flex-col items-center justify-center gap-2 p-8 text-center">
             <Clock className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              {t('aiChat.history.empty', 'No chat history yet')}
+              {t('common.messages.noChatHistory', 'No chat history yet')}
             </p>
           </div>
         ) : (

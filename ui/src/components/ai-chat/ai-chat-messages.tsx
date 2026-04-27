@@ -100,7 +100,7 @@ function ToolCallMessage({
       }
       const value = formValues[field.name]
       if (typeof value !== 'string' || value.trim() === '') {
-        nextErrors[field.name] = t('aiChat.validation.required', 'Required')
+        nextErrors[field.name] = t('common.values.required', 'Required')
       }
     }
 
@@ -289,7 +289,7 @@ function ToolCallMessage({
                   className="h-8"
                   onClick={() => onDeny?.(message.id)}
                 >
-                  {t('common.cancel', 'Cancel')}
+                  {t('common.actions.cancel', 'Cancel')}
                 </Button>
               </div>
             </div>

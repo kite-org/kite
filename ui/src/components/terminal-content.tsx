@@ -51,6 +51,7 @@ export interface TerminalProps {
   pods?: Pod[]
   containers?: Container[]
   initContainers?: Container[]
+  selectedContainerName?: string
   /** When true, hides the internal toolbar and fills parent container */
   embedded?: boolean
 }
@@ -62,6 +63,7 @@ export function Terminal({
   nodeName,
   containers: _containers = [],
   initContainers = [],
+  selectedContainerName,
   type = 'pod',
   embedded = false,
 }: TerminalProps) {
@@ -115,12 +117,21 @@ export function Terminal({
     }
 
     setSelectedContainer((current) => {
-      if (!current || !containers.find((c) => c.name === current)) {
+      if (
+        selectedContainerName &&
+        containers.some((container) => container.name === selectedContainerName)
+      ) {
+        return selectedContainerName
+      }
+      if (
+        !current ||
+        !containers.some((container) => container.name === current)
+      ) {
         return containers[0].name
       }
       return current
     })
-  }, [containers])
+  }, [containers, selectedContainerName])
 
   // Handle theme change and persist to localStorage
   const handleThemeChange = useCallback((theme: TerminalTheme) => {

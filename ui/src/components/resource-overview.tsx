@@ -71,19 +71,19 @@ export function ResourceOverview({
         <Card className="gap-0 overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
           <CardHeader className="px-3 py-2.5 !pb-2.5">
             <CardTitle className="text-balance text-sm">
-              {t('resourceDetail.information')}
+              {t('common.fields.information')}
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3 pt-1">
             <div className="space-y-3">
               <div className="grid gap-x-6 gap-y-3 md:grid-cols-2">
-                <WorkloadInfoBlock label={t('common.created')}>
+                <WorkloadInfoBlock label={t('common.fields.created')}>
                   {metadata?.creationTimestamp
                     ? formatDate(metadata.creationTimestamp)
                     : '-'}
                 </WorkloadInfoBlock>
                 <WorkloadInfoBlock
-                  label={t('resourceDetail.owner')}
+                  label={t('common.fields.owner')}
                   truncate={!!ownerInfo}
                 >
                   {ownerInfo ? (
@@ -95,7 +95,7 @@ export function ResourceOverview({
                     </Link>
                   ) : (
                     <span className="text-muted-foreground">
-                      {t('common.none')}
+                      {t('common.values.none')}
                     </span>
                   )}
                 </WorkloadInfoBlock>
@@ -122,7 +122,7 @@ export function ResourceOverview({
 
               <div className="border-t border-border/60 pt-2">
                 <WorkloadInfoRow
-                  label={t('resourceDetail.uid')}
+                  label={t('common.fields.uid')}
                   mono
                   truncate={false}
                   compact
@@ -142,10 +142,13 @@ export function ResourceOverview({
           isLoading={isRelatedLoading}
         />
         {Object.keys(labels).length > 0 ? (
-          <MetadataListCard title="pods.labels" entries={labels} />
+          <MetadataListCard title="common.fields.labels" entries={labels} />
         ) : null}
         {Object.keys(annotations).length > 0 ? (
-          <MetadataListCard title="pods.annotations" entries={annotations} />
+          <MetadataListCard
+            title="common.fields.annotations"
+            entries={annotations}
+          />
         ) : null}
       </div>
     </div>

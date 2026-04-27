@@ -95,7 +95,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
 
   const handleSaveYaml = async (content: Deployment) => {
     await updateResource('deployments', name, namespace, content)
-    toast.success(t('detail.status.yamlSaved'))
+    toast.success(t('common.messages.yamlSaved'))
     setRefreshInterval(1000)
   }
 
@@ -150,7 +150,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
         value: 'pods',
         label: (
           <>
-            {t('deployments.tabs.pods')}
+            {t('common.tabs.pods')}
             <Badge variant="secondary">{pods.length}</Badge>
           </>
         ),
@@ -166,7 +166,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
         value: 'containers',
         label: (
           <>
-            {t('deployments.tabs.containers')}
+            {t('common.tabs.containers')}
             <Badge variant="secondary">
               {containers.length + initContainers.length}
             </Badge>
@@ -195,7 +195,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'logs',
-        label: t('deployments.tabs.logs'),
+        label: t('common.tabs.logs'),
         content: (
           <LogViewer
             namespace={namespace}
@@ -208,7 +208,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'terminal',
-        label: t('deployments.tabs.terminal'),
+        label: t('common.tabs.terminal'),
         content:
           pods.length > 0 ? (
             <Terminal
@@ -224,7 +224,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
     tabs.push(
       {
         value: 'related',
-        label: t('deployments.tabs.related'),
+        label: t('common.tabs.related'),
         content: (
           <RelatedResourcesTable
             resource="deployments"
@@ -235,7 +235,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'history',
-        label: t('deployments.tabs.history'),
+        label: t('common.tabs.history'),
         content: deployment ? (
           <ResourceHistoryTable
             resourceType="deployments"
@@ -252,7 +252,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
         value: 'volumes',
         label: (
           <>
-            {t('deployments.tabs.volumes')}
+            {t('common.tabs.volumes')}
             <Badge variant="secondary">
               {deployment.spec.template.spec.volumes.length}
             </Badge>
@@ -275,7 +275,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
     tabs.push(
       {
         value: 'events',
-        label: t('deployments.tabs.events'),
+        label: t('common.tabs.events'),
         content: (
           <EventTable
             resource="deployments"
@@ -286,7 +286,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'monitor',
-        label: t('deployments.tabs.monitor'),
+        label: t('common.tabs.monitor'),
         content: (
           <PodMonitoring
             namespace={namespace}
@@ -344,7 +344,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">
                 <IconScale className="w-4 h-4" />
-                {t('detail.buttons.scale')}
+                {t('common.actions.scale')}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80" align="end">
@@ -359,7 +359,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="replicas">
-                    {t('detail.dialogs.scaleDeployment.replicas')}
+                    {t('common.fields.replicas')}
                   </Label>
                   <div className="flex items-center gap-1">
                     <Button
@@ -395,7 +395,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                 </div>
                 <Button onClick={handleScale} className="w-full">
                   <IconScale className="w-4 h-4 mr-2" />
-                  {t('detail.dialogs.scaleDeployment.scaleButton')}
+                  {t('common.actions.scale')}
                 </Button>
               </div>
             </PopoverContent>
@@ -407,7 +407,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">
                 <IconReload className="w-4 h-4" />
-                {t('detail.buttons.restart')}
+                {t('common.actions.restart')}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80" align="end">
@@ -426,7 +426,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                     onClick={() => setIsRestartPopoverOpen(false)}
                     className="flex-1"
                   >
-                    {t('common.cancel')}
+                    {t('common.actions.cancel')}
                   </Button>
                   <Button
                     onClick={() => {
@@ -436,7 +436,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
                     className="flex-1"
                   >
                     <IconReload className="w-4 h-4 mr-2" />
-                    {t('detail.dialogs.restartDeployment.restartButton')}
+                    {t('common.actions.restart')}
                   </Button>
                 </div>
               </div>

@@ -102,10 +102,10 @@ export function UserManagement() {
     (user: UserItem) => {
       if (!user.enabled) {
         return (
-          <Badge variant="secondary">{t('common.disabled', 'Disabled')}</Badge>
+          <Badge variant="secondary">{t('status.disabled', 'Disabled')}</Badge>
         )
       }
-      return <Badge variant="default">{t('common.enabled', 'Enabled')}</Badge>
+      return <Badge variant="default">{t('status.enabled', 'Enabled')}</Badge>
     },
     [t]
   )
@@ -114,7 +114,12 @@ export function UserManagement() {
     async (u: UserItem) => {
       await setUserEnabled(u.id, !u.enabled)
       queryClient.invalidateQueries({ queryKey: ['user-list'] })
-      toast.success(t('userManagement.messages.updated', 'User updated'))
+      toast.success(
+        t('common.messages.updated', {
+          resource: t('common.fields.user', 'User'),
+          defaultValue: 'User updated',
+        })
+      )
     },
     [queryClient, t]
   )
@@ -125,7 +130,7 @@ export function UserManagement() {
         label: (
           <>
             <IconEdit className="h-4 w-4" />
-            {t('common.edit', 'Edit')}
+            {t('common.actions.edit', 'Edit')}
           </>
         ),
         onClick: (item) => setEditingUser(item),
@@ -136,12 +141,12 @@ export function UserManagement() {
           item.enabled ? (
             <>
               <IconLock className="h-4 w-4" />
-              {t('common.disable', 'Disable')}
+              {t('common.actions.disable', 'Disable')}
             </>
           ) : (
             <>
               <IconLockOpen className="h-4 w-4" />
-              {t('common.enable', 'Enable')}
+              {t('common.actions.enable', 'Enable')}
             </>
           ),
         onClick: (item) => handleToggleEnable(item),
@@ -150,7 +155,7 @@ export function UserManagement() {
         label: (
           <div className="inline-flex items-center gap-2 text-destructive">
             <IconTrash className="h-4 w-4" />
-            {t('common.delete', 'Delete')}
+            {t('common.actions.delete', 'Delete')}
           </div>
         ),
         onClick: (item) => setDeletingUser(item),
@@ -159,7 +164,7 @@ export function UserManagement() {
         label: (
           <>
             <IconLock className="h-4 w-4" />
-            {t('common.resetPassword', 'Reset Password')}
+            {t('common.actions.resetPassword', 'Reset Password')}
           </>
         ),
         shouldDisable: (item) => item.provider !== 'password',
@@ -169,7 +174,7 @@ export function UserManagement() {
         label: (
           <>
             <IconShieldCheck className="h-4 w-4" />
-            {t('common.assign', 'Assign')}
+            {t('common.actions.assign', 'Assign')}
           </>
         ),
         onClick: (item) => {
@@ -199,7 +204,7 @@ export function UserManagement() {
       },
       {
         id: 'username',
-        header: t('username', 'Username'),
+        header: t('common.fields.username', 'Username'),
         enableSorting: false,
         accessorFn: (row) => row.username,
         cell: ({ row }) => (
@@ -208,7 +213,7 @@ export function UserManagement() {
               <button
                 type="button"
                 onClick={() => setEditingUser(row.original)}
-                aria-label={t('userManagement.actions.editUser', 'Edit user')}
+                aria-label={`${t('common.actions.edit', 'Edit')} ${t('common.fields.user', 'user')}`}
                 className="p-0 bg-transparent border-0 inline-flex items-center"
               >
                 <Avatar.Root className="inline-block">
@@ -246,7 +251,7 @@ export function UserManagement() {
       },
       {
         id: 'status',
-        header: t('userManagement.table.status', 'Status'),
+        header: t('common.fields.status', 'Status'),
         enableSorting: false,
         cell: ({ row: { original: user } }) => (
           <div className="flex items-center gap-3">{getStatusBadge(user)}</div>
@@ -254,7 +259,7 @@ export function UserManagement() {
       },
       {
         id: 'provider',
-        header: t('userManagement.table.provider', 'Provider'),
+        header: t('common.fields.provider', 'Provider'),
         accessorFn: (row) => row.provider || '-',
         enableSorting: false,
         cell: ({ getValue }) => (
@@ -263,7 +268,7 @@ export function UserManagement() {
       },
       {
         id: 'createdAt',
-        header: t('userManagement.table.createdAt', 'Created At'),
+        header: t('common.fields.createdAt', 'Created At'),
         enableSorting: true,
         accessorFn: (row) => row.createdAt,
         cell: ({ getValue }) => (
@@ -274,7 +279,7 @@ export function UserManagement() {
       },
       {
         id: 'lastLoginAt',
-        header: t('userManagement.table.lastLoginAt', 'Last Login'),
+        header: t('common.fields.lastLoginAt', 'Last Login'),
         enableSorting: true,
         accessorFn: (row) => row.lastLoginAt ?? '',
         cell: ({
@@ -289,7 +294,7 @@ export function UserManagement() {
       },
       {
         id: 'roles',
-        header: t('userManagement.table.roles', 'Roles'),
+        header: t('common.fields.roles', 'Roles'),
         accessorFn: (row) => row.roles?.map((r) => r.name).join(', '),
         enableSorting: false,
         cell: ({ getValue }) => (
@@ -305,7 +310,7 @@ export function UserManagement() {
   const tableColumns = useMemo<ColumnDef<UserItem>[]>(() => {
     const actionColumn: ColumnDef<UserItem> = {
       id: 'actions',
-      header: t('common.actions', 'Actions'),
+      header: t('common.fields.actions', 'Actions'),
       cell: ({ row }) => (
         <div className="text-right">
           <DropdownMenu>
@@ -361,13 +366,21 @@ export function UserManagement() {
     mutationFn: (id: number) => deleteUser(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-list'] })
-      toast.success(t('userManagement.messages.deleted', 'User deleted'))
+      toast.success(
+        t('common.messages.deleted', {
+          resource: t('common.fields.user', 'User'),
+          defaultValue: 'User deleted',
+        })
+      )
       setDeletingUser(null)
     },
     onError: (err: Error) => {
       toast.error(
         err.message ||
-          t('userManagement.messages.deleteError', 'Failed to delete user')
+          t('common.messages.failedToDelete', {
+            resource: t('common.fields.user', 'user'),
+            defaultValue: 'Failed to delete user',
+          })
       )
     },
   })
@@ -377,13 +390,21 @@ export function UserManagement() {
       createPasswordUser(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-list'] })
-      toast.success(t('userManagement.messages.created', 'User created'))
+      toast.success(
+        t('common.messages.created', {
+          resource: t('common.fields.user', 'User'),
+          defaultValue: 'User created',
+        })
+      )
       setShowAddDialog(false)
     },
     onError: (err: Error) => {
       toast.error(
         err.message ||
-          t('userManagement.messages.createError', 'Failed to create user')
+          t('common.messages.failedToCreate', {
+            resource: t('common.fields.user', 'user'),
+            defaultValue: 'Failed to create user',
+          })
       )
     },
   })
@@ -392,18 +413,13 @@ export function UserManagement() {
     mutationFn: ({ id, password }: { id: number; password: string }) =>
       resetUserPassword(id, password),
     onSuccess: () => {
-      toast.success(
-        t('userManagement.messages.resetPassword', 'Password reset')
-      )
+      toast.success(t('common.messages.passwordReset', 'Password reset'))
       setShowResetDialog(null)
     },
     onError: (err: Error) => {
       toast.error(
         err.message ||
-          t(
-            'userManagement.messages.resetPasswordError',
-            'Failed to reset password'
-          )
+          t('common.messages.failedToResetPassword', 'Failed to reset password')
       )
     },
   })
@@ -413,13 +429,21 @@ export function UserManagement() {
       updateUser(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-list'] })
-      toast.success(t('userManagement.messages.updated', 'User updated'))
+      toast.success(
+        t('common.messages.updated', {
+          resource: t('common.fields.user', 'User'),
+          defaultValue: 'User updated',
+        })
+      )
       setEditingUser(null)
     },
     onError: (err: Error) => {
       toast.error(
         err.message ||
-          t('userManagement.messages.updateError', 'Failed to update user')
+          t('common.messages.failedToUpdate', {
+            resource: t('common.fields.user', 'user'),
+            defaultValue: 'Failed to update user',
+          })
       )
     },
   })
@@ -460,7 +484,7 @@ export function UserManagement() {
       return (
         <div className="flex items-center justify-center py-8">
           <div className="text-muted-foreground">
-            {t('common.loading', 'Loading...')}
+            {t('common.messages.loading', 'Loading...')}
           </div>
         </div>
       )
@@ -469,7 +493,10 @@ export function UserManagement() {
       return (
         <div className="flex items-center justify-center py-8">
           <div className="text-destructive">
-            {t('userManagement.errors.loadFailed', 'Failed to load users')}
+            {t('common.messages.failedToLoad', {
+              resource: t('common.fields.users', 'users'),
+              defaultValue: 'Failed to load users',
+            })}
           </div>
         </div>
       )
@@ -478,9 +505,17 @@ export function UserManagement() {
       return (
         <div className="text-center py-8 text-muted-foreground">
           <IconUser className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>{t('userManagement.empty.title', 'No users')}</p>
+          <p>
+            {t('common.messages.noItemsFound', {
+              resource: t('common.fields.users', 'users'),
+              defaultValue: 'No users',
+            })}
+          </p>
           <p className="text-sm mt-1">
-            {t('userManagement.empty.description', 'No users found')}
+            {t('common.messages.noItemsFound', {
+              resource: t('common.fields.users', 'users'),
+              defaultValue: 'No users found',
+            })}
           </p>
         </div>
       )
@@ -499,7 +534,7 @@ export function UserManagement() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <IconUser className="h-5 w-5" />
-                {t('userManagement.title', 'User Management')}
+                {t('common.fields.users', 'User Management')}
               </CardTitle>
             </div>
             <div className="flex items-center gap-3">
@@ -511,12 +546,12 @@ export function UserManagement() {
               >
                 <SelectTrigger className="w-48">
                   <SelectValue
-                    placeholder={t('userManagement.filters.role', 'All roles')}
+                    placeholder={t('common.values.allRoles', 'All roles')}
                   />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">
-                    {t('userManagement.filters.allRoles', 'All roles')}
+                    {t('common.values.allRoles', 'All roles')}
                   </SelectItem>
                   {roles.map((role) => (
                     <SelectItem key={role.id} value={role.name}>
@@ -529,7 +564,7 @@ export function UserManagement() {
                 <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder={t(
-                    'userManagement.actions.search',
+                    'common.placeholders.searchUsers',
                     'Search users...'
                   )}
                   value={searchQuery}
@@ -539,7 +574,8 @@ export function UserManagement() {
               </div>
               <Button onClick={() => setShowAddDialog(true)} className="gap-2">
                 <IconPlus className="h-4 w-4" />
-                {t('userManagement.actions.add', 'Add Password User')}
+                {t('common.actions.add', 'Add')}{' '}
+                {t('common.fields.passwordUser', 'Password User')}
               </Button>
             </div>
           </div>
@@ -568,19 +604,20 @@ export function UserManagement() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {t('userManagement.dialog.editTitle', 'Edit User')}
+              {t('common.actions.edit', 'Edit')}{' '}
+              {t('common.fields.user', 'User')}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm">
-                {t('username', 'Username')}
+                {t('common.fields.username', 'Username')}
               </label>
               <Input value={editingUser?.username || ''} disabled />
             </div>
             <div>
               <label className="block text-sm">
-                {t('userManagement.table.avatar', 'Avatar URL')}
+                {t('common.fields.avatarUrl', 'Avatar URL')}
               </label>
               <Input
                 value={editingUser?.avatar_url || ''}
@@ -594,7 +631,7 @@ export function UserManagement() {
             </div>
             <div>
               <label className="block text-sm">
-                {t('userManagement.table.name', 'Name')}
+                {t('common.fields.name', 'Name')}
               </label>
               <Input
                 value={editingUser?.name || ''}
@@ -607,7 +644,7 @@ export function UserManagement() {
               />
             </div>
             <DialogFooter>
-              <Button type="submit">{t('common.save', 'Save')}</Button>
+              <Button type="submit">{t('common.actions.save', 'Save')}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -631,13 +668,14 @@ export function UserManagement() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {t('userManagement.dialog.addTitle', 'Add Password User')}
+              {t('common.actions.add', 'Add')}{' '}
+              {t('common.fields.passwordUser', 'Password User')}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleCreateUser} className="space-y-4">
             <div>
               <label className="block text-sm">
-                {t('username', 'Username')}
+                {t('common.fields.username', 'Username')}
               </label>
               <Input
                 value={newUser.username}
@@ -648,7 +686,7 @@ export function UserManagement() {
             </div>
             <div>
               <label className="block text-sm">
-                {t('userManagement.table.name', 'Name')}
+                {t('common.fields.name', 'Name')}
               </label>
               <Input
                 value={newUser.name}
@@ -659,7 +697,7 @@ export function UserManagement() {
             </div>
             <div>
               <label className="block text-sm">
-                {t('common.password', 'Password')}
+                {t('common.fields.password', 'Password')}
               </label>
               <Input
                 type="password"
@@ -670,7 +708,9 @@ export function UserManagement() {
               />
             </div>
             <DialogFooter>
-              <Button type="submit">{t('common.create', 'Create')}</Button>
+              <Button type="submit">
+                {t('common.actions.create', 'Create')}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -684,7 +724,7 @@ export function UserManagement() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {t('userManagement.dialog.resetPassword', 'Reset Password')}
+              {t('common.actions.resetPassword', 'Reset Password')}
             </DialogTitle>
           </DialogHeader>
           <form
@@ -700,7 +740,7 @@ export function UserManagement() {
           >
             <div>
               <label className="block text-sm">
-                {t('common.password', 'Password')}
+                {t('common.fields.password', 'Password')}
               </label>
               <Input
                 name="password"
@@ -710,7 +750,7 @@ export function UserManagement() {
               />
             </div>
             <DialogFooter>
-              <Button type="submit">{t('common.save', 'Save')}</Button>
+              <Button type="submit">{t('common.actions.save', 'Save')}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

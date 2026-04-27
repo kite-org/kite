@@ -68,12 +68,12 @@ export function DeploymentOverview({
       <div className="grid gap-3 xl:grid-cols-3">
         <div className="space-y-3 xl:col-span-2">
           <WorkloadPodsCard
-            title={t('deployments.pods')}
+            title={t('common.fields.pods')}
             pods={pods || []}
             isLoading={isPodsLoading}
-            loadingText={t('deployments.loadingPods')}
-            emptyText={t('deployments.noPods')}
-            ageLabel={t('deployments.age')}
+            loadingText={t('common.messages.loadingPods')}
+            emptyText={t('common.messages.noPods')}
+            ageLabel={t('common.fields.age')}
           />
           <DeploymentInformationCard deployment={deployment} />
         </div>
@@ -88,10 +88,13 @@ export function DeploymentOverview({
             isLoading={isRelatedLoading}
           />
           {Object.keys(labels).length > 0 ? (
-            <MetadataListCard title="pods.labels" entries={labels} />
+            <MetadataListCard title="common.fields.labels" entries={labels} />
           ) : null}
           {Object.keys(annotations).length > 0 ? (
-            <MetadataListCard title="pods.annotations" entries={annotations} />
+            <MetadataListCard
+              title="common.fields.annotations"
+              entries={annotations}
+            />
           ) : null}
         </div>
       </div>
@@ -108,7 +111,7 @@ function DeploymentSummaryGrid({ deployment }: { deployment: Deployment }) {
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
       <WorkloadSummaryCard
-        label={t('common.status')}
+        label={t('common.fields.status')}
         value={
           <span className="inline-flex min-w-0 items-center gap-2">
             <DeploymentStatusIcon
@@ -120,33 +123,33 @@ function DeploymentSummaryGrid({ deployment }: { deployment: Deployment }) {
             </span>
           </span>
         }
-        detail={deployment.spec?.paused ? t('deployments.paused') : undefined}
+        detail={deployment.spec?.paused ? t('common.fields.paused') : undefined}
       />
       <WorkloadSummaryCard
-        label={t('common.desired')}
+        label={t('common.fields.desired')}
         value={desiredReplicas}
-        detail={t('deployments.replicas')}
+        detail={t('common.fields.replicas')}
       />
       <WorkloadSummaryCard
-        label={t('deployments.ready')}
+        label={t('common.fields.ready')}
         value={`${status?.readyReplicas || 0}/${desiredReplicas}`}
-        detail={t('deployments.replicas')}
+        detail={t('common.fields.replicas')}
       />
       <WorkloadSummaryCard
-        label={t('deployments.upToDate')}
+        label={t('common.fields.upToDate')}
         value={status?.updatedReplicas || 0}
-        detail={t('deployments.replicas')}
+        detail={t('common.fields.replicas')}
       />
       <WorkloadSummaryCard
-        label={t('deployments.available')}
+        label={t('common.fields.available')}
         value={status?.availableReplicas || 0}
-        detail={t('deployments.replicas')}
+        detail={t('common.fields.replicas')}
       />
       <WorkloadSummaryCard
-        label={t('common.created')}
+        label={t('common.fields.created')}
         value={
           deployment.metadata?.creationTimestamp
-            ? t('common.timeAgo', {
+            ? t('common.messages.timeAgo', {
                 time: getAge(deployment.metadata.creationTimestamp),
               })
             : '-'
@@ -154,7 +157,7 @@ function DeploymentSummaryGrid({ deployment }: { deployment: Deployment }) {
         detail={
           deployment.metadata?.creationTimestamp
             ? formatDate(deployment.metadata.creationTimestamp)
-            : t('pods.notCreated')
+            : t('common.messages.notCreated')
         }
       />
     </div>
@@ -187,14 +190,14 @@ function DeploymentInformationCard({ deployment }: { deployment: Deployment }) {
     <Card className="gap-0 overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
       <CardHeader className="px-3 py-2.5 !pb-2.5">
         <CardTitle className="text-balance text-sm">
-          {t('deployments.deploymentInformation')}
+          {t('common.fields.information')}
         </CardTitle>
       </CardHeader>
       <CardContent className="px-3 pb-3 pt-1">
         <div className="space-y-3">
           <div className="grid gap-x-6 gap-y-3 md:grid-cols-2">
             <WorkloadInfoBlock
-              label={t('deployments.owner')}
+              label={t('common.fields.owner')}
               truncate={!!ownerInfo}
             >
               {ownerInfo ? (
@@ -206,12 +209,12 @@ function DeploymentInformationCard({ deployment }: { deployment: Deployment }) {
                 </Link>
               ) : (
                 <span className="text-muted-foreground">
-                  {t('common.none')}
+                  {t('common.values.none')}
                 </span>
               )}
             </WorkloadInfoBlock>
             <WorkloadInfoBlock
-              label={t('deployments.selector')}
+              label={t('common.fields.selector')}
               truncate={selectorEntries.length === 0}
             >
               {selectorEntries.length > 0 ? (
@@ -232,7 +235,7 @@ function DeploymentInformationCard({ deployment }: { deployment: Deployment }) {
               )}
             </WorkloadInfoBlock>
             <WorkloadInfoBlock
-              label={t('deployments.images')}
+              label={t('common.fields.images')}
               truncate={false}
               className="md:col-span-2"
             >
@@ -241,31 +244,31 @@ function DeploymentInformationCard({ deployment }: { deployment: Deployment }) {
           </div>
 
           <div className="grid gap-x-8 gap-y-2 border-t border-border/60 pt-3 md:grid-cols-2">
-            <WorkloadInfoRow label={t('deployments.strategy')}>
+            <WorkloadInfoRow label={t('common.fields.strategy')}>
               {strategy?.type || 'RollingUpdate'}
             </WorkloadInfoRow>
             {revision ? (
-              <WorkloadInfoRow label={t('deployments.revision')}>
+              <WorkloadInfoRow label={t('common.fields.revision')}>
                 {revision}
               </WorkloadInfoRow>
             ) : null}
             {rollingUpdate?.maxSurge !== undefined ? (
-              <WorkloadInfoRow label={t('deployments.maxSurge')}>
+              <WorkloadInfoRow label={t('common.fields.maxSurge')}>
                 {String(rollingUpdate.maxSurge)}
               </WorkloadInfoRow>
             ) : null}
             {rollingUpdate?.maxUnavailable !== undefined ? (
-              <WorkloadInfoRow label={t('deployments.maxUnavailable')}>
+              <WorkloadInfoRow label={t('common.fields.maxUnavailable')}>
                 {String(rollingUpdate.maxUnavailable)}
               </WorkloadInfoRow>
             ) : null}
-            <WorkloadInfoRow label={t('deployments.serviceAccount')} mono>
+            <WorkloadInfoRow label={t('common.fields.serviceAccount')} mono>
               {templateSpec?.serviceAccountName || 'default'}
             </WorkloadInfoRow>
-            <WorkloadInfoRow label={t('deployments.containers')}>
+            <WorkloadInfoRow label={t('common.fields.containers')}>
               {containersCount}
             </WorkloadInfoRow>
-            <WorkloadInfoRow label={t('deployments.volumes')}>
+            <WorkloadInfoRow label={t('common.fields.volumes')}>
               {volumesCount > 0 ? (
                 <Link to={volumeTabSearch} className="app-link">
                   {volumesCount}
@@ -274,17 +277,17 @@ function DeploymentInformationCard({ deployment }: { deployment: Deployment }) {
                 0
               )}
             </WorkloadInfoRow>
-            <WorkloadInfoRow label={t('deployments.minReadySeconds')}>
+            <WorkloadInfoRow label={t('common.fields.minReadySeconds')}>
               {deployment.spec?.minReadySeconds ?? 0}s
             </WorkloadInfoRow>
-            <WorkloadInfoRow label={t('deployments.progressDeadline')}>
+            <WorkloadInfoRow label={t('common.fields.progressDeadline')}>
               {deployment.spec?.progressDeadlineSeconds !== undefined
                 ? `${deployment.spec.progressDeadlineSeconds}s`
                 : '-'}
             </WorkloadInfoRow>
             {deployment.spec?.paused ? (
-              <WorkloadInfoRow label={t('deployments.paused')}>
-                {t('common.yes')}
+              <WorkloadInfoRow label={t('common.fields.paused')}>
+                {t('common.values.yes')}
               </WorkloadInfoRow>
             ) : null}
           </div>
@@ -306,5 +309,5 @@ function formatDeploymentStatus(value: string, t: TranslationFn) {
   const key = value
     .replace(/\s+(\w)/g, (_, letter: string) => letter.toUpperCase())
     .replace(/^./, (letter) => letter.toLowerCase())
-  return t(`deployments.statuses.${key}`, { defaultValue: value })
+  return t(`status.${key}`, { defaultValue: value })
 }

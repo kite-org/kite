@@ -46,7 +46,7 @@ export function ActionTable<T>({
     if (actions.length > 0) {
       const actionColumn: ColumnDef<T> = {
         id: 'actions',
-        header: t('common.actions'),
+        header: t('common.fields.actions'),
         cell: ({ row }) => (
           <div className="text-right">
             <DropdownMenu>

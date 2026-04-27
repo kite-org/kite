@@ -176,19 +176,19 @@ export function SecretDetail(props: { namespace: string; name: string }) {
             metadata={data.metadata}
             fields={[
               {
-                label: t('resourceDetail.type'),
+                label: t('common.fields.type'),
                 value: <Badge variant="outline">{data.type || 'Opaque'}</Badge>,
               },
               {
-                label: t('resourceDetail.keys'),
+                label: t('common.fields.keys'),
                 value: dataCount,
               },
               {
-                label: t('resourceDetail.size'),
-                value: `${dataSize} ${t('resourceDetail.bytes')}`,
+                label: t('common.fields.size'),
+                value: `${dataSize} ${t('common.fields.bytes')}`,
               },
               {
-                label: t('resourceDetail.resourceVersion'),
+                label: t('common.fields.resourceVersion'),
                 value: data.metadata?.resourceVersion || '-',
                 mono: true,
               },

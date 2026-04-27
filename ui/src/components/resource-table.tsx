@@ -453,7 +453,7 @@ export function ResourceTable<T>({
               onClick={() => setDeleteDialogOpen(false)}
               disabled={isDeleting}
             >
-              {t('common.cancel')}
+              {t('common.actions.cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -465,7 +465,7 @@ export function ResourceTable<T>({
                     done: deleteProgress.done,
                     total: deleteProgress.total,
                   })
-                : t('common.delete')}
+                : t('common.actions.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

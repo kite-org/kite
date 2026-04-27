@@ -71,7 +71,7 @@ function CreateResourceDialogContent({
     setIsLoading(true)
     try {
       await applyResource(yamlContent)
-      toast.success(t('createResource.success', 'Applied successfully'))
+      toast.success(t('common.messages.applied', 'Applied successfully'))
       onOpenChange(false)
     } catch (err) {
       console.error('Failed to apply resource', err)
@@ -107,14 +107,14 @@ function CreateResourceDialogContent({
             <SelectTrigger>
               <SelectValue
                 placeholder={t(
-                  'createResource.selectTemplate',
+                  'common.placeholders.selectTemplate',
                   'Select a template'
                 )}
               />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="empty">
-                {t('createResource.emptyTemplate', 'Empty Template')}
+                {t('common.values.emptyTemplate', 'Empty Template')}
               </SelectItem>
               {templates.map((template) => (
                 <SelectItem key={template.name} value={template.name}>
@@ -125,7 +125,9 @@ function CreateResourceDialogContent({
           </Select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="yaml">YAML Configuration</Label>
+          <Label htmlFor="yaml">
+            {t('common.fields.yamlConfiguration', 'YAML Configuration')}
+          </Label>
           <div className="min-h-[300px] border rounded-md">
             <SimpleYamlEditor
               value={yamlContent}
@@ -138,16 +140,16 @@ function CreateResourceDialogContent({
 
       <DialogFooter>
         <Button variant="outline" onClick={handleCancel} disabled={isLoading}>
-          Cancel
+          {t('common.actions.cancel', 'Cancel')}
         </Button>
         <Button onClick={handleApply} disabled={isLoading || !yamlContent}>
           {isLoading ? (
             <>
               <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
-              {t('common.applying', 'Applying...')}
+              {t('common.messages.applying', 'Applying...')}
             </>
           ) : (
-            t('common.apply', 'Apply')
+            t('common.actions.apply', 'Apply')
           )}
         </Button>
       </DialogFooter>

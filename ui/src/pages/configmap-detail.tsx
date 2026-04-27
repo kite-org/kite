@@ -94,19 +94,19 @@ export function ConfigMapDetail(props: { namespace: string; name: string }) {
             metadata={data.metadata}
             fields={[
               {
-                label: t('resourceDetail.keys'),
+                label: t('common.fields.keys'),
                 value: totalCount,
               },
               {
-                label: t('resourceDetail.data'),
+                label: t('common.fields.data'),
                 value: dataCount,
               },
               {
-                label: t('resourceDetail.binaryData'),
+                label: t('common.fields.binaryData'),
                 value: binaryDataCount,
               },
               {
-                label: t('resourceDetail.resourceVersion'),
+                label: t('common.fields.resourceVersion'),
                 value: data.metadata?.resourceVersion || '-',
                 mono: true,
               },

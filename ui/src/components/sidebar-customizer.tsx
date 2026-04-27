@@ -199,7 +199,9 @@ export function SidebarCustomizer({
           }}
         >
           <PanelLeftOpen className="h-4 w-4" />
-          <span>{t('sidebar.customize', 'Customize Sidebar')}</span>
+          <span>
+            {t('common.actions.customizeSidebar', 'Customize Sidebar')}
+          </span>
           {hasUpdate && (
             <span className="ml-auto h-2 w-2 rounded-full bg-red-500" />
           )}
@@ -210,7 +212,7 @@ export function SidebarCustomizer({
         <DialogHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
           <DialogTitle className="flex items-center gap-2">
             <PanelLeftOpen className="h-5 w-5" />
-            {t('sidebar.customizeTitle', 'Customize Sidebar')}
+            {t('common.actions.customizeSidebar', 'Customize Sidebar')}
           </DialogTitle>
         </DialogHeader>
 
@@ -296,8 +298,8 @@ export function SidebarCustomizer({
                         className="h-8 px-2 text-xs"
                       >
                         {group.collapsed
-                          ? t('sidebar.expand', 'Expand')
-                          : t('sidebar.collapse', 'Collapse')}
+                          ? t('common.actions.expand', 'Expand')
+                          : t('common.actions.collapse', 'Collapse')}
                       </Button>
                       <Button
                         variant="ghost"
@@ -318,9 +320,9 @@ export function SidebarCustomizer({
                         size="sm"
                         onClick={() => moveGroup(group.id, 'up')}
                         className="h-8 w-8 p-0"
-                        title={t('sidebar.moveUp', 'Move up')}
+                        title={t('common.actions.moveUp', 'Move up')}
                         disabled={index === 0}
-                        aria-label={t('sidebar.moveUp', 'Move up')}
+                        aria-label={t('common.actions.moveUp', 'Move up')}
                       >
                         <ArrowUp className="h-3.5 w-3.5" />
                       </Button>
@@ -329,9 +331,9 @@ export function SidebarCustomizer({
                         size="sm"
                         onClick={() => moveGroup(group.id, 'down')}
                         className="h-8 w-8 p-0"
-                        title={t('sidebar.moveDown', 'Move down')}
+                        title={t('common.actions.moveDown', 'Move down')}
                         disabled={index === sortedGroups.length - 1}
-                        aria-label={t('sidebar.moveDown', 'Move down')}
+                        aria-label={t('common.actions.moveDown', 'Move down')}
                       >
                         <ArrowDown className="h-3.5 w-3.5" />
                       </Button>
@@ -468,7 +470,7 @@ export function SidebarCustomizer({
               <div className="space-y-3 p-4 border rounded-md bg-muted/10">
                 <Label className="text-sm font-medium flex items-center gap-2">
                   <FolderPlus className="h-4 w-4" />
-                  {t('sidebar.createGroup', 'Create New CRD Group')}
+                  {t('common.actions.createGroup', 'Create New CRD Group')}
                 </Label>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Input
@@ -527,7 +529,7 @@ export function SidebarCustomizer({
                 handleOpenChange(false)
               }}
             >
-              {t('common.done', 'Done')}
+              {t('common.actions.done', 'Done')}
             </Button>
           </div>
         </div>

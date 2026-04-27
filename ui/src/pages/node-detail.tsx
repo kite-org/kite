@@ -538,7 +538,7 @@ function NodeOverview({
     <div className="space-y-3">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
         <WorkloadSummaryCard
-          label={t('common.status')}
+          label={t('common.fields.status')}
           value={
             <span className="inline-flex min-w-0 items-center gap-2">
               {isReady ? (
@@ -593,13 +593,13 @@ function NodeOverview({
           <Card className="gap-0 overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
             <CardHeader className="px-3 py-2.5 !pb-2.5">
               <CardTitle className="text-balance text-sm">
-                {t('resourceDetail.information')}
+                {t('common.fields.information')}
               </CardTitle>
             </CardHeader>
             <CardContent className="px-3 pb-3 pt-1">
               <div className="space-y-3">
                 <div className="grid gap-x-6 gap-y-3 md:grid-cols-2">
-                  <WorkloadInfoBlock label={t('common.created')}>
+                  <WorkloadInfoBlock label={t('common.fields.created')}>
                     {node.metadata?.creationTimestamp
                       ? formatDate(node.metadata.creationTimestamp)
                       : '-'}
@@ -754,10 +754,13 @@ function NodeOverview({
             isLoading={isRelatedLoading}
           />
           {Object.keys(labels).length > 0 ? (
-            <MetadataListCard title="pods.labels" entries={labels} />
+            <MetadataListCard title="common.fields.labels" entries={labels} />
           ) : null}
           {Object.keys(annotations).length > 0 ? (
-            <MetadataListCard title="pods.annotations" entries={annotations} />
+            <MetadataListCard
+              title="common.fields.annotations"
+              entries={annotations}
+            />
           ) : null}
         </div>
       </div>

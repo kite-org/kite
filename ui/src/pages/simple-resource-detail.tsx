@@ -95,7 +95,7 @@ export function SimpleResourceDetail<T extends ResourceType>(props: {
             metadata={data.metadata}
             fields={[
               {
-                label: t('resourceDetail.resourceVersion'),
+                label: t('common.fields.resourceVersion'),
                 value: data.metadata?.resourceVersion || '-',
                 mono: true,
               },

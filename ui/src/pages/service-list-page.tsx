@@ -29,7 +29,7 @@ export function ServiceListPage() {
   const columns = useMemo(
     () => [
       columnHelper.accessor('metadata.name', {
-        header: t('common.name'),
+        header: t('common.fields.name'),
         cell: ({ row }) => (
           <div className="font-medium app-link">
             <Link
@@ -43,7 +43,7 @@ export function ServiceListPage() {
         ),
       }),
       columnHelper.accessor('spec.type', {
-        header: t('services.type'),
+        header: t('common.fields.type'),
         enableColumnFilter: true,
         cell: ({ getValue }) => {
           const type = getValue() || 'ClusterIP'
@@ -51,7 +51,7 @@ export function ServiceListPage() {
         },
       }),
       columnHelper.accessor('spec.clusterIP', {
-        header: t('services.clusterIP'),
+        header: t('common.fields.clusterIP'),
         cell: ({ getValue }) => {
           const val = getValue() || '-'
           return (
@@ -62,7 +62,7 @@ export function ServiceListPage() {
         },
       }),
       columnHelper.accessor('status.loadBalancer.ingress', {
-        header: t('services.externalIP'),
+        header: t('common.fields.externalIP'),
         cell: ({ row }) => {
           const val = getServiceExternalIP(row.original)
           return (
@@ -73,7 +73,7 @@ export function ServiceListPage() {
         },
       }),
       columnHelper.accessor('spec.ports', {
-        header: t('services.ports'),
+        header: t('common.fields.ports'),
         cell: ({ getValue }) => {
           const ports = getValue() || []
           if (ports.length === 0) return '-'
@@ -94,7 +94,7 @@ export function ServiceListPage() {
         },
       }),
       columnHelper.accessor('metadata.creationTimestamp', {
-        header: t('common.created'),
+        header: t('common.fields.created'),
         cell: ({ getValue }) => {
           const dateStr = formatDate(getValue() || '')
 

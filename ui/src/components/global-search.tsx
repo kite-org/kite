@@ -104,12 +104,12 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
         ? [
             {
               id: 'settings',
-              title: t('settings.nav', 'Settings'),
+              title: t('settings.title', 'Settings'),
               url: '/settings',
               Icon: IconSettings,
               groupLabel: 'Settings',
               searchText:
-                `${t('settings.nav', 'Settings')} admin`.toLowerCase(),
+                `${t('settings.title', 'Settings')} admin`.toLowerCase(),
               isPinned: false,
             },
             {

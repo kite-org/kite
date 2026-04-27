@@ -80,7 +80,7 @@ export function JobDetail(props: { namespace: string; name: string }) {
   const handleSaveYaml = async (content: Job) => {
     await updateResource('jobs', name, namespace, content)
     toast.success(
-      t('jobs.yamlSavedSuccess', {
+      t('common.messages.yamlSaved', {
         defaultValue: 'Job YAML saved successfully',
       })
     )
@@ -100,7 +100,7 @@ export function JobDetail(props: { namespace: string; name: string }) {
         value: 'pods',
         label: (
           <>
-            {t('jobs.tabs.pods', { defaultValue: 'Pods' })}
+            {t('common.tabs.pods', { defaultValue: 'Pods' })}
             <Badge variant="secondary">{currentPods.length}</Badge>
           </>
         ),
@@ -116,7 +116,7 @@ export function JobDetail(props: { namespace: string; name: string }) {
         value: 'containers',
         label: (
           <>
-            {t('jobs.tabs.containers', { defaultValue: 'Containers' })}
+            {t('common.tabs.containers', { defaultValue: 'Containers' })}
             <Badge variant="secondary">
               {containers.length + initContainers.length}
             </Badge>
@@ -145,7 +145,7 @@ export function JobDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'logs',
-        label: t('jobs.tabs.logs', { defaultValue: 'Logs' }),
+        label: t('common.tabs.logs', { defaultValue: 'Logs' }),
         content: (
           <LogViewer
             namespace={namespace}
@@ -158,7 +158,7 @@ export function JobDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'terminal',
-        label: t('jobs.tabs.terminal', { defaultValue: 'Terminal' }),
+        label: t('common.tabs.terminal', { defaultValue: 'Terminal' }),
         content: (
           <Terminal
             namespace={namespace}
@@ -172,7 +172,7 @@ export function JobDetail(props: { namespace: string; name: string }) {
         value: 'volumes',
         label: (
           <>
-            {t('jobs.tabs.volumes', { defaultValue: 'Volumes' })}
+            {t('common.tabs.volumes', { defaultValue: 'Volumes' })}
             <Badge variant="secondary">{volumes.length}</Badge>
           </>
         ),
@@ -187,7 +187,7 @@ export function JobDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'related',
-        label: t('jobs.tabs.related', { defaultValue: 'Related' }),
+        label: t('common.tabs.related', { defaultValue: 'Related' }),
         content: (
           <RelatedResourcesTable
             resource="jobs"
@@ -198,7 +198,7 @@ export function JobDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'history',
-        label: t('jobs.tabs.history', { defaultValue: 'History' }),
+        label: t('common.tabs.history', { defaultValue: 'History' }),
         content: job ? (
           <ResourceHistoryTable
             resourceType="jobs"
@@ -210,14 +210,14 @@ export function JobDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'events',
-        label: t('jobs.tabs.events', { defaultValue: 'Events' }),
+        label: t('common.tabs.events', { defaultValue: 'Events' }),
         content: (
           <EventTable resource="jobs" namespace={namespace} name={name} />
         ),
       },
       {
         value: 'monitor',
-        label: t('jobs.tabs.monitor', { defaultValue: 'Monitor' }),
+        label: t('common.tabs.monitor', { defaultValue: 'Monitor' }),
         content: (
           <PodMonitoring
             namespace={namespace}

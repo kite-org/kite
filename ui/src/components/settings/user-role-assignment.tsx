@@ -51,13 +51,13 @@ export function UserRoleAssignment({ open, onOpenChange, subject }: Props) {
     try {
       if (selected[roleId]) {
         await unassignRole(roleId, subjectType, subjectName)
-        toast.success(t('rbac.messages.unassigned', 'Unassigned'))
+        toast.success(t('common.messages.unassigned', 'Unassigned'))
       } else {
         await assignRole(roleId, {
           subjectType: subjectType,
           subject: subjectName,
         })
-        toast.success(t('rbac.messages.assigned', 'Assigned'))
+        toast.success(t('common.messages.assigned', 'Assigned'))
       }
       queryClient.invalidateQueries({ queryKey: ['user-list'] })
       queryClient.invalidateQueries({ queryKey: ['apikey-list'] })
@@ -66,7 +66,7 @@ export function UserRoleAssignment({ open, onOpenChange, subject }: Props) {
     } catch (err: unknown) {
       toast.error(
         (err as Error).message ||
-          t('rbac.messages.assignError', 'Failed to assign')
+          t('common.messages.failedToAssign', 'Failed to assign')
       )
     }
   }
@@ -75,7 +75,9 @@ export function UserRoleAssignment({ open, onOpenChange, subject }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t('common.assignRoles', 'Assign Roles')}</DialogTitle>
+          <DialogTitle>
+            {t('common.actions.assignRoles', 'Assign Roles')}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-2 py-2">
           {roles.map((r: Role) => (
@@ -99,7 +101,7 @@ export function UserRoleAssignment({ open, onOpenChange, subject }: Props) {
         </div>
         <DialogFooter>
           <Button onClick={() => onOpenChange(false)}>
-            {t('common.close', 'Close')}
+            {t('common.actions.close', 'Close')}
           </Button>
         </DialogFooter>
       </DialogContent>

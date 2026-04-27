@@ -26,7 +26,7 @@ export function LanguageToggle() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon">
           <Languages className="h-[1.2rem] w-[1.2rem]" />
-          <span className="sr-only">{t('common.language')}</span>
+          <span className="sr-only">{t('common.fields.language')}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

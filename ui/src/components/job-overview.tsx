@@ -66,14 +66,16 @@ export function JobOverview({
       <div className="grid gap-3 xl:grid-cols-3">
         <div className="space-y-3 xl:col-span-2">
           <WorkloadPodsCard
-            title={t('jobs.pods', { defaultValue: 'Pods' })}
+            title={t('common.fields.pods', { defaultValue: 'Pods' })}
             pods={pods || []}
             isLoading={isPodsLoading}
-            loadingText={t('jobs.loadingPods', {
+            loadingText={t('common.messages.loadingPods', {
               defaultValue: 'Loading pods...',
             })}
-            emptyText={t('jobs.noPods', { defaultValue: 'No pods found' })}
-            ageLabel={t('jobs.age', { defaultValue: 'Age' })}
+            emptyText={t('common.messages.noPods', {
+              defaultValue: 'No pods found',
+            })}
+            ageLabel={t('common.fields.age', { defaultValue: 'Age' })}
           />
           <JobInformationCard job={job} />
         </div>
@@ -88,10 +90,13 @@ export function JobOverview({
             isLoading={isRelatedLoading}
           />
           {Object.keys(labels).length > 0 ? (
-            <MetadataListCard title="pods.labels" entries={labels} />
+            <MetadataListCard title="common.fields.labels" entries={labels} />
           ) : null}
           {Object.keys(annotations).length > 0 ? (
-            <MetadataListCard title="pods.annotations" entries={annotations} />
+            <MetadataListCard
+              title="common.fields.annotations"
+              entries={annotations}
+            />
           ) : null}
         </div>
       </div>
@@ -108,7 +113,7 @@ function JobSummaryGrid({ job }: { job: Job }) {
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
       <WorkloadSummaryCard
-        label={t('common.status')}
+        label={t('common.fields.status')}
         value={
           <Badge variant={jobStatus.variant}>
             {formatJobStatusBadge(jobStatus, t)}
@@ -119,7 +124,7 @@ function JobSummaryGrid({ job }: { job: Job }) {
             ? formatDate(job.status.completionTime)
             : job.status?.startTime
               ? formatDate(job.status.startTime)
-              : t('jobs.notStarted', { defaultValue: 'Not started' })
+              : t('common.messages.notStarted', { defaultValue: 'Not started' })
         }
       />
       <WorkloadSummaryCard
@@ -128,25 +133,25 @@ function JobSummaryGrid({ job }: { job: Job }) {
         detail={t('jobs.target', { defaultValue: 'Target' })}
       />
       <WorkloadSummaryCard
-        label={t('jobs.succeeded', { defaultValue: 'Succeeded' })}
+        label={t('common.fields.succeeded', { defaultValue: 'Succeeded' })}
         value={succeeded}
-        detail={t('jobs.pods', { defaultValue: 'Pods' })}
+        detail={t('common.fields.pods', { defaultValue: 'Pods' })}
       />
       <WorkloadSummaryCard
-        label={t('jobs.failed', { defaultValue: 'Failed' })}
+        label={t('common.fields.failed', { defaultValue: 'Failed' })}
         value={job.status?.failed || 0}
-        detail={t('jobs.pods', { defaultValue: 'Pods' })}
+        detail={t('common.fields.pods', { defaultValue: 'Pods' })}
       />
       <WorkloadSummaryCard
-        label={t('jobs.active', { defaultValue: 'Active' })}
+        label={t('common.fields.active', { defaultValue: 'Active' })}
         value={job.status?.active || 0}
-        detail={t('jobs.pods', { defaultValue: 'Pods' })}
+        detail={t('common.fields.pods', { defaultValue: 'Pods' })}
       />
       <WorkloadSummaryCard
-        label={t('common.created')}
+        label={t('common.fields.created')}
         value={
           job.metadata?.creationTimestamp
-            ? t('common.timeAgo', {
+            ? t('common.messages.timeAgo', {
                 time: getAge(job.metadata.creationTimestamp),
               })
             : '-'
@@ -154,7 +159,7 @@ function JobSummaryGrid({ job }: { job: Job }) {
         detail={
           job.metadata?.creationTimestamp
             ? formatDate(job.metadata.creationTimestamp)
-            : t('jobs.notCreated', { defaultValue: 'Not created' })
+            : t('common.messages.notCreated', { defaultValue: 'Not created' })
         }
       />
     </div>
@@ -181,14 +186,14 @@ function JobInformationCard({ job }: { job: Job }) {
     <Card className="gap-0 overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
       <CardHeader className="px-3 py-2.5 !pb-2.5">
         <CardTitle className="text-balance text-sm">
-          {t('jobs.jobInformation', { defaultValue: 'Information' })}
+          {t('common.fields.information', { defaultValue: 'Information' })}
         </CardTitle>
       </CardHeader>
       <CardContent className="px-3 pb-3 pt-1">
         <div className="space-y-3">
           <div className="grid gap-x-6 gap-y-3 md:grid-cols-2">
             <WorkloadInfoBlock
-              label={t('jobs.owner', { defaultValue: 'Owner' })}
+              label={t('common.fields.owner', { defaultValue: 'Owner' })}
               truncate={!!ownerInfo}
             >
               {ownerInfo ? (
@@ -200,12 +205,12 @@ function JobInformationCard({ job }: { job: Job }) {
                 </Link>
               ) : (
                 <span className="text-muted-foreground">
-                  {t('common.none')}
+                  {t('common.values.none')}
                 </span>
               )}
             </WorkloadInfoBlock>
             <WorkloadInfoBlock
-              label={t('jobs.selector', { defaultValue: 'Selector' })}
+              label={t('common.fields.selector', { defaultValue: 'Selector' })}
               truncate={selectorEntries.length === 0}
             >
               {selectorEntries.length > 0 ? (
@@ -226,7 +231,7 @@ function JobInformationCard({ job }: { job: Job }) {
               )}
             </WorkloadInfoBlock>
             <WorkloadInfoBlock
-              label={t('jobs.images', { defaultValue: 'Images' })}
+              label={t('common.fields.images', { defaultValue: 'Images' })}
               truncate={false}
               className="md:col-span-2"
             >
@@ -246,17 +251,19 @@ function JobInformationCard({ job }: { job: Job }) {
               {job.spec?.completions ?? 1}
             </WorkloadInfoRow>
             <WorkloadInfoRow
-              label={t('jobs.succeeded', { defaultValue: 'Succeeded' })}
+              label={t('common.fields.succeeded', {
+                defaultValue: 'Succeeded',
+              })}
             >
               {job.status?.succeeded || 0}
             </WorkloadInfoRow>
             <WorkloadInfoRow
-              label={t('jobs.failed', { defaultValue: 'Failed' })}
+              label={t('common.fields.failed', { defaultValue: 'Failed' })}
             >
               {job.status?.failed || 0}
             </WorkloadInfoRow>
             <WorkloadInfoRow
-              label={t('jobs.active', { defaultValue: 'Active' })}
+              label={t('common.fields.active', { defaultValue: 'Active' })}
             >
               {job.status?.active || 0}
             </WorkloadInfoRow>
@@ -286,7 +293,7 @@ function JobInformationCard({ job }: { job: Job }) {
                 : '-'}
             </WorkloadInfoRow>
             <WorkloadInfoRow
-              label={t('jobs.serviceAccount', {
+              label={t('common.fields.serviceAccount', {
                 defaultValue: 'Service Account',
               })}
               mono
@@ -294,12 +301,14 @@ function JobInformationCard({ job }: { job: Job }) {
               {templateSpec?.serviceAccountName || 'default'}
             </WorkloadInfoRow>
             <WorkloadInfoRow
-              label={t('jobs.containers', { defaultValue: 'Containers' })}
+              label={t('common.fields.containers', {
+                defaultValue: 'Containers',
+              })}
             >
               {containersCount}
             </WorkloadInfoRow>
             <WorkloadInfoRow
-              label={t('jobs.volumes', { defaultValue: 'Volumes' })}
+              label={t('common.fields.volumes', { defaultValue: 'Volumes' })}
             >
               <Link to={volumeTabSearch} className="app-link">
                 {volumesCount}

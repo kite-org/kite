@@ -61,6 +61,7 @@ export interface LogViewerProps {
   labelSelector?: string
   containers?: Container[]
   initContainers?: Container[]
+  selectedContainerName?: string
   onClose?: () => void
 }
 
@@ -76,6 +77,7 @@ export function LogViewer({
   pods,
   containers: _containers,
   initContainers,
+  selectedContainerName,
   onClose,
   labelSelector,
 }: LogViewerProps) {
@@ -168,10 +170,27 @@ export function LogViewer({
   }, [podName, pods, selectPodName])
 
   useEffect(() => {
-    if (containers.length > 0) {
-      setSelectedContainer(containers[0].name)
+    if (containers.length === 0) {
+      setSelectedContainer('')
+      return
     }
-  }, [containers])
+
+    setSelectedContainer((current) => {
+      if (
+        selectedContainerName &&
+        containers.some((container) => container.name === selectedContainerName)
+      ) {
+        return selectedContainerName
+      }
+      if (
+        !current ||
+        !containers.some((container) => container.name === current)
+      ) {
+        return containers[0].name
+      }
+      return current
+    })
+  }, [containers, selectedContainerName])
 
   // Handle theme change and persist to localStorage
   const handleThemeChange = useCallback((theme: TerminalTheme) => {
@@ -852,7 +871,7 @@ export function LogViewer({
               }`}
               onClick={scrollToBottom}
             >
-              ↓ {t('log.jumpToBottom', 'Jump to bottom')}
+              ↓ {t('common.actions.jumpToBottom', 'Jump to bottom')}
             </Button>
           </div>
         )}

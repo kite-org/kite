@@ -34,7 +34,7 @@ export function getJobStatusBadge(job: Job): JobStatusBadge {
 export function formatJobStatusBadge(
   badge: JobStatusBadge,
   t: TranslationFn,
-  namespace = 'jobs.statuses'
+  namespace = 'status'
 ) {
   return t(`${namespace}.${badge.key}`, {
     defaultValue: badge.label,

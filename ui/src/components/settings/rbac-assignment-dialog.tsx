@@ -79,7 +79,7 @@ export function RBACAssignmentDialog({
     ) {
       const confirmed = window.confirm(
         t(
-          'rbac.assign.confirmRemoveSelf',
+          'common.messages.confirmRemoveOwnRole',
           'You are removing your own role assignment. This may affect your permissions. Are you sure?'
         )
       )
@@ -99,19 +99,22 @@ export function RBACAssignmentDialog({
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>
-            {t('rbac.assign.title', 'Assign Role')} - {role?.name}
+            {t('common.actions.assign', 'Assign')}{' '}
+            {t('common.fields.role', 'Role')} - {role?.name}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           {(currentUsers.length > 0 || currentGroups.length > 0) && (
             <div className="space-y-3">
-              <Label>{t('rbac.assign.current', 'Current Assignments')}</Label>
+              <Label>
+                {t('common.fields.assignments', 'Current Assignments')}
+              </Label>
               <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
                 {currentUsers.length > 0 && (
                   <div>
                     <div className="text-xs font-semibold text-muted-foreground mb-1">
-                      {t('rbac.assign.users', 'Users')}
+                      {t('common.fields.users', 'Users')}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {currentUsers.map((a) => (
@@ -138,7 +141,7 @@ export function RBACAssignmentDialog({
                 {currentGroups.length > 0 && (
                   <div>
                     <div className="text-xs font-semibold text-muted-foreground mb-1">
-                      {t('rbac.assign.groups', 'OIDC Groups')}
+                      {t('common.fields.oidcGroups', 'OIDC Groups')}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {currentGroups.map((a) => (
@@ -168,7 +171,7 @@ export function RBACAssignmentDialog({
 
           <form onSubmit={handleAssign} className="space-y-4">
             <div className="space-y-2">
-              <Label>{t('rbac.assign.subjectType', 'Subject Type')}</Label>
+              <Label>{t('common.fields.subjectType', 'Subject Type')}</Label>
               <Select
                 value={subjectType}
                 onValueChange={(v) => setSubjectType(v as 'user' | 'group')}
@@ -178,22 +181,22 @@ export function RBACAssignmentDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="user">
-                    {t('rbac.assign.user', 'User')}
+                    {t('common.fields.user', 'User')}
                   </SelectItem>
                   <SelectItem value="group">
-                    {t('rbac.assign.group', 'OIDC Group')}
+                    {t('common.fields.oidcGroup', 'OIDC Group')}
                   </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label>{t('rbac.assign.subject', 'Subject')}</Label>
+              <Label>{t('common.fields.subject', 'Subject')}</Label>
               <Input
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder={t(
-                  'rbac.assign.subjectPlaceholder',
+                  'common.placeholders.subject',
                   'username or group name'
                 )}
               />
@@ -205,10 +208,10 @@ export function RBACAssignmentDialog({
                 variant="outline"
                 onClick={() => onOpenChange(false)}
               >
-                {t('common.cancel', 'Cancel')}
+                {t('common.actions.cancel', 'Cancel')}
               </Button>
               <Button type="submit" disabled={!subject.trim()}>
-                {t('rbac.actions.assign', 'Assign')}
+                {t('common.actions.assign', 'Assign')}
               </Button>
             </DialogFooter>
           </form>

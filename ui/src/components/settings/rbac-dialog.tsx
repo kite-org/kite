@@ -179,15 +179,15 @@ export function RBACDialog({
               <IconShieldCheck className="h-5 w-5" />
             )}
             {isEdit
-              ? t('rbac.dialog.edit.title', 'Edit Role')
-              : t('rbac.dialog.add.title', 'Add Role')}
+              ? `${t('common.actions.edit', 'Edit')} ${t('common.fields.role', 'Role')}`
+              : `${t('common.actions.add', 'Add')} ${t('common.fields.role', 'Role')}`}
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="role-name">
-              {t('rbac.form.name.label', 'Role Name')} *
+              {t('common.fields.role', 'Role')} *
             </Label>
             <Input
               id="role-name"
@@ -199,7 +199,7 @@ export function RBACDialog({
 
           <div className="space-y-2">
             <Label htmlFor="role-desc">
-              {t('rbac.form.description.label', 'Description')}
+              {t('common.fields.description', 'Description')}
             </Label>
             <Textarea
               id="role-desc"
@@ -212,12 +212,12 @@ export function RBACDialog({
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-medium">
-                {t('rbac.form.permissions.label', 'Permissions')}
+                {t('common.fields.permissions', 'Permissions')}
               </h3>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <ListEditor
-                label={t('rbac.form.clusters.label', 'Clusters')}
+                label={t('common.fields.clusters', 'Clusters')}
                 items={form.clusters || ['*']}
                 onChange={(items) => setArrayField('clusters', items)}
                 placeholder="* or cluster-name"
@@ -229,21 +229,21 @@ export function RBACDialog({
               />
 
               <ListEditor
-                label={t('rbac.form.namespaces.label', 'Namespaces')}
+                label={t('common.fields.namespaces', 'Namespaces')}
                 items={form.namespaces || ['*']}
                 onChange={(items) => setArrayField('namespaces', items)}
                 placeholder="* or namespace"
               />
 
               <ListEditor
-                label={t('rbac.form.resources.label', 'Resources')}
+                label={t('common.fields.resources', 'Resources')}
                 items={form.resources || ['*']}
                 onChange={(items) => setArrayField('resources', items)}
                 placeholder="* or pods,deployments"
               />
 
               <ListEditor
-                label={t('rbac.form.verbs.label', 'Verbs')}
+                label={t('common.fields.verbs', 'Verbs')}
                 items={form.verbs || ['*']}
                 onChange={(items) => setArrayField('verbs', items)}
                 placeholder="* or get,list,create"
@@ -264,10 +264,12 @@ export function RBACDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              {t('common.cancel', 'Cancel')}
+              {t('common.actions.cancel', 'Cancel')}
             </Button>
             <Button type="submit">
-              {isEdit ? t('common.save', 'Save') : t('common.create', 'Create')}
+              {isEdit
+                ? t('common.actions.save', 'Save')
+                : t('common.actions.create', 'Create')}
             </Button>
           </DialogFooter>
         </form>

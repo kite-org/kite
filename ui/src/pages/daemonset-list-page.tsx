@@ -24,7 +24,7 @@ export function DaemonSetListPage() {
   const columns = useMemo(
     () => [
       columnHelper.accessor('metadata.name', {
-        header: t('common.name'),
+        header: t('common.fields.name'),
         cell: ({ row }) => (
           <div className="font-medium app-link">
             <Link
@@ -38,30 +38,30 @@ export function DaemonSetListPage() {
         ),
       }),
       columnHelper.accessor('status.desiredNumberScheduled', {
-        header: t('common.desired'),
+        header: t('common.fields.desired'),
         cell: ({ getValue }) => getValue() || 0,
       }),
       columnHelper.accessor('status.currentNumberScheduled', {
-        header: t('common.current'),
+        header: t('common.fields.current'),
         cell: ({ getValue }) => getValue() || 0,
       }),
       columnHelper.accessor('status.numberReady', {
-        header: t('deployments.ready'),
+        header: t('common.fields.ready'),
         cell: ({ getValue }) => getValue() || 0,
       }),
       columnHelper.accessor('status.numberAvailable', {
-        header: t('deployments.available'),
+        header: t('common.fields.available'),
         cell: ({ getValue }) => getValue() || 0,
       }),
       columnHelper.accessor('status.conditions', {
-        header: t('common.status'),
+        header: t('common.fields.status'),
         cell: ({ row }) => {
           const readyReplicas = row.original.status?.numberReady || 0
           const replicas = row.original.status?.desiredNumberScheduled || 0
           const isAvailable = readyReplicas === replicas
           const status = isAvailable
-            ? t('deployments.available')
-            : t('common.loading')
+            ? t('common.fields.available')
+            : t('common.messages.loading')
           if (replicas === 0) {
             return (
               <Badge
@@ -86,7 +86,7 @@ export function DaemonSetListPage() {
         },
       }),
       columnHelper.accessor('metadata.creationTimestamp', {
-        header: t('common.created'),
+        header: t('common.fields.created'),
         cell: ({ getValue }) => {
           const dateStr = formatDate(getValue() || '')
 

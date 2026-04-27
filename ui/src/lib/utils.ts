@@ -247,7 +247,7 @@ export function isCRDNotInstalledError(errorMessage: string): boolean {
 
 export function translateError(error: Error | unknown, t: TFunction): string {
   if (!(error instanceof Error)) {
-    return t('common.error', {
+    return t('common.messages.error', {
       error: String(error),
     })
   }

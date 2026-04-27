@@ -17,8 +17,8 @@ vi.mock('react-i18next', () => ({
         'resourceTable.deletingProgress': `Deleting... (${opts?.done}/${opts?.total})`,
         'resourceTable.deleteSuccess': `Deleted ${opts?.name} successfully`,
         'resourceTable.deleteFailed': `Failed to delete ${opts?.name}`,
-        'common.cancel': 'Cancel',
-        'common.delete': 'Delete',
+        'common.actions.cancel': 'Cancel',
+        'common.actions.delete': 'Delete',
         'resourceTable.namespace': 'Namespace',
       }
       return map[key] ?? key

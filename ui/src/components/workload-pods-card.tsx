@@ -65,16 +65,16 @@ export function WorkloadPodsCard({
             <TableRow>
               <TableHead className="h-8 px-4">{t('nav.pods')}</TableHead>
               <TableHead className="h-8 px-1 text-center">
-                {t('common.status')}
+                {t('common.fields.status')}
               </TableHead>
               <TableHead className="h-8 px-1 text-center">
-                {t('pods.ready')}
+                {t('common.fields.ready')}
               </TableHead>
               <TableHead className="h-8 px-1 text-center">
-                {t('pods.restart')}
+                {t('common.fields.restart')}
               </TableHead>
               <TableHead className="h-8 px-1 text-center">
-                {t('pods.node')}
+                {t('common.fields.node')}
               </TableHead>
               <TableHead className="h-8 px-1 text-center">{ageLabel}</TableHead>
             </TableRow>

@@ -58,7 +58,7 @@ export function SettingsHint({ onDismiss }: SettingsHintProps) {
   const settingsItems = [
     {
       key: 'p8s',
-      title: t('settings.tabs.p8s', 'Prometheus'),
+      title: t('common.fields.prometheus', 'Prometheus'),
       description: t('settingsHint.p8s.description', 'Configure Prometheus'),
       icon: IconServer,
       completed: hasP8S,

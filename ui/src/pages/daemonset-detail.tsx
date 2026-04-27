@@ -114,7 +114,7 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
         value: 'pods',
         label: (
           <>
-            {t('daemonsets.tabs.pods', { defaultValue: 'Pods' })}
+            {t('common.tabs.pods', { defaultValue: 'Pods' })}
             <Badge variant="secondary">{pods.length}</Badge>
           </>
         ),
@@ -130,7 +130,7 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
         value: 'containers',
         label: (
           <>
-            {t('daemonsets.tabs.containers', { defaultValue: 'Containers' })}
+            {t('common.tabs.containers', { defaultValue: 'Containers' })}
             <Badge variant="secondary">
               {containers.length + initContainers.length}
             </Badge>
@@ -159,7 +159,7 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'logs',
-        label: t('daemonsets.tabs.logs', { defaultValue: 'Logs' }),
+        label: t('common.tabs.logs', { defaultValue: 'Logs' }),
         content: (
           <LogViewer
             namespace={namespace}
@@ -172,7 +172,7 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'terminal',
-        label: t('daemonsets.tabs.terminal', { defaultValue: 'Terminal' }),
+        label: t('common.tabs.terminal', { defaultValue: 'Terminal' }),
         content:
           pods.length > 0 ? (
             <Terminal
@@ -190,7 +190,7 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
         value: 'volumes',
         label: (
           <>
-            {t('daemonsets.tabs.volumes', { defaultValue: 'Volumes' })}
+            {t('common.tabs.volumes', { defaultValue: 'Volumes' })}
             <Badge variant="secondary">{templateSpec.volumes.length}</Badge>
           </>
         ),
@@ -208,7 +208,7 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
     tabs.push(
       {
         value: 'related',
-        label: t('daemonsets.tabs.related', { defaultValue: 'Related' }),
+        label: t('common.tabs.related', { defaultValue: 'Related' }),
         content: (
           <RelatedResourcesTable
             resource="daemonsets"
@@ -219,7 +219,7 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'history',
-        label: t('daemonsets.tabs.history', { defaultValue: 'History' }),
+        label: t('common.tabs.history', { defaultValue: 'History' }),
         content: daemonset ? (
           <ResourceHistoryTable
             resourceType="daemonsets"
@@ -231,14 +231,14 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'events',
-        label: t('daemonsets.tabs.events', { defaultValue: 'Events' }),
+        label: t('common.tabs.events', { defaultValue: 'Events' }),
         content: (
           <EventTable resource="daemonsets" name={name} namespace={namespace} />
         ),
       },
       {
         value: 'monitor',
-        label: t('daemonsets.tabs.monitor', { defaultValue: 'Monitor' }),
+        label: t('common.tabs.monitor', { defaultValue: 'Monitor' }),
         content: (
           <PodMonitoring
             namespace={namespace}

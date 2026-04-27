@@ -375,7 +375,7 @@ export function InitializationPage() {
                             : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
                         }`}
                       >
-                        {t('initialization.step2.inClusterMode', {
+                        {t('clusterManagement.type.inCluster', {
                           defaultValue: 'In-Cluster',
                         })}
                       </button>
@@ -384,7 +384,7 @@ export function InitializationPage() {
                     {isInCluster ? (
                       <div className="space-y-2">
                         <p className="text-sm text-gray-600">
-                          {t('initialization.step2.inClusterHint', {
+                          {t('common.messages.inClusterConfiguration', {
                             defaultValue:
                               'Import clusters from inside the running Kite instance. No kubeconfig required.',
                           })}

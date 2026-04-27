@@ -120,13 +120,13 @@ export function ResourceHistoryTable<T extends ResourceType>({
     (operationType: string) => {
       switch (operationType.toLowerCase()) {
         case 'create':
-          return t('resourceHistory.create')
+          return t('common.actions.create')
         case 'update':
-          return t('resourceHistory.update')
+          return t('common.actions.update')
         case 'delete':
-          return t('resourceHistory.delete')
+          return t('common.actions.delete')
         case 'apply':
-          return t('resourceHistory.apply')
+          return t('common.actions.apply')
         default:
           return operationType
       }
@@ -145,7 +145,7 @@ export function ResourceHistoryTable<T extends ResourceType>({
         ),
       },
       {
-        header: t('resourceHistory.operator'),
+        header: t('common.fields.operator'),
         accessor: (item: ResourceHistory) => item,
         cell: (value: unknown) => {
           const item = value as ResourceHistory
@@ -167,7 +167,7 @@ export function ResourceHistoryTable<T extends ResourceType>({
         },
       },
       {
-        header: t('resourceHistory.operationTime'),
+        header: t('common.fields.time'),
         accessor: (item: ResourceHistory) => item.createdAt,
         cell: (value: unknown) => (
           <span className="text-muted-foreground text-sm">
@@ -176,7 +176,7 @@ export function ResourceHistoryTable<T extends ResourceType>({
         ),
       },
       {
-        header: t('resourceHistory.operationType'),
+        header: t('common.fields.type'),
         accessor: (item: ResourceHistory) => item.operationType,
         cell: (value: unknown) => {
           const operationType = value as string
@@ -188,21 +188,19 @@ export function ResourceHistoryTable<T extends ResourceType>({
         },
       },
       {
-        header: t('resourceHistory.status'),
+        header: t('common.fields.status'),
         accessor: (item: ResourceHistory) => item.success,
         cell: (value: unknown) => {
           const success = value as boolean
           return (
             <Badge variant={success ? 'default' : 'destructive'}>
-              {success
-                ? t('resourceHistory.success')
-                : t('resourceHistory.failed')}
+              {success ? t('status.success') : t('status.failed')}
             </Badge>
           )
         },
       },
       {
-        header: t('resourceHistory.actions'),
+        header: t('common.fields.actions'),
         accessor: (item: ResourceHistory) => item,
         cell: (value: unknown) => {
           const item = value as ResourceHistory
@@ -217,7 +215,7 @@ export function ResourceHistoryTable<T extends ResourceType>({
                 disabled={!item.errorMessage}
               >
                 <IconAlertCircle className="w-4 h-4 mr-1" />
-                {t('resourceHistory.viewError', 'view error')}
+                {t('common.actions.viewError', 'view error')}
               </Button>
             )
           }
@@ -300,14 +298,14 @@ export function ResourceHistoryTable<T extends ResourceType>({
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>
-                {t('resourceHistory.errorDetails', 'error details')}
+                {t('common.fields.errorDetails', 'error details')}
               </DialogTitle>
             </DialogHeader>
             <div className="mt-4">
               <pre className="bg-destructive/10 text-destructive p-4 rounded-md overflow-auto max-h-96 text-sm">
                 {selectedHistory.errorMessage ||
                   t(
-                    'resourceHistory.noErrorMessage',
+                    'common.messages.noErrorMessage',
                     'no error message available'
                   )}
               </pre>

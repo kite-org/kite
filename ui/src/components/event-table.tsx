@@ -27,7 +27,7 @@ export function EventTable(props: {
   const eventColumns = useMemo(
     (): Column<Event>[] => [
       {
-        header: t('events.type'),
+        header: t('common.fields.type'),
         accessor: (event: Event) => event.type || '',
         cell: (value: unknown) => {
           const type = value as string
@@ -36,21 +36,21 @@ export function EventTable(props: {
         },
       },
       {
-        header: t('events.reason'),
+        header: t('common.fields.reason'),
         accessor: (event: Event) => event.reason || '',
         cell: (value: unknown) => (
           <div className="font-medium">{value as string}</div>
         ),
       },
       {
-        header: t('events.message'),
+        header: t('common.fields.message'),
         accessor: (event: Event) => event.message || '',
         cell: (value: unknown) => (
           <div className="text-sm whitespace-pre-wrap">{value as string}</div>
         ),
       },
       {
-        header: t('events.source'),
+        header: t('common.fields.source'),
         accessor: (event: Event) => event.reportingComponent || '',
         cell: (value: unknown) => {
           return (
@@ -61,7 +61,7 @@ export function EventTable(props: {
         },
       },
       {
-        header: t('events.firstSeen'),
+        header: t('common.fields.firstSeen'),
         accessor: (event: Event) =>
           event.firstTimestamp || event.eventTime || '',
         cell: (value: unknown) => {
@@ -73,7 +73,7 @@ export function EventTable(props: {
         },
       },
       {
-        header: t('events.lastSeen'),
+        header: t('common.fields.lastSeen'),
         accessor: (event: Event) =>
           event.lastTimestamp || event.eventTime || '',
         cell: (value: unknown) => {
@@ -92,7 +92,7 @@ export function EventTable(props: {
     return (
       <div className="flex items-center justify-center py-8">
         <IconLoader className="animate-spin mr-2" />
-        {t('common.loading')}
+        {t('common.messages.loading')}
       </div>
     )
   }

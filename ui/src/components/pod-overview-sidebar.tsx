@@ -58,10 +58,13 @@ export function PodOverviewSidebar({
         <PodPortsCard ports={ports} namespace={namespace} name={name} />
       ) : null}
       {Object.keys(labels).length > 0 ? (
-        <MetadataListCard title="pods.labels" entries={labels} />
+        <MetadataListCard title="common.fields.labels" entries={labels} />
       ) : null}
       {Object.keys(annotations).length > 0 ? (
-        <MetadataListCard title="pods.annotations" entries={annotations} />
+        <MetadataListCard
+          title="common.fields.annotations"
+          entries={annotations}
+        />
       ) : null}
     </div>
   )
@@ -80,7 +83,7 @@ export function CompactRelatedResourcesCard({
     <Card className="gap-0 overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
       <CardHeader className="px-3 py-2.5 !pb-2.5">
         <CardTitle className="text-balance text-sm">
-          {t('pods.relatedResources')} ({resources.length})
+          {t('common.fields.relatedResources')} ({resources.length})
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
@@ -121,7 +124,7 @@ function CompactRelatedResourceRow({
       <span className="inline-flex min-w-0 items-center gap-2 text-muted-foreground">
         <Icon className="size-3.5 shrink-0" />
         <span className="truncate">
-          {metadata?.singularLabel || resource.type}
+          {metadata?.shortLabel || metadata?.singularLabel || resource.type}
         </span>
       </span>
       <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -149,7 +152,7 @@ function CompactRelatedResourceRow({
           {rowContent}
         </button>
       </DialogTrigger>
-      <DialogContent className="!h-[calc(100dvh-1rem)] !max-w-[calc(100vw-1rem)] flex min-h-0 flex-col gap-0 p-0 md:!h-[80%] md:!max-w-[60%]">
+      <DialogContent className="!h-[calc(100dvh-1rem)] !max-w-[calc(100vw-1rem)] flex min-h-0 flex-col gap-0 p-0 md:!h-[80%] md:!max-w-[80%]">
         <DialogHeader className="flex flex-row items-center justify-between border-b px-4 py-3 pr-14">
           <DialogTitle>{metadata?.singularLabel || resource.type}</DialogTitle>
           <a href={withSubPath(path)} target="_blank" rel="noopener noreferrer">
@@ -201,7 +204,7 @@ function PodPortsCard({
     <Card className="gap-0 overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
       <CardHeader className="border-b border-border/70 px-4 py-3 !pb-3">
         <CardTitle className="text-balance text-base">
-          {t('pods.ports')} ({ports.length})
+          {t('common.fields.ports')} ({ports.length})
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
@@ -281,7 +284,7 @@ export function MetadataListCard({
           </div>
         ) : (
           <div className="px-4 py-6 text-sm text-muted-foreground">
-            {t('common.none')}
+            {t('common.values.none')}
           </div>
         )}
       </CardContent>
@@ -366,13 +369,13 @@ function formatEventType(type: string | undefined, t: TranslationFn) {
     return '-'
   }
   const key = type.charAt(0).toLowerCase() + type.slice(1)
-  return t(`events.types.${key}`, { defaultValue: type })
+  return t(`status.${key}`, { defaultValue: type })
 }
 
 function formatEventAge(event: KubernetesEvent, t: TranslationFn) {
   const eventTime = getEventTime(event)
   return eventTime.getTime() > 0
-    ? t('common.timeAgo', { time: getAge(eventTime.toISOString()) })
+    ? t('common.messages.timeAgo', { time: getAge(eventTime.toISOString()) })
     : '-'
 }
 

@@ -95,8 +95,8 @@ function ClusterDialogContent({
             <IconServer className="h-5 w-5" />
           )}
           {isEditMode
-            ? t('clusterManagement.dialog.edit.title', 'Edit Cluster')
-            : t('clusterManagement.dialog.add.title', 'Add New Cluster')}
+            ? t('clusterManagement.dialog.editTitle', 'Edit Cluster')
+            : t('clusterManagement.dialog.createTitle', 'Add New Cluster')}
         </DialogTitle>
       </DialogHeader>
 
@@ -104,14 +104,14 @@ function ClusterDialogContent({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="cluster-name">
-              {t('clusterManagement.form.name.label', 'Cluster Name')} *
+              {t('clusterManagement.dialog.name', 'Cluster Name')} *
             </Label>
             <Input
               id="cluster-name"
               value={formData.name}
               onChange={(e) => handleChange('name', e.target.value)}
               placeholder={t(
-                'clusterManagement.form.name.placeholder',
+                'clusterManagement.dialog.namePlaceholder',
                 'e.g., production, staging'
               )}
               required
@@ -121,7 +121,7 @@ function ClusterDialogContent({
           {!isEditMode && (
             <div className="space-y-2">
               <Label htmlFor="cluster-type">
-                {t('clusterManagement.form.type.label', 'Cluster Type')}
+                {t('clusterManagement.dialog.type', 'Cluster Type')}
               </Label>
               <Select
                 value={formData.inCluster ? 'inCluster' : 'external'}
@@ -134,13 +134,10 @@ function ClusterDialogContent({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="external">
-                    {t(
-                      'clusterManagement.form.type.external',
-                      'External Cluster'
-                    )}
+                    {t('clusterManagement.type.external', 'External Cluster')}
                   </SelectItem>
                   <SelectItem value="inCluster">
-                    {t('clusterManagement.form.type.inCluster', 'In-Cluster')}
+                    {t('clusterManagement.type.inCluster', 'In-Cluster')}
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -150,14 +147,14 @@ function ClusterDialogContent({
 
         <div className="space-y-2">
           <Label htmlFor="cluster-description">
-            {t('clusterManagement.form.description.label', 'Description')}
+            {t('clusterManagement.dialog.description', 'Description')}
           </Label>
           <Textarea
             id="cluster-description"
             value={formData.description}
             onChange={(e) => handleChange('description', e.target.value)}
             placeholder={t(
-              'clusterManagement.form.description.placeholder',
+              'clusterManagement.dialog.descriptionPlaceholder',
               'Brief description of this cluster'
             )}
             rows={2}
@@ -167,13 +164,13 @@ function ClusterDialogContent({
         {!formData.inCluster && (
           <div className="space-y-2">
             <Label htmlFor="cluster-config">
-              {t('clusterManagement.form.config.label', 'Kubeconfig')}
+              {t('clusterManagement.dialog.config', 'Kubeconfig')}
               {!isEditMode && ' *'}
             </Label>
             {isEditMode && (
               <p className="text-xs text-muted-foreground">
                 {t(
-                  'clusterManagement.form.config.editNote',
+                  'common.messages.keepCurrentConfiguration',
                   'Leave empty to keep current configuration'
                 )}
               </p>
@@ -183,7 +180,7 @@ function ClusterDialogContent({
               value={formData.config}
               onChange={(e) => handleChange('config', e.target.value)}
               placeholder={t(
-                'clusterManagement.form.kubeconfig.placeholder',
+                'clusterManagement.dialog.configPlaceholder',
                 'Paste your kubeconfig content here...'
               )}
               rows={8}
@@ -195,7 +192,7 @@ function ClusterDialogContent({
 
         <div className="space-y-2">
           <Label htmlFor="prometheus-url">
-            {t('clusterManagement.form.prometheusURL.label', 'Prometheus URL')}
+            {t('clusterManagement.dialog.prometheusUrl', 'Prometheus URL')}
           </Label>
           <Input
             id="prometheus-url"
@@ -211,7 +208,7 @@ function ClusterDialogContent({
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <Label htmlFor="cluster-enabled">
-                {t('clusterManagement.form.enabled.label', 'Enable Cluster')}
+                {t('clusterManagement.dialog.enabled', 'Enable Cluster')}
               </Label>
             </div>
             <Switch
@@ -225,11 +222,11 @@ function ClusterDialogContent({
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <Label htmlFor="cluster-default">
-                {t('clusterManagement.form.isDefault.label', 'Set as Default')}
+                {t('clusterManagement.dialog.isDefault', 'Set as Default')}
               </Label>
               <p className="text-xs text-muted-foreground">
                 {t(
-                  'clusterManagement.form.isDefault.help',
+                  'common.messages.defaultClusterDescription',
                   'Use this cluster as the default for new operations'
                 )}
               </p>
@@ -246,7 +243,7 @@ function ClusterDialogContent({
           <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <p className="text-sm text-blue-700 dark:text-blue-300">
               {t(
-                'clusterManagement.form.inCluster.note',
+                'common.messages.inClusterConfiguration',
                 'This cluster uses the in-cluster service account configuration. No additional kubeconfig is required.'
               )}
             </p>
@@ -258,7 +255,7 @@ function ClusterDialogContent({
             variant="outline"
             onClick={() => onOpenChange(false)}
           >
-            {t('common.cancel', 'Cancel')}
+            {t('common.actions.cancel', 'Cancel')}
           </Button>
           <Button
             type="submit"
@@ -268,7 +265,7 @@ function ClusterDialogContent({
             }
           >
             {isEditMode
-              ? t('clusterManagement.actions.save', 'Save Changes')
+              ? t('common.actions.saveChanges', 'Save Changes')
               : t('clusterManagement.actions.add', 'Add Cluster')}
           </Button>
         </DialogFooter>

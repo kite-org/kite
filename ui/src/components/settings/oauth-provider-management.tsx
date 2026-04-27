@@ -39,10 +39,10 @@ export function OAuthProviderManagement() {
     (provider: OAuthProvider) => {
       if (!provider.enabled) {
         return (
-          <Badge variant="secondary">{t('common.disabled', 'Disabled')}</Badge>
+          <Badge variant="secondary">{t('status.disabled', 'Disabled')}</Badge>
         )
       }
-      return <Badge variant="default">{t('common.enabled', 'Enabled')}</Badge>
+      return <Badge variant="default">{t('status.enabled', 'Enabled')}</Badge>
     },
     [t]
   )
@@ -51,7 +51,7 @@ export function OAuthProviderManagement() {
     () => [
       {
         id: 'name',
-        header: t('common.name', 'Name'),
+        header: t('common.fields.name', 'Name'),
         cell: ({ row: { original: provider } }) => (
           <div>
             <div className="flex items-center gap-2">
@@ -67,7 +67,7 @@ export function OAuthProviderManagement() {
       },
       {
         id: 'clientId',
-        header: t('oauthManagement.table.clientId', 'Client ID'),
+        header: t('common.fields.clientId', 'Client ID'),
         cell: ({ row: { original: provider } }) => (
           <code className="text-sm bg-muted px-2 py-1 rounded">
             {provider.clientId}
@@ -76,7 +76,7 @@ export function OAuthProviderManagement() {
       },
       {
         id: 'issuer',
-        header: t('oauthManagement.table.issuer', 'Issuer'),
+        header: t('common.fields.issuer', 'Issuer'),
         cell: ({ row: { original: provider } }) => (
           <div className="text-sm text-muted-foreground">
             {provider.issuer || '-'}
@@ -85,7 +85,7 @@ export function OAuthProviderManagement() {
       },
       {
         id: 'status',
-        header: t('common.status', 'Status'),
+        header: t('common.fields.status', 'Status'),
         cell: ({ row: { original: provider } }) => (
           <div className="flex items-center gap-3">
             {getStatusBadge(provider)}
@@ -102,7 +102,7 @@ export function OAuthProviderManagement() {
         label: (
           <>
             <IconEdit className="h-4 w-4" />
-            {t('common.edit', 'Edit')}
+            {t('common.actions.edit', 'Edit')}
           </>
         ),
         onClick: (provider) => {
@@ -114,7 +114,7 @@ export function OAuthProviderManagement() {
         label: (
           <div className="inline-flex items-center gap-2 text-destructive">
             <IconTrash className="h-4 w-4" />
-            {t('common.delete', 'Delete')}
+            {t('common.actions.delete', 'Delete')}
           </div>
         ),
         onClick: (provider) => {
@@ -233,7 +233,7 @@ export function OAuthProviderManagement() {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="text-muted-foreground">
-          {t('common.loading', 'Loading...')}
+          {t('common.messages.loading', 'Loading...')}
         </div>
       </div>
     )
@@ -282,16 +282,19 @@ export function OAuthProviderManagement() {
             <div className="text-center py-8 text-muted-foreground">
               <IconKey className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>
-                {t(
-                  'oauthManagement.empty.title',
-                  'No OAuth providers configured'
-                )}
+                {t('common.messages.noItemsConfigured', {
+                  resource: t(
+                    'common.fields.oauthProviders',
+                    'OAuth providers'
+                  ),
+                  defaultValue: 'No OAuth providers configured',
+                })}
               </p>
               <p className="text-sm mt-1">
-                {t(
-                  'oauthManagement.empty.description',
-                  'Add your first OAuth provider'
-                )}
+                {t('common.messages.createFirstItem', {
+                  resource: t('common.fields.oauthProvider', 'OAuth provider'),
+                  defaultValue: 'Add your first OAuth provider',
+                })}
               </p>
             </div>
           )}

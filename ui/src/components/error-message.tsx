@@ -21,7 +21,7 @@ export function ErrorMessage({
   resourceName,
   refetch,
   error,
-  fallbackKey = 'common.error',
+  fallbackKey = 'common.messages.error',
 }: ErrorMessageProps) {
   const { t } = useTranslation()
 

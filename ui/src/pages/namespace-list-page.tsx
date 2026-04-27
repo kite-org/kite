@@ -18,7 +18,7 @@ export function NamespaceListPage() {
   const columns = useMemo(
     () => [
       columnHelper.accessor('metadata.name', {
-        header: t('common.name'),
+        header: t('common.fields.name'),
         cell: ({ row }) => (
           <div className="font-medium app-link">
             <Link to={`/namespaces/${row.original.metadata!.name}`}>
@@ -28,11 +28,11 @@ export function NamespaceListPage() {
         ),
       }),
       columnHelper.accessor('status.phase', {
-        header: t('common.status'),
+        header: t('common.fields.status'),
         cell: ({ row }) => row.original.status!.phase || 'Unknown',
       }),
       columnHelper.accessor('metadata.creationTimestamp', {
-        header: t('common.created'),
+        header: t('common.fields.created'),
         cell: ({ getValue }) => {
           return getAge(getValue() as string)
         },

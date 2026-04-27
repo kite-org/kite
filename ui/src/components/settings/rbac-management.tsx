@@ -44,7 +44,7 @@ export function RBACManagement() {
     () => [
       {
         id: 'name',
-        header: t('common.name', 'Name'),
+        header: t('common.fields.name', 'Name'),
         cell: ({ row: { original: r } }) => (
           <div>
             <div className="flex items-center">
@@ -160,7 +160,7 @@ export function RBACManagement() {
         label: (
           <>
             <IconShieldCheck className="h-4 w-4" />
-            {t('common.assign', 'Assign')}
+            {t('common.actions.assign', 'Assign')}
           </>
         ),
         onClick: (r) => {
@@ -172,7 +172,7 @@ export function RBACManagement() {
         label: (
           <>
             <IconEdit className="h-4 w-4" />
-            {t('common.edit', 'Edit')}
+            {t('common.actions.edit', 'Edit')}
           </>
         ),
         shouldDisable: (role) => !!role.isSystem,
@@ -185,7 +185,7 @@ export function RBACManagement() {
         label: (
           <div className="inline-flex items-center gap-2 text-destructive">
             <IconTrash className="h-4 w-4" />
-            {t('common.delete', 'Delete')}
+            {t('common.actions.delete', 'Delete')}
           </div>
         ),
         shouldDisable: (role) => !!role.isSystem,
@@ -201,12 +201,21 @@ export function RBACManagement() {
     mutationFn: (data: Partial<Role>) => createRole(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['role-list'] })
-      toast.success(t('rbac.messages.created', 'Role created'))
+      toast.success(
+        t('common.messages.created', {
+          resource: t('common.fields.role', 'Role'),
+          defaultValue: 'Role created',
+        })
+      )
       setShowDialog(false)
     },
     onError: (err: Error) =>
       toast.error(
-        err.message || t('rbac.messages.createError', 'Failed to create role')
+        err.message ||
+          t('common.messages.failedToCreate', {
+            resource: t('common.fields.role', 'role'),
+            defaultValue: 'Failed to create role',
+          })
       ),
   })
 
@@ -215,13 +224,22 @@ export function RBACManagement() {
       updateRole(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['role-list'] })
-      toast.success(t('rbac.messages.updated', 'Role updated'))
+      toast.success(
+        t('common.messages.updated', {
+          resource: t('common.fields.role', 'Role'),
+          defaultValue: 'Role updated',
+        })
+      )
       setShowDialog(false)
       setEditingRole(null)
     },
     onError: (err: Error) =>
       toast.error(
-        err.message || t('rbac.messages.updateError', 'Failed to update role')
+        err.message ||
+          t('common.messages.failedToUpdate', {
+            resource: t('common.fields.role', 'role'),
+            defaultValue: 'Failed to update role',
+          })
       ),
   })
 
@@ -229,12 +247,21 @@ export function RBACManagement() {
     mutationFn: (id: number) => deleteRole(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['role-list'] })
-      toast.success(t('rbac.messages.deleted', 'Role deleted'))
+      toast.success(
+        t('common.messages.deleted', {
+          resource: t('common.fields.role', 'Role'),
+          defaultValue: 'Role deleted',
+        })
+      )
       setDeletingRole(null)
     },
     onError: (err: Error) =>
       toast.error(
-        err.message || t('rbac.messages.deleteError', 'Failed to delete role')
+        err.message ||
+          t('common.messages.failedToDelete', {
+            resource: t('common.fields.role', 'role'),
+            defaultValue: 'Failed to delete role',
+          })
       ),
   })
 
@@ -269,11 +296,11 @@ export function RBACManagement() {
         }
       }
 
-      toast.success(t('rbac.messages.assigned', 'Assigned'))
+      toast.success(t('common.messages.assigned', 'Assigned'))
     } catch (err: unknown) {
       toast.error(
         (err as Error).message ||
-          t('rbac.messages.assignError', 'Failed to assign')
+          t('common.messages.failedToAssign', 'Failed to assign')
       )
     }
   }
@@ -295,11 +322,11 @@ export function RBACManagement() {
         }
       }
 
-      toast.success(t('rbac.messages.unassigned', 'Unassigned'))
+      toast.success(t('common.messages.unassigned', 'Unassigned'))
     } catch (err: unknown) {
       toast.error(
         (err as Error).message ||
-          t('rbac.messages.unassignError', 'Failed to unassign')
+          t('common.messages.failedToUnassign', 'Failed to unassign')
       )
     }
   }
@@ -308,7 +335,7 @@ export function RBACManagement() {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="text-muted-foreground">
-          {t('common.loading', 'Loading...')}
+          {t('common.messages.loading', 'Loading...')}
         </div>
       </div>
     )
@@ -318,7 +345,10 @@ export function RBACManagement() {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="text-destructive">
-          {t('rbac.errors.loadFailed', 'Failed to load roles')}
+          {t('common.messages.failedToLoad', {
+            resource: t('common.fields.roles', 'roles'),
+            defaultValue: 'Failed to load roles',
+          })}
         </div>
       </div>
     )
@@ -332,7 +362,7 @@ export function RBACManagement() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <IconShieldCheck className="h-5 w-5" />
-                {t('rbac.title', 'Role Management')}
+                {t('common.fields.roles', 'Role Management')}
               </CardTitle>
             </div>
             <Button
@@ -343,7 +373,7 @@ export function RBACManagement() {
               className="gap-2"
             >
               <IconPlus className="h-4 w-4" />
-              {t('rbac.actions.add', 'Add Role')}
+              {t('common.actions.add', 'Add')} {t('common.fields.role', 'Role')}
             </Button>
           </div>
         </CardHeader>
@@ -352,12 +382,17 @@ export function RBACManagement() {
           {roles.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               <IconShieldCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>{t('rbac.empty.title', 'No roles configured')}</p>
+              <p>
+                {t('common.messages.noItemsConfigured', {
+                  resource: t('common.fields.roles', 'roles'),
+                  defaultValue: 'No roles configured',
+                })}
+              </p>
               <p className="text-sm mt-1">
-                {t(
-                  'rbac.empty.description',
-                  'Create roles to grant permissions'
-                )}
+                {t('common.messages.createFirstItem', {
+                  resource: t('common.fields.role', 'role'),
+                  defaultValue: 'Create roles to grant permissions',
+                })}
               </p>
             </div>
           )}

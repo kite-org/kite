@@ -26,7 +26,7 @@ export function PVCListPage() {
   const columns = useMemo(
     () => [
       columnHelper.accessor('metadata.name', {
-        header: t('common.name'),
+        header: t('common.fields.name'),
         cell: ({ row }) => (
           <div className="font-medium app-link">
             <Link
@@ -40,7 +40,7 @@ export function PVCListPage() {
         ),
       }),
       columnHelper.accessor('status.phase', {
-        header: t('common.status'),
+        header: t('common.fields.status'),
         cell: ({ getValue }) => {
           const phase = getValue() || 'Unknown'
           let variant: 'default' | 'destructive' | 'secondary' = 'secondary'
@@ -61,7 +61,7 @@ export function PVCListPage() {
         },
       }),
       columnHelper.accessor('spec.volumeName', {
-        header: t('pvcs.volume'),
+        header: t('common.fields.volume'),
         cell: ({ getValue }) => {
           const volumeName = getValue()
           if (volumeName) {
@@ -77,7 +77,7 @@ export function PVCListPage() {
         },
       }),
       columnHelper.accessor('spec.storageClassName', {
-        header: t('pvcs.storageClass'),
+        header: t('common.fields.storageClass'),
         enableColumnFilter: true,
         cell: ({ getValue }) => {
           const scName = getValue()
@@ -94,20 +94,20 @@ export function PVCListPage() {
       columnHelper.accessor(
         (row) => parseBytes(row.spec?.resources?.requests?.storage || '0'),
         {
-          header: t('pvcs.capacity'),
+          header: t('common.fields.capacity'),
           cell: ({ row }) =>
             row.original.spec?.resources?.requests?.storage || '-',
         }
       ),
       columnHelper.accessor('spec.accessModes', {
-        header: t('pvcs.accessModes'),
+        header: t('common.fields.accessModes'),
         cell: ({ getValue }) => {
           const modes = getValue() || []
           return modes.join(', ') || '-'
         },
       }),
       columnHelper.accessor('metadata.creationTimestamp', {
-        header: t('common.created'),
+        header: t('common.fields.created'),
         cell: ({ getValue }) => {
           const dateStr = formatDate(getValue() || '')
 

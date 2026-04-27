@@ -3,6 +3,7 @@ import { createColumnHelper } from '@tanstack/react-table'
 import * as yaml from 'js-yaml'
 import { CustomResourceDefinition } from 'kubernetes-types/apiextensions/v1'
 import { Eye } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
 
 import { CustomResource, ResourceType } from '@/types/api'
@@ -29,6 +30,7 @@ const searchQueryFilter = createSearchFilter<CustomResource>(
 )
 
 export function CRListPage() {
+  const { t } = useTranslation()
   const [isYamlDialogOpen, setIsYamlDialogOpen] = useState(false)
   const [yamlContent, setYamlContent] = useState('')
   const { crd } = useParams<{ crd: string }>()
@@ -131,7 +133,8 @@ export function CRListPage() {
         <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              YAML Configuration: {crdData?.metadata?.name ?? 'Unknown'}
+              {t('common.fields.yamlConfiguration')}:{' '}
+              {crdData?.metadata?.name ?? t('status.unknown')}
             </DialogTitle>
           </DialogHeader>
           <YamlEditor

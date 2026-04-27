@@ -14,7 +14,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PodStatusIcon } from '@/components/pod-status-icon'
 
 import { ContainerDetailDialog } from './pod-container-detail-dialog'
-import { PodContainersCard } from './pod-container-matrix'
+import {
+  PodContainersCard,
+  type PodContainerAction,
+} from './pod-container-matrix'
 import { PodOverviewSidebar } from './pod-overview-sidebar'
 import type { PodOverviewContainer } from './pod-overview-types'
 
@@ -70,6 +73,28 @@ export function PodOverview({
   }, [events])
   const [selectedContainer, setSelectedContainer] =
     useState<PodOverviewContainer | null>(null)
+  const [, setSearchParams] = useSearchParams()
+
+  const handleContainerSelect = (
+    item: PodOverviewContainer,
+    action: PodContainerAction = 'details'
+  ) => {
+    if (action === 'logs' || action === 'terminal') {
+      setSearchParams(
+        (prev) => {
+          const nextParams = new URLSearchParams(prev)
+          nextParams.set('tab', action)
+          nextParams.set('container', item.container.name)
+          return nextParams
+        },
+        { replace: true }
+      )
+      setSelectedContainer(null)
+      return
+    }
+
+    setSelectedContainer(item)
+  }
 
   return (
     <div className="space-y-3">
@@ -87,7 +112,7 @@ export function PodOverview({
             containers={containers}
             namespace={namespace}
             podName={name}
-            onContainerSelect={setSelectedContainer}
+            onContainerSelect={handleContainerSelect}
           />
           <PodInformationCard pod={pod} />
         </div>
@@ -102,8 +127,6 @@ export function PodOverview({
       </div>
       <ContainerDetailDialog
         item={selectedContainer}
-        namespace={namespace}
-        podName={name}
         open={!!selectedContainer}
         onOpenChange={(open) => {
           if (!open) {
@@ -127,7 +150,7 @@ function PodSummaryGrid({
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
       <PodSummaryCard
-        label={t('common.status')}
+        label={t('common.fields.status')}
         value={
           <span className="inline-flex min-w-0 items-center gap-2">
             <PodStatusIcon
@@ -146,17 +169,17 @@ function PodSummaryGrid({
         }
       />
       <PodSummaryCard
-        label={t('pods.ready')}
+        label={t('common.fields.ready')}
         value={`${podStatus.readyContainers}/${podStatus.totalContainers}`}
-        detail={t('pods.containers')}
+        detail={t('common.fields.containers')}
       />
       <PodSummaryCard
-        label={t('pods.restartCount')}
+        label={t('common.fields.restartCount')}
         value={podStatus.restartString}
-        detail={t('pods.allContainers')}
+        detail={t('common.fields.allContainers')}
       />
       <PodSummaryCard
-        label={t('pods.node')}
+        label={t('common.fields.node')}
         value={
           pod.spec?.nodeName ? (
             <Link
@@ -174,14 +197,14 @@ function PodSummaryGrid({
       <PodSummaryCard
         label="IP"
         value={pod.status?.podIP || '-'}
-        detail={t('pods.podIP')}
+        detail={t('common.fields.podIP')}
         mono
       />
       <PodSummaryCard
-        label={t('common.created')}
+        label={t('common.fields.created')}
         value={
           pod.metadata?.creationTimestamp
-            ? t('common.timeAgo', {
+            ? t('common.messages.timeAgo', {
                 time: getAge(pod.metadata.creationTimestamp),
               })
             : '-'
@@ -189,7 +212,7 @@ function PodSummaryGrid({
         detail={
           pod.metadata?.creationTimestamp
             ? formatDate(pod.metadata.creationTimestamp)
-            : t('pods.notCreated')
+            : t('common.messages.notCreated')
         }
       />
     </div>
@@ -216,13 +239,16 @@ function PodInformationCard({ pod }: { pod: Pod }) {
     <Card className="gap-0 overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
       <CardHeader className="px-3 py-2.5 !pb-2.5">
         <CardTitle className="text-balance text-sm">
-          {t('pods.podInformation')}
+          {t('common.fields.information')}
         </CardTitle>
       </CardHeader>
       <CardContent className="px-3 pb-3 pt-1">
         <div className="space-y-3">
           <div className="grid gap-x-6 gap-y-3 md:grid-cols-2">
-            <PodInfoBlock label={t('pods.owner')} truncate={!!ownerInfo}>
+            <PodInfoBlock
+              label={t('common.fields.owner')}
+              truncate={!!ownerInfo}
+            >
               {ownerInfo ? (
                 <Link
                   to={ownerInfo.path}
@@ -232,19 +258,19 @@ function PodInformationCard({ pod }: { pod: Pod }) {
                 </Link>
               ) : (
                 <span className="text-muted-foreground">
-                  {t('common.none')}
+                  {t('common.values.none')}
                 </span>
               )}
             </PodInfoBlock>
-            <PodInfoBlock label={t('pods.started')}>
+            <PodInfoBlock label={t('common.fields.started')}>
               {pod.status?.startTime
                 ? formatDate(pod.status.startTime, true)
-                : t('pods.notStarted')}
+                : t('common.messages.notStarted')}
             </PodInfoBlock>
           </div>
 
           <div className="grid gap-x-8 gap-y-2 border-t border-border/60 pt-3 md:grid-cols-2">
-            <PodInfoRow label={t('pods.serviceAccount')} mono>
+            <PodInfoRow label={t('common.fields.serviceAccount')} mono>
               {pod.spec?.serviceAccountName || '-'}
             </PodInfoRow>
             <PodInfoRow label={t('pods.qosClass')}>
@@ -260,14 +286,16 @@ function PodInformationCard({ pod }: { pod: Pod }) {
               {pod.spec?.dnsPolicy || '-'}
             </PodInfoRow>
             <PodInfoRow label={t('pods.hostNetwork')}>
-              {pod.spec?.hostNetwork ? t('common.yes') : t('common.no')}
+              {pod.spec?.hostNetwork
+                ? t('common.values.yes')
+                : t('common.values.no')}
             </PodInfoRow>
             <PodInfoRow label={t('pods.terminationGrace')}>
               {pod.spec?.terminationGracePeriodSeconds !== undefined
                 ? `${pod.spec.terminationGracePeriodSeconds}s`
                 : '-'}
             </PodInfoRow>
-            <PodInfoRow label={t('pods.volumes')}>
+            <PodInfoRow label={t('common.fields.volumes')}>
               <Link to={volumeTabSearch} className="app-link">
                 {pod.spec?.volumes?.length ?? 0}
               </Link>

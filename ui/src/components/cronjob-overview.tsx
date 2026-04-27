@@ -103,10 +103,13 @@ export function CronJobOverview({
             isLoading={isRelatedLoading}
           />
           {Object.keys(labels).length > 0 ? (
-            <MetadataListCard title="pods.labels" entries={labels} />
+            <MetadataListCard title="common.fields.labels" entries={labels} />
           ) : null}
           {Object.keys(annotations).length > 0 ? (
-            <MetadataListCard title="pods.annotations" entries={annotations} />
+            <MetadataListCard
+              title="common.fields.annotations"
+              entries={annotations}
+            />
           ) : null}
         </div>
       </div>
@@ -123,7 +126,7 @@ function CronJobSummaryGrid({ cronjob }: { cronjob: CronJob }) {
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
       <WorkloadSummaryCard
-        label={t('common.status')}
+        label={t('common.fields.status')}
         value={
           <Badge variant={cronJobStatus.variant}>
             {formatCronJobStatus(cronJobStatus, t)}
@@ -142,7 +145,7 @@ function CronJobSummaryGrid({ cronjob }: { cronjob: CronJob }) {
       <WorkloadSummaryCard
         label={t('cronjobs.activeJobs', 'Active Jobs')}
         value={cronjob.status?.active?.length || 0}
-        detail={t('cronjobs.jobs', 'Jobs')}
+        detail={t('common.fields.jobs', 'Jobs')}
       />
       <WorkloadSummaryCard
         label={t('cronjobs.lastSchedule', 'Last Schedule')}
@@ -155,10 +158,10 @@ function CronJobSummaryGrid({ cronjob }: { cronjob: CronJob }) {
         detail={lastSuccessfulTime ? formatDate(lastSuccessfulTime) : undefined}
       />
       <WorkloadSummaryCard
-        label={t('common.created')}
+        label={t('common.fields.created')}
         value={
           cronjob.metadata?.creationTimestamp
-            ? t('common.timeAgo', {
+            ? t('common.messages.timeAgo', {
                 time: getAge(cronjob.metadata.creationTimestamp),
               })
             : '-'
@@ -186,7 +189,7 @@ function CronJobJobsCard({
     <Card className="gap-0 overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
       <CardHeader className="px-3 py-2.5 !pb-2.5">
         <CardTitle className="text-balance text-sm">
-          {t('cronjobs.jobs', 'Jobs')} ({jobs.length})
+          {t('common.fields.jobs', 'Jobs')} ({jobs.length})
         </CardTitle>
       </CardHeader>
       <CardContent className="px-0">
@@ -202,22 +205,22 @@ function CronJobJobsCard({
           <TableHeader>
             <TableRow>
               <TableHead className="h-8 px-4">
-                {t('cronjobs.jobsTable.name', 'Name')}
+                {t('common.fields.name', 'Name')}
               </TableHead>
               <TableHead className="h-8 px-1 text-center">
-                {t('common.status')}
+                {t('common.fields.status')}
               </TableHead>
               <TableHead className="h-8 px-1 text-center">
-                {t('cronjobs.jobsTable.succeeded', 'Succeeded')}
+                {t('common.fields.succeeded', 'Succeeded')}
               </TableHead>
               <TableHead className="h-8 px-1 text-center">
-                {t('cronjobs.jobsTable.started', 'Started')}
+                {t('common.fields.started', 'Started')}
               </TableHead>
               <TableHead className="h-8 px-1 text-center">
-                {t('cronjobs.jobsTable.completed', 'Completed')}
+                {t('common.fields.completed', 'Completed')}
               </TableHead>
               <TableHead className="h-8 px-1 text-center">
-                {t('cronjobs.jobsTable.age', 'Age')}
+                {t('common.fields.age', 'Age')}
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -269,7 +272,7 @@ function CronJobJobRow({ job }: { job: Job }) {
       </TableCell>
       <TableCell className="px-1 py-1.5 text-center">
         <Badge variant={statusBadge.variant}>
-          {formatJobStatusBadge(statusBadge, t, 'cronjobs.jobStatuses')}
+          {formatJobStatusBadge(statusBadge, t, 'status')}
         </Badge>
       </TableCell>
       <TableCell className="px-1 py-1.5 text-center tabular-nums">
@@ -328,7 +331,7 @@ function CronJobInformationCard({ cronjob }: { cronjob: CronJob }) {
         <div className="space-y-3">
           <div className="grid gap-x-6 gap-y-3 md:grid-cols-2">
             <WorkloadInfoBlock
-              label={t('cronjobs.owner', 'Owner')}
+              label={t('common.fields.owner', 'Owner')}
               truncate={!!ownerInfo}
             >
               {ownerInfo ? (
@@ -340,7 +343,7 @@ function CronJobInformationCard({ cronjob }: { cronjob: CronJob }) {
                 </Link>
               ) : (
                 <span className="text-muted-foreground">
-                  {t('common.none')}
+                  {t('common.values.none')}
                 </span>
               )}
             </WorkloadInfoBlock>
@@ -352,7 +355,7 @@ function CronJobInformationCard({ cronjob }: { cronjob: CronJob }) {
               {cronjob.spec?.schedule || '-'}
             </WorkloadInfoBlock>
             <WorkloadInfoBlock
-              label={t('cronjobs.images', 'Images')}
+              label={t('common.fields.images', 'Images')}
               truncate={false}
               className="md:col-span-2"
             >
@@ -362,7 +365,9 @@ function CronJobInformationCard({ cronjob }: { cronjob: CronJob }) {
 
           <div className="grid gap-x-8 gap-y-2 border-t border-border/60 pt-3 md:grid-cols-2">
             <WorkloadInfoRow label={t('cronjobs.suspend', 'Suspend')}>
-              {cronjob.spec?.suspend ? t('common.yes') : t('common.no')}
+              {cronjob.spec?.suspend
+                ? t('common.values.yes')
+                : t('common.values.no')}
             </WorkloadInfoRow>
             <WorkloadInfoRow
               label={t('cronjobs.concurrencyPolicy', 'Concurrency Policy')}
@@ -410,10 +415,12 @@ function CronJobInformationCard({ cronjob }: { cronjob: CronJob }) {
               {cronjob.spec?.timeZone ||
                 t('cronjobs.clusterDefault', 'Cluster default')}
             </WorkloadInfoRow>
-            <WorkloadInfoRow label={t('cronjobs.containers', 'Containers')}>
+            <WorkloadInfoRow
+              label={t('common.fields.containers', 'Containers')}
+            >
               {containersCount}
             </WorkloadInfoRow>
-            <WorkloadInfoRow label={t('cronjobs.volumes', 'Volumes')}>
+            <WorkloadInfoRow label={t('common.fields.volumes', 'Volumes')}>
               {volumesCount > 0 ? (
                 <Link to={volumeTabSearch} className="app-link">
                   {volumesCount}
@@ -478,7 +485,7 @@ export function CronJobJobLink({
       </DialogTrigger>
       <DialogContent className="!h-[calc(100dvh-1rem)] !max-w-[calc(100vw-1rem)] flex min-h-0 flex-col gap-0 p-0 md:!h-[80%] md:!max-w-[60%]">
         <DialogHeader className="flex flex-row items-center justify-between border-b px-4 py-3 pr-14">
-          <DialogTitle>{t('cronjobs.job', 'Job')}</DialogTitle>
+          <DialogTitle>{t('common.fields.job', 'Job')}</DialogTitle>
           <a href={withSubPath(path)} target="_blank" rel="noopener noreferrer">
             <Button
               variant="outline"
@@ -512,7 +519,7 @@ function getCronJobStatusBadge(cronjob: CronJob): CronJobStatusBadge {
 }
 
 function formatCronJobStatus(badge: CronJobStatusBadge, t: TranslationFn) {
-  return t(`cronjobs.statuses.${badge.key}`, {
+  return t(`status.${badge.key}`, {
     defaultValue: badge.label,
   })
 }

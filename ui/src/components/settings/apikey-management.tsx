@@ -50,7 +50,7 @@ export function APIKeyManagement() {
   const copyToClipboard = useCallback(
     (text: string) => {
       navigator.clipboard.writeText(text)
-      toast.success(t('common.copied', 'Copied to clipboard'))
+      toast.success(t('common.messages.copied', 'Copied to clipboard'))
     },
     [t]
   )
@@ -59,7 +59,7 @@ export function APIKeyManagement() {
     () => [
       {
         id: 'name',
-        header: t('apikeyManagement.table.name', 'Name'),
+        header: t('common.fields.name', 'Name'),
         cell: ({ row: { original: apiKey } }) => (
           <div className="flex items-center gap-2">
             <span className="font-medium">{apiKey.username}</span>
@@ -68,7 +68,7 @@ export function APIKeyManagement() {
       },
       {
         id: 'key',
-        header: t('apikeyManagement.table.key', 'API Key'),
+        header: t('common.fields.apiKey', 'API Key'),
         cell: ({ row: { original: apiKey } }) => {
           const isVisible = visibleKeys.has(apiKey.id)
           const displayKey = isVisible ? apiKey.apiKey : '•'.repeat(18)
@@ -102,7 +102,7 @@ export function APIKeyManagement() {
       },
       {
         id: 'lastUsedAt',
-        header: t('apikeyManagement.table.lastUsed', 'Last Used'),
+        header: t('common.fields.lastUsed', 'Last Used'),
         cell: ({ row: { original: apiKey } }) =>
           apiKey.lastLoginAt ? (
             <span className="text-sm text-muted-foreground">
@@ -110,13 +110,13 @@ export function APIKeyManagement() {
             </span>
           ) : (
             <Badge variant="secondary">
-              {t('apikeyManagement.neverUsed', 'Never')}
+              {t('common.messages.neverUsed', 'Never')}
             </Badge>
           ),
       },
       {
         id: 'createdAt',
-        header: t('common.createdAt', 'Created At'),
+        header: t('common.fields.createdAt', 'Created At'),
         cell: ({ row: { original: apiKey } }) => (
           <span className="text-sm text-muted-foreground">
             {new Date(apiKey.createdAt).toLocaleString()}
@@ -125,7 +125,7 @@ export function APIKeyManagement() {
       },
       {
         id: 'roles',
-        header: t('apikeyManagement.table.roles', 'Roles'),
+        header: t('common.fields.roles', 'Roles'),
         cell: ({ row: { original: apiKey } }) => (
           <div className="text-sm text-muted-foreground">
             {apiKey.roles?.map((r) => r.name).join(', ') || '-'}
@@ -142,7 +142,7 @@ export function APIKeyManagement() {
         label: (
           <>
             <IconShieldCheck className="h-4 w-4" />
-            {t('common.assign', 'Assign')}
+            {t('common.actions.assign', 'Assign')}
           </>
         ),
         onClick: (apiKey) => setAssigningKey(apiKey),
@@ -151,7 +151,7 @@ export function APIKeyManagement() {
         label: (
           <div className="inline-flex items-center gap-2 text-destructive">
             <IconTrash className="h-4 w-4" />
-            {t('common.delete', 'Delete')}
+            {t('common.actions.delete', 'Delete')}
           </div>
         ),
         onClick: (apiKey) => setDeletingKey(apiKey),
@@ -167,15 +167,18 @@ export function APIKeyManagement() {
       setShowDialog(false)
       setVisibleKeys(new Set([data.apiKey.id]))
       toast.success(
-        t('apikeyManagement.messages.created', 'API Key created successfully')
+        t('common.messages.created', {
+          resource: t('common.fields.apiKey', 'API Key'),
+          defaultValue: 'API Key created successfully',
+        })
       )
     },
     onError: () => {
       toast.error(
-        t(
-          'apikeyManagement.messages.createError',
-          'Failed to create API Key. Please try again.'
-        )
+        t('common.messages.failedToCreate', {
+          resource: t('common.fields.apiKey', 'API Key'),
+          defaultValue: 'Failed to create API Key. Please try again.',
+        })
       )
     },
   })
@@ -186,15 +189,18 @@ export function APIKeyManagement() {
       queryClient.invalidateQueries({ queryKey: ['apikey-list'] })
       setDeletingKey(null)
       toast.success(
-        t('apikeyManagement.messages.deleted', 'API Key deleted successfully')
+        t('common.messages.deleted', {
+          resource: t('common.fields.apiKey', 'API Key'),
+          defaultValue: 'API Key deleted successfully',
+        })
       )
     },
     onError: () => {
       toast.error(
-        t(
-          'apikeyManagement.messages.deleteError',
-          'Failed to delete API Key. Please try again.'
-        )
+        t('common.messages.failedToDelete', {
+          resource: t('common.fields.apiKey', 'API Key'),
+          defaultValue: 'Failed to delete API Key. Please try again.',
+        })
       )
     },
   })
@@ -217,7 +223,10 @@ export function APIKeyManagement() {
       <Card>
         <CardContent className="flex items-center justify-center py-8">
           <p className="text-destructive">
-            {t('apikeyManagement.errors.loadFailed', 'Failed to load API Keys')}
+            {t('common.messages.failedToLoad', {
+              resource: t('common.fields.apiKeys', 'API Keys'),
+              defaultValue: 'Failed to load API Keys',
+            })}
           </p>
         </CardContent>
       </Card>
@@ -232,11 +241,11 @@ export function APIKeyManagement() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <IconKey className="h-5 w-5" />
-                {t('apikeyManagement.title', 'API Key')}
+                {t('common.fields.apiKeys', 'API Key')}
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 {t(
-                  'apikeyManagement.description',
+                  'common.messages.manageApiKeysDescription',
                   'Manage API keys for programmatic access'
                 )}
               </p>
@@ -252,13 +261,17 @@ export function APIKeyManagement() {
             <div className="text-center py-8 text-muted-foreground">
               <IconKey className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p className="text-lg font-medium">
-                {t('apikeyManagement.empty.title', 'No API keys configured')}
+                {t('common.messages.noItemsConfigured', {
+                  resource: t('common.fields.apiKeys', 'API keys'),
+                  defaultValue: 'No API keys configured',
+                })}
               </p>
               <p className="text-sm">
-                {t(
-                  'apikeyManagement.empty.description',
-                  'Create an API key to get started with programmatic access.'
-                )}
+                {t('common.messages.createFirstItem', {
+                  resource: t('common.fields.apiKey', 'API key'),
+                  defaultValue:
+                    'Create an API key to get started with programmatic access.',
+                })}
               </p>
             </div>
           ) : (

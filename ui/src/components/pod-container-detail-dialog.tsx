@@ -12,20 +12,15 @@ import {
 } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ContainerInfoCard } from '@/components/container-info-card'
-import { LogViewer } from '@/components/log-viewer'
 
 import type { PodOverviewContainer } from './pod-overview-types'
 
 export function ContainerDetailDialog({
   item,
-  namespace,
-  podName,
   open,
   onOpenChange,
 }: {
   item: PodOverviewContainer | null
-  namespace: string
-  podName: string
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
@@ -43,9 +38,6 @@ export function ContainerDetailDialog({
   }
 
   const { container, init, status } = item
-  const logContainers = init ? [] : [container]
-  const logInitContainers = init ? [container] : []
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[calc(100dvh-2rem)] !max-w-5xl flex-col overflow-hidden sm:!max-w-5xl">
@@ -73,11 +65,14 @@ export function ContainerDetailDialog({
           onValueChange={setTab}
           className="min-h-0 flex-1 gap-3"
         >
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="details">{t('pods.details')}</TabsTrigger>
-            <TabsTrigger value="logs">{t('pods.logs')}</TabsTrigger>
-            <TabsTrigger value="env">{t('pods.env')}</TabsTrigger>
-            <TabsTrigger value="mounts">{t('pods.mounts')}</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="details">
+              {t('common.fields.details')}
+            </TabsTrigger>
+            <TabsTrigger value="env">{t('common.fields.env')}</TabsTrigger>
+            <TabsTrigger value="mounts">
+              {t('common.fields.mounts')}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="details" className="min-h-0 overflow-y-auto pr-1">
@@ -88,19 +83,6 @@ export function ContainerDetailDialog({
               init={init}
               defaultExpanded
             />
-          </TabsContent>
-
-          <TabsContent value="logs" className="min-h-0 flex-1">
-            {tab === 'logs' ? (
-              <div className="h-[min(62dvh,560px)] min-h-96">
-                <LogViewer
-                  namespace={namespace}
-                  podName={podName}
-                  containers={logContainers}
-                  initContainers={logInitContainers}
-                />
-              </div>
-            ) : null}
           </TabsContent>
 
           <TabsContent value="env" className="min-h-0 overflow-y-auto pr-1">
@@ -134,7 +116,7 @@ function ContainerEnvView({ container }: { container: Container }) {
       {envFrom.length > 0 ? (
         <div className="rounded-lg border">
           <div className="border-b px-4 py-2 text-sm font-medium">
-            {t('pods.envFrom')}
+            {t('common.fields.envFrom')}
           </div>
           <div className="divide-y">
             {envFrom.map((source, index) => (
@@ -172,7 +154,7 @@ function ContainerEnvView({ container }: { container: Container }) {
       {env.length > 0 ? (
         <div className="rounded-lg border">
           <div className="border-b px-4 py-2 text-sm font-medium">
-            {t('pods.variables')} ({env.length})
+            {t('common.fields.variables')} ({env.length})
           </div>
           <div className="divide-y">
             {env.map((item) => (
@@ -210,7 +192,7 @@ function ContainerMountsView({ container }: { container: Container }) {
   return (
     <div className="rounded-lg border">
       <div className="border-b px-4 py-2 text-sm font-medium">
-        {t('pods.volumeMounts')} ({mounts.length})
+        {t('common.fields.volumeMounts')} ({mounts.length})
       </div>
       <div className="divide-y">
         {mounts.map((mount) => (

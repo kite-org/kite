@@ -32,7 +32,7 @@ export function PodListPage() {
   const columns = useMemo(
     () => [
       columnHelper.accessor('metadata.name', {
-        header: t('common.name'),
+        header: t('common.fields.name'),
         cell: ({ row }) => (
           <div className="font-medium app-link">
             <Link
@@ -47,7 +47,7 @@ export function PodListPage() {
       }),
       columnHelper.accessor((row) => row.status?.containerStatuses, {
         id: 'containers',
-        header: t('pods.ready'),
+        header: t('common.fields.ready'),
         cell: ({ row }) => {
           const status = getPodStatus(row.original)
           return (
@@ -58,7 +58,7 @@ export function PodListPage() {
         },
       }),
       columnHelper.accessor((row) => row.status?.phase, {
-        header: t('common.status'),
+        header: t('common.fields.status'),
         enableColumnFilter: true,
         cell: ({ row }) => {
           const status = getPodStatus(row.original)
@@ -72,7 +72,7 @@ export function PodListPage() {
       }),
       columnHelper.accessor((row) => row.status, {
         id: 'restarts',
-        header: t('pods.restarts'),
+        header: t('common.fields.restarts'),
         cell: ({ row }) => {
           const status = getPodStatus(row.original)
           return (
@@ -110,7 +110,7 @@ export function PodListPage() {
       }),
       columnHelper.accessor((row) => row.spec?.nodeName, {
         id: 'nodeName',
-        header: t('pods.node'),
+        header: t('common.fields.node'),
         enableColumnFilter: true,
         cell: ({ row }) => {
           if (row.original.spec?.nodeName) {
@@ -127,7 +127,7 @@ export function PodListPage() {
       }),
       columnHelper.accessor((row) => row.metadata?.creationTimestamp, {
         id: 'creationTimestamp',
-        header: t('common.created'),
+        header: t('common.fields.created'),
         cell: ({ getValue }) => {
           const dateStr = formatDate(getValue() || '')
           return (

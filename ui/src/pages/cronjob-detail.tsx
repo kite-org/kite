@@ -81,7 +81,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
   const jobColumns = useMemo<Column<Job>[]>(
     () => [
       {
-        header: t('cronjobs.jobsTable.name', 'Name'),
+        header: t('common.fields.name', 'Name'),
         accessor: (job) => job,
         align: 'left',
         cell: (value) => {
@@ -90,19 +90,19 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
         },
       },
       {
-        header: t('common.status'),
+        header: t('common.fields.status'),
         accessor: (job) => getJobStatusBadge(job),
         cell: (value) => {
           const badge = value as JobStatusBadge
           return (
             <Badge variant={badge.variant}>
-              {formatJobStatusBadge(badge, t, 'cronjobs.jobStatuses')}
+              {formatJobStatusBadge(badge, t, 'status')}
             </Badge>
           )
         },
       },
       {
-        header: t('cronjobs.jobsTable.succeeded', 'Succeeded'),
+        header: t('common.fields.succeeded', 'Succeeded'),
         accessor: (job) => {
           const succeeded = job.status?.succeeded || 0
           const completions = job.spec?.completions ?? 1
@@ -111,7 +111,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
         cell: (value) => <span className="text-sm">{value as string}</span>,
       },
       {
-        header: t('cronjobs.jobsTable.started', 'Started'),
+        header: t('common.fields.started', 'Started'),
         accessor: (job) => job.status?.startTime,
         cell: (value) =>
           value ? (
@@ -123,7 +123,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
           ),
       },
       {
-        header: t('cronjobs.jobsTable.completed', 'Completed'),
+        header: t('common.fields.completed', 'Completed'),
         accessor: (job) => job.status?.completionTime,
         cell: (value) =>
           value ? (
@@ -135,7 +135,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
           ),
       },
       {
-        header: t('cronjobs.jobsTable.age', 'Age'),
+        header: t('common.fields.age', 'Age'),
         accessor: (job) => job.metadata?.creationTimestamp,
         cell: (value) =>
           value ? (
@@ -257,7 +257,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
         value: 'jobs',
         label: (
           <>
-            {t('cronjobs.tabs.jobs', 'Jobs')}
+            {t('common.tabs.jobs', 'Jobs')}
             <Badge variant="secondary">{cronJobJobs.length}</Badge>
           </>
         ),
@@ -285,7 +285,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
         value: 'containers',
         label: (
           <>
-            {t('cronjobs.tabs.containers', 'Containers')}
+            {t('common.tabs.containers', 'Containers')}
             <Badge variant="secondary">
               {containers.length + initContainers.length}
             </Badge>
@@ -316,7 +316,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
         value: 'volumes',
         label: (
           <>
-            {t('cronjobs.tabs.volumes', 'Volumes')}
+            {t('common.tabs.volumes', 'Volumes')}
             <Badge variant="secondary">{volumes.length}</Badge>
           </>
         ),
@@ -331,7 +331,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'related',
-        label: t('cronjobs.tabs.related', 'Related'),
+        label: t('common.tabs.related', 'Related'),
         content: (
           <RelatedResourcesTable
             resource="cronjobs"
@@ -342,7 +342,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'history',
-        label: t('cronjobs.tabs.history', 'History'),
+        label: t('common.tabs.history', 'History'),
         content: cronjob ? (
           <ResourceHistoryTable
             resourceType="cronjobs"
@@ -354,7 +354,7 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
       },
       {
         value: 'events',
-        label: t('cronjobs.tabs.events', 'Events'),
+        label: t('common.tabs.events', 'Events'),
         content: (
           <EventTable resource="cronjobs" name={name} namespace={namespace} />
         ),

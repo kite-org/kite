@@ -89,7 +89,9 @@ export function DeleteConfirmationDialog({
               </p>
               <div className="space-y-1 text-muted-foreground">
                 <p>
-                  <span className="font-medium">{t('common.name')}:</span>{' '}
+                  <span className="font-medium">
+                    {t('common.fields.name')}:
+                  </span>{' '}
                   {resourceName}
                 </p>
                 <p>
@@ -101,7 +103,7 @@ export function DeleteConfirmationDialog({
                 {namespace && (
                   <p>
                     <span className="font-medium">
-                      {t('common.namespace')}:
+                      {t('common.fields.namespace')}:
                     </span>{' '}
                     {namespace}
                   </p>
@@ -168,14 +170,16 @@ export function DeleteConfirmationDialog({
             onClick={() => handleDialogChange(false)}
             disabled={isDeleting}
           >
-            {t('common.cancel')}
+            {t('common.actions.cancel')}
           </Button>
           <Button
             variant="destructive"
             onClick={handleConfirm}
             disabled={isConfirmDisabled}
           >
-            {isDeleting ? t('deleteConfirmation.deleting') : t('common.delete')}
+            {isDeleting
+              ? t('deleteConfirmation.deleting')
+              : t('common.actions.delete')}
           </Button>
         </DialogFooter>
       </DialogContent>
