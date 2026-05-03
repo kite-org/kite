@@ -118,7 +118,7 @@ spec:
         - name: {{ include "kite.fullname" . }}-storage
       {{- if .Values.db.sqlite.persistence.pvc.enabled }}
           persistentVolumeClaim:
-            claimName: {{ include "kite.fullname" . }}-storage
+            claimName: {{ .Values.db.sqlite.persistence.pvc.existingClaim | default (printf "%s-storage" (include "kite.fullname" .)) }}
       {{- else if .Values.db.sqlite.persistence.hostPath.enabled }}
           hostPath:
             path: {{ .Values.db.sqlite.persistence.hostPath.path }}
