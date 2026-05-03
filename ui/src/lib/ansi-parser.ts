@@ -122,12 +122,13 @@ export function parseAnsi(
  * Process ANSI codes and update the state
  */
 function processAnsiCodes(codes: number[], currentState: AnsiState): AnsiState {
-  const newState = { ...currentState }
+  let newState = { ...currentState }
 
   for (const code of codes) {
     switch (code) {
       case 0: // Reset all
-        return {}
+        newState = {}
+        break
 
       case 1: // Bold
         newState.bold = true

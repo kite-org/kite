@@ -66,6 +66,7 @@ export interface LogViewerProps {
 }
 
 const ANSI_CSS = generateAnsiCss()
+const ANSI_DECORATION_STICKINESS: editor.TrackedRangeStickiness = 1
 const TERMINAL_THEME_KEYS = Object.keys(TERMINAL_THEMES) as TerminalTheme[]
 const TERMINAL_THEME_ENTRIES = Object.entries(TERMINAL_THEMES) as Array<
   [TerminalTheme, (typeof TERMINAL_THEMES)[TerminalTheme]]
@@ -258,7 +259,7 @@ export function LogViewer({
           endLineNumber: lineCount,
         },
         text: textToInsert,
-        forceMoveMarkers: true,
+        forceMoveMarkers: false,
       },
     ])
 
@@ -292,6 +293,7 @@ export function LogViewer({
           },
           options: {
             inlineClassName: className,
+            stickiness: ANSI_DECORATION_STICKINESS,
           },
         })
       }

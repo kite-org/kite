@@ -76,29 +76,42 @@ func (l *BatchLogHandler) startPodLogStream(podStream *PodLogStream) {
 		_ = podLogs.Close()
 	}()
 
-	lw := writerFunc(func(p []byte) (int, error) {
-		logString := string(p)
-		logLines := strings.SplitSeq(logString, "\n")
+	var pendingLine string
+	sendLogLine := func(line string) error {
+		if line == "" {
+			return nil
+		}
+
 		l.mu.RLock()
 		multiPod := len(l.pods) > 1
 		l.mu.RUnlock()
-		for line := range logLines {
-			if line == "" {
-				continue
-			}
-			if multiPod {
-				line = fmt.Sprintf("[%s]: %s", pod.Name, line)
-			}
-			err := sendMessage(l.conn, "log", line)
-			if err != nil {
-				return 0, err
-			}
+
+		if multiPod {
+			line = fmt.Sprintf("[%s]: %s", pod.Name, line)
 		}
 
+		return sendMessage(l.conn, "log", line)
+	}
+
+	lw := writerFunc(func(p []byte) (int, error) {
+		pendingLine += string(p)
+		for {
+			line, rest, ok := strings.Cut(pendingLine, "\n")
+			if !ok {
+				break
+			}
+			if err := sendLogLine(line); err != nil {
+				return 0, err
+			}
+			pendingLine = rest
+		}
 		return len(p), nil
 	})
 
 	_, err = io.Copy(lw, podLogs)
+	if err == nil && pendingLine != "" {
+		_ = sendLogLine(pendingLine)
+	}
 	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, context.Canceled) {
 		_ = sendErrorMessage(l.conn, fmt.Sprintf("Failed to stream pod logs for %s: %v", pod.Name, err))
 	}
