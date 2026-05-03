@@ -1,6 +1,7 @@
 package kube
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -76,7 +77,7 @@ func (l *BatchLogHandler) startPodLogStream(podStream *PodLogStream) {
 		_ = podLogs.Close()
 	}()
 
-	var pendingLine string
+	var pendingLine bytes.Buffer
 	sendLogLine := func(line string) error {
 		if line == "" {
 			return nil
@@ -94,23 +95,35 @@ func (l *BatchLogHandler) startPodLogStream(podStream *PodLogStream) {
 	}
 
 	lw := writerFunc(func(p []byte) (int, error) {
-		pendingLine += string(p)
-		for {
-			line, rest, ok := strings.Cut(pendingLine, "\n")
-			if !ok {
-				break
+		n := len(p)
+		for len(p) > 0 {
+			newlineIndex := bytes.IndexByte(p, '\n')
+			if newlineIndex < 0 {
+				_, _ = pendingLine.Write(p)
+				return n, nil
 			}
-			if err := sendLogLine(line); err != nil {
-				return 0, err
+
+			if pendingLine.Len() == 0 {
+				if err := sendLogLine(string(p[:newlineIndex])); err != nil {
+					return 0, err
+				}
+			} else {
+				_, _ = pendingLine.Write(p[:newlineIndex])
+				if err := sendLogLine(pendingLine.String()); err != nil {
+					return 0, err
+				}
+				pendingLine.Reset()
 			}
-			pendingLine = rest
+
+			p = p[newlineIndex+1:]
 		}
-		return len(p), nil
+
+		return n, nil
 	})
 
 	_, err = io.Copy(lw, podLogs)
-	if err == nil && pendingLine != "" {
-		_ = sendLogLine(pendingLine)
+	if err == nil && pendingLine.Len() > 0 {
+		err = sendLogLine(pendingLine.String())
 	}
 	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, context.Canceled) {
 		_ = sendErrorMessage(l.conn, fmt.Sprintf("Failed to stream pod logs for %s: %v", pod.Name, err))
