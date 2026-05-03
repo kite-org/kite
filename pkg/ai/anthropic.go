@@ -88,7 +88,7 @@ func (a *Agent) runAnthropicConversation(
 			},
 		})
 
-		_, messageContent, thinkingContent, streamedToolCalls, err := consumeAnthropicStreamingResponse(stream, sendEvent)
+		message, messageContent, thinkingContent, streamedToolCalls, err := consumeAnthropicStreamingResponse(stream, sendEvent)
 		if err != nil {
 			klog.Errorf("AI generation error: %v", err)
 			sendEvent(SSEEvent{Event: "error", Data: map[string]string{"message": fmt.Sprintf("AI error: %v", err)}})
@@ -104,11 +104,10 @@ func (a *Agent) runAnthropicConversation(
 			return
 		}
 
+		messages = append(messages, message.ToParam())
 		toolResults := make([]anthropic.ContentBlockParamUnion, 0, len(streamedToolCalls))
 
 		for _, tc := range streamedToolCalls {
-			messages = append(messages, streamedToolCallToAnthropicAssistantMessage(tc))
-
 			toolName := tc.Name
 			args, err := parseToolCallArguments(tc.Arguments)
 			if err != nil {
@@ -320,14 +319,4 @@ func anthropicMessageThinking(message anthropic.Message) string {
 		thinkingBuilder.WriteString(thinkingBlock.Thinking)
 	}
 	return thinkingBuilder.String()
-}
-
-func streamedToolCallToAnthropicAssistantMessage(tc streamedToolCall) anthropic.MessageParam {
-	input := map[string]interface{}{}
-	if args, err := parseToolCallArguments(tc.Arguments); err == nil {
-		input = args
-	}
-	return anthropic.NewAssistantMessage(
-		anthropic.NewToolUseBlock(tc.ID, input, tc.Name),
-	)
 }

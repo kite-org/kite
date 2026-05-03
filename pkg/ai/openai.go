@@ -293,7 +293,7 @@ func extractOpenAIThinkingDelta(delta openai.ChatCompletionChunkChoiceDelta) str
 		if !ok {
 			continue
 		}
-		if text := extractThinkingTextFromRaw(field.Raw()); text != "" {
+		if text := extractThinkingFromRaw(field.Raw()); text != "" {
 			return text
 		}
 	}
@@ -303,7 +303,7 @@ func extractOpenAIThinkingDelta(delta openai.ChatCompletionChunkChoiceDelta) str
 		if !strings.Contains(normalizedKey, "think") && !strings.Contains(normalizedKey, "reason") {
 			continue
 		}
-		if text := extractThinkingTextFromRaw(field.Raw()); text != "" {
+		if text := extractThinkingFromRaw(field.Raw()); text != "" {
 			return text
 		}
 	}
@@ -311,55 +311,18 @@ func extractOpenAIThinkingDelta(delta openai.ChatCompletionChunkChoiceDelta) str
 	return ""
 }
 
-func extractThinkingTextFromRaw(raw string) string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" || raw == "null" {
+func extractThinkingFromRaw(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || trimmed == "null" {
 		return ""
 	}
 
-	var value interface{}
-	if err := json.Unmarshal([]byte(raw), &value); err != nil {
-		return ""
-	}
-	return extractThinkingTextFromAny(value)
-}
-
-func extractThinkingTextFromAny(value interface{}) string {
-	switch v := value.(type) {
-	case string:
-		return v
-	case map[string]interface{}:
-		keys := []string{
-			"thinking",
-			"reasoning_content",
-			"reasoning",
-			"text",
-			"content",
-			"output_text",
-			"delta",
-		}
-		for _, key := range keys {
-			child, ok := v[key]
-			if !ok {
-				continue
-			}
-			if text := extractThinkingTextFromAny(child); text != "" {
-				return text
-			}
-		}
-	case []interface{}:
-		var builder strings.Builder
-		for _, item := range v {
-			text := extractThinkingTextFromAny(item)
-			if text == "" {
-				continue
-			}
-			builder.WriteString(text)
-		}
-		return builder.String()
+	var text string
+	if err := json.Unmarshal([]byte(trimmed), &text); err == nil {
+		return text
 	}
 
-	return ""
+	return raw
 }
 
 func streamedToolCallsToAssistantMessage(toolCalls []streamedToolCall) openai.ChatCompletionMessageParamUnion {
