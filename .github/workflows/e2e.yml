@@ -38,7 +38,7 @@ on:
       - "scripts/get-version.sh"
 
 env:
-  GO_VERSION: "1.25"
+  GO_VERSION: "1.26"
   NODE_VERSION: "24"
 
 jobs:

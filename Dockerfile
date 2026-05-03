@@ -10,7 +10,7 @@ RUN npm install -g pnpm && \
 COPY ui/ ./
 RUN pnpm run build
 
-FROM golang:1.25-alpine AS backend-builder
+FROM golang:1.26-alpine AS backend-builder
 
 WORKDIR /app
 
