@@ -375,17 +375,27 @@ export function isStandardK8sResource(kind: string): boolean {
     'jobs',
     'cronjobs',
     'services',
+    'gateways',
+    'httproutes',
     'configmaps',
     'secrets',
+    'serviceaccounts',
     'persistentvolumeclaims',
     'persistentvolumes',
     'ingresses',
     'networkpolicies',
     'namespaces',
+    'crds',
     'nodes',
     'events',
     'storageclasses',
     'poddisruptionbudgets',
+    'roles',
+    'rolebindings',
+    'clusterroles',
+    'clusterrolebindings',
+    'horizontalpodautoscalers',
+    'podmetrics',
   ]
   const resourcePath = kind.toLowerCase() + 's'
   return (
@@ -401,7 +411,9 @@ export function getCRDResourcePath(
   name?: string
 ): string {
   const group = apiVersion.includes('/') ? apiVersion.split('/')[0] : ''
-  return `/crds/${kind}.${group}/${namespace}/${name}`
+  return namespace
+    ? `/crds/${kind}.${group}/${namespace}/${name}`
+    : `/crds/${kind}.${group}/${name}`
 }
 
 // Get owner reference information for a pod

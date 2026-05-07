@@ -340,7 +340,8 @@
       "config": "配置",
       "other": "其他",
       "security": "安全",
-      "workloads": "工作负载"
+      "workloads": "工作负载",
+      "application": "应用"
     },
     "short": {
       "pvcs": "PVCs",
@@ -400,7 +401,9 @@
     "rolebindings": "RoleBindings",
     "clusterroles": "ClusterRoles",
     "clusterrolebindings": "ClusterRoleBindings",
-    "horizontalpodautoscalers": "HPA"
+    "horizontalpodautoscalers": "HPA",
+    "helmReleases": "Helm Release",
+    "chartRepositories": "Chart Repository"
   },
   "overview": {
     "title": "概览",
@@ -1080,5 +1083,36 @@
   },
   "log": {
     "jumpToBottom": "跳到底部"
+  },
+  "helm": {
+    "actions": {
+      "upgrade": "升级",
+      "rollback": "回滚"
+    },
+    "fields": {
+      "chart": "Chart",
+      "version": "版本",
+      "appVersion": "App 版本",
+      "releaseName": "Release 名称",
+      "firstDeployed": "首次部署",
+      "lastDeployed": "上次部署",
+      "deleted": "删除时间",
+      "rollbackRevision": "版本号"
+    },
+    "tabs": {
+      "manifest": "Manifest",
+      "values": "Values",
+      "notes": "Notes"
+    },
+    "messages": {
+      "noResources": "未找到资源",
+      "noHistory": "未找到历史记录",
+      "upgradeStarted": "已发起升级",
+      "rollbackStarted": "已发起回滚",
+      "chartRepositoryTodo": "Chart Repository 管理功能暂未实现。"
+    },
+    "placeholders": {
+      "latestPrevious": "上一个版本"
+    }
   }
 }

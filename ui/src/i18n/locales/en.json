@@ -340,7 +340,8 @@
       "config": "config",
       "other": "other",
       "security": "Security",
-      "workloads": "Workloads"
+      "workloads": "Workloads",
+      "application": "Application"
     },
     "short": {
       "pvcs": "PVCs",
@@ -394,7 +395,9 @@
     "rolebindings": "Role Bindings",
     "clusterroles": "Cluster Roles",
     "clusterrolebindings": "Cluster Role Bindings",
-    "horizontalpodautoscalers": "HPA"
+    "horizontalpodautoscalers": "HPA",
+    "helmReleases": "Helm Release",
+    "chartRepositories": "Chart Repository"
   },
   "overview": {
     "title": "Overview",
@@ -992,5 +995,36 @@
     "forceDelete": "Force delete (set grace period to 0)",
     "finalizerNote": "If finalizers exist and resource is not deleted after 3 seconds, finalizers will be removed automatically",
     "deleting": "Deleting..."
+  },
+  "helm": {
+    "actions": {
+      "upgrade": "Upgrade",
+      "rollback": "Rollback"
+    },
+    "fields": {
+      "chart": "Chart",
+      "version": "Version",
+      "appVersion": "App Version",
+      "releaseName": "Release Name",
+      "firstDeployed": "First Deployed",
+      "lastDeployed": "Last Deployed",
+      "deleted": "Deleted",
+      "rollbackRevision": "Revision"
+    },
+    "tabs": {
+      "manifest": "Manifest",
+      "values": "Values",
+      "notes": "Notes"
+    },
+    "messages": {
+      "noResources": "No resources found",
+      "noHistory": "No history found",
+      "upgradeStarted": "Upgrade requested",
+      "rollbackStarted": "Rollback requested",
+      "chartRepositoryTodo": "Chart repository management is not implemented yet."
+    },
+    "placeholders": {
+      "latestPrevious": "Previous revision"
+    }
   }
 }

@@ -57,7 +57,7 @@ export function WorkloadInfoBlock({
 }) {
   return (
     <div className={cn('min-w-0', className)}>
-      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-xs font-medium text-foreground">{label}</div>
       <div
         className={cn(
           'mt-1 min-w-0 text-sm text-foreground/70 tabular-nums',
@@ -93,7 +93,7 @@ export function WorkloadInfoRow({
         compact ? 'grid-cols-[3rem_minmax(0,1fr)]' : labelWidthClass
       )}
     >
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-xs font-medium text-foreground">{label}</span>
       <span
         className={cn(
           'min-w-0 text-foreground/70 tabular-nums',

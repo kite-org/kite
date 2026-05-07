@@ -99,6 +99,71 @@ export interface DeploymentRelatedResource {
   services: Service[]
 }
 
+export interface HelmReleaseResource {
+  apiVersion: string
+  kind: string
+  name: string
+  namespace?: string
+}
+
+export interface HelmReleaseHistoryItem {
+  revision: number
+  status: string
+  chart: string
+  chartName: string
+  chartVersion: string
+  appVersion?: string
+  description?: string
+  firstDeployed?: string
+  lastDeployed?: string
+  deleted?: string
+}
+
+export interface HelmReleaseHistoryResponse {
+  items: HelmReleaseHistoryItem[]
+}
+
+export interface HelmRelease {
+  apiVersion: 'v1'
+  kind: 'HelmRelease'
+  metadata: {
+    name: string
+    namespace: string
+    uid?: string
+    resourceVersion?: string
+    creationTimestamp?: string
+    labels?: Record<string, string>
+    annotations?: Record<string, string>
+  }
+  spec: {
+    releaseName: string
+    namespace: string
+    chart: string
+    chartName: string
+    chartVersion: string
+    appVersion?: string
+    revision: number
+    values?: Record<string, unknown>
+    manifest?: string
+    notes?: string
+    description?: string
+  }
+  status: {
+    status: string
+    firstDeployed?: string
+    lastDeployed?: string
+    deleted?: string
+    resources?: HelmReleaseResource[]
+  }
+}
+
+export interface HelmReleaseList {
+  apiVersion: 'v1'
+  kind: 'HelmReleaseList'
+  items: HelmRelease[]
+  metadata?: listMetadataType
+}
+
 type listMetadataType = {
   continue?: string
   remainingItemCount?: number
@@ -154,6 +219,7 @@ export interface ResourcesTypeMap {
   clusterroles: ClusterRoleList
   clusterrolebindings: ClusterRoleBindingList
   horizontalpodautoscalers: HorizontalPodAutoscalerList
+  helmrelease: HelmReleaseList
 }
 
 export interface PodMetrics {
@@ -225,6 +291,7 @@ export interface ResourceTypeMap {
   clusterroles: ClusterRole
   clusterrolebindings: ClusterRoleBinding
   horizontalpodautoscalers: HorizontalPodAutoscaler
+  helmrelease: HelmRelease
 }
 
 export interface RecentEvent {

@@ -50,6 +50,7 @@ interface ResourceDetailShellProps<T> {
     | ((context: ResourceDetailShellContext<T>) => ReactNode)
   loadingMessage?: string
   yamlTabLabel?: ReactNode
+  showDescribe?: boolean
   showDelete?: boolean
 }
 
@@ -70,6 +71,7 @@ export function ResourceDetailShell<T>({
   yamlToolbar,
   loadingMessage,
   yamlTabLabel,
+  showDescribe = true,
   showDelete = true,
 }: ResourceDetailShellProps<T>) {
   const { t } = useTranslation()
@@ -248,11 +250,13 @@ export function ResourceDetailShell<T>({
             <IconRefresh className="w-4 h-4" />
             {t('common.actions.refresh')}
           </Button>
-          <DescribeDialog
-            resourceType={resourceType}
-            namespace={namespace}
-            name={name}
-          />
+          {showDescribe ? (
+            <DescribeDialog
+              resourceType={resourceType}
+              namespace={namespace}
+              name={name}
+            />
+          ) : null}
           {headerActions}
           {showDelete && (
             <Button

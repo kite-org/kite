@@ -21,6 +21,8 @@ import { DeploymentDetail } from './deployment-detail'
 import { DeploymentListPage } from './deployment-list-page'
 import { EventListPage } from './event-list-page'
 import { GatewayListPage } from './gateway-list-page'
+import { HelmReleaseDetail } from './helmrelease-detail'
+import { HelmReleaseListPage } from './helmrelease-list-page'
 import { HorizontalPodAutoscalerListPage } from './horizontalpodautoscaler-list-page'
 import { HTTPRouteListPage } from './httproute-list-page'
 import { IngressListPage } from './ingress-list-page'
@@ -161,6 +163,13 @@ function getResourceViews(resourceType: ResourceType): ResourceViewDefinition {
     case 'httproutes':
       return {
         listPage: () => <HTTPRouteListPage />,
+      }
+    case 'helmrelease':
+      return {
+        listPage: () => <HelmReleaseListPage />,
+        detailPage: ({ name, namespace }: ResourceDetailProps) => (
+          <HelmReleaseDetail namespace={namespace!} name={name} />
+        ),
       }
     default:
       return {}

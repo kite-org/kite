@@ -48,7 +48,13 @@ resourceCatalog
     })
   })
 
-export const SIDEBAR_CONFIG_VERSION = 1
+defaultMenus['sidebar.groups.application'].push({
+  titleKey: 'nav.chartRepositories',
+  url: '/chartrepositories',
+  icon: getResourceIconComponent('IconPackage'),
+})
+
+export const SIDEBAR_CONFIG_VERSION = 2
 
 function getIconName(iconComponent: ComponentType<{ className?: string }>) {
   const entry = Object.entries(sidebarIconMap).find(

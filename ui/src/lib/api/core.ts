@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Pod } from 'kubernetes-types/core/v1'
 
 import {
+  HelmReleaseHistoryResponse,
   ImageTagInfo,
   RelatedResources,
   ResourceHistoryResponse,
@@ -111,6 +112,50 @@ export const scaleDeployment = async (
   })
 
   return response
+}
+
+export const upgradeHelmRelease = async (
+  namespace: string,
+  name: string,
+  body?: Record<string, unknown>
+): Promise<{ message?: string }> => {
+  return apiClient.post<{ message?: string }>(
+    `/helmrelease/${namespace}/${name}/upgrade`,
+    body || {}
+  )
+}
+
+export const rollbackHelmRelease = async (
+  namespace: string,
+  name: string,
+  revision?: number
+): Promise<{ message?: string }> => {
+  return apiClient.post<{ message?: string }>(
+    `/helmrelease/${namespace}/${name}/rollback`,
+    revision ? { revision } : {}
+  )
+}
+
+export const fetchHelmReleaseHistory = (
+  namespace: string,
+  name: string
+): Promise<HelmReleaseHistoryResponse> => {
+  return fetchAPI<HelmReleaseHistoryResponse>(
+    `/helmrelease/${namespace}/${name}/history`
+  )
+}
+
+export const useHelmReleaseHistory = (
+  namespace: string,
+  name: string,
+  options?: { enabled?: boolean; staleTime?: number }
+) => {
+  return useQuery({
+    queryKey: ['helmrelease-history', namespace, name],
+    queryFn: () => fetchHelmReleaseHistory(namespace, name),
+    enabled: options?.enabled ?? true,
+    staleTime: options?.staleTime || 30000,
+  })
 }
 
 // Node operation APIs

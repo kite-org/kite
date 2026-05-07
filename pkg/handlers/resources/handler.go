@@ -83,6 +83,7 @@ func RegisterRoutes(group *gin.RouterGroup) {
 		string(common.Gateways):                 NewGenericResourceHandler[*gatewayapiv1.Gateway, *gatewayapiv1.GatewayList](common.Gateways),
 		string(common.HTTPRoutes):               NewGenericResourceHandler[*gatewayapiv1.HTTPRoute, *gatewayapiv1.HTTPRouteList](common.HTTPRoutes),
 		string(common.HorizontalPodAutoscalers): NewGenericResourceHandler[*autoscalingv2.HorizontalPodAutoscaler, *autoscalingv2.HorizontalPodAutoscalerList](common.HorizontalPodAutoscalers),
+		string(common.HelmReleases):             NewHelmReleaseHandler(),
 	}
 
 	for name, handler := range handlers {

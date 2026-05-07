@@ -12,6 +12,7 @@ import {
   IconLock,
   IconMap,
   IconNetwork,
+  IconPackage,
   IconPlayerPlay,
   IconRocket,
   IconRoute,
@@ -32,12 +33,14 @@ type SidebarGroupKey =
   | 'sidebar.groups.config'
   | 'sidebar.groups.security'
   | 'sidebar.groups.other'
+  | 'sidebar.groups.application'
 
 export const resourceIconMap = {
   IconBox,
   IconRocket,
   IconStack2,
   IconTopologyBus,
+  IconPackage,
   IconPlayerPlay,
   IconClockHour4,
   IconRouter,
@@ -85,6 +88,7 @@ export const sidebarGroupOrder = [
   'sidebar.groups.config',
   'sidebar.groups.security',
   'sidebar.groups.other',
+  'sidebar.groups.application',
 ] as const satisfies readonly SidebarGroupKey[]
 
 export const resourceCatalog = [
@@ -333,6 +337,7 @@ export const resourceCatalog = [
     singular: 'serviceaccount',
     singularLabel: 'ServiceAccount',
     pluralLabel: 'ServiceAccounts',
+    shortLabel: 'SA',
     clusterScope: false,
     titleKey: 'nav.serviceaccounts',
     icon: 'IconUser',
@@ -399,6 +404,16 @@ export const resourceCatalog = [
     titleKey: 'nav.poddisruptionbudgets',
     icon: 'IconShield',
     sidebar: { groupKey: 'sidebar.groups.config', order: 3 },
+  },
+  {
+    type: 'helmrelease',
+    singular: 'helmrelease',
+    singularLabel: 'Helm Release',
+    pluralLabel: 'Helm Releases',
+    clusterScope: false,
+    titleKey: 'nav.helmReleases',
+    icon: 'IconPackage',
+    sidebar: { groupKey: 'sidebar.groups.application', order: 0 },
   },
 ] as const satisfies readonly ResourceCatalogEntryBase[]
 

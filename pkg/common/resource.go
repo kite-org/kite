@@ -39,6 +39,7 @@ const (
 	Gateways                 ResourceType = "gateways"
 	HTTPRoutes               ResourceType = "httproutes"
 	HorizontalPodAutoscalers ResourceType = "horizontalpodautoscalers"
+	HelmReleases             ResourceType = "helmrelease"
 )
 
 // ResourceMeta holds all metadata for a known Kubernetes resource type.
@@ -111,6 +112,9 @@ var Registry = []ResourceMeta{
 
 	// autoscaling/v2
 	{Kind: "HorizontalPodAutoscaler", Singular: "horizontalpodautoscaler", Plural: HorizontalPodAutoscalers, Short: []string{"hpa"}, Group: "autoscaling", Version: "v2", GlobalSearch: true, Related: true},
+
+	// Synthetic resources
+	{Kind: "HelmRelease", Singular: "helmrelease", Plural: HelmReleases, Short: []string{"hr"}, Version: "v1", Searchable: true, GlobalSearch: true},
 }
 
 // resourceIndex maps lowercase alias → *ResourceMeta for O(1) lookups.
