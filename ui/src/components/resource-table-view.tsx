@@ -39,6 +39,8 @@ interface ResourceTableViewProps<T> {
   searchQuery: string
   pagination: PaginationState
   setPagination: React.Dispatch<React.SetStateAction<PaginationState>>
+  shrinkFirstColumn?: boolean
+  showAllPageSize?: boolean
 }
 
 export function ResourceTableView<T>({
@@ -57,6 +59,8 @@ export function ResourceTableView<T>({
   searchQuery,
   pagination,
   setPagination,
+  shrinkFirstColumn = true,
+  showAllPageSize = true,
 }: ResourceTableViewProps<T>) {
   const renderRows = () => {
     const rows = table.getRowModel().rows
@@ -207,7 +211,11 @@ export function ResourceTableView<T>({
                     </TableRow>
                   ))}
                 </TableHeader>
-                <TableBody className="**:data-[slot=table-cell]:first:w-0">
+                <TableBody
+                  className={cn(
+                    shrinkFirstColumn && '**:data-[slot=table-cell]:first:w-0'
+                  )}
+                >
                   {renderRows()}
                 </TableBody>
               </Table>
@@ -257,7 +265,7 @@ export function ResourceTableView<T>({
                       {pageSize}
                     </SelectItem>
                   ))}
-                  {resolvedAllPageSize > 0 && (
+                  {showAllPageSize && resolvedAllPageSize > 0 && (
                     <SelectItem value={`${resolvedAllPageSize}`}>
                       All
                     </SelectItem>

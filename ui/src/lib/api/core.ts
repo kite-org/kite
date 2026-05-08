@@ -3,7 +3,10 @@ import { useQuery } from '@tanstack/react-query'
 import { Pod } from 'kubernetes-types/core/v1'
 
 import {
+  HelmChartDetail,
+  HelmChartList,
   HelmReleaseHistoryResponse,
+  HelmRepository,
   ImageTagInfo,
   RelatedResources,
   ResourceHistoryResponse,
@@ -155,6 +158,144 @@ export const useHelmReleaseHistory = (
     queryFn: () => fetchHelmReleaseHistory(namespace, name),
     enabled: options?.enabled ?? true,
     staleTime: options?.staleTime || 30000,
+  })
+}
+
+export const fetchHelmRepositories = (): Promise<HelmRepository[]> => {
+  return fetchAPI<HelmRepository[]>('/charts/repositories')
+}
+
+export const createHelmRepository = (
+  body: Pick<HelmRepository, 'name' | 'url'> & {
+    username?: string
+    password?: string
+  }
+): Promise<HelmRepository> => {
+  return apiClient.post<HelmRepository>('/charts/repositories', body)
+}
+
+export const fetchHelmCharts = (options?: {
+  repository?: string
+  query?: string
+}): Promise<HelmChartList> => {
+  const params = new URLSearchParams()
+  if (options?.repository) {
+    params.append('repository', options.repository)
+  }
+  if (options?.query) {
+    params.append('q', options.query)
+  }
+  const query = params.toString()
+  return fetchAPI<HelmChartList>(`/charts${query ? `?${query}` : ''}`)
+}
+
+export const fetchArtifactHubCharts = (options?: {
+  query?: string
+  verifiedPublisher?: boolean
+  limit?: number
+  offset?: number
+}): Promise<HelmChartList> => {
+  const params = new URLSearchParams()
+  if (options?.query) {
+    params.append('q', options.query)
+  }
+  if (options?.verifiedPublisher !== undefined) {
+    params.append('verifiedPublisher', String(options.verifiedPublisher))
+  }
+  if (options?.limit) {
+    params.append('limit', String(options.limit))
+  }
+  if (options?.offset) {
+    params.append('offset', String(options.offset))
+  }
+  const query = params.toString()
+  return fetchAPI<HelmChartList>(
+    `/charts/artifacthub${query ? `?${query}` : ''}`
+  )
+}
+
+export const fetchHelmChart = (
+  repository: string,
+  name: string,
+  version?: string,
+  source?: 'repository' | 'artifacthub'
+): Promise<HelmChartDetail> => {
+  const params = new URLSearchParams()
+  if (version) {
+    params.append('version', version)
+  }
+  const query = params.toString()
+  const endpoint =
+    source === 'artifacthub'
+      ? `/charts/artifacthub/${encodeURIComponent(repository)}/${encodeURIComponent(name)}`
+      : `/charts/${encodeURIComponent(repository)}/${encodeURIComponent(name)}`
+
+  return fetchAPI<HelmChartDetail>(`${endpoint}${query ? `?${query}` : ''}`)
+}
+
+export const useHelmRepositories = () => {
+  return useQuery({
+    queryKey: ['helmcharts', 'repositories'],
+    queryFn: fetchHelmRepositories,
+  })
+}
+
+export const useHelmCharts = (options?: {
+  repository?: string
+  query?: string
+  enabled?: boolean
+}) => {
+  return useQuery({
+    queryKey: [
+      'helmcharts',
+      'charts',
+      options?.repository || '',
+      options?.query || '',
+    ],
+    queryFn: () => fetchHelmCharts(options),
+    enabled: options?.enabled ?? true,
+  })
+}
+
+export const useArtifactHubCharts = (options?: {
+  query?: string
+  verifiedPublisher?: boolean
+  limit?: number
+  offset?: number
+  enabled?: boolean
+}) => {
+  return useQuery({
+    queryKey: [
+      'helmcharts',
+      'artifacthub',
+      options?.query || '',
+      options?.verifiedPublisher ?? true,
+      options?.limit || 20,
+      options?.offset || 0,
+    ],
+    queryFn: () => fetchArtifactHubCharts(options),
+    enabled: options?.enabled ?? true,
+  })
+}
+
+export const useHelmChart = (
+  repository: string | undefined,
+  name: string | undefined,
+  version?: string,
+  source?: 'repository' | 'artifacthub'
+) => {
+  return useQuery({
+    queryKey: [
+      'helmcharts',
+      'chart',
+      source || 'repository',
+      repository,
+      name,
+      version || '',
+    ],
+    queryFn: () =>
+      fetchHelmChart(repository || '', name || '', version, source),
+    enabled: Boolean(repository && name),
   })
 }
 

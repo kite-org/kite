@@ -101,6 +101,7 @@ func InitDB() {
 		ResourceHistory{},
 		ResourceTemplate{},
 		PendingSession{},
+		HelmRepository{},
 	}
 	for _, model := range models {
 		err = DB.AutoMigrate(model)

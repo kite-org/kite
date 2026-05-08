@@ -164,6 +164,57 @@ export interface HelmReleaseList {
   metadata?: listMetadataType
 }
 
+export interface HelmRepository {
+  id: number
+  name: string
+  url: string
+  username?: string
+  hasAuth: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface HelmChart {
+  repositoryId: number
+  repositoryName: string
+  repositoryUrl: string
+  source?: 'repository' | 'artifacthub'
+  name: string
+  version: string
+  appVersion?: string
+  description?: string
+  icon?: string
+  home?: string
+  artifactHubUrl?: string
+  sources?: string[]
+  keywords?: string[]
+  maintainers?: {
+    name: string
+    email?: string
+    url?: string
+  }[]
+  deprecated?: boolean
+  updatedAt?: string
+}
+
+export interface HelmChartVersion {
+  version: string
+  appVersion?: string
+  updatedAt?: string
+}
+
+export interface HelmChartList {
+  items: HelmChart[]
+  total?: number
+}
+
+export interface HelmChartDetail extends HelmChart {
+  readme?: string
+  values?: string
+  templates?: string
+  versions: HelmChartVersion[]
+}
+
 type listMetadataType = {
   continue?: string
   remainingItemCount?: number

@@ -49,12 +49,12 @@ resourceCatalog
   })
 
 defaultMenus['sidebar.groups.application'].push({
-  titleKey: 'nav.chartRepositories',
-  url: '/chartrepositories',
+  titleKey: 'nav.helmCharts',
+  url: '/charts',
   icon: getResourceIconComponent('IconPackage'),
 })
 
-export const SIDEBAR_CONFIG_VERSION = 2
+export const SIDEBAR_CONFIG_VERSION = 3
 
 function getIconName(iconComponent: ComponentType<{ className?: string }>) {
   const entry = Object.entries(sidebarIconMap).find(

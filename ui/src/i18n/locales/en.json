@@ -397,7 +397,7 @@
     "clusterrolebindings": "Cluster Role Bindings",
     "horizontalpodautoscalers": "HPA",
     "helmReleases": "Helm Release",
-    "chartRepositories": "Chart Repository"
+    "helmCharts": "Charts"
   },
   "overview": {
     "title": "Overview",
@@ -995,6 +995,37 @@
     "forceDelete": "Force delete (set grace period to 0)",
     "finalizerNote": "If finalizers exist and resource is not deleted after 3 seconds, finalizers will be removed automatically",
     "deleting": "Deleting..."
+  },
+  "helmCharts": {
+    "actions": {
+      "addRepository": "Add Repository"
+    },
+    "fields": {
+      "repository": "Repository",
+      "deprecated": "Deprecated",
+      "sources": "Sources",
+      "keywords": "Keywords",
+      "versions": "Versions"
+    },
+    "filters": {
+      "allRepositories": "All repositories",
+      "artifactHub": "Artifact Hub",
+      "repositories": "Repositories",
+      "verifiedPublisher": "Verified publisher"
+    },
+    "messages": {
+      "description": "Browse charts from managed Helm repositories.",
+      "addRepositoryDescription": "Add a Helm repository to make its charts available.",
+      "repositoryAdded": "Repository added",
+      "noCharts": "No charts found",
+      "noReadme": "No README found",
+      "noValues": "No values found",
+      "noTemplates": "No templates found",
+      "noVersions": "No versions found"
+    },
+    "placeholders": {
+      "search": "Search charts..."
+    }
   },
   "helm": {
     "actions": {

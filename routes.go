@@ -147,6 +147,9 @@ func registerProtectedRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, 
 	api.GET("/image/tags", handlers.GetImageTags)
 	api.GET("/templates", handlers.ListTemplates)
 
+	helmChartsHandler := handlers.NewHelmChartHandler()
+	helmChartsHandler.RegisterRoutes(api)
+
 	proxyHandler := handlers.NewProxyHandler()
 	proxyHandler.RegisterRoutes(api)
 

@@ -403,7 +403,7 @@
     "clusterrolebindings": "ClusterRoleBindings",
     "horizontalpodautoscalers": "HPA",
     "helmReleases": "Helm Release",
-    "chartRepositories": "Chart Repository"
+    "helmCharts": "Charts"
   },
   "overview": {
     "title": "概览",
@@ -1083,6 +1083,37 @@
   },
   "log": {
     "jumpToBottom": "跳到底部"
+  },
+  "helmCharts": {
+    "actions": {
+      "addRepository": "添加 Helm Repository"
+    },
+    "fields": {
+      "repository": "Repository",
+      "deprecated": "已废弃",
+      "sources": "源码",
+      "keywords": "关键词",
+      "versions": "版本"
+    },
+    "filters": {
+      "allRepositories": "全部 Repository",
+      "artifactHub": "Artifact Hub",
+      "repositories": "Repository",
+      "verifiedPublisher": "Verified Publisher"
+    },
+    "messages": {
+      "description": "从已管理的 Helm Repository 中浏览 Charts。",
+      "addRepositoryDescription": "添加 Helm Repository 后，它的 Charts 会显示在列表中。",
+      "repositoryAdded": "Repository 已添加",
+      "noCharts": "未找到 Chart",
+      "noReadme": "未找到 README",
+      "noValues": "未找到 Values",
+      "noTemplates": "未找到模板",
+      "noVersions": "未找到版本"
+    },
+    "placeholders": {
+      "search": "搜索 Chart..."
+    }
   },
   "helm": {
     "actions": {
