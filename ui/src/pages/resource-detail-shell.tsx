@@ -149,9 +149,9 @@ export function ResourceDetailShell<T>({
         value: 'yaml',
         label: yamlTabLabel || t('common.tabs.yaml'),
         content: (
-          <div className="space-y-4">
+          <div className="flex h-full min-h-0 flex-col gap-4">
             {yamlToolbar ? (
-              <div className="flex justify-end">
+              <div className="flex shrink-0 justify-end">
                 {typeof yamlToolbar === 'function'
                   ? yamlToolbar(shellContext)
                   : yamlToolbar}
@@ -166,6 +166,7 @@ export function ResourceDetailShell<T>({
               }}
               onChange={setYamlContent}
               isSaving={isSavingYaml}
+              fillHeight
             />
           </div>
         ),
@@ -231,9 +232,15 @@ export function ResourceDetailShell<T>({
   }
 
   return (
-    <div className={cn(isIframe && 'px-4 py-3 lg:px-6')}>
+    <div
+      className={cn(
+        'flex min-h-0 flex-col',
+        isIframe ? 'h-dvh px-4 py-3 lg:px-6' : 'h-full'
+      )}
+    >
       <ResponsiveTabs
-        className={namespace ? 'gap-2' : 'gap-4'}
+        className={cn('min-h-0 flex-1', namespace ? 'gap-2' : 'gap-4')}
+        contentClassName="min-h-0 flex-1 overflow-y-auto"
         stickyHeader={
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex min-w-0 items-center gap-3">
@@ -283,7 +290,7 @@ export function ResourceDetailShell<T>({
           'sticky z-40 bg-background px-4',
           isIframe
             ? 'top-0 -mx-4 lg:-mx-6 lg:px-6'
-            : 'top-(--header-height) -mx-4 -mt-4 pt-4 lg:-mx-6 lg:px-6'
+            : 'top-(--header-height) -mx-4 -mt-4 pt-2 lg:-mx-6 lg:px-6'
         )}
         tabs={tabs.map((tab) => ({
           value: tab.value,

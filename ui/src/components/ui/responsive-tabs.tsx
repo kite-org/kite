@@ -24,6 +24,7 @@ interface ResponsiveTabsProps {
   className?: string
   stickyHeader?: React.ReactNode
   stickyHeaderClassName?: string
+  contentClassName?: string
   tabsListClassName?: string
 }
 
@@ -32,6 +33,7 @@ export function ResponsiveTabs({
   className,
   stickyHeader,
   stickyHeaderClassName,
+  contentClassName,
   tabsListClassName,
 }: ResponsiveTabsProps) {
   const isMobile = useIsMobile()
@@ -73,7 +75,11 @@ export function ResponsiveTabs({
           </Select>
         </div>
 
-        {currentTab && <div className="space-y-4">{currentTab.content}</div>}
+        {currentTab && (
+          <div className={cn('space-y-4', contentClassName)}>
+            {currentTab.content}
+          </div>
+        )}
       </div>
     )
   }
@@ -103,7 +109,11 @@ export function ResponsiveTabs({
       </div>
 
       {tabs.map((tab) => (
-        <TabsContent key={tab.value} value={tab.value} className="space-y-4">
+        <TabsContent
+          key={tab.value}
+          value={tab.value}
+          className={cn('space-y-4', contentClassName)}
+        >
           {tab.content}
         </TabsContent>
       ))}

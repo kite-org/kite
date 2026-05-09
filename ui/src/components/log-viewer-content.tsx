@@ -518,7 +518,7 @@ export function LogViewer({
 
   return (
     <Card
-      className={`h-full flex flex-col py-4 gap-0 ${isFullscreen ? 'fixed inset-0 z-50 m-0 rounded-none' : ''} ${wordWrap ? 'whitespace-pre-wrap' : 'whitespace-pre'} `}
+      className={`h-full min-h-0 flex flex-col py-4 gap-0 ${isFullscreen ? 'fixed inset-0 z-50 m-0 rounded-none' : ''} ${wordWrap ? 'whitespace-pre-wrap' : 'whitespace-pre'} `}
     >
       <style>{ANSI_CSS}</style>
       <CardHeader>
@@ -808,19 +808,12 @@ export function LogViewer({
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 p-0 relative">
+      <CardContent className="min-h-0 flex-1 p-0 relative">
         <MonacoEditor
-          height={isFullscreen ? 'calc(100dvh - 60px)' : 'calc(100dvh - 255px)'}
+          height="100%"
           theme={`log-theme-${logTheme}`}
           loading={
-            <div
-              className="flex h-full items-center justify-center"
-              style={{
-                height: isFullscreen
-                  ? 'calc(100dvh - 60px)'
-                  : 'calc(100dvh - 255px)',
-              }}
-            >
+            <div className="flex h-full items-center justify-center">
               <div className="text-center opacity-60">Loading editor...</div>
             </div>
           }

@@ -10,6 +10,7 @@ import {
   defineMonacoBackgroundThemes,
   useMonacoBackgroundColor,
 } from '@/lib/monaco-theme'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -37,6 +38,7 @@ interface YamlEditorProps<T extends ResourceType> {
   isSaving?: boolean
   /** Custom class name for the card */
   className?: string
+  fillHeight?: boolean
 }
 
 export function YamlEditor<T extends ResourceType>({
@@ -49,6 +51,7 @@ export function YamlEditor<T extends ResourceType>({
   onCancel,
   isSaving = false,
   className,
+  fillHeight = false,
 }: YamlEditorProps<T>) {
   const { t } = useTranslation()
   const [isEditing, setIsEditing] = useState(true)
@@ -57,7 +60,9 @@ export function YamlEditor<T extends ResourceType>({
   const [validationError, setValidationError] = useState<string>('')
   const { actualTheme, colorTheme } = useAppearance()
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)
-  const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const validationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  )
   const themeMode = actualTheme === 'dark' ? 'dark' : 'light'
   const backgroundColor = useMonacoBackgroundColor(
     '--card',
@@ -141,7 +146,7 @@ export function YamlEditor<T extends ResourceType>({
   const editorTitle = title ?? t('common.fields.yamlConfiguration')
 
   return (
-    <Card className={className}>
+    <Card className={cn(fillHeight && 'min-h-0 flex-1', className)}>
       <CardHeader className="flex flex-row items-center justify-between">
         <div className="space-y-1">
           <CardTitle>{editorTitle}</CardTitle>
@@ -188,16 +193,27 @@ export function YamlEditor<T extends ResourceType>({
           )}
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
+      <CardContent className={cn(fillHeight && 'min-h-0 flex-1')}>
+        <div
+          className={cn(
+            'space-y-2',
+            fillHeight && 'flex h-full min-h-0 flex-col'
+          )}
+        >
           {!isValidYaml && validationError && (
             <div className="px-3 py-2 bg-destructive/10 border border-destructive/20 rounded-md">
               <p className="text-sm text-destructive">{validationError}</p>
             </div>
           )}
-          <div className="overflow-hidden h-[calc(100dvh-300px)]">
+          <div
+            className={cn(
+              'overflow-hidden h-[calc(100dvh-300px)]',
+              fillHeight && 'h-auto min-h-0 flex-1'
+            )}
+          >
             <ErrorBoundary>
               <MonacoEditor
+                height={fillHeight ? '100%' : undefined}
                 key={`yaml-editor-${colorTheme}-${actualTheme}-${backgroundColor}`}
                 language="yaml"
                 theme={
