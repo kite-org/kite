@@ -250,7 +250,7 @@ export function ResourceDetailShell<T>({
             </div>
             <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
               <Button
-                disabled={isLoading || isRefreshing}
+                disabled={isRefreshing}
                 variant="outline"
                 size="sm"
                 onClick={handleRefresh}
