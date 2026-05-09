@@ -113,6 +113,7 @@ export interface HelmReleaseHistoryItem {
   chartName: string
   chartVersion: string
   appVersion?: string
+  values?: Record<string, unknown>
   description?: string
   firstDeployed?: string
   lastDeployed?: string
@@ -142,8 +143,10 @@ export interface HelmRelease {
     chartName: string
     chartVersion: string
     appVersion?: string
+    icon?: string
     revision: number
     values?: Record<string, unknown>
+    defaultValues?: Record<string, unknown>
     manifest?: string
     notes?: string
     description?: string
@@ -182,10 +185,12 @@ export interface HelmChart {
   name: string
   version: string
   appVersion?: string
+  kubeVersion?: string
   description?: string
   icon?: string
   home?: string
   artifactHubUrl?: string
+  chartUrl?: string
   sources?: string[]
   keywords?: string[]
   maintainers?: {
@@ -208,11 +213,38 @@ export interface HelmChartList {
   total?: number
 }
 
+export type HelmChartContentType = 'values' | 'templates'
+
+export interface HelmChartContent {
+  content?: string
+}
+
 export interface HelmChartDetail extends HelmChart {
   readme?: string
-  values?: string
-  templates?: string
   versions: HelmChartVersion[]
+}
+
+export interface HelmReleaseInstallRequest {
+  releaseName: string
+  namespace?: string
+  chartUrl: string
+  repositoryName?: string
+  source?: 'repository' | 'artifacthub'
+  values?: Record<string, unknown>
+  description?: string
+  createNamespace?: boolean
+  wait?: boolean
+}
+
+export interface HelmReleaseUpgradeRequest {
+  chartUrl?: string
+  repositoryName?: string
+  source?: 'repository' | 'artifacthub'
+  values?: Record<string, unknown>
+  description?: string
+  forceConflicts?: boolean
+  wait?: boolean
+  rollbackOnFailure?: boolean
 }
 
 type listMetadataType = {

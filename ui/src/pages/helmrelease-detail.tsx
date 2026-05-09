@@ -1,12 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { IconExternalLink } from '@tabler/icons-react'
 import * as yaml from 'js-yaml'
 import type { Container, Pod } from 'kubernetes-types/core/v1'
+import { Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import type {
+  HelmChart,
+  HelmChartVersion,
   HelmRelease,
   HelmReleaseHistoryItem,
   HelmReleaseResource,
@@ -15,6 +18,10 @@ import type {
 import {
   rollbackHelmRelease,
   upgradeHelmRelease,
+  useArtifactHubCharts,
+  useHelmChart,
+  useHelmChartContent,
+  useHelmCharts,
   useHelmReleaseHistory,
   useResource,
   useResourcesWatch,
@@ -26,16 +33,34 @@ import {
   type ResourceMetadata,
 } from '@/lib/resource-metadata'
 import { withSubPath } from '@/lib/subpath'
-import { formatDate, getAge, translateError } from '@/lib/utils'
+import {
+  formatDate,
+  getAge,
+  isVersionAtLeast,
+  translateError,
+} from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { HelmChartIcon } from '@/components/helm-chart-icon'
 import { LogViewer } from '@/components/log-viewer'
 import {
   CompactRelatedResourcesCard,
@@ -43,6 +68,7 @@ import {
 } from '@/components/pod-overview-sidebar'
 import { PodStatusIcon } from '@/components/pod-status-icon'
 import { SimpleTable } from '@/components/simple-table'
+import { SimpleYamlEditor } from '@/components/simple-yaml-editor'
 import { TextViewer } from '@/components/text-viewer'
 import { WorkloadSummaryCard } from '@/components/workload-overview-parts'
 import { WorkloadPodsCard } from '@/components/workload-pods-card'
@@ -241,6 +267,108 @@ function sortHelmRelatedResources(resources: RelatedResources[]) {
   })
 }
 
+function HelmReleaseHistoryValuesDialog({
+  item,
+}: {
+  item: HelmReleaseHistoryItem
+}) {
+  const { t } = useTranslation()
+  const valuesYaml = yaml.dump(item.values || {}, { indent: 2 })
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="w-24">
+          {t('helm.tabs.values')}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="flex h-[calc(100dvh-4rem)] w-[calc(100vw-4rem)] !max-w-4xl flex-col overflow-hidden sm:!max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>{t('helmCharts.fields.customValues')}</DialogTitle>
+          <DialogDescription>
+            {t('common.fields.revision')} {item.revision}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="min-h-0 flex-1">
+          <SimpleYamlEditor
+            value={valuesYaml}
+            onChange={() => undefined}
+            disabled
+            height="calc(100dvh - 14rem)"
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function HelmReleaseRollbackButton({
+  item,
+  namespace,
+  name,
+  disabled,
+  onRollback,
+}: {
+  item: HelmReleaseHistoryItem
+  namespace: string
+  name: string
+  disabled: boolean
+  onRollback: (revision: number) => Promise<void>
+}) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+
+  const handleConfirm = async () => {
+    await onRollback(item.revision)
+    setOpen(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-24"
+          disabled={disabled}
+        >
+          {t('helm.actions.rollback')}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="!max-w-md sm:!max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t('helm.messages.rollbackConfirmTitle')}</DialogTitle>
+          <DialogDescription>
+            {t('helm.messages.rollbackConfirmDescription', {
+              namespace,
+              name,
+              revision: item.revision,
+            })}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={disabled}
+          >
+            {t('common.actions.cancel')}
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => void handleConfirm()}
+            disabled={disabled}
+          >
+            {t('helm.actions.rollback')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function HelmReleaseHistoryTable({
   namespace,
   name,
@@ -378,18 +506,30 @@ function HelmReleaseHistoryTable({
                 const item = value as HelmReleaseHistoryItem
                 const isCurrent = item.revision === currentRevision
                 return (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isCurrent || rollingBackRevision !== null}
-                    onClick={() => void handleRollback(item.revision)}
-                  >
-                    {isCurrent
-                      ? t('common.fields.current')
-                      : t('helm.actions.rollback')}
-                  </Button>
+                  <div className="ml-auto grid w-max grid-cols-[6rem_6rem] gap-2">
+                    <HelmReleaseHistoryValuesDialog item={item} />
+                    {isCurrent ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-24"
+                        disabled
+                      >
+                        {t('common.fields.current')}
+                      </Button>
+                    ) : (
+                      <HelmReleaseRollbackButton
+                        item={item}
+                        namespace={namespace}
+                        name={name}
+                        disabled={rollingBackRevision !== null}
+                        onRollback={handleRollback}
+                      />
+                    )}
+                  </div>
                 )
               },
+              align: 'right',
             },
           ]}
           pagination={{ enabled: true, pageSize: 10 }}
@@ -462,6 +602,7 @@ function HelmReleaseOverview({
 function HelmReleaseSummaryGrid({ release }: { release: HelmRelease }) {
   const { t } = useTranslation()
   const chartName = release.spec?.chartName || release.spec?.chart || '-'
+  const chartVersion = release.spec?.chartVersion || '-'
   const status = release.status?.status || '-'
 
   return (
@@ -481,7 +622,12 @@ function HelmReleaseSummaryGrid({ release }: { release: HelmRelease }) {
       <WorkloadSummaryCard
         label={t('helm.fields.chart')}
         value={chartName}
-        detail={release.spec?.chartVersion || '-'}
+        detail={
+          <HelmReleaseChartVersionDetail
+            chartName={release.spec?.chartName || ''}
+            currentVersion={chartVersion}
+          />
+        }
       />
       <WorkloadSummaryCard
         label={t('helm.fields.appVersion')}
@@ -523,6 +669,78 @@ function HelmReleaseSummaryGrid({ release }: { release: HelmRelease }) {
       />
     </div>
   )
+}
+
+function HelmReleaseChartVersionDetail({
+  chartName,
+  currentVersion,
+}: {
+  chartName: string
+  currentVersion: string
+}) {
+  const { t } = useTranslation()
+  const canCheck = Boolean(
+    chartName && currentVersion && currentVersion !== '-'
+  )
+  const chartsQuery = useHelmCharts({
+    query: chartName,
+    enabled: canCheck,
+  })
+  const managedChartCandidates = useMemo(
+    () =>
+      (chartsQuery.data?.items || []).filter(
+        (chart) => chart.name === chartName
+      ),
+    [chartName, chartsQuery.data?.items]
+  )
+  const shouldSearchArtifactHub =
+    canCheck && !chartsQuery.isLoading && managedChartCandidates.length === 0
+  const artifactHubQuery = useArtifactHubCharts({
+    query: chartName,
+    verifiedPublisher: false,
+    limit: 20,
+    enabled: shouldSearchArtifactHub,
+  })
+  const artifactHubCandidates = useMemo(
+    () =>
+      (artifactHubQuery.data?.items || []).filter(
+        (chart) => chart.name === chartName
+      ),
+    [artifactHubQuery.data?.items, chartName]
+  )
+  const candidates =
+    managedChartCandidates.length > 0
+      ? managedChartCandidates
+      : artifactHubCandidates
+  const latestVersion = candidates.length === 1 ? candidates[0].version : ''
+  const hasNewVersion =
+    latestVersion &&
+    latestVersion !== currentVersion &&
+    !isVersionAtLeast(currentVersion, latestVersion)
+
+  return (
+    <span className="inline-flex min-w-0 items-center gap-2">
+      <span className="truncate tabular-nums">{currentVersion}</span>
+      {hasNewVersion ? (
+        <Badge
+          variant="outline"
+          className="shrink-0 border-amber-500/30 bg-amber-500/10 font-normal text-amber-700 dark:text-amber-300"
+        >
+          {t('helm.messages.newVersionAvailable', {
+            version: latestVersion,
+          })}
+        </Badge>
+      ) : null}
+    </span>
+  )
+}
+
+function normalizeHelmVersion(version?: string) {
+  return version?.trim().replace(/^v/i, '') || ''
+}
+
+function isSameHelmVersion(left?: string, right?: string) {
+  return normalizeHelmVersion(left) === normalizeHelmVersion(right)
 }
 
 function helmStatusToPodStatus(status: string) {
@@ -569,10 +787,571 @@ function HelmReleaseTextCard({
   )
 }
 
+function UpgradeHelmReleaseDialog({
+  release,
+  open,
+  onOpenChange,
+  onComplete,
+}: {
+  release: HelmRelease
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onComplete: () => Promise<unknown>
+}) {
+  const { t } = useTranslation()
+  const chartName = release.spec?.chartName || release.spec?.chart || ''
+  const currentVersion = release.spec?.chartVersion || ''
+  const [selectedRepository, setSelectedRepository] = useState('')
+  const [selectedVersion, setSelectedVersion] = useState('')
+  const [valuesYaml, setValuesYaml] = useState(() =>
+    yaml.dump(release.spec?.values || {}, { indent: 2 })
+  )
+  const [forceConflicts, setForceConflicts] = useState(false)
+  const [wait, setWait] = useState(false)
+  const [rollbackOnFailure, setRollbackOnFailure] = useState(false)
+  const releaseDefaultValues = useMemo(
+    () => yaml.dump(release.spec?.defaultValues || {}, { indent: 2 }),
+    [release.spec?.defaultValues]
+  )
+  const [error, setError] = useState('')
+  const [isUpgrading, setIsUpgrading] = useState(false)
+  const chartsQuery = useHelmCharts({
+    query: chartName,
+    enabled: open && !!chartName,
+  })
+  const managedChartCandidates = useMemo(
+    () =>
+      (chartsQuery.data?.items || []).filter(
+        (chart) => chart.name === chartName
+      ),
+    [chartName, chartsQuery.data?.items]
+  )
+  const shouldSearchArtifactHub =
+    open &&
+    !!chartName &&
+    !chartsQuery.isLoading &&
+    managedChartCandidates.length === 0
+  const verifiedArtifactHubQuery = useArtifactHubCharts({
+    query: chartName,
+    verifiedPublisher: true,
+    limit: 20,
+    enabled: shouldSearchArtifactHub,
+  })
+  const verifiedArtifactHubCandidates = useMemo(
+    () =>
+      (verifiedArtifactHubQuery.data?.items || []).filter(
+        (chart) => chart.name === chartName
+      ),
+    [chartName, verifiedArtifactHubQuery.data?.items]
+  )
+  const artifactHubQuery = useArtifactHubCharts({
+    query: chartName,
+    verifiedPublisher: false,
+    limit: 20,
+    enabled: shouldSearchArtifactHub,
+  })
+  const artifactHubCandidates = useMemo(
+    () =>
+      (artifactHubQuery.data?.items || []).filter(
+        (chart) => chart.name === chartName
+      ),
+    [artifactHubQuery.data?.items, chartName]
+  )
+  const chartCandidates =
+    managedChartCandidates.length > 0
+      ? managedChartCandidates
+      : artifactHubCandidates
+  const chartKey = (chart: HelmChart) =>
+    `${chart.source || 'repository'}:${chart.repositoryName}`
+  const isVerifiedArtifactHubChart = (chart: HelmChart) =>
+    chart.source === 'artifacthub' &&
+    verifiedArtifactHubCandidates.some(
+      (candidate) => chartKey(candidate) === chartKey(chart)
+    )
+  const chartOptionSourceLabel = (chart: HelmChart) => {
+    if (chart.source !== 'artifacthub') {
+      return t('helmCharts.filters.repositories')
+    }
+    if (isVerifiedArtifactHubChart(chart)) {
+      return t('helm.messages.chartSourceArtifactHubVerifiedShort', {
+        defaultValue: 'Artifact Hub (verified)',
+      })
+    }
+    return t('helmCharts.filters.artifactHub')
+  }
+  const selectedChart = chartCandidates.find(
+    (chart) => chartKey(chart) === selectedRepository
+  )
+  const currentVersionChart = chartCandidates.find((chart) =>
+    isSameHelmVersion(chart.version, currentVersion)
+  )
+  const canAutoSelectChart =
+    managedChartCandidates.length > 0 ||
+    chartCandidates.length <= 1 ||
+    !!currentVersionChart
+  const activeChart =
+    selectedChart ||
+    currentVersionChart ||
+    (canAutoSelectChart ? chartCandidates[0] : undefined)
+  const activeChartSource = activeChart?.source || 'repository'
+  const activeRepository = activeChart?.repositoryName || ''
+  const latestChartQuery = useHelmChart(
+    activeRepository || undefined,
+    chartName,
+    undefined,
+    activeChartSource
+  )
+  const currentVersionOption = latestChartQuery.data?.versions?.find(
+    (version) => isSameHelmVersion(version.version, currentVersion)
+  )
+  const activeVersion =
+    selectedVersion ||
+    currentVersionChart?.version ||
+    currentVersionOption?.version ||
+    currentVersion ||
+    latestChartQuery.data?.version ||
+    activeChart?.version ||
+    ''
+  const canUseCurrentChart =
+    isSameHelmVersion(activeVersion, currentVersion) && !selectedChart
+  const selectedChartQuery = useHelmChart(
+    activeRepository || undefined,
+    chartName,
+    activeVersion || undefined,
+    activeChartSource,
+    !canUseCurrentChart
+  )
+  const defaultValuesQuery = useHelmChartContent(
+    activeRepository || undefined,
+    chartName,
+    'values',
+    activeVersion || undefined,
+    activeChartSource,
+    open && !!activeChart && !!activeVersion
+  )
+  const versionOptions = useMemo<HelmChartVersion[]>(() => {
+    if (latestChartQuery.data?.versions?.length) {
+      return latestChartQuery.data.versions
+    }
+    if (activeVersion) {
+      return [{ version: activeVersion }]
+    }
+    return []
+  }, [activeVersion, latestChartQuery.data?.versions])
+  const visibleVersionOptions = useMemo<HelmChartVersion[]>(() => {
+    if (
+      !activeVersion ||
+      versionOptions.some((version) =>
+        isSameHelmVersion(version.version, activeVersion)
+      )
+    ) {
+      return versionOptions
+    }
+    return [{ version: activeVersion }, ...versionOptions]
+  }, [activeVersion, versionOptions])
+  const chartLookupError =
+    chartsQuery.error ||
+    verifiedArtifactHubQuery.error ||
+    artifactHubQuery.error
+      ? translateError(
+          chartsQuery.error ||
+            verifiedArtifactHubQuery.error ||
+            artifactHubQuery.error,
+          t
+        )
+      : !chartsQuery.isLoading &&
+          !verifiedArtifactHubQuery.isLoading &&
+          !artifactHubQuery.isLoading &&
+          chartName &&
+          chartCandidates.length === 0
+        ? t('helm.messages.chartNotFound', {
+            defaultValue:
+              'Chart not found in managed Helm repositories or Artifact Hub.',
+          })
+        : ''
+  const chartUrl = canUseCurrentChart
+    ? undefined
+    : selectedChartQuery.data?.chartUrl
+  const isChartSourceLoading =
+    chartsQuery.isLoading ||
+    verifiedArtifactHubQuery.isLoading ||
+    artifactHubQuery.isLoading
+  const isVersionLoading = !!activeChart && latestChartQuery.isLoading
+  const isChartPackageLoading =
+    !!activeChart && !canUseCurrentChart && selectedChartQuery.isLoading
+  const isDefaultValuesLoading = defaultValuesQuery.isLoading
+  const readableError = error.replace(/\s&&\s/g, '\n')
+  const chartSourceLabel = activeChart
+    ? activeChartSource === 'artifacthub'
+      ? verifiedArtifactHubCandidates.some(
+          (chart) => chartKey(chart) === chartKey(activeChart)
+        )
+        ? t('helm.messages.chartSourceArtifactHubVerified', {
+            repository: activeRepository,
+            defaultValue:
+              'Using Artifact Hub chart from {{repository}} (verified publisher).',
+          })
+        : t('helm.messages.chartSourceArtifactHub', {
+            repository: activeRepository,
+            defaultValue: 'Using Artifact Hub chart from {{repository}}.',
+          })
+      : t('helm.messages.chartSourceManagedRepository', {
+          repository: activeRepository,
+          defaultValue: 'Using managed chart repository {{repository}}.',
+        })
+    : chartCandidates.length > 1
+      ? t('helm.messages.chartSourceSelectChart', {
+          defaultValue: 'Select a chart to use a different chart package.',
+        })
+      : t('helm.messages.chartSourceCurrentRelease', {
+          defaultValue: 'Using the chart stored in the current release.',
+        })
+  const defaultValues = isDefaultValuesLoading
+    ? t('helm.messages.loadingValues', {
+        defaultValue: 'Loading values...',
+      })
+    : defaultValuesQuery.data?.content || releaseDefaultValues
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setError('')
+
+    if (!chartUrl && !canUseCurrentChart) {
+      setError(t('helmCharts.messages.noChartUrl'))
+      return
+    }
+
+    let values: Record<string, unknown> = {}
+    if (valuesYaml.trim()) {
+      try {
+        const parsed = yaml.load(valuesYaml)
+        if (parsed && (typeof parsed !== 'object' || Array.isArray(parsed))) {
+          setError(t('helmCharts.messages.invalidValues'))
+          return
+        }
+        values = (parsed || {}) as Record<string, unknown>
+      } catch (err) {
+        setError(translateError(err, t))
+        return
+      }
+    }
+
+    setIsUpgrading(true)
+    try {
+      await upgradeHelmRelease(
+        release.metadata.namespace,
+        release.metadata.name,
+        {
+          ...(chartUrl
+            ? {
+                chartUrl,
+                repositoryName: activeChart?.repositoryName,
+                source: activeChart?.source,
+              }
+            : {}),
+          values,
+          forceConflicts,
+          wait,
+          rollbackOnFailure,
+        }
+      )
+      onOpenChange(false)
+      await onComplete()
+    } catch (err) {
+      const message = translateError(err, t)
+      setError(message)
+    } finally {
+      setIsUpgrading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex h-[calc(100dvh-4rem)] max-h-[calc(100dvh-4rem)] w-[calc(100vw-4rem)] !max-w-[calc(100vw-4rem)] flex-col overflow-hidden">
+        <form
+          onSubmit={handleSubmit}
+          className="flex h-full min-h-0 flex-col gap-4"
+        >
+          <DialogHeader>
+            <DialogTitle>{t('helm.actions.upgrade')}</DialogTitle>
+            <DialogDescription>
+              {release.metadata.namespace}/{release.metadata.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          {error ? (
+            <div
+              role="alert"
+              className="max-h-40 overflow-y-auto rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm leading-5"
+            >
+              <div className="mb-1 font-medium text-destructive">
+                {t('common.fields.errorDetails')}
+              </div>
+              <pre className="m-0 whitespace-pre-wrap break-words font-mono text-xs leading-5 text-foreground">
+                {readableError}
+              </pre>
+            </div>
+          ) : null}
+
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_14rem]">
+              <div className="grid gap-2 md:max-w-xl">
+                <Label>{t('helm.fields.chart')}</Label>
+                {isChartSourceLoading && chartCandidates.length === 0 ? (
+                  <div className="flex h-9 min-w-0 items-center gap-2 rounded-md border bg-muted/30 px-3 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" />
+                    <span className="truncate">
+                      {t('helm.messages.loadingChart', {
+                        defaultValue: 'Loading chart...',
+                      })}
+                    </span>
+                  </div>
+                ) : chartCandidates.length > 1 ? (
+                  <Select
+                    value={activeChart ? chartKey(activeChart) : ''}
+                    onValueChange={(value) => {
+                      setSelectedRepository(value)
+                      setSelectedVersion('')
+                    }}
+                    disabled={isUpgrading}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue
+                        placeholder={t('helm.placeholders.selectChart', {
+                          defaultValue: 'Select a chart...',
+                        })}
+                      />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-80">
+                      {chartCandidates.map((chart: HelmChart) => (
+                        <SelectItem
+                          key={chartKey(chart)}
+                          value={chartKey(chart)}
+                        >
+                          <span className="flex min-w-0 flex-1 items-center gap-2">
+                            <span className="truncate">
+                              {chart.repositoryName}/{chart.name}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className="ml-auto px-1.5 py-0 text-[10px] font-normal text-muted-foreground"
+                            >
+                              {chartOptionSourceLabel(chart)}
+                            </Badge>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="flex h-9 min-w-0 items-center rounded-md border bg-muted/30 px-3 text-sm">
+                    <span className="truncate">
+                      {activeChart
+                        ? `${activeChart.repositoryName}/${activeChart.name}`
+                        : chartName || '-'}
+                    </span>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {isChartSourceLoading ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Loader2 className="size-3 animate-spin" />
+                      {t('helm.messages.loadingChart', {
+                        defaultValue: 'Loading chart...',
+                      })}
+                    </span>
+                  ) : (
+                    chartSourceLabel
+                  )}
+                </p>
+              </div>
+
+              <div className="grid gap-2">
+                <Label>{t('helm.fields.version')}</Label>
+                {visibleVersionOptions.length > 0 ? (
+                  <Select
+                    value={activeVersion}
+                    onValueChange={setSelectedVersion}
+                    disabled={isUpgrading}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent viewportClassName="h-auto max-h-72 overflow-y-auto">
+                      {visibleVersionOptions.map((version) => (
+                        <SelectItem
+                          key={version.version}
+                          value={version.version}
+                        >
+                          <span className="tabular-nums">
+                            {version.version}
+                          </span>
+                          {isSameHelmVersion(
+                            version.version,
+                            currentVersion
+                          ) ? (
+                            <span className="text-xs text-muted-foreground">
+                              {t('common.fields.current')}
+                            </span>
+                          ) : null}
+                          {version.appVersion ? (
+                            <span className="text-xs text-muted-foreground">
+                              {version.appVersion}
+                            </span>
+                          ) : null}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="flex h-9 items-center rounded-md border bg-muted/30 px-3 text-sm text-muted-foreground">
+                    {isVersionLoading ? (
+                      <>
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                        {t('helm.messages.loadingVersions', {
+                          defaultValue: 'Loading versions...',
+                        })}
+                      </>
+                    ) : (
+                      '-'
+                    )}
+                  </div>
+                )}
+                {isVersionLoading ? (
+                  <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <Loader2 className="size-3 animate-spin" />
+                    {t('helm.messages.loadingVersions', {
+                      defaultValue: 'Loading versions...',
+                    })}
+                  </p>
+                ) : null}
+                {isChartPackageLoading ? (
+                  <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <Loader2 className="size-3 animate-spin" />
+                    {t('helm.messages.loadingChartPackage', {
+                      defaultValue: 'Loading chart package...',
+                    })}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="grid min-h-0 gap-4 lg:grid-cols-2">
+              <div className="grid min-h-0 gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label>{t('helmCharts.fields.defaultValues')}</Label>
+                  {isDefaultValuesLoading ? (
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      <Loader2 className="size-3 animate-spin" />
+                      {t('helm.messages.loadingValues', {
+                        defaultValue: 'Loading values...',
+                      })}
+                    </span>
+                  ) : null}
+                </div>
+                <SimpleYamlEditor
+                  value={defaultValues}
+                  onChange={() => undefined}
+                  disabled
+                  height="calc(100dvh - 20rem)"
+                />
+              </div>
+
+              <div className="grid min-h-0 gap-2">
+                <Label>{t('helmCharts.fields.customValues')}</Label>
+                <SimpleYamlEditor
+                  value={valuesYaml}
+                  onChange={(value) => setValuesYaml(value || '')}
+                  disabled={isUpgrading}
+                  height="calc(100dvh - 20rem)"
+                />
+              </div>
+            </div>
+
+            {chartLookupError ? (
+              <p className="text-sm text-muted-foreground">
+                {chartLookupError}
+              </p>
+            ) : null}
+            {defaultValuesQuery.error ? (
+              <p className="text-sm text-destructive">
+                {translateError(defaultValuesQuery.error, t)}
+              </p>
+            ) : null}
+          </div>
+
+          <DialogFooter className="items-center gap-3">
+            <div className="flex flex-wrap items-center justify-end gap-3 text-sm">
+              <Label
+                htmlFor="helm-upgrade-force-conflicts"
+                className="flex items-center gap-2 font-normal text-muted-foreground"
+              >
+                <Checkbox
+                  id="helm-upgrade-force-conflicts"
+                  checked={forceConflicts}
+                  onCheckedChange={(value) => setForceConflicts(value === true)}
+                  disabled={isUpgrading}
+                />
+                {t('helm.fields.forceConflicts')}
+              </Label>
+              <Label
+                htmlFor="helm-upgrade-wait"
+                className="flex items-center gap-2 font-normal text-muted-foreground"
+              >
+                <Checkbox
+                  id="helm-upgrade-wait"
+                  checked={wait}
+                  onCheckedChange={(value) => setWait(value === true)}
+                  disabled={isUpgrading}
+                />
+                {t('helm.fields.wait')}
+              </Label>
+              <Label
+                htmlFor="helm-upgrade-rollback-on-failure"
+                className="flex items-center gap-2 font-normal text-muted-foreground"
+              >
+                <Checkbox
+                  id="helm-upgrade-rollback-on-failure"
+                  checked={rollbackOnFailure}
+                  onCheckedChange={(value) =>
+                    setRollbackOnFailure(value === true)
+                  }
+                  disabled={isUpgrading}
+                />
+                {t('helm.fields.rollbackOnFailure')}
+              </Label>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isUpgrading}
+            >
+              {t('common.actions.cancel')}
+            </Button>
+            <Button
+              type="submit"
+              disabled={
+                isUpgrading ||
+                !activeVersion ||
+                isChartPackageLoading ||
+                (!chartUrl && !canUseCurrentChart)
+              }
+            >
+              {isUpgrading ? <Loader2 className="size-4 animate-spin" /> : null}
+              {t('helm.actions.upgrade')}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export function HelmReleaseDetail(props: { namespace: string; name: string }) {
   const { namespace, name } = props
   const { t } = useTranslation()
-  const [isActionLoading, setIsActionLoading] = useState(false)
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false)
   const { data, isLoading, error, refetch } = useResource(
     'helmrelease',
     name,
@@ -618,19 +1397,6 @@ export function HelmReleaseDetail(props: { namespace: string; name: string }) {
     }
     return items
   }, [releasePods])
-
-  const handleUpgrade = async () => {
-    setIsActionLoading(true)
-    try {
-      await upgradeHelmRelease(namespace, name)
-      toast.success(t('helm.messages.upgradeStarted'))
-      await refetch()
-    } catch (err) {
-      toast.error(translateError(err, t))
-    } finally {
-      setIsActionLoading(false)
-    }
-  }
 
   const tabs = useMemo<ResourceDetailShellTab<HelmRelease>[]>(
     () => [
@@ -710,6 +1476,15 @@ export function HelmReleaseDetail(props: { namespace: string; name: string }) {
       isLoading={isLoading}
       error={error}
       onRefresh={refetch}
+      titleIcon={
+        data ? (
+          <HelmChartIcon
+            icon={data.spec?.icon}
+            name={data.spec?.chartName || name}
+            className="size-11"
+          />
+        ) : null
+      }
       overview={
         data ? (
           <HelmReleaseOverview
@@ -723,14 +1498,24 @@ export function HelmReleaseDetail(props: { namespace: string; name: string }) {
       showDescribe={false}
       showDelete
       headerActions={
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={isActionLoading}
-          onClick={handleUpgrade}
-        >
-          {t('helm.actions.upgrade')}
-        </Button>
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!data}
+            onClick={() => setUpgradeDialogOpen(true)}
+          >
+            {t('helm.actions.upgrade')}
+          </Button>
+          {data && upgradeDialogOpen ? (
+            <UpgradeHelmReleaseDialog
+              release={data}
+              open={upgradeDialogOpen}
+              onOpenChange={setUpgradeDialogOpen}
+              onComplete={refetch}
+            />
+          ) : null}
+        </>
       }
     />
   )

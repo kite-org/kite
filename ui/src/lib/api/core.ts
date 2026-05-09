@@ -3,9 +3,14 @@ import { useQuery } from '@tanstack/react-query'
 import { Pod } from 'kubernetes-types/core/v1'
 
 import {
+  HelmChartContent,
+  HelmChartContentType,
   HelmChartDetail,
   HelmChartList,
+  HelmRelease,
   HelmReleaseHistoryResponse,
+  HelmReleaseInstallRequest,
+  HelmReleaseUpgradeRequest,
   HelmRepository,
   ImageTagInfo,
   RelatedResources,
@@ -120,7 +125,7 @@ export const scaleDeployment = async (
 export const upgradeHelmRelease = async (
   namespace: string,
   name: string,
-  body?: Record<string, unknown>
+  body?: HelmReleaseUpgradeRequest
 ): Promise<{ message?: string }> => {
   return apiClient.post<{ message?: string }>(
     `/helmrelease/${namespace}/${name}/upgrade`,
@@ -136,6 +141,16 @@ export const rollbackHelmRelease = async (
   return apiClient.post<{ message?: string }>(
     `/helmrelease/${namespace}/${name}/rollback`,
     revision ? { revision } : {}
+  )
+}
+
+export const installHelmRelease = async (
+  namespace: string,
+  body: HelmReleaseInstallRequest
+): Promise<HelmRelease> => {
+  return apiClient.post<HelmRelease>(
+    `/helmrelease/${encodeURIComponent(namespace)}`,
+    body
   )
 }
 
@@ -172,6 +187,12 @@ export const createHelmRepository = (
   }
 ): Promise<HelmRepository> => {
   return apiClient.post<HelmRepository>('/charts/repositories', body)
+}
+
+export const deleteHelmRepository = (
+  id: number
+): Promise<{ message: string }> => {
+  return apiClient.delete<{ message: string }>(`/charts/repositories/${id}`)
 }
 
 export const fetchHelmCharts = (options?: {
@@ -233,6 +254,26 @@ export const fetchHelmChart = (
   return fetchAPI<HelmChartDetail>(`${endpoint}${query ? `?${query}` : ''}`)
 }
 
+export const fetchHelmChartContent = (
+  repository: string,
+  name: string,
+  content: HelmChartContentType,
+  version?: string,
+  source?: 'repository' | 'artifacthub'
+): Promise<HelmChartContent> => {
+  const params = new URLSearchParams()
+  if (version) {
+    params.append('version', version)
+  }
+  const query = params.toString()
+  const endpoint =
+    source === 'artifacthub'
+      ? `/charts/artifacthub/${encodeURIComponent(repository)}/${encodeURIComponent(name)}/content/${content}`
+      : `/charts/${encodeURIComponent(repository)}/${encodeURIComponent(name)}/content/${content}`
+
+  return fetchAPI<HelmChartContent>(`${endpoint}${query ? `?${query}` : ''}`)
+}
+
 export const useHelmRepositories = () => {
   return useQuery({
     queryKey: ['helmcharts', 'repositories'],
@@ -282,7 +323,8 @@ export const useHelmChart = (
   repository: string | undefined,
   name: string | undefined,
   version?: string,
-  source?: 'repository' | 'artifacthub'
+  source?: 'repository' | 'artifacthub',
+  enabled = true
 ) => {
   return useQuery({
     queryKey: [
@@ -295,7 +337,37 @@ export const useHelmChart = (
     ],
     queryFn: () =>
       fetchHelmChart(repository || '', name || '', version, source),
-    enabled: Boolean(repository && name),
+    enabled: Boolean(enabled && repository && name),
+  })
+}
+
+export const useHelmChartContent = (
+  repository: string | undefined,
+  name: string | undefined,
+  content: HelmChartContentType,
+  version?: string,
+  source?: 'repository' | 'artifacthub',
+  enabled = true
+) => {
+  return useQuery({
+    queryKey: [
+      'helmcharts',
+      'chart-content',
+      source || 'repository',
+      repository,
+      name,
+      version || '',
+      content,
+    ],
+    queryFn: () =>
+      fetchHelmChartContent(
+        repository || '',
+        name || '',
+        content,
+        version,
+        source
+      ),
+    enabled: Boolean(enabled && repository && name),
   })
 }
 

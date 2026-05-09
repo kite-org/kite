@@ -1,21 +1,44 @@
-import { useMemo, useState, type ReactNode } from 'react'
-import { IconRefresh } from '@tabler/icons-react'
-import { Package } from 'lucide-react'
+import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import * as yaml from 'js-yaml'
+import { Download, ExternalLink, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown from 'react-markdown'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import remarkGfm from 'remark-gfm'
+import { toast } from 'sonner'
 
-import type { HelmChartDetail, HelmChartVersion } from '@/types/api'
-import { useHelmChart } from '@/lib/api'
-import { cn, formatDate } from '@/lib/utils'
+import type {
+  HelmChartContentType,
+  HelmChartDetail,
+  HelmChartVersion,
+} from '@/types/api'
+import {
+  installHelmRelease,
+  useHelmChart,
+  useHelmChartContent,
+} from '@/lib/api'
+import { cn, formatDate, translateError } from '@/lib/utils'
 import { usePageTitle } from '@/hooks/use-page-title'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { ResponsiveTabs } from '@/components/ui/responsive-tabs'
 import { ErrorMessage } from '@/components/error-message'
+import { HelmChartIcon } from '@/components/helm-chart-icon'
+import { NamespaceSelector } from '@/components/selector/namespace-selector'
 import { SimpleTable } from '@/components/simple-table'
+import { SimpleYamlEditor } from '@/components/simple-yaml-editor'
 import { TextViewer } from '@/components/text-viewer'
 
 const artifactHubSource = 'artifacthub'
@@ -29,45 +52,6 @@ function chartDetailPath(chart: HelmChartDetail, version: string) {
     params.set('source', artifactHubSource)
   }
   return `/charts/${encodeURIComponent(chart.repositoryName)}/${encodeURIComponent(chart.name)}?${params.toString()}`
-}
-
-function ChartIcon({
-  icon,
-  name,
-  className,
-}: {
-  icon?: string
-  name: string
-  className?: string
-}) {
-  const [failed, setFailed] = useState(false)
-
-  if (icon && !failed) {
-    return (
-      <img
-        src={icon}
-        alt=""
-        className={cn(
-          'size-9 rounded-md border bg-background object-contain',
-          className
-        )}
-        onError={() => setFailed(true)}
-      />
-    )
-  }
-
-  return (
-    <div
-      className={cn(
-        'flex size-9 items-center justify-center rounded-md border bg-muted text-muted-foreground',
-        className
-      )}
-      aria-hidden="true"
-    >
-      <Package className="size-4" />
-      <span className="sr-only">{name}</span>
-    </div>
-  )
 }
 
 function MarkdownCard({
@@ -87,7 +71,27 @@ function MarkdownCard({
       <CardContent className="px-3 pb-3 pt-0">
         {content ? (
           <div className="ai-markdown max-w-none overflow-x-auto text-pretty text-sm text-foreground/80 [font-family:var(--font-sans)]">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                a: ({ href, children, ...props }) => {
+                  const isExternal =
+                    typeof href === 'string' && /^https?:\/\//.test(href)
+                  return (
+                    <a
+                      {...props}
+                      href={href}
+                      target={isExternal ? '_blank' : undefined}
+                      rel={isExternal ? 'noopener noreferrer' : undefined}
+                    >
+                      {children}
+                    </a>
+                  )
+                },
+              }}
+            >
+              {content}
+            </ReactMarkdown>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">{emptyMessage}</p>
@@ -124,6 +128,25 @@ function ChartDetailsCard({ chart }: { chart: HelmChartDetail }) {
       </CardHeader>
       <CardContent className="px-3 pb-3 pt-0 text-sm">
         <dl className="space-y-3">
+          <DetailItem label={t('common.fields.source')}>
+            {chart.source === artifactHubSource ? (
+              chart.artifactHubUrl ? (
+                <a
+                  href={chart.artifactHubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 app-link"
+                >
+                  Artifact Hub
+                  <ExternalLink className="size-3" />
+                </a>
+              ) : (
+                'Artifact Hub'
+              )
+            ) : (
+              t('helmCharts.filters.repositories')
+            )}
+          </DetailItem>
           <DetailItem label={t('helmCharts.fields.repository')}>
             {chart.repositoryName}
           </DetailItem>
@@ -133,6 +156,9 @@ function ChartDetailsCard({ chart }: { chart: HelmChartDetail }) {
           </DetailItem>
           <DetailItem label={t('helm.fields.appVersion')}>
             <span className="tabular-nums">{chart.appVersion || '-'}</span>
+          </DetailItem>
+          <DetailItem label={t('helm.fields.kubeVersion')}>
+            <span className="tabular-nums">{chart.kubeVersion || '-'}</span>
           </DetailItem>
           <DetailItem label={t('common.fields.updated')}>
             <span className="tabular-nums">
@@ -147,9 +173,6 @@ function ChartDetailsCard({ chart }: { chart: HelmChartDetail }) {
             ) : (
               <Badge variant="outline">{t('common.fields.available')}</Badge>
             )}
-          </DetailItem>
-          <DetailItem label={t('common.fields.description')}>
-            {chart.description || '-'}
           </DetailItem>
           {chart.home ? (
             <DetailItem label="Home">
@@ -240,6 +263,64 @@ function ChartTextTab({
   return <TextViewer value={value} title={title} />
 }
 
+function LazyChartTextTab({
+  title,
+  repository,
+  name,
+  version,
+  source,
+  content,
+  enabled,
+  emptyMessage,
+}: {
+  title: string
+  repository?: string
+  name?: string
+  version?: string
+  source?: 'repository' | 'artifacthub'
+  content: HelmChartContentType
+  enabled: boolean
+  emptyMessage: string
+}) {
+  const { t } = useTranslation()
+  const { data, isLoading, error, refetch } = useHelmChartContent(
+    repository,
+    name,
+    content,
+    version,
+    source,
+    enabled
+  )
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="pt-6 text-sm text-muted-foreground">
+          {t('common.messages.loading')}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <ErrorMessage
+        resourceName={title}
+        error={error}
+        refetch={() => void refetch()}
+      />
+    )
+  }
+
+  return (
+    <ChartTextTab
+      title={title}
+      value={data?.content}
+      emptyMessage={emptyMessage}
+    />
+  )
+}
+
 function HelmChartVersionsTable({ chart }: { chart: HelmChartDetail }) {
   const { t } = useTranslation()
 
@@ -260,15 +341,15 @@ function HelmChartVersionsTable({ chart }: { chart: HelmChartDetail }) {
                 const item = value as HelmChartVersion
                 const isCurrent = item.version === chart.version
                 return (
-                  <Button
-                    asChild
-                    variant={isCurrent ? 'default' : 'outline'}
-                    size="sm"
+                  <Link
+                    to={chartDetailPath(chart, item.version)}
+                    className={cn(
+                      'app-link tabular-nums',
+                      isCurrent && 'font-semibold'
+                    )}
                   >
-                    <Link to={chartDetailPath(chart, item.version)}>
-                      {item.version}
-                    </Link>
-                  </Button>
+                    {item.version}
+                  </Link>
                 )
               },
             },
@@ -287,10 +368,253 @@ function HelmChartVersionsTable({ chart }: { chart: HelmChartDetail }) {
               ),
             },
           ]}
-          pagination={{ enabled: true, pageSize: 10 }}
+          pagination={{ enabled: true, pageSize: 15 }}
         />
       </CardContent>
     </Card>
+  )
+}
+
+function defaultReleaseName(name: string) {
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, '-')
+      .replace(/^-+|-+$/g, '') || name
+  )
+}
+
+function InstallHelmChartDialog({
+  chart,
+  open,
+  onOpenChange,
+}: {
+  chart: HelmChartDetail
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const [releaseName, setReleaseName] = useState(() =>
+    defaultReleaseName(chart.name)
+  )
+  const [namespace, setNamespace] = useState('default')
+  const [isNamespaceManual, setIsNamespaceManual] = useState(false)
+  const [createNamespace, setCreateNamespace] = useState(true)
+  const [valuesYaml, setValuesYaml] = useState('')
+  const [error, setError] = useState('')
+  const [isInstalling, setIsInstalling] = useState(false)
+  const defaultValuesQuery = useHelmChartContent(
+    chart.repositoryName,
+    chart.name,
+    'values',
+    chart.version,
+    chart.source,
+    open
+  )
+  const defaultValues = defaultValuesQuery.isLoading
+    ? t('common.messages.loading')
+    : defaultValuesQuery.data?.content || ''
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setError('')
+
+    if (!chart.chartUrl) {
+      setError(
+        t('helmCharts.messages.noChartUrl', {
+          defaultValue: 'Chart package URL is missing.',
+        })
+      )
+      return
+    }
+
+    let values: Record<string, unknown> = {}
+    if (valuesYaml.trim()) {
+      try {
+        const parsed = yaml.load(valuesYaml)
+        if (parsed && (typeof parsed !== 'object' || Array.isArray(parsed))) {
+          setError(
+            t('helmCharts.messages.invalidValues', {
+              defaultValue: 'Values must be a YAML object.',
+            })
+          )
+          return
+        }
+        values = (parsed || {}) as Record<string, unknown>
+      } catch (err) {
+        setError(translateError(err, t))
+        return
+      }
+    }
+
+    const targetNamespace = namespace.trim()
+    setIsInstalling(true)
+    try {
+      const release = await installHelmRelease(targetNamespace, {
+        releaseName: releaseName.trim(),
+        namespace: targetNamespace,
+        chartUrl: chart.chartUrl,
+        repositoryName: chart.repositoryName,
+        source: chart.source,
+        createNamespace: isNamespaceManual && createNamespace,
+        values,
+      })
+      const installedNamespace = release.metadata?.namespace || targetNamespace
+      const targetName = release.metadata?.name || releaseName.trim()
+      toast.success(
+        t('helmCharts.messages.installed', {
+          defaultValue: 'Helm release installed',
+        })
+      )
+      onOpenChange(false)
+      navigate(
+        `/helmrelease/${encodeURIComponent(installedNamespace)}/${encodeURIComponent(targetName)}`
+      )
+    } catch (err) {
+      setError(translateError(err, t))
+    } finally {
+      setIsInstalling(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex h-[calc(100dvh-4rem)] max-h-[calc(100dvh-4rem)] w-[calc(100vw-4rem)] !max-w-[calc(100vw-4rem)] flex-col overflow-hidden">
+        <form
+          onSubmit={handleSubmit}
+          className="flex h-full min-h-0 flex-col gap-4"
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {t('helmCharts.actions.install', { defaultValue: 'Install' })}
+            </DialogTitle>
+            <DialogDescription>
+              {chart.repositoryName}/{chart.name}:{chart.version}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="helm-release-name">
+                  {t('helm.fields.releaseName')}
+                </Label>
+                <Input
+                  id="helm-release-name"
+                  value={releaseName}
+                  onChange={(event) => setReleaseName(event.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="helm-release-namespace">
+                  {t('common.fields.namespace', { defaultValue: 'Namespace' })}
+                </Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <NamespaceSelector
+                    selectedNamespace={namespace}
+                    handleNamespaceChange={(value) => {
+                      setNamespace(value)
+                      setIsNamespaceManual(false)
+                    }}
+                    disabled={isInstalling}
+                    triggerClassName="w-44 sm:w-44 sm:min-w-0"
+                  />
+                  <Input
+                    id="helm-release-namespace"
+                    value={namespace}
+                    onChange={(event) => {
+                      setNamespace(event.target.value)
+                      setIsNamespaceManual(true)
+                      setCreateNamespace(true)
+                    }}
+                    disabled={isInstalling}
+                    required
+                    className="w-48"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid min-h-0 gap-4 lg:grid-cols-2">
+              <div className="grid min-h-0 gap-2">
+                <Label>{t('helmCharts.fields.defaultValues')}</Label>
+                <SimpleYamlEditor
+                  value={defaultValues}
+                  onChange={() => undefined}
+                  disabled
+                  height="calc(100dvh - 20rem)"
+                />
+              </div>
+
+              <div className="grid min-h-0 gap-2">
+                <Label>{t('helmCharts.fields.customValues')}</Label>
+                <SimpleYamlEditor
+                  value={valuesYaml}
+                  onChange={(value) => setValuesYaml(value || '')}
+                  disabled={isInstalling}
+                  height="calc(100dvh - 20rem)"
+                />
+              </div>
+            </div>
+
+            {defaultValuesQuery.error ? (
+              <p className="text-sm text-destructive">
+                {translateError(defaultValuesQuery.error, t)}
+              </p>
+            ) : null}
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          </div>
+
+          <DialogFooter className="items-center gap-3 sm:justify-end">
+            {isNamespaceManual ? (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="helm-create-namespace"
+                  checked={createNamespace}
+                  onCheckedChange={(value) =>
+                    setCreateNamespace(value === true)
+                  }
+                  disabled={isInstalling}
+                />
+                <Label
+                  htmlFor="helm-create-namespace"
+                  className="text-sm font-normal"
+                >
+                  {t('helm.fields.createNamespace')}
+                </Label>
+              </div>
+            ) : null}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isInstalling}
+              >
+                {t('common.actions.cancel')}
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  !releaseName.trim() ||
+                  !namespace.trim() ||
+                  !chart.chartUrl ||
+                  isInstalling
+                }
+              >
+                {isInstalling ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : null}
+                {t('helmCharts.actions.install', { defaultValue: 'Install' })}
+              </Button>
+            </div>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -298,13 +622,19 @@ export function HelmChartDetailPage() {
   const { repository, name } = useParams()
   const [searchParams] = useSearchParams()
   const { t } = useTranslation()
+  const [installDialogOpen, setInstallDialogOpen] = useState(false)
   const version = searchParams.get('version') || undefined
   const source =
     searchParams.get('source') === artifactHubSource
       ? artifactHubSource
       : undefined
   const isIframe = searchParams.get('iframe') === 'true'
-  const { data, isLoading, error, refetch, isFetching } = useHelmChart(
+  const tabParam = searchParams.get('tab')
+  const activeTab =
+    tabParam === 'values' || tabParam === 'template' || tabParam === 'versions'
+      ? tabParam
+      : 'overview'
+  const { data, isLoading, error, refetch } = useHelmChart(
     repository,
     name,
     version,
@@ -328,9 +658,14 @@ export function HelmChartDetailPage() {
               value: 'values',
               label: t('helm.tabs.values'),
               content: (
-                <ChartTextTab
+                <LazyChartTextTab
                   title={t('helm.tabs.values')}
-                  value={data.values}
+                  repository={repository}
+                  name={name}
+                  version={version}
+                  source={source}
+                  content="values"
+                  enabled={activeTab === 'values'}
                   emptyMessage={t('helmCharts.messages.noValues')}
                 />
               ),
@@ -339,9 +674,14 @@ export function HelmChartDetailPage() {
               value: 'template',
               label: t('common.fields.template'),
               content: (
-                <ChartTextTab
+                <LazyChartTextTab
                   title={t('common.fields.template')}
-                  value={data.templates}
+                  repository={repository}
+                  name={name}
+                  version={version}
+                  source={source}
+                  content="templates"
+                  enabled={activeTab === 'template'}
                   emptyMessage={t('helmCharts.messages.noTemplates')}
                 />
               ),
@@ -353,7 +693,7 @@ export function HelmChartDetailPage() {
             },
           ]
         : [],
-    [data, t]
+    [activeTab, data, name, repository, source, t, version]
   )
 
   if (isLoading) {
@@ -380,40 +720,79 @@ export function HelmChartDetailPage() {
 
   return (
     <div className={cn(isIframe && 'px-4 py-3 lg:px-6')}>
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          <ChartIcon icon={data.icon} name={data.name} className="size-11" />
-          <div className="min-w-0">
-            <h1 className="truncate text-lg font-extrabold">{data.name}</h1>
-            <p className="truncate text-sm text-muted-foreground">
-              repo: <span className="font-medium">{data.repositoryName}</span>,
-              chart: <span className="font-medium">{data.name}</span>
-            </p>
-          </div>
-        </div>
-        <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
-          <Button
-            disabled={isLoading || isFetching}
-            variant="outline"
-            size="sm"
-            onClick={() => void refetch()}
-          >
-            <IconRefresh className="size-4" />
-            {t('common.actions.refresh')}
-          </Button>
-        </div>
-      </div>
-
       <ResponsiveTabs
         className="gap-4"
+        stickyHeader={
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <HelmChartIcon
+                icon={data.icon}
+                name={data.name}
+                className="size-11"
+              />
+              <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-2">
+                  <h1 className="truncate text-lg font-extrabold">
+                    {data.name}
+                  </h1>
+                  {data.source === artifactHubSource ? (
+                    data.artifactHubUrl ? (
+                      <a
+                        href={data.artifactHubUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0"
+                      >
+                        <Badge
+                          variant="outline"
+                          className="gap-1 font-normal text-muted-foreground"
+                        >
+                          Artifact Hub
+                          <ExternalLink className="size-3" />
+                        </Badge>
+                      </a>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 font-normal text-muted-foreground"
+                      >
+                        Artifact Hub
+                      </Badge>
+                    )
+                  ) : null}
+                </div>
+                <p className="text-pretty break-words text-sm text-muted-foreground">
+                  {data.description || '-'}
+                </p>
+              </div>
+            </div>
+            <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
+              <Button
+                disabled={!data.chartUrl}
+                size="sm"
+                onClick={() => setInstallDialogOpen(true)}
+              >
+                <Download className="size-4" />
+                {t('helmCharts.actions.install', { defaultValue: 'Install' })}
+              </Button>
+            </div>
+          </div>
+        }
         stickyHeaderClassName={cn(
           'sticky z-40 bg-background px-4',
           isIframe
             ? 'top-0 -mx-4 lg:-mx-6 lg:px-6'
-            : 'top-(--header-height) -mx-4 lg:-mx-6 lg:px-6'
+            : 'top-(--header-height) -mx-4 -mt-4 pt-4 lg:-mx-6 lg:px-6'
         )}
         tabs={tabs}
       />
+      {installDialogOpen ? (
+        <InstallHelmChartDialog
+          chart={data}
+          open={installDialogOpen}
+          onOpenChange={setInstallDialogOpen}
+        />
+      ) : null}
     </div>
   )
 }

@@ -397,7 +397,7 @@
     "clusterrolebindings": "Cluster Role Bindings",
     "horizontalpodautoscalers": "HPA",
     "helmReleases": "Helm Release",
-    "helmCharts": "Charts"
+    "helmCharts": "App Catalog"
   },
   "overview": {
     "title": "Overview",
@@ -998,14 +998,18 @@
   },
   "helmCharts": {
     "actions": {
-      "addRepository": "Add Repository"
+      "addRepository": "Add Repository",
+      "deleteRepository": "Delete Repository",
+      "install": "Install"
     },
     "fields": {
       "repository": "Repository",
       "deprecated": "Deprecated",
       "sources": "Sources",
       "keywords": "Keywords",
-      "versions": "Versions"
+      "versions": "Versions",
+      "defaultValues": "Default values",
+      "customValues": "Custom values"
     },
     "filters": {
       "allRepositories": "All repositories",
@@ -1014,14 +1018,18 @@
       "verifiedPublisher": "Verified publisher"
     },
     "messages": {
-      "description": "Browse charts from managed Helm repositories.",
       "addRepositoryDescription": "Add a Helm repository to make its charts available.",
       "repositoryAdded": "Repository added",
+      "repositoryDeleted": "Repository deleted",
+      "deleteRepositoryDescription": "This only removes the managed chart source from Kite. It does not delete remote charts or installed Helm releases.",
       "noCharts": "No charts found",
       "noReadme": "No README found",
       "noValues": "No values found",
       "noTemplates": "No templates found",
-      "noVersions": "No versions found"
+      "noVersions": "No versions found",
+      "noChartUrl": "Chart package URL is missing.",
+      "invalidValues": "Values must be a YAML object.",
+      "installed": "Helm release installed"
     },
     "placeholders": {
       "search": "Search charts..."
@@ -1036,11 +1044,14 @@
       "chart": "Chart",
       "version": "Version",
       "appVersion": "App Version",
+      "kubeVersion": "Kubernetes Version",
       "releaseName": "Release Name",
+      "createNamespace": "Create namespace",
+      "forceConflicts": "force-conflicts",
+      "wait": "wait",
+      "rollbackOnFailure": "rollback-on-failure",
       "firstDeployed": "First Deployed",
-      "lastDeployed": "Last Deployed",
-      "deleted": "Deleted",
-      "rollbackRevision": "Revision"
+      "lastDeployed": "Last Deployed"
     },
     "tabs": {
       "manifest": "Manifest",
@@ -1050,12 +1061,24 @@
     "messages": {
       "noResources": "No resources found",
       "noHistory": "No history found",
-      "upgradeStarted": "Upgrade requested",
       "rollbackStarted": "Rollback requested",
-      "chartRepositoryTodo": "Chart repository management is not implemented yet."
+      "rollbackConfirmTitle": "Rollback release?",
+      "rollbackConfirmDescription": "Rollback {{namespace}}/{{name}} to revision {{revision}}.",
+      "chartNotFound": "Chart not found in managed Helm repositories or Artifact Hub.",
+      "chartSourceManagedRepository": "Using managed chart repository {{repository}}.",
+      "chartSourceArtifactHubVerified": "Using Artifact Hub chart from {{repository}} (verified publisher).",
+      "chartSourceArtifactHubVerifiedShort": "Artifact Hub (verified)",
+      "chartSourceArtifactHub": "Using Artifact Hub chart from {{repository}}.",
+      "chartSourceCurrentRelease": "Using the chart stored in the current release.",
+      "chartSourceSelectChart": "Select a chart to use a different chart package. Defaults to the current chart.",
+      "newVersionAvailable": "New {{version}}",
+      "loadingChart": "Loading chart...",
+      "loadingVersions": "Loading versions...",
+      "loadingChartPackage": "Loading chart package...",
+      "loadingValues": "Loading values..."
     },
     "placeholders": {
-      "latestPrevious": "Previous revision"
+      "selectChart": "Select a chart..."
     }
   }
 }

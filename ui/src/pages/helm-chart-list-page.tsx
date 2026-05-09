@@ -12,25 +12,26 @@ import {
 import {
   Box,
   Database,
-  Package,
   Plus,
   RefreshCw,
   Search,
   Settings2,
+  Trash2,
   XCircle,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
-import { HelmChart } from '@/types/api'
+import { HelmChart, HelmRepository } from '@/types/api'
 import {
   createHelmRepository,
+  deleteHelmRepository,
   useArtifactHubCharts,
   useHelmCharts,
   useHelmRepositories,
 } from '@/lib/api'
-import { cn, formatDate, translateError } from '@/lib/utils'
+import { formatDate, translateError } from '@/lib/utils'
 import { usePageTitle } from '@/hooks/use-page-title'
 import { Button } from '@/components/ui/button'
 import {
@@ -60,7 +61,9 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'
 import { ErrorMessage } from '@/components/error-message'
+import { HelmChartIcon } from '@/components/helm-chart-icon'
 import { ResourceTableView } from '@/components/resource-table-view'
 
 const allRepositories = 'all'
@@ -102,45 +105,6 @@ function chartMatchesSearch(chart: HelmChart, query: string) {
     chart.description,
     ...(chart.keywords || []),
   ].some((value) => value?.toLowerCase().includes(searchQuery))
-}
-
-function ChartIcon({
-  icon,
-  name,
-  className,
-}: {
-  icon?: string
-  name: string
-  className?: string
-}) {
-  const [failed, setFailed] = useState(false)
-
-  if (icon && !failed) {
-    return (
-      <img
-        src={icon}
-        alt=""
-        className={cn(
-          'size-8 rounded-md border bg-background object-contain',
-          className
-        )}
-        onError={() => setFailed(true)}
-      />
-    )
-  }
-
-  return (
-    <div
-      className={cn(
-        'flex size-8 items-center justify-center rounded-md border bg-muted text-muted-foreground',
-        className
-      )}
-      aria-hidden="true"
-    >
-      <Package className="size-4" />
-      <span className="sr-only">{name}</span>
-    </div>
-  )
 }
 
 function AddRepositoryDialog({
@@ -261,10 +225,13 @@ function AddRepositoryDialog({
 export function HelmChartListPage() {
   const { t } = useTranslation()
   const [chartSource, setChartSource] = useState<ChartSource>(artifactHubSource)
-  const [verifiedPublisherOnly, setVerifiedPublisherOnly] = useState(true)
+  const [verifiedPublisherOnly, setVerifiedPublisherOnly] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [repositoryFilter, setRepositoryFilter] = useState(allRepositories)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [repositoryToDelete, setRepositoryToDelete] =
+    useState<HelmRepository | null>(null)
+  const [isDeletingRepository, setIsDeletingRepository] = useState(false)
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [pagination, setPagination] = useState<PaginationState>({
@@ -279,6 +246,9 @@ export function HelmChartListPage() {
 
   const { data: repositories = [], refetch: refetchRepositories } =
     useHelmRepositories()
+  const selectedRepositoryItem = repositories.find(
+    (repository) => repository.name === selectedRepository
+  )
   const localChartsQuery = useHelmCharts({
     repository: selectedRepository,
     enabled: !isArtifactHubSource,
@@ -312,8 +282,12 @@ export function HelmChartListPage() {
         header: t('helm.fields.chart'),
         enableHiding: false,
         cell: ({ row }) => (
-          <div className="flex min-w-0 items-center gap-3">
-            <ChartIcon icon={row.original.icon} name={row.original.name} />
+          <div className="flex min-w-[22rem] items-center gap-3">
+            <HelmChartIcon
+              icon={row.original.icon}
+              name={row.original.name}
+              className="size-8"
+            />
             <div className="min-w-0">
               <ChartNameLink chart={row.original} />
               <div className="truncate text-xs text-muted-foreground">
@@ -338,7 +312,7 @@ export function HelmChartListPage() {
       columnHelper.accessor('description', {
         header: t('common.fields.description'),
         cell: ({ getValue }) => (
-          <span className="block max-w-xl whitespace-normal break-words text-left text-sm leading-5 text-muted-foreground line-clamp-2">
+          <span className="block whitespace-normal break-words text-left text-sm leading-5 text-muted-foreground line-clamp-2">
             {getValue() || '-'}
           </span>
         ),
@@ -384,6 +358,24 @@ export function HelmChartListPage() {
 
   const handleCreated = async () => {
     await Promise.all([refetchRepositories(), localChartsQuery.refetch()])
+  }
+
+  const handleDeleteRepository = async () => {
+    if (!repositoryToDelete) {
+      return
+    }
+    setIsDeletingRepository(true)
+    try {
+      await deleteHelmRepository(repositoryToDelete.id)
+      toast.success(t('helmCharts.messages.repositoryDeleted'))
+      setRepositoryFilter(allRepositories)
+      setRepositoryToDelete(null)
+      await Promise.all([refetchRepositories(), localChartsQuery.refetch()])
+    } catch (err) {
+      toast.error(translateError(err, t))
+    } finally {
+      setIsDeletingRepository(false)
+    }
   }
 
   const updateChartSource = (value: string) => {
@@ -482,24 +474,38 @@ export function HelmChartListPage() {
               </ToggleGroupItem>
             </ToggleGroup>
             {!isArtifactHubSource ? (
-              <Select
-                value={repositoryFilter}
-                onValueChange={updateRepositoryFilter}
-              >
-                <SelectTrigger className="w-full sm:w-[220px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={allRepositories}>
-                    {t('helmCharts.filters.allRepositories')}
-                  </SelectItem>
-                  {repositories.map((repository) => (
-                    <SelectItem key={repository.id} value={repository.name}>
-                      {repository.name}
+              <div className="flex w-full items-center gap-2 sm:w-auto">
+                <Select
+                  value={repositoryFilter}
+                  onValueChange={updateRepositoryFilter}
+                >
+                  <SelectTrigger className="w-full sm:w-[220px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={allRepositories}>
+                      {t('helmCharts.filters.allRepositories')}
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    {repositories.map((repository) => (
+                      <SelectItem key={repository.id} value={repository.name}>
+                        {repository.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedRepositoryItem ? (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label={t('helmCharts.actions.deleteRepository')}
+                    onClick={() =>
+                      setRepositoryToDelete(selectedRepositoryItem)
+                    }
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                ) : null}
+              </div>
             ) : null}
             {isArtifactHubSource ? (
               <div className="flex h-9 items-center gap-2 rounded-md border px-3">
@@ -621,6 +627,19 @@ export function HelmChartListPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onCreated={handleCreated}
+      />
+      <DeleteConfirmationDialog
+        open={Boolean(repositoryToDelete)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRepositoryToDelete(null)
+          }
+        }}
+        resourceName={repositoryToDelete?.name || ''}
+        resourceType={t('helmCharts.fields.repository')}
+        onConfirm={() => void handleDeleteRepository()}
+        isDeleting={isDeletingRepository}
+        additionalNote={t('helmCharts.messages.deleteRepositoryDescription')}
       />
     </>
   )

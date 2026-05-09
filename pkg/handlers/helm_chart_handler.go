@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -15,11 +14,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zxh326/kite/pkg/helmutil"
 	"github.com/zxh326/kite/pkg/model"
-	"helm.sh/helm/v3/pkg/chart"
-	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/getter"
-	"helm.sh/helm/v3/pkg/repo"
+	"helm.sh/helm/v4/pkg/chart/common"
+	chart "helm.sh/helm/v4/pkg/chart/v2"
+	"helm.sh/helm/v4/pkg/getter"
+	repo "helm.sh/helm/v4/pkg/repo/v1"
 	"sigs.k8s.io/yaml"
 )
 
@@ -75,10 +75,12 @@ type helmChart struct {
 	Name           string              `json:"name"`
 	Version        string              `json:"version"`
 	AppVersion     string              `json:"appVersion,omitempty"`
+	KubeVersion    string              `json:"kubeVersion,omitempty"`
 	Description    string              `json:"description,omitempty"`
 	Icon           string              `json:"icon,omitempty"`
 	Home           string              `json:"home,omitempty"`
 	ArtifactHubURL string              `json:"artifactHubUrl,omitempty"`
+	ChartURL       string              `json:"chartUrl,omitempty"`
 	Sources        []string            `json:"sources,omitempty"`
 	Keywords       []string            `json:"keywords,omitempty"`
 	Maintainers    []*chart.Maintainer `json:"maintainers,omitempty"`
@@ -94,10 +96,12 @@ type helmChartVersion struct {
 
 type helmChartDetail struct {
 	helmChart
-	Readme    string             `json:"readme,omitempty"`
-	Values    string             `json:"values,omitempty"`
-	Templates string             `json:"templates,omitempty"`
-	Versions  []helmChartVersion `json:"versions"`
+	Readme   string             `json:"readme,omitempty"`
+	Versions []helmChartVersion `json:"versions"`
+}
+
+type helmChartContentResponse struct {
+	Content string `json:"content"`
 }
 
 type helmChartContent struct {
@@ -131,11 +135,17 @@ type artifactHubPackageDetail struct {
 	Deprecated        bool                  `json:"deprecated"`
 	TS                int64                 `json:"ts"`
 	HomeURL           string                `json:"home_url"`
+	ContentURL        string                `json:"content_url"`
 	Readme            string                `json:"readme"`
+	Data              json.RawMessage       `json:"data"`
 	Keywords          []string              `json:"keywords"`
 	Maintainers       []*chart.Maintainer   `json:"maintainers"`
 	AvailableVersions []artifactHubVersion  `json:"available_versions"`
 	Repository        artifactHubRepository `json:"repository"`
+}
+
+type artifactHubData struct {
+	KubeVersion string `json:"kubeVersion"`
 }
 
 type artifactHubVersion struct {
@@ -170,9 +180,12 @@ func (h *HelmChartHandler) RegisterRoutes(group *gin.RouterGroup) {
 	g := group.Group("/charts")
 	g.GET("/repositories", h.ListRepositories)
 	g.POST("/repositories", h.CreateRepository)
+	g.DELETE("/repositories/:id", h.DeleteRepository)
 	g.GET("/artifacthub", h.ListArtifactHubCharts)
 	g.GET("", h.ListCharts)
+	g.GET("/artifacthub/:repository/:name/content/:content", h.GetArtifactHubChartContent)
 	g.GET("/artifacthub/:repository/:name", h.GetArtifactHubChart)
+	g.GET("/:repository/:name/content/:content", h.GetChartContent)
 	g.GET("/:repository/:name", h.GetChart)
 }
 
@@ -213,8 +226,14 @@ func (h *HelmChartHandler) CreateRepository(c *gin.Context) {
 		return
 	}
 
-	if _, err := url.ParseRequestURI(repository.URL); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	repositoryURL, err := url.Parse(repository.URL)
+	if err != nil || repositoryURL.Scheme == "" || repositoryURL.Host == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "repository URL must be absolute"})
+		return
+	}
+	scheme := strings.ToLower(repositoryURL.Scheme)
+	if scheme != "http" && scheme != "https" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "repository URL must use http or https"})
 		return
 	}
 
@@ -241,6 +260,28 @@ func (h *HelmChartHandler) CreateRepository(c *gin.Context) {
 	c.JSON(http.StatusCreated, toHelmRepositoryResponse(repository))
 }
 
+func (h *HelmChartHandler) DeleteRepository(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var repository model.HelmRepository
+	if err := model.DB.First(&repository, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "repository not found"})
+		return
+	}
+
+	if err := model.DB.Delete(&repository).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	h.clearRepositoryCache(repository)
+
+	c.JSON(http.StatusOK, gin.H{"message": "repository deleted"})
+}
+
 func (h *HelmChartHandler) ListCharts(c *gin.Context) {
 	repositoryName := c.Query("repository")
 	query := strings.ToLower(strings.TrimSpace(c.Query("q")))
@@ -262,15 +303,16 @@ func (h *HelmChartHandler) ListCharts(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		for name, versions := range indexFile.Entries {
+		for _, versions := range indexFile.Entries {
 			if len(versions) == 0 {
 				continue
 			}
 			entry := versions[0]
-			if query != "" && !chartMatchesQuery(name, entry, query) {
+			item := toHelmChart(repository, indexFile.Generated, entry)
+			if query != "" && !helmChartMatchesQuery(item, query) {
 				continue
 			}
-			items = append(items, toHelmChart(repository, indexFile.Generated, entry))
+			items = append(items, item)
 		}
 	}
 
@@ -347,39 +389,50 @@ func (h *HelmChartHandler) GetArtifactHubChart(c *gin.Context) {
 	chartName := c.Param("name")
 	version := c.Query("version")
 
-	packageURL := artifactHubPackageAPIURL + url.PathEscape(repositoryName) + "/" + url.PathEscape(chartName)
-	if version != "" {
-		packageURL += "/" + url.PathEscape(version)
-	}
-	data, err := fetchArtifactHub(c, packageURL)
+	pkg, err := fetchArtifactHubChartDetail(c, repositoryName, chartName, version)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 
-	var pkg artifactHubPackageDetail
-	if err := json.Unmarshal(data, &pkg); err != nil {
+	c.JSON(http.StatusOK, toArtifactHubChartDetail(pkg))
+}
+
+func (h *HelmChartHandler) GetArtifactHubChartContent(c *gin.Context) {
+	repositoryName := c.Param("repository")
+	chartName := c.Param("name")
+	contentName := c.Param("content")
+	version := c.Query("version")
+
+	if contentName != "values" && contentName != "templates" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported chart content"})
+		return
+	}
+
+	pkg, err := fetchArtifactHubChartDetail(c, repositoryName, chartName, version)
+	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 
-	values := ""
-	templates := ""
-	if pkg.PackageID != "" && pkg.Version != "" {
-		contentURL := artifactHubValuesAPIURL + url.PathEscape(pkg.PackageID) + "/" + url.PathEscape(pkg.Version)
-		valuesURL := contentURL + "/values"
-		valuesData, err := fetchArtifactHub(c, valuesURL)
-		if err == nil {
-			values = string(valuesData)
-		}
-		templatesURL := contentURL + "/templates"
-		templatesData, err := fetchArtifactHub(c, templatesURL)
-		if err == nil {
-			templates, _ = artifactHubTemplates(templatesData)
-		}
+	if pkg.PackageID == "" || pkg.Version == "" {
+		c.JSON(http.StatusOK, helmChartContentResponse{})
+		return
 	}
 
-	c.JSON(http.StatusOK, toArtifactHubChartDetail(pkg, values, templates))
+	contentURL := artifactHubValuesAPIURL + url.PathEscape(pkg.PackageID) + "/" + url.PathEscape(pkg.Version) + "/" + contentName
+	contentData, err := fetchArtifactHub(c, contentURL)
+	if err != nil {
+		c.JSON(http.StatusOK, helmChartContentResponse{})
+		return
+	}
+
+	content := string(contentData)
+	if contentName == "templates" {
+		content, _ = artifactHubTemplates(contentData)
+	}
+
+	c.JSON(http.StatusOK, helmChartContentResponse{Content: content})
 }
 
 func (h *HelmChartHandler) GetChart(c *gin.Context) {
@@ -423,10 +476,50 @@ func (h *HelmChartHandler) GetChart(c *gin.Context) {
 	c.JSON(http.StatusOK, helmChartDetail{
 		helmChart: toHelmChart(repository, indexFile.Generated, entry),
 		Readme:    content.Readme,
-		Values:    content.Values,
-		Templates: content.Templates,
 		Versions:  versions,
 	})
+}
+
+func (h *HelmChartHandler) GetChartContent(c *gin.Context) {
+	repositoryName := c.Param("repository")
+	chartName := c.Param("name")
+	contentName := c.Param("content")
+	version := c.Query("version")
+
+	if contentName != "values" && contentName != "templates" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported chart content"})
+		return
+	}
+
+	var repository model.HelmRepository
+	if err := model.DB.Where("name = ?", repositoryName).First(&repository).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "repository not found"})
+		return
+	}
+
+	indexFile, err := h.loadRepositoryIndex(repository)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	entry, err := indexFile.Get(chartName, version)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	content, err := h.loadChartContent(repository, entry)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if contentName == "values" {
+		c.JSON(http.StatusOK, helmChartContentResponse{Content: content.Values})
+		return
+	}
+	c.JSON(http.StatusOK, helmChartContentResponse{Content: content.Templates})
 }
 
 func (h *HelmChartHandler) loadRepositoryIndex(repository model.HelmRepository) (*repo.IndexFile, error) {
@@ -492,30 +585,7 @@ func (h *HelmChartHandler) loadChartContent(repository model.HelmRepository, ent
 	}
 	h.contentCacheMu.Unlock()
 
-	chartURL, err := repo.ResolveReferenceURL(repository.URL, entry.URLs[0])
-	if err != nil {
-		return helmChartContent{}, err
-	}
-	parsedURL, err := url.Parse(chartURL)
-	if err != nil {
-		return helmChartContent{}, err
-	}
-	client, err := getter.Getters().ByScheme(parsedURL.Scheme)
-	if err != nil {
-		return helmChartContent{}, err
-	}
-	options := []getter.Option{
-		getter.WithURL(repository.URL),
-		getter.WithAcceptHeader("application/gzip,application/octet-stream"),
-	}
-	if sameURLHost(repository.URL, chartURL) && repository.Username != "" {
-		options = append(options, getter.WithBasicAuth(repository.Username, repository.Password))
-	}
-	data, err := client.Get(chartURL, options...)
-	if err != nil {
-		return helmChartContent{}, err
-	}
-	loadedChart, err := loader.LoadArchive(bytes.NewReader(data.Bytes()))
+	loadedChart, err := helmutil.LoadRepositoryArchive(repository, entry)
 	if err != nil {
 		return helmChartContent{}, err
 	}
@@ -552,6 +622,11 @@ func toHelmRepositoryResponse(repository model.HelmRepository) helmRepositoryRes
 }
 
 func toHelmChart(repository model.HelmRepository, generated time.Time, entry *repo.ChartVersion) helmChart {
+	chartURL := ""
+	if len(entry.URLs) > 0 {
+		chartURL = helmutil.ResolveURL(repository.URL, entry.URLs[0])
+	}
+
 	return helmChart{
 		RepositoryID:   repository.ID,
 		RepositoryName: repository.Name,
@@ -560,10 +635,12 @@ func toHelmChart(repository model.HelmRepository, generated time.Time, entry *re
 		Name:           entry.Name,
 		Version:        entry.Version,
 		AppVersion:     entry.AppVersion,
+		KubeVersion:    entry.KubeVersion,
 		Description:    entry.Description,
-		Icon:           resolveChartURL(repository.URL, entry.Icon),
+		Icon:           helmutil.ResolveURL(repository.URL, entry.Icon),
 		Home:           entry.Home,
 		Sources:        entry.Sources,
+		ChartURL:       chartURL,
 		Keywords:       entry.Keywords,
 		Maintainers:    entry.Maintainers,
 		Deprecated:     entry.Deprecated,
@@ -587,7 +664,7 @@ func toArtifactHubChart(pkg artifactHubPackage) helmChart {
 	}
 }
 
-func toArtifactHubChartDetail(pkg artifactHubPackageDetail, values, templates string) helmChartDetail {
+func toArtifactHubChartDetail(pkg artifactHubPackageDetail) helmChartDetail {
 	versions := make([]helmChartVersion, 0, len(pkg.AvailableVersions))
 	for _, version := range pkg.AvailableVersions {
 		versions = append(versions, helmChartVersion{
@@ -605,19 +682,19 @@ func toArtifactHubChartDetail(pkg artifactHubPackageDetail, values, templates st
 			Name:           pkg.Name,
 			Version:        pkg.Version,
 			AppVersion:     pkg.AppVersion,
+			KubeVersion:    artifactHubKubeVersion(pkg.Data),
 			Description:    pkg.Description,
 			Icon:           artifactHubIcon(pkg.LogoImageID),
 			Home:           pkg.HomeURL,
 			ArtifactHubURL: artifactHubPackageURL + url.PathEscape(pkg.Repository.Name) + "/" + url.PathEscape(pkg.Name),
+			ChartURL:       pkg.ContentURL,
 			Keywords:       pkg.Keywords,
 			Maintainers:    pkg.Maintainers,
 			Deprecated:     pkg.Deprecated,
 			UpdatedAt:      artifactHubUpdatedAt(pkg.TS),
 		},
-		Readme:    pkg.Readme,
-		Values:    values,
-		Templates: templates,
-		Versions:  versions,
+		Readme:   pkg.Readme,
+		Versions: versions,
 	}
 }
 
@@ -634,6 +711,23 @@ func artifactHubUpdatedAt(ts int64) *time.Time {
 	}
 	v := time.Unix(ts, 0)
 	return &v
+}
+
+func fetchArtifactHubChartDetail(c *gin.Context, repositoryName, chartName, version string) (artifactHubPackageDetail, error) {
+	packageURL := artifactHubPackageAPIURL + url.PathEscape(repositoryName) + "/" + url.PathEscape(chartName)
+	if version != "" {
+		packageURL += "/" + url.PathEscape(version)
+	}
+	data, err := fetchArtifactHub(c, packageURL)
+	if err != nil {
+		return artifactHubPackageDetail{}, err
+	}
+
+	var pkg artifactHubPackageDetail
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return artifactHubPackageDetail{}, err
+	}
+	return pkg, nil
 }
 
 func fetchArtifactHub(c *gin.Context, targetURL string) ([]byte, error) {
@@ -663,6 +757,18 @@ func fetchArtifactHubWithHeaders(c *gin.Context, targetURL string) ([]byte, http
 		return nil, nil, err
 	}
 	return data, resp.Header, nil
+}
+
+func artifactHubKubeVersion(data json.RawMessage) string {
+	raw := strings.TrimSpace(string(data))
+	if raw == "" || raw == `""` || raw == "null" {
+		return ""
+	}
+	var parsed artifactHubData
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		return ""
+	}
+	return parsed.KubeVersion
 }
 
 func artifactHubTemplates(data []byte) (string, error) {
@@ -700,14 +806,14 @@ func chartUpdatedAt(generated time.Time, entry *repo.ChartVersion) *time.Time {
 	return nil
 }
 
-func chartMatchesQuery(name string, entry *repo.ChartVersion, query string) bool {
-	values := []string{name, entry.Description, entry.AppVersion}
+func helmChartMatchesQuery(chart helmChart, query string) bool {
+	values := []string{chart.Name, chart.RepositoryName, chart.Version, chart.Description, chart.AppVersion}
 	for _, value := range values {
 		if strings.Contains(strings.ToLower(value), query) {
 			return true
 		}
 	}
-	for _, keyword := range entry.Keywords {
+	for _, keyword := range chart.Keywords {
 		if strings.Contains(strings.ToLower(keyword), query) {
 			return true
 		}
@@ -732,30 +838,23 @@ func chartContentCacheKey(repository model.HelmRepository, entry *repo.ChartVers
 	}, "\x00")
 }
 
-func resolveChartURL(baseURL, refURL string) string {
-	if refURL == "" {
-		return ""
+func (h *HelmChartHandler) clearRepositoryCache(repository model.HelmRepository) {
+	cacheKey := repositoryIndexCacheKey(repository)
+
+	h.indexCacheMu.Lock()
+	delete(h.indexCache, cacheKey)
+	h.indexCacheMu.Unlock()
+
+	h.contentCacheMu.Lock()
+	for key := range h.contentCache {
+		if key == cacheKey || strings.HasPrefix(key, cacheKey+"\x00") {
+			delete(h.contentCache, key)
+		}
 	}
-	resolved, err := repo.ResolveReferenceURL(baseURL, refURL)
-	if err != nil {
-		return refURL
-	}
-	return resolved
+	h.contentCacheMu.Unlock()
 }
 
-func sameURLHost(baseURL, targetURL string) bool {
-	base, err := url.Parse(baseURL)
-	if err != nil {
-		return false
-	}
-	target, err := url.Parse(targetURL)
-	if err != nil {
-		return false
-	}
-	return strings.EqualFold(base.Hostname(), target.Hostname())
-}
-
-func findReadme(files []*chart.File) string {
+func findReadme(files []*common.File) string {
 	for _, file := range files {
 		if file == nil {
 			continue
@@ -788,7 +887,7 @@ func chartValues(loadedChart *chart.Chart) (string, error) {
 	return string(values), nil
 }
 
-func chartTemplates(files []*chart.File) string {
+func chartTemplates(files []*common.File) string {
 	var builder strings.Builder
 	for _, file := range files {
 		if file == nil {

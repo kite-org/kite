@@ -82,13 +82,13 @@ interface ResourceCatalogEntryBase {
 }
 
 export const sidebarGroupOrder = [
+  'sidebar.groups.application',
   'sidebar.groups.workloads',
   'sidebar.groups.traffic',
   'sidebar.groups.storage',
   'sidebar.groups.config',
   'sidebar.groups.security',
   'sidebar.groups.other',
-  'sidebar.groups.application',
 ] as const satisfies readonly SidebarGroupKey[]
 
 export const resourceCatalog = [
