@@ -127,7 +127,7 @@ export const upgradeHelmRelease = async (
   name: string,
   body?: HelmReleaseUpgradeRequest
 ): Promise<{ message?: string }> => {
-  return apiClient.post<{ message?: string }>(
+  return apiClient.put<{ message?: string }>(
     `/helmrelease/${namespace}/${name}/upgrade`,
     body || {}
   )
@@ -138,7 +138,7 @@ export const rollbackHelmRelease = async (
   name: string,
   revision?: number
 ): Promise<{ message?: string }> => {
-  return apiClient.post<{ message?: string }>(
+  return apiClient.put<{ message?: string }>(
     `/helmrelease/${namespace}/${name}/rollback`,
     revision ? { revision } : {}
   )
@@ -186,13 +186,15 @@ export const createHelmRepository = (
     password?: string
   }
 ): Promise<HelmRepository> => {
-  return apiClient.post<HelmRepository>('/charts/repositories', body)
+  return apiClient.post<HelmRepository>('/admin/charts/repositories', body)
 }
 
 export const deleteHelmRepository = (
   id: number
 ): Promise<{ message: string }> => {
-  return apiClient.delete<{ message: string }>(`/charts/repositories/${id}`)
+  return apiClient.delete<{ message: string }>(
+    `/admin/charts/repositories/${id}`
+  )
 }
 
 export const fetchHelmCharts = (options?: {

@@ -179,14 +179,18 @@ func NewHelmChartHandler() *HelmChartHandler {
 func (h *HelmChartHandler) RegisterRoutes(group *gin.RouterGroup) {
 	g := group.Group("/charts")
 	g.GET("/repositories", h.ListRepositories)
-	g.POST("/repositories", h.CreateRepository)
-	g.DELETE("/repositories/:id", h.DeleteRepository)
 	g.GET("/artifacthub", h.ListArtifactHubCharts)
 	g.GET("", h.ListCharts)
 	g.GET("/artifacthub/:repository/:name/content/:content", h.GetArtifactHubChartContent)
 	g.GET("/artifacthub/:repository/:name", h.GetArtifactHubChart)
 	g.GET("/:repository/:name/content/:content", h.GetChartContent)
 	g.GET("/:repository/:name", h.GetChart)
+}
+
+func (h *HelmChartHandler) RegisterAdminRoutes(group *gin.RouterGroup) {
+	g := group.Group("/charts")
+	g.POST("/repositories", h.CreateRepository)
+	g.DELETE("/repositories/:id", h.DeleteRepository)
 }
 
 func (h *HelmChartHandler) ListRepositories(c *gin.Context) {
@@ -423,13 +427,17 @@ func (h *HelmChartHandler) GetArtifactHubChartContent(c *gin.Context) {
 	contentURL := artifactHubValuesAPIURL + url.PathEscape(pkg.PackageID) + "/" + url.PathEscape(pkg.Version) + "/" + contentName
 	contentData, err := fetchArtifactHub(c, contentURL)
 	if err != nil {
-		c.JSON(http.StatusOK, helmChartContentResponse{})
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 
 	content := string(contentData)
 	if contentName == "templates" {
-		content, _ = artifactHubTemplates(contentData)
+		content, err = artifactHubTemplates(contentData)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, helmChartContentResponse{Content: content})
@@ -548,7 +556,7 @@ func (h *HelmChartHandler) loadRepositoryIndex(repository model.HelmRepository) 
 	if err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(cacheDir)
+	defer func() { _ = os.RemoveAll(cacheDir) }()
 	chartRepository.CachePath = cacheDir
 
 	indexPath, err := chartRepository.DownloadIndexFile()
@@ -747,7 +755,7 @@ func fetchArtifactHubWithHeaders(c *gin.Context, targetURL string) ([]byte, http
 	if err != nil {
 		return nil, nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, nil, fmt.Errorf("artifact hub request failed: %s", resp.Status)

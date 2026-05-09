@@ -1,4 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react'
+import { useAuth } from '@/contexts/auth-context'
 import {
   ColumnFiltersState,
   createColumnHelper,
@@ -224,6 +225,7 @@ function AddRepositoryDialog({
 
 export function HelmChartListPage() {
   const { t } = useTranslation()
+  const { user } = useAuth()
   const [chartSource, setChartSource] = useState<ChartSource>(artifactHubSource)
   const [verifiedPublisherOnly, setVerifiedPublisherOnly] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -241,6 +243,7 @@ export function HelmChartListPage() {
   const selectedRepository =
     repositoryFilter === allRepositories ? undefined : repositoryFilter
   const isArtifactHubSource = chartSource === artifactHubSource
+  const canManageRepositories = user?.isAdmin() ?? false
 
   usePageTitle(t('nav.helmCharts'))
 
@@ -437,7 +440,7 @@ export function HelmChartListPage() {
           <h3 className="mb-1 text-lg font-medium">
             {t('helmCharts.messages.noCharts')}
           </h3>
-          {!isArtifactHubSource ? (
+          {!isArtifactHubSource && canManageRepositories ? (
             <Button
               variant="outline"
               className="mt-4"
@@ -493,7 +496,7 @@ export function HelmChartListPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                {selectedRepositoryItem ? (
+                {selectedRepositoryItem && canManageRepositories ? (
                   <Button
                     variant="outline"
                     size="icon"
@@ -558,7 +561,7 @@ export function HelmChartListPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-              {!isArtifactHubSource ? (
+              {!isArtifactHubSource && canManageRepositories ? (
                 <Button onClick={() => setDialogOpen(true)}>
                   <Plus className="size-4" />
                   {t('helmCharts.actions.addRepository')}

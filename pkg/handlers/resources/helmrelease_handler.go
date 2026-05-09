@@ -318,8 +318,8 @@ func (h *HelmReleaseHandler) Describe(c *gin.Context) {
 }
 
 func (h *HelmReleaseHandler) registerCustomRoutes(group *gin.RouterGroup) {
-	group.POST("/:namespace/:name/upgrade", h.Upgrade)
-	group.POST("/:namespace/:name/rollback", h.Rollback)
+	group.PUT("/:namespace/:name/upgrade", h.Upgrade)
+	group.PUT("/:namespace/:name/rollback", h.Rollback)
 }
 
 func (h *HelmReleaseHandler) List(c *gin.Context) {
