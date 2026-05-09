@@ -87,6 +87,18 @@ export function ResourceTable<T>({
     clusterScope,
     defaultHiddenColumns,
   })
+  const selectedNamespaces = useMemo(() => {
+    if (!selectedNamespace || selectedNamespace === '_all') return []
+    return selectedNamespace.split(',').filter(Boolean)
+  }, [selectedNamespace])
+  const namespaceDescription =
+    selectedNamespace === '_all'
+      ? 'All Namespaces'
+      : selectedNamespaces.length > 1
+        ? `${selectedNamespaces.length} namespaces`
+        : selectedNamespace
+          ? `namespace ${selectedNamespace}`
+          : ''
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteProgress, setDeleteProgress] = useState({ done: 0, total: 0 })
   const {
@@ -147,7 +159,10 @@ export function ResourceTable<T>({
 
     // Only add namespace column if not cluster scope, showing all namespaces,
     // and there isn't already a namespace column in the provided columns
-    if (!clusterScope && selectedNamespace === '_all') {
+    if (
+      !clusterScope &&
+      (selectedNamespace === '_all' || selectedNamespaces.length > 1)
+    ) {
       // Check if namespace column already exists in the provided columns
       const hasNamespaceColumn = columns.some((col) => {
         // Check if the column accesses namespace data
@@ -185,9 +200,24 @@ export function ResourceTable<T>({
       }
     }
     return baseColumns
-  }, [columns, clusterScope, selectedNamespace, t])
+  }, [columns, clusterScope, selectedNamespace, selectedNamespaces.length, t])
 
-  const memoizedData = useMemo(() => (data || []) as T[], [data])
+  const namespaceFilteredData = useMemo(() => {
+    if (clusterScope || selectedNamespaces.length <= 1) {
+      return data
+    }
+
+    return (data as T[] | undefined)?.filter((item) => {
+      const namespace = (item as { metadata?: { namespace?: string } })
+        ?.metadata?.namespace
+      return namespace ? selectedNamespaces.includes(namespace) : false
+    })
+  }, [clusterScope, data, selectedNamespaces])
+
+  const memoizedData = useMemo(
+    () => (namespaceFilteredData || []) as T[],
+    [namespaceFilteredData]
+  )
 
   useEffect(() => {
     if (!useSSE && error) {
@@ -315,16 +345,17 @@ export function ResourceTable<T>({
   ])
   // Calculate total and filtered row counts
   const totalRowCount = useMemo(
-    () => (data as T[] | undefined)?.length || 0,
-    [data]
+    () => (namespaceFilteredData as T[] | undefined)?.length || 0,
+    [namespaceFilteredData]
   )
   const filteredRowCount = useMemo(() => {
-    if (!data || (data as T[]).length === 0) return 0
+    if (!namespaceFilteredData || (namespaceFilteredData as T[]).length === 0)
+      return 0
     // Force re-computation when filters change
     void searchQuery // Ensure dependency is used
     void columnFilters // Ensure dependency is used
     return table.getFilteredRowModel().rows.length
-  }, [table, data, searchQuery, columnFilters])
+  }, [table, namespaceFilteredData, searchQuery, columnFilters])
 
   // Check if there are active filters
   const hasActiveFilters = useMemo(() => {
@@ -334,7 +365,10 @@ export function ResourceTable<T>({
   // Render empty state based on condition
   const renderEmptyState = () => {
     // Only show loading state if there's no existing data
-    if (isLoading && (!data || (data as T[]).length === 0)) {
+    if (
+      isLoading &&
+      (!namespaceFilteredData || (namespaceFilteredData as T[]).length === 0)
+    ) {
       return (
         <div className="h-72 flex flex-col items-center justify-center">
           <div className="mb-4 bg-muted/30 p-6 rounded-full">
@@ -345,8 +379,8 @@ export function ResourceTable<T>({
           </h3>
           <p className="text-muted-foreground">
             Retrieving data
-            {!clusterScope && selectedNamespace
-              ? ` from ${selectedNamespace === '_all' ? 'All Namespaces' : `namespace ${selectedNamespace}`}`
+            {!clusterScope && namespaceDescription
+              ? ` from ${namespaceDescription}`
               : ''}
           </p>
         </div>
@@ -363,7 +397,7 @@ export function ResourceTable<T>({
       )
     }
 
-    if (data && (data as T[]).length === 0) {
+    if (namespaceFilteredData && (namespaceFilteredData as T[]).length === 0) {
       return (
         <div className="h-72 flex flex-col items-center justify-center">
           <div className="mb-4 bg-muted/30 p-6 rounded-full">
@@ -377,7 +411,7 @@ export function ResourceTable<T>({
               ? `No results match your search query: "${searchQuery}"`
               : clusterScope
                 ? `There are no ${displayResourceName} found`
-                : `There are no ${displayResourceName} in the ${selectedNamespace} namespace`}
+                : `There are no ${displayResourceName} in ${namespaceDescription}`}
           </p>
           {searchQuery && (
             <Button
@@ -424,7 +458,7 @@ export function ResourceTable<T>({
         table={table}
         columnCount={enhancedColumns.length}
         isLoading={isLoading}
-        data={data as T[] | undefined}
+        data={namespaceFilteredData as T[] | undefined}
         fitViewportHeight={true}
         emptyState={emptyState}
         hasActiveFilters={hasActiveFilters}

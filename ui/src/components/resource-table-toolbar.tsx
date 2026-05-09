@@ -132,6 +132,7 @@ export function ResourceTableToolbar<T>({
               selectedNamespace={selectedNamespace}
               handleNamespaceChange={handleNamespaceChange}
               showAll={true}
+              multiple={true}
             />
           )}
           {filterableColumns.map((column) => {

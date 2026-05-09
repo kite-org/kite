@@ -5,6 +5,7 @@ import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 import { useResources } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Command,
   CommandEmpty,
@@ -25,15 +26,21 @@ export function NamespaceSelector({
   showAll = false,
   disabled = false,
   triggerClassName,
+  multiple = false,
 }: {
   selectedNamespace?: string
   handleNamespaceChange: (namespace: string) => void
   showAll?: boolean
   disabled?: boolean
   triggerClassName?: string
+  multiple?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const { data, isLoading } = useResources('namespaces')
+  const selectedNamespaces = useMemo(() => {
+    if (!selectedNamespace || selectedNamespace === '_all') return []
+    return selectedNamespace.split(',').filter(Boolean)
+  }, [selectedNamespace])
 
   const sortedNamespaces = useMemo(() => {
     if (!data) return []
@@ -43,6 +50,42 @@ export function NamespaceSelector({
       return nameA.localeCompare(nameB)
     })
   }, [data])
+
+  const triggerLabel =
+    selectedNamespace === '_all'
+      ? 'All Namespaces'
+      : multiple && selectedNamespaces.length > 1
+        ? `${selectedNamespaces.length} Namespaces`
+        : selectedNamespace || `Select namespace${multiple ? 's' : ''}...`
+
+  const selectNamespace = (namespace: string) => {
+    handleNamespaceChange(namespace)
+    setOpen(false)
+  }
+
+  const toggleNamespace = (namespace: string) => {
+    if (selectedNamespace === '_all') {
+      handleNamespaceChange(namespace)
+      return
+    }
+
+    const nextNamespaces = selectedNamespaces.includes(namespace)
+      ? selectedNamespaces.filter((name) => name !== namespace)
+      : [...selectedNamespaces, namespace]
+
+    handleNamespaceChange(
+      nextNamespaces.length > 0 ? nextNamespaces.join(',') : '_all'
+    )
+  }
+
+  const handleNamespaceSelect = (namespace: string) => {
+    if (multiple && selectedNamespaces.length >= 2) {
+      toggleNamespace(namespace)
+      return
+    }
+
+    selectNamespace(namespace)
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -57,11 +100,7 @@ export function NamespaceSelector({
             triggerClassName
           )}
         >
-          <span className="truncate">
-            {selectedNamespace === '_all'
-              ? 'All Namespaces'
-              : selectedNamespace || 'Select namespace...'}
-          </span>
+          <span className="truncate">{triggerLabel}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -104,24 +143,35 @@ export function NamespaceSelector({
 
                   {sortedNamespaces.map((ns: Namespace) => {
                     const name = ns.metadata?.name || ''
+                    const selected = multiple
+                      ? selectedNamespaces.includes(name)
+                      : selectedNamespace === name
+
                     return (
                       <CommandItem
                         key={name}
                         value={name}
-                        onSelect={(val) => {
-                          handleNamespaceChange(val)
-                          setOpen(false)
-                        }}
+                        onSelect={() => handleNamespaceSelect(name)}
                         className="flex items-center"
                       >
-                        <Check
-                          className={cn(
-                            'mr-2 h-4 w-4 shrink-0',
-                            selectedNamespace === name
-                              ? 'opacity-100'
-                              : 'opacity-0'
-                          )}
-                        />
+                        {multiple ? (
+                          <Checkbox
+                            checked={selected}
+                            onCheckedChange={() => toggleNamespace(name)}
+                            onClick={(event) => event.stopPropagation()}
+                            onKeyDown={(event) => event.stopPropagation()}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            aria-label={`Toggle namespace ${name}`}
+                            className="mr-2"
+                          />
+                        ) : (
+                          <Check
+                            className={cn(
+                              'mr-2 h-4 w-4 shrink-0',
+                              selected ? 'opacity-100' : 'opacity-0'
+                            )}
+                          />
+                        )}
                         <span className="truncate flex-1 min-w-0" title={name}>
                           {name}
                         </span>
