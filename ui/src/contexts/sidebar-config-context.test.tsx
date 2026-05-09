@@ -15,6 +15,7 @@ vi.mock('./auth-context', () => ({
 }))
 
 const workloadsGroupId = 'sidebar-groups-workloads'
+const applicationGroupId = 'sidebar-groups-application'
 const trafficGroupId = 'sidebar-groups-traffic'
 const workloadsPodsItemId = 'sidebar-groups-workloads--pods'
 const otherGroupId = 'sidebar-groups-other'
@@ -210,6 +211,7 @@ describe('SidebarConfigProvider', () => {
 
     expect(screen.getByTestId('group-order')).toHaveTextContent(
       [
+        applicationGroupId,
         workloadsGroupId,
         trafficGroupId,
         'sidebar-groups-storage',
@@ -224,6 +226,7 @@ describe('SidebarConfigProvider', () => {
       expect(screen.getByTestId('group-order')).toHaveTextContent(
         [
           workloadsGroupId,
+          applicationGroupId,
           trafficGroupId,
           'sidebar-groups-storage',
           'sidebar-groups-config',
@@ -237,8 +240,9 @@ describe('SidebarConfigProvider', () => {
     await waitFor(() =>
       expect(screen.getByTestId('group-order')).toHaveTextContent(
         [
-          trafficGroupId,
+          applicationGroupId,
           workloadsGroupId,
+          trafficGroupId,
           'sidebar-groups-storage',
           'sidebar-groups-config',
           'sidebar-groups-security',
@@ -251,6 +255,7 @@ describe('SidebarConfigProvider', () => {
     await waitFor(() =>
       expect(screen.getByTestId('group-order')).toHaveTextContent(
         [
+          applicationGroupId,
           trafficGroupId,
           workloadsGroupId,
           'sidebar-groups-storage',

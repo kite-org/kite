@@ -45,11 +45,13 @@ interface ResourceDetailShellProps<T> {
   preYamlTabs?: ResourceDetailShellTab<T>[]
   extraTabs?: ResourceDetailShellTab<T>[]
   headerActions?: ReactNode
+  titleIcon?: ReactNode
   yamlToolbar?:
     | ReactNode
     | ((context: ResourceDetailShellContext<T>) => ReactNode)
   loadingMessage?: string
   yamlTabLabel?: ReactNode
+  showDescribe?: boolean
   showDelete?: boolean
 }
 
@@ -67,9 +69,11 @@ export function ResourceDetailShell<T>({
   preYamlTabs = [],
   extraTabs = [],
   headerActions,
+  titleIcon,
   yamlToolbar,
   loadingMessage,
   yamlTabLabel,
+  showDescribe = true,
   showDelete = true,
 }: ResourceDetailShellProps<T>) {
   const { t } = useTranslation()
@@ -145,9 +149,9 @@ export function ResourceDetailShell<T>({
         value: 'yaml',
         label: yamlTabLabel || t('common.tabs.yaml'),
         content: (
-          <div className="space-y-4">
+          <div className="flex h-full min-h-0 flex-col gap-4">
             {yamlToolbar ? (
-              <div className="flex justify-end">
+              <div className="flex shrink-0 justify-end">
                 {typeof yamlToolbar === 'function'
                   ? yamlToolbar(shellContext)
                   : yamlToolbar}
@@ -162,6 +166,7 @@ export function ResourceDetailShell<T>({
               }}
               onChange={setYamlContent}
               isSaving={isSavingYaml}
+              fillHeight
             />
           </div>
         ),
@@ -227,53 +232,65 @@ export function ResourceDetailShell<T>({
   }
 
   return (
-    <div className={cn(isIframe && 'px-4 py-3 lg:px-6')}>
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-lg font-extrabold">{name}</h1>
-          {namespace ? (
-            <p className="text-muted-foreground">
-              {t('common.fields.namespace')}:{' '}
-              <span className="font-medium">{namespace}</span>
-            </p>
-          ) : null}
-        </div>
-        <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
-          <Button
-            disabled={isLoading || isRefreshing}
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-          >
-            <IconRefresh className="w-4 h-4" />
-            {t('common.actions.refresh')}
-          </Button>
-          <DescribeDialog
-            resourceType={resourceType}
-            namespace={namespace}
-            name={name}
-          />
-          {headerActions}
-          {showDelete && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => setIsDeleteDialogOpen(true)}
-            >
-              <IconTrash className="w-4 h-4" />
-              {t('common.actions.delete')}
-            </Button>
-          )}
-        </div>
-      </div>
-
+    <div
+      className={cn(
+        'flex min-h-0 flex-col',
+        isIframe ? 'h-dvh px-4 py-3 lg:px-6' : 'h-full'
+      )}
+    >
       <ResponsiveTabs
-        className={namespace ? 'gap-2' : 'gap-4'}
+        className={cn('min-h-0 flex-1', namespace ? 'gap-2' : 'gap-4')}
+        contentClassName="min-h-0 flex-1 overflow-y-auto"
+        stickyHeader={
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              {titleIcon}
+              <div className="min-w-0">
+                <h1 className="truncate text-lg font-extrabold">{name}</h1>
+                {namespace ? (
+                  <p className="text-muted-foreground">
+                    {t('common.fields.namespace')}:{' '}
+                    <span className="font-medium">{namespace}</span>
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
+              <Button
+                disabled={isRefreshing}
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+              >
+                <IconRefresh className="w-4 h-4" />
+                {t('common.actions.refresh')}
+              </Button>
+              {showDescribe ? (
+                <DescribeDialog
+                  resourceType={resourceType}
+                  namespace={namespace}
+                  name={name}
+                />
+              ) : null}
+              {headerActions}
+              {showDelete && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                >
+                  <IconTrash className="w-4 h-4" />
+                  {t('common.actions.delete')}
+                </Button>
+              )}
+            </div>
+          </div>
+        }
         stickyHeaderClassName={cn(
           'sticky z-40 bg-background px-4',
           isIframe
             ? 'top-0 -mx-4 lg:-mx-6 lg:px-6'
-            : 'top-(--header-height) -mx-4 lg:-mx-6 lg:px-6'
+            : 'top-(--header-height) -mx-4 -mt-4 pt-2 lg:-mx-6 lg:px-6'
         )}
         tabs={tabs.map((tab) => ({
           value: tab.value,

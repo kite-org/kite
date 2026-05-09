@@ -19,12 +19,13 @@ import (
 
 func setupAPIRouter(r *gin.RouterGroup, cm *cluster.ClusterManager) {
 	authHandler := auth.NewAuthHandler()
+	helmChartsHandler := handlers.NewHelmChartHandler()
 
 	registerBaseRoutes(r)
 	registerAuthRoutes(r, authHandler)
 	registerUserRoutes(r, authHandler)
-	registerAdminRoutes(r, authHandler, cm)
-	registerProtectedRoutes(r, authHandler, cm)
+	registerAdminRoutes(r, authHandler, cm, helmChartsHandler)
+	registerProtectedRoutes(r, authHandler, cm, helmChartsHandler)
 }
 
 func registerBaseRoutes(r *gin.RouterGroup) {
@@ -56,7 +57,7 @@ func registerUserRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler) {
 	userGroup.POST("/sidebar_preference", authHandler.RequireAuth(), handlers.UpdateSidebarPreference)
 }
 
-func registerAdminRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, cm *cluster.ClusterManager) {
+func registerAdminRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, cm *cluster.ClusterManager, helmChartsHandler *handlers.HelmChartHandler) {
 	adminAPI := r.Group("/api/v1/admin")
 	adminAPI.POST("/users/create_super_user", handlers.CreateSuperUser)
 	adminAPI.POST("/clusters/import", cm.ImportClustersFromKubeconfig)
@@ -113,9 +114,11 @@ func registerAdminRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, cm *
 	templateAPI.POST("/", handlers.CreateTemplate)
 	templateAPI.PUT("/:id", handlers.UpdateTemplate)
 	templateAPI.DELETE("/:id", handlers.DeleteTemplate)
+
+	helmChartsHandler.RegisterAdminRoutes(adminAPI)
 }
 
-func registerProtectedRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, cm *cluster.ClusterManager) {
+func registerProtectedRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, cm *cluster.ClusterManager, helmChartsHandler *handlers.HelmChartHandler) {
 	api := r.Group("/api/v1")
 	api.GET("/clusters", authHandler.RequireAuth(), cm.GetClusters)
 	api.Use(authHandler.RequireAuth(), middleware.ClusterMiddleware(cm))
@@ -146,6 +149,8 @@ func registerProtectedRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, 
 
 	api.GET("/image/tags", handlers.GetImageTags)
 	api.GET("/templates", handlers.ListTemplates)
+
+	helmChartsHandler.RegisterRoutes(api)
 
 	proxyHandler := handlers.NewProxyHandler()
 	proxyHandler.RegisterRoutes(api)

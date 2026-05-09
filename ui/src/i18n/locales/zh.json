@@ -340,7 +340,8 @@
       "config": "配置",
       "other": "其他",
       "security": "安全",
-      "workloads": "工作负载"
+      "workloads": "工作负载",
+      "application": "应用"
     },
     "short": {
       "pvcs": "PVCs",
@@ -442,7 +443,9 @@
     "devicetaintrules": "DeviceTaintRules",
     "resourcepoolstatusrequests": "ResourcePoolStatusRequests",
     "storageversions": "StorageVersions",
-    "storageversionmigrations": "StorageVersionMigrations"
+    "storageversionmigrations": "StorageVersionMigrations",
+    "helmReleases": "Helm Release",
+    "helmCharts": "App Catalog"
   },
   "overview": {
     "title": "概览",
@@ -1122,5 +1125,90 @@
   },
   "log": {
     "jumpToBottom": "跳到底部"
+  },
+  "helmCharts": {
+    "actions": {
+      "addRepository": "添加 Helm Repository",
+      "deleteRepository": "删除 Helm Repository",
+      "install": "安装"
+    },
+    "fields": {
+      "repository": "Repository",
+      "deprecated": "已废弃",
+      "sources": "源码",
+      "keywords": "关键词",
+      "versions": "版本",
+      "defaultValues": "默认 Values",
+      "customValues": "自定义 Values"
+    },
+    "filters": {
+      "allRepositories": "全部 Repository",
+      "artifactHub": "Artifact Hub",
+      "repositories": "Repository",
+      "verifiedPublisher": "Verified Publisher"
+    },
+    "messages": {
+      "addRepositoryDescription": "添加 Helm Repository 后，它的 Charts 会显示在列表中。",
+      "repositoryAdded": "Repository 已添加",
+      "repositoryDeleted": "Repository 已删除",
+      "deleteRepositoryDescription": "这里只会从 Kite 移除这个受管理的 Chart 来源，不会删除远端 Chart，也不会卸载已安装的 Helm Release。",
+      "noCharts": "未找到 Chart",
+      "noReadme": "未找到 README",
+      "noValues": "未找到 Values",
+      "noTemplates": "未找到模板",
+      "noVersions": "未找到版本",
+      "noChartUrl": "缺少 Chart 包 URL。",
+      "invalidValues": "Values 必须是 YAML 对象。",
+      "installed": "Helm Release 已安装"
+    },
+    "placeholders": {
+      "search": "搜索 Chart..."
+    }
+  },
+  "helm": {
+    "actions": {
+      "upgrade": "升级",
+      "rollback": "回滚"
+    },
+    "fields": {
+      "chart": "Chart",
+      "version": "版本",
+      "appVersion": "App 版本",
+      "kubeVersion": "Kubernetes 版本",
+      "releaseName": "Release 名称",
+      "createNamespace": "创建 Namespace",
+      "forceConflicts": "force-conflicts",
+      "wait": "wait",
+      "rollbackOnFailure": "rollback-on-failure",
+      "firstDeployed": "首次部署",
+      "lastDeployed": "上次部署"
+    },
+    "tabs": {
+      "manifest": "Manifest",
+      "values": "Values",
+      "notes": "Notes"
+    },
+    "messages": {
+      "noResources": "未找到资源",
+      "noHistory": "未找到历史记录",
+      "rollbackStarted": "已发起回滚",
+      "rollbackConfirmTitle": "确认回滚 Release？",
+      "rollbackConfirmDescription": "将 {{namespace}}/{{name}} 回滚到 revision {{revision}}。",
+      "chartNotFound": "在已管理的 Helm Repository 和 Artifact Hub 中均未找到这个 Chart。",
+      "chartSourceManagedRepository": "当前使用已管理的 Chart Repository：{{repository}}。",
+      "chartSourceArtifactHubVerified": "当前使用 Artifact Hub Chart：{{repository}}（Verified Publisher）。",
+      "chartSourceArtifactHubVerifiedShort": "Artifact Hub（已验证）",
+      "chartSourceArtifactHub": "当前使用 Artifact Hub Chart：{{repository}}。",
+      "chartSourceCurrentRelease": "当前使用 Release 中保存的 Chart。",
+      "chartSourceSelectChart": "请选择要使用的 Chart 包。默认使用当前 Chart。",
+      "newVersionAvailable": "新版本 {{version}}",
+      "loadingChart": "正在加载 Chart...",
+      "loadingVersions": "正在加载版本...",
+      "loadingChartPackage": "正在加载 Chart 包...",
+      "loadingValues": "正在加载 Values..."
+    },
+    "placeholders": {
+      "selectChart": "选择 Chart..."
+    }
   }
 }

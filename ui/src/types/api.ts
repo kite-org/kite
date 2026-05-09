@@ -99,6 +99,154 @@ export interface DeploymentRelatedResource {
   services: Service[]
 }
 
+export interface HelmReleaseResource {
+  apiVersion: string
+  kind: string
+  name: string
+  namespace?: string
+}
+
+export interface HelmReleaseHistoryItem {
+  revision: number
+  status: string
+  chart: string
+  chartName: string
+  chartVersion: string
+  appVersion?: string
+  values?: Record<string, unknown>
+  description?: string
+  firstDeployed?: string
+  lastDeployed?: string
+  deleted?: string
+}
+
+export interface HelmReleaseHistoryResponse {
+  items: HelmReleaseHistoryItem[]
+}
+
+export interface HelmRelease {
+  apiVersion: 'v1'
+  kind: 'HelmRelease'
+  metadata: {
+    name: string
+    namespace: string
+    uid?: string
+    resourceVersion?: string
+    creationTimestamp?: string
+    labels?: Record<string, string>
+    annotations?: Record<string, string>
+  }
+  spec: {
+    releaseName: string
+    namespace: string
+    chart: string
+    chartName: string
+    chartVersion: string
+    appVersion?: string
+    icon?: string
+    revision: number
+    values?: Record<string, unknown>
+    defaultValues?: Record<string, unknown>
+    manifest?: string
+    notes?: string
+    description?: string
+  }
+  status: {
+    status: string
+    firstDeployed?: string
+    lastDeployed?: string
+    deleted?: string
+    resources?: HelmReleaseResource[]
+  }
+}
+
+export interface HelmReleaseList {
+  apiVersion: 'v1'
+  kind: 'HelmReleaseList'
+  items: HelmRelease[]
+  metadata?: listMetadataType
+}
+
+export interface HelmRepository {
+  id: number
+  name: string
+  url: string
+  username?: string
+  hasAuth: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface HelmChart {
+  repositoryId: number
+  repositoryName: string
+  repositoryUrl: string
+  source?: 'repository' | 'artifacthub'
+  name: string
+  version: string
+  appVersion?: string
+  kubeVersion?: string
+  description?: string
+  icon?: string
+  home?: string
+  artifactHubUrl?: string
+  chartUrl?: string
+  sources?: string[]
+  keywords?: string[]
+  maintainers?: {
+    name: string
+    email?: string
+    url?: string
+  }[]
+  deprecated?: boolean
+  updatedAt?: string
+}
+
+export interface HelmChartVersion {
+  version: string
+  appVersion?: string
+  updatedAt?: string
+}
+
+export interface HelmChartList {
+  items: HelmChart[]
+  total?: number
+}
+
+export type HelmChartContentType = 'values' | 'templates'
+
+export interface HelmChartContent {
+  content?: string
+}
+
+export interface HelmChartDetail extends HelmChart {
+  readme?: string
+  versions: HelmChartVersion[]
+}
+
+export interface HelmReleaseInstallRequest {
+  releaseName: string
+  namespace?: string
+  chartUrl: string
+  repositoryName?: string
+  source?: 'repository' | 'artifacthub'
+  values?: Record<string, unknown>
+  description?: string
+  createNamespace?: boolean
+  wait?: boolean
+}
+
+export interface HelmReleaseUpgradeRequest {
+  chartUrl?: string
+  repositoryName?: string
+  source?: 'repository' | 'artifacthub'
+  values?: Record<string, unknown>
+  description?: string
+  forceConflicts?: boolean
+  wait?: boolean
+  rollbackOnFailure?: boolean
+}
+
 type listMetadataType = {
   continue?: string
   remainingItemCount?: number
@@ -217,6 +365,7 @@ export interface ResourcesTypeMap {
   ipaddresses: KubernetesResourceList
   servicecidrs: KubernetesResourceList
   horizontalpodautoscalers: HorizontalPodAutoscalerList
+  helmrelease: HelmReleaseList
 }
 
 export interface PodMetrics {
@@ -329,6 +478,7 @@ export interface ResourceTypeMap {
   ipaddresses: KubernetesResource
   servicecidrs: KubernetesResource
   horizontalpodautoscalers: HorizontalPodAutoscaler
+  helmrelease: HelmRelease
 }
 
 export interface RecentEvent {

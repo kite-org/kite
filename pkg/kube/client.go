@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -31,12 +32,59 @@ import (
 var runtimeScheme = runtime.NewScheme()
 
 func init() {
-	ctrllog.SetLogger(klog.NewKlogr())
+	ctrllog.SetLogger(controllerRuntimeLogger(klog.NewKlogr()))
 	_ = scheme.AddToScheme(runtimeScheme)
 	_ = apiextensionsv1.AddToScheme(runtimeScheme)
 	_ = gatewayapiv1.Install(runtimeScheme)
 	_ = metricsv1.AddToScheme(runtimeScheme)
 	_ = policyv1.AddToScheme(runtimeScheme)
+}
+
+func controllerRuntimeLogger(logger logr.Logger) logr.Logger {
+	return logr.New(controllerRuntimeLogSink{sink: logger.GetSink()})
+}
+
+type controllerRuntimeLogSink struct {
+	sink logr.LogSink
+}
+
+func (l controllerRuntimeLogSink) Init(info logr.RuntimeInfo) {
+	l.sink.Init(info)
+}
+
+func (l controllerRuntimeLogSink) Enabled(level int) bool {
+	return klog.V(2).Enabled() && l.sink.Enabled(level)
+}
+
+func (l controllerRuntimeLogSink) Info(level int, msg string, keysAndValues ...any) {
+	if !klog.V(2).Enabled() {
+		return
+	}
+	l.sink.Info(level, msg, keysAndValues...)
+}
+
+func (l controllerRuntimeLogSink) Error(err error, msg string, keysAndValues ...any) {
+	if !klog.V(2).Enabled() {
+		return
+	}
+	l.sink.Error(err, msg, keysAndValues...)
+}
+
+func (l controllerRuntimeLogSink) WithValues(keysAndValues ...any) logr.LogSink {
+	l.sink = l.sink.WithValues(keysAndValues...)
+	return l
+}
+
+func (l controllerRuntimeLogSink) WithName(name string) logr.LogSink {
+	l.sink = l.sink.WithName(name)
+	return l
+}
+
+func (l controllerRuntimeLogSink) WithCallDepth(depth int) logr.LogSink {
+	if sink, ok := l.sink.(logr.CallDepthLogSink); ok {
+		l.sink = sink.WithCallDepth(depth)
+	}
+	return l
 }
 
 // K8sClient holds the Kubernetes client instances

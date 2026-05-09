@@ -63,11 +63,11 @@ function AppContent() {
     <>
       <SidebarProvider>
         <AppSidebar variant="inset" />
-        <SidebarInset className="h-screen overflow-y-auto overscroll-none scrollbar-hide">
+        <SidebarInset className="h-dvh overflow-y-auto overscroll-none scrollbar-hide">
           <SiteHeader />
-          <div className="@container/main">
-            <div className="flex flex-col gap-4 py-4 md:gap-6">
-              <div className="px-4 lg:px-6">
+          <div className="@container/main flex min-h-0 flex-1 flex-col">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 py-4 md:gap-6">
+              <div className="flex min-h-0 flex-1 flex-col px-4 lg:px-6">
                 <ErrorBoundary>
                   <Outlet />
                 </ErrorBoundary>

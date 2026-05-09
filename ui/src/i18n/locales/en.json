@@ -340,7 +340,8 @@
       "config": "config",
       "other": "other",
       "security": "Security",
-      "workloads": "Workloads"
+      "workloads": "Workloads",
+      "application": "Application"
     },
     "short": {
       "pvcs": "PVCs",
@@ -437,7 +438,9 @@
     "devicetaintrules": "DeviceTaintRules",
     "resourcepoolstatusrequests": "ResourcePoolStatusRequests",
     "storageversions": "StorageVersions",
-    "storageversionmigrations": "StorageVersionMigrations"
+    "storageversionmigrations": "StorageVersionMigrations",
+    "helmReleases": "Helm Release",
+    "helmCharts": "App Catalog"
   },
   "overview": {
     "title": "Overview",
@@ -1035,5 +1038,90 @@
     "forceDelete": "Force delete (set grace period to 0)",
     "finalizerNote": "If finalizers exist and resource is not deleted after 3 seconds, finalizers will be removed automatically",
     "deleting": "Deleting..."
+  },
+  "helmCharts": {
+    "actions": {
+      "addRepository": "Add Repository",
+      "deleteRepository": "Delete Repository",
+      "install": "Install"
+    },
+    "fields": {
+      "repository": "Repository",
+      "deprecated": "Deprecated",
+      "sources": "Sources",
+      "keywords": "Keywords",
+      "versions": "Versions",
+      "defaultValues": "Default values",
+      "customValues": "Custom values"
+    },
+    "filters": {
+      "allRepositories": "All repositories",
+      "artifactHub": "Artifact Hub",
+      "repositories": "Repositories",
+      "verifiedPublisher": "Verified publisher"
+    },
+    "messages": {
+      "addRepositoryDescription": "Add a Helm repository to make its charts available.",
+      "repositoryAdded": "Repository added",
+      "repositoryDeleted": "Repository deleted",
+      "deleteRepositoryDescription": "This only removes the managed chart source from Kite. It does not delete remote charts or installed Helm releases.",
+      "noCharts": "No charts found",
+      "noReadme": "No README found",
+      "noValues": "No values found",
+      "noTemplates": "No templates found",
+      "noVersions": "No versions found",
+      "noChartUrl": "Chart package URL is missing.",
+      "invalidValues": "Values must be a YAML object.",
+      "installed": "Helm release installed"
+    },
+    "placeholders": {
+      "search": "Search charts..."
+    }
+  },
+  "helm": {
+    "actions": {
+      "upgrade": "Upgrade",
+      "rollback": "Rollback"
+    },
+    "fields": {
+      "chart": "Chart",
+      "version": "Version",
+      "appVersion": "App Version",
+      "kubeVersion": "Kubernetes Version",
+      "releaseName": "Release Name",
+      "createNamespace": "Create namespace",
+      "forceConflicts": "force-conflicts",
+      "wait": "wait",
+      "rollbackOnFailure": "rollback-on-failure",
+      "firstDeployed": "First Deployed",
+      "lastDeployed": "Last Deployed"
+    },
+    "tabs": {
+      "manifest": "Manifest",
+      "values": "Values",
+      "notes": "Notes"
+    },
+    "messages": {
+      "noResources": "No resources found",
+      "noHistory": "No history found",
+      "rollbackStarted": "Rollback requested",
+      "rollbackConfirmTitle": "Rollback release?",
+      "rollbackConfirmDescription": "Rollback {{namespace}}/{{name}} to revision {{revision}}.",
+      "chartNotFound": "Chart not found in managed Helm repositories or Artifact Hub.",
+      "chartSourceManagedRepository": "Using managed chart repository {{repository}}.",
+      "chartSourceArtifactHubVerified": "Using Artifact Hub chart from {{repository}} (verified publisher).",
+      "chartSourceArtifactHubVerifiedShort": "Artifact Hub (verified)",
+      "chartSourceArtifactHub": "Using Artifact Hub chart from {{repository}}.",
+      "chartSourceCurrentRelease": "Using the chart stored in the current release.",
+      "chartSourceSelectChart": "Select a chart to use a different chart package. Defaults to the current chart.",
+      "newVersionAvailable": "New {{version}}",
+      "loadingChart": "Loading chart...",
+      "loadingVersions": "Loading versions...",
+      "loadingChartPackage": "Loading chart package...",
+      "loadingValues": "Loading values..."
+    },
+    "placeholders": {
+      "selectChart": "Select a chart..."
+    }
   }
 }

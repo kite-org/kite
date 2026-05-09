@@ -531,7 +531,7 @@ export function Terminal({
 
   return (
     <Card
-      className={`flex flex-col gap-0 py-2 ${isFullscreen ? 'fixed inset-0 z-50 h-[100dvh]' : 'h-[calc(100dvh-180px)]'}`}
+      className={`flex flex-col gap-0 py-2 ${isFullscreen ? 'fixed inset-0 z-50 h-[100dvh]' : 'h-full min-h-0'}`}
     >
       <CardHeader>
         <div className="flex items-center justify-between">

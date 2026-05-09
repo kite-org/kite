@@ -50,7 +50,13 @@ resourceCatalog
     })
   })
 
-export const SIDEBAR_CONFIG_VERSION = 1
+defaultMenus['sidebar.groups.application'].push({
+  titleKey: 'nav.helmCharts',
+  url: '/charts',
+  icon: getResourceIconComponent('IconPackage'),
+})
+
+export const SIDEBAR_CONFIG_VERSION = 3
 
 function getIconName(iconComponent: ComponentType<{ className?: string }>) {
   const entry = Object.entries(sidebarIconMap).find(
