@@ -56,6 +56,7 @@ interface SidebarConfigContextType {
   removeCRDToGroup: (groupId: string, crdName: string) => void
   removeCustomGroup: (groupId: string) => void
   moveGroup: (groupId: string, direction: 'up' | 'down') => void
+  moveItemToGroup: (itemId: string, targetGroupId: string) => void
 }
 
 const SidebarConfigContext = createContext<
@@ -278,6 +279,54 @@ export const SidebarConfigProvider: React.FC<SidebarConfigProviderProps> = ({
     [config, updateConfig]
   )
 
+  const moveItemToGroup = useCallback(
+    (itemId: string, targetGroupId: string) => {
+      if (!config) return
+      if (!config.groups.some((group) => group.id === targetGroupId)) return
+
+      let movedItem: SidebarItem | undefined
+      let sourceGroupId = ''
+      const groupsWithoutItem = config.groups.map((group) => {
+        const nextItems = group.items.filter((item) => {
+          if (item.id !== itemId) {
+            return true
+          }
+          movedItem = item
+          sourceGroupId = group.id
+          return false
+        })
+
+        if (nextItems.length === group.items.length) {
+          return group
+        }
+
+        return {
+          ...group,
+          items: nextItems.map((item, index) => ({ ...item, order: index })),
+        }
+      })
+
+      if (!movedItem || sourceGroupId === targetGroupId) {
+        return
+      }
+
+      const itemToMove = movedItem
+      const groups = groupsWithoutItem.map((group) => {
+        if (group.id !== targetGroupId) {
+          return group
+        }
+
+        return {
+          ...group,
+          items: [...group.items, { ...itemToMove, order: group.items.length }],
+        }
+      })
+
+      updateConfig({ groups })
+    },
+    [config, updateConfig]
+  )
+
   const removeCRDToGroup = useCallback(
     (groupId: string, itemID: string) => {
       if (!config) return
@@ -304,23 +353,29 @@ export const SidebarConfigProvider: React.FC<SidebarConfigProviderProps> = ({
     (groupId: string) => {
       if (!config) return
 
-      // Only allow removing custom groups
       const group = config.groups.find((g) => g.id === groupId)
       if (!group?.isCustom) return
 
-      const groups = config.groups.filter((g) => g.id !== groupId)
+      const otherGroupId = 'sidebar-groups-other'
+      const groups = config.groups
+        .filter((g) => g.id !== groupId)
+        .map((g) =>
+          g.id === otherGroupId
+            ? {
+                ...g,
+                items: [
+                  ...g.items,
+                  ...group.items.map((item, index) => ({
+                    ...item,
+                    order: g.items.length + index,
+                  })),
+                ],
+              }
+            : g
+        )
       const groupOrder = config.groupOrder.filter((id) => id !== groupId)
 
-      // Remove any pinned items from this group
-      const groupItemIds = group.items.map((item) => item.id)
-      const pinnedItems = config.pinnedItems.filter(
-        (itemId) => !groupItemIds.includes(itemId)
-      )
-      const hiddenItems = config.hiddenItems.filter(
-        (itemId) => !groupItemIds.includes(itemId)
-      )
-
-      updateConfig({ groups, groupOrder, pinnedItems, hiddenItems })
+      updateConfig({ groups, groupOrder })
     },
     [config, updateConfig]
   )
@@ -356,6 +411,7 @@ export const SidebarConfigProvider: React.FC<SidebarConfigProviderProps> = ({
     removeCRDToGroup,
     removeCustomGroup,
     moveGroup,
+    moveItemToGroup,
   }
 
   return (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type DragEvent } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { useSidebarConfig } from '@/contexts/sidebar-config-context'
 import {
@@ -7,6 +7,7 @@ import {
   Eye,
   EyeOff,
   FolderPlus,
+  GripVertical,
   PanelLeftOpen,
   Pin,
   PinOff,
@@ -21,6 +22,7 @@ import {
   clearGlobalSidebarPreference,
   setGlobalSidebarPreference,
 } from '@/lib/api'
+import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -85,7 +87,10 @@ export function SidebarCustomizer({
     removeCustomGroup,
     removeCRDToGroup,
     moveGroup,
+    moveItemToGroup,
   } = useSidebarConfig()
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null)
+  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null)
 
   const handleCreateGroup = () => {
     if (newGroupName.trim()) {
@@ -99,6 +104,50 @@ export function SidebarCustomizer({
       addCRDToGroup(groupId, selectedCRD.name, selectedCRD.kind)
       setSelectedCRD(undefined)
     }
+  }
+
+  const handleItemDragStart = (
+    event: DragEvent<HTMLElement>,
+    itemId: string
+  ) => {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', itemId)
+    setDraggedItemId(itemId)
+  }
+
+  const handleItemDragEnd = () => {
+    setDraggedItemId(null)
+    setDragOverGroupId(null)
+  }
+
+  const handleGroupDragOver = (
+    event: DragEvent<HTMLElement>,
+    groupId: string
+  ) => {
+    if (!draggedItemId) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+    setDragOverGroupId(groupId)
+  }
+
+  const handleGroupDragLeave = (
+    event: DragEvent<HTMLElement>,
+    groupId: string
+  ) => {
+    if (dragOverGroupId !== groupId) return
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      return
+    }
+    setDragOverGroupId(null)
+  }
+
+  const handleGroupDrop = (event: DragEvent<HTMLElement>, groupId: string) => {
+    event.preventDefault()
+    const itemId = event.dataTransfer.getData('text/plain') || draggedItemId
+    if (itemId) {
+      moveItemToGroup(itemId, groupId)
+    }
+    handleItemDragEnd()
   }
 
   const pinnedItems = useMemo(() => {
@@ -268,7 +317,16 @@ export function SidebarCustomizer({
               </Label>
 
               {sortedGroups.map((group, index) => (
-                <div key={group.id} className="space-y-3">
+                <div
+                  key={group.id}
+                  className={cn(
+                    '-m-2 space-y-3 rounded-md border border-transparent p-2',
+                    dragOverGroupId === group.id && 'border-primary bg-muted/30'
+                  )}
+                  onDragOver={(event) => handleGroupDragOver(event, group.id)}
+                  onDragLeave={(event) => handleGroupDragLeave(event, group.id)}
+                  onDrop={(event) => handleGroupDrop(event, group.id)}
+                >
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-wrap items-center gap-2">
                       <h4 className="text-sm font-medium">
@@ -359,6 +417,7 @@ export function SidebarCustomizer({
                       const IconComponent = getIconComponent(item.icon)
                       const isHidden = config.hiddenItems.includes(item.id)
                       const isPinned = config.pinnedItems.includes(item.id)
+                      const isCRDItem = item.url.startsWith('/crds/')
                       const title = item.titleKey
                         ? t(item.titleKey, { defaultValue: item.titleKey })
                         : ''
@@ -366,13 +425,29 @@ export function SidebarCustomizer({
                       return (
                         <div
                           key={item.id}
-                          className={`flex flex-col gap-3 rounded border p-2 transition-colors sm:flex-row sm:items-center sm:justify-between ${
+                          className={cn(
+                            'flex flex-col gap-3 rounded border p-2 transition-colors sm:flex-row sm:items-center sm:justify-between',
                             isHidden
-                              ? 'opacity-50 bg-muted/10'
-                              : 'bg-background'
-                          }`}
+                              ? 'bg-muted/10 opacity-50'
+                              : 'bg-background',
+                            draggedItemId === item.id && 'opacity-60'
+                          )}
                         >
                           <div className="flex flex-wrap items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              draggable
+                              onDragStart={(event) =>
+                                handleItemDragStart(event, item.id)
+                              }
+                              onDragEnd={handleItemDragEnd}
+                              className="size-8 cursor-grab p-0 text-muted-foreground active:cursor-grabbing"
+                              title={t('sidebar.dragItem', 'Drag item')}
+                              aria-label={t('sidebar.dragItem', 'Drag item')}
+                            >
+                              <GripVertical className="h-3.5 w-3.5" />
+                            </Button>
                             <IconComponent className="h-4 w-4 text-sidebar-primary" />
                             <span className="text-sm">{title}</span>
                             {isPinned && (
@@ -398,7 +473,7 @@ export function SidebarCustomizer({
                                 <Pin className="h-3.5 w-3.5" />
                               )}
                             </Button>
-                            {group.isCustom ? (
+                            {group.isCustom && isCRDItem ? (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -466,15 +541,17 @@ export function SidebarCustomizer({
             <Separator />
 
             <div className="space-y-4">
-              {/* Create new CRD group */}
               <div className="space-y-3 p-4 border rounded-md bg-muted/10">
                 <Label className="text-sm font-medium flex items-center gap-2">
                   <FolderPlus className="h-4 w-4" />
-                  {t('common.actions.createGroup', 'Create New CRD Group')}
+                  {t('common.actions.createGroup', 'Create New Group')}
                 </Label>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Input
-                    placeholder="Group name (e.g., CRDs)"
+                    placeholder={t(
+                      'sidebar.groupNamePlaceholder',
+                      'Group name'
+                    )}
                     value={newGroupName}
                     onChange={(e) => setNewGroupName(e.target.value)}
                     onKeyDown={(e) => {
@@ -486,7 +563,10 @@ export function SidebarCustomizer({
                   <Button
                     onClick={handleCreateGroup}
                     disabled={!newGroupName.trim()}
-                    aria-label="Create CRD group"
+                    aria-label={t(
+                      'common.actions.createGroup',
+                      'Create New Group'
+                    )}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
