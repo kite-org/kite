@@ -86,6 +86,7 @@ const helmResourceMetadataByAlias = new Map<string, ResourceMetadata>(
       .map((alias) => [alias.toLowerCase(), item] as const)
   )
 )
+const helmResourceKindAliases = new Map([['customresourcedefinition', 'crds']])
 
 function ResourcesTable({ resources }: { resources?: HelmReleaseResource[] }) {
   const { t } = useTranslation()
@@ -208,7 +209,10 @@ function getHelmReleaseResourcePath(resource: HelmReleaseResource) {
 }
 
 function getHelmReleaseResourceMetadata(resource: HelmReleaseResource) {
-  return helmResourceMetadataByAlias.get(resource.kind.toLowerCase())
+  const kind = resource.kind.toLowerCase()
+  return helmResourceMetadataByAlias.get(
+    helmResourceKindAliases.get(kind) || kind
+  )
 }
 
 function toHelmRelatedResource(

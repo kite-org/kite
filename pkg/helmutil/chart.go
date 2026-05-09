@@ -46,13 +46,13 @@ func LoadArchive(chartURL string, repository *model.HelmRepository) (*chart.Char
 	}
 	useRepositoryCredentials := repository != nil && repository.Username != "" && sameURLHost(repository.URL, chartURL)
 	if useRepositoryCredentials {
-		options = append(options, getter.WithBasicAuth(repository.Username, repository.Password))
+		options = append(options, getter.WithBasicAuth(repository.Username, string(repository.Password)))
 	}
 
 	if parsedURL.Scheme == "oci" {
 		registryOptions := []registry.ClientOption{}
 		if useRepositoryCredentials {
-			registryOptions = append(registryOptions, registry.ClientOptBasicAuth(repository.Username, repository.Password))
+			registryOptions = append(registryOptions, registry.ClientOptBasicAuth(repository.Username, string(repository.Password)))
 		}
 		registryClient, err := registry.NewClient(registryOptions...)
 		if err != nil {

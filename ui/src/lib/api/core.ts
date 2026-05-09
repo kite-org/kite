@@ -128,7 +128,7 @@ export const upgradeHelmRelease = async (
   body?: HelmReleaseUpgradeRequest
 ): Promise<{ message?: string }> => {
   return apiClient.put<{ message?: string }>(
-    `/helmrelease/${namespace}/${name}/upgrade`,
+    `/helmrelease/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/upgrade`,
     body || {}
   )
 }
@@ -139,7 +139,7 @@ export const rollbackHelmRelease = async (
   revision?: number
 ): Promise<{ message?: string }> => {
   return apiClient.put<{ message?: string }>(
-    `/helmrelease/${namespace}/${name}/rollback`,
+    `/helmrelease/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/rollback`,
     revision ? { revision } : {}
   )
 }
@@ -159,7 +159,7 @@ export const fetchHelmReleaseHistory = (
   name: string
 ): Promise<HelmReleaseHistoryResponse> => {
   return fetchAPI<HelmReleaseHistoryResponse>(
-    `/helmrelease/${namespace}/${name}/history`
+    `/helmrelease/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/history`
   )
 }
 

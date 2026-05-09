@@ -27,18 +27,23 @@ async function fillMonacoEditor(
 
   await expect(editor).toBeVisible({ timeout: 60_000 })
   const firstLine = value.trim().split('\n')[0]
-  const pasteShortcut = process.platform === 'darwin' ? 'Meta+V' : 'Control+V'
+  const shortcutModifier = process.platform === 'darwin' ? 'Meta' : 'Control'
+  const pasteShortcut = `${shortcutModifier}+V`
 
   await editorText.click({ position: { x: 10, y: 10 } })
-  await page.keyboard.press('Control+A')
+  await page.keyboard.press(`${shortcutModifier}+A`)
   await page.keyboard.press('Backspace')
   await page.evaluate(
     async (text) => navigator.clipboard.writeText(text),
     value
   )
   await page.keyboard.press(pasteShortcut)
-  if (!((await editorText.textContent()) || '').includes(firstLine)) {
-    await page.keyboard.press('Control+V')
+  const pastedText = ((await editorText.textContent()) || '').replace(
+    /\u00a0/g,
+    ' '
+  )
+  if (!pastedText.includes(firstLine)) {
+    await page.keyboard.press(pasteShortcut)
   }
   await expect(editorText).toContainText(firstLine)
 }

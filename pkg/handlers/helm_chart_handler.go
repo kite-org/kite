@@ -218,7 +218,7 @@ func (h *HelmChartHandler) CreateRepository(c *gin.Context) {
 		Name:     strings.TrimSpace(req.Name),
 		URL:      strings.TrimSpace(req.URL),
 		Username: strings.TrimSpace(req.Username),
-		Password: req.Password,
+		Password: model.SecretString(req.Password),
 	}
 
 	if repository.Name == "" || repository.URL == "" {
@@ -227,6 +227,10 @@ func (h *HelmChartHandler) CreateRepository(c *gin.Context) {
 	}
 	if strings.Contains(repository.Name, "/") {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "repository name cannot contain /"})
+		return
+	}
+	if (repository.Username == "") != (repository.Password == "") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "repository username and password must be provided together"})
 		return
 	}
 
@@ -546,7 +550,7 @@ func (h *HelmChartHandler) loadRepositoryIndex(repository model.HelmRepository) 
 		Name:     repository.Name,
 		URL:      repository.URL,
 		Username: repository.Username,
-		Password: repository.Password,
+		Password: string(repository.Password),
 	}
 	chartRepository, err := repo.NewChartRepository(entry, getter.Getters())
 	if err != nil {
