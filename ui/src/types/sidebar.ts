@@ -31,6 +31,7 @@ export interface MenuItemData {
   titleKey: string
   url: string
   icon: React.ComponentType<{ className?: string }>
+  defaultHidden?: boolean
 }
 
 export interface DefaultMenus {

@@ -21,6 +21,7 @@ type SidebarResource = CatalogResource & {
     groupKey: (typeof sidebarGroupOrder)[number]
     order: number
     titleKey?: string
+    defaultHidden?: boolean
   }
 }
 
@@ -45,10 +46,11 @@ resourceCatalog
         resource.pluralLabel,
       url: `/${resource.type}`,
       icon: getResourceIconComponent(resource.icon),
+      defaultHidden: sidebar.defaultHidden,
     })
   })
 
-export const SIDEBAR_CONFIG_VERSION = 1
+export const SIDEBAR_CONFIG_VERSION = 2
 
 function getIconName(iconComponent: ComponentType<{ className?: string }>) {
   const entry = Object.entries(sidebarIconMap).find(
@@ -67,6 +69,7 @@ export function getSidebarIconComponent(
 
 export function buildDefaultSidebarConfig(): SidebarConfig {
   const groups: SidebarGroup[] = []
+  const hiddenItems: string[] = []
   let groupOrder = 0
 
   Object.entries(defaultMenus).forEach(([groupKey, items]) => {
@@ -74,15 +77,21 @@ export function buildDefaultSidebarConfig(): SidebarConfig {
       .toLowerCase()
       .replace(/\./g, '-')
       .replace(/\s+/g, '-')
-    const sidebarItems: SidebarItem[] = items.map((item, index) => ({
-      id: `${groupId}-${item.url.replace(/[^a-zA-Z0-9]/g, '-')}`,
-      titleKey: item.titleKey,
-      url: item.url,
-      icon: getIconName(item.icon),
-      visible: true,
-      pinned: false,
-      order: index,
-    }))
+    const sidebarItems: SidebarItem[] = items.map((item, index) => {
+      const id = `${groupId}-${item.url.replace(/[^a-zA-Z0-9]/g, '-')}`
+      if (item.defaultHidden) {
+        hiddenItems.push(id)
+      }
+      return {
+        id,
+        titleKey: item.titleKey,
+        url: item.url,
+        icon: getIconName(item.icon),
+        visible: true,
+        pinned: false,
+        order: index,
+      }
+    })
 
     groups.push({
       id: groupId,
@@ -97,7 +106,7 @@ export function buildDefaultSidebarConfig(): SidebarConfig {
   return {
     version: SIDEBAR_CONFIG_VERSION,
     groups,
-    hiddenItems: [],
+    hiddenItems,
     pinnedItems: [],
     groupOrder: groups.map((g) => g.id),
     lastUpdated: Date.now(),
