@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 )
 
@@ -100,6 +101,24 @@ type HelmReleaseResource struct {
 	Kind       string `json:"kind"`
 	Name       string `json:"name"`
 	Namespace  string `json:"namespace,omitempty"`
+}
+
+type HelmReleaseDryRunResource struct {
+	HelmReleaseResource
+	Path            string `json:"path"`
+	Content         string `json:"content"`
+	OriginalContent string `json:"originalContent,omitempty"`
+	ModifiedContent string `json:"modifiedContent,omitempty"`
+	Status          string `json:"status,omitempty"`
+}
+
+type HelmReleaseDryRunResponse struct {
+	Resources []HelmReleaseDryRunResource `json:"resources"`
+}
+
+type helmReleaseRunResult struct {
+	current *release.Release
+	release *release.Release
 }
 
 type HelmReleaseHistoryItem struct {
@@ -217,17 +236,36 @@ func (h *HelmReleaseHandler) ListHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 func (h *HelmReleaseHandler) Create(c *gin.Context) {
+	rel, status, err := h.runInstall(c, false)
+	if err != nil {
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+
+	result := toHelmRelease(rel, true)
+	c.JSON(http.StatusCreated, result)
+}
+
+func (h *HelmReleaseHandler) DryRunInstall(c *gin.Context) {
+	rel, status, err := h.runInstall(c, true)
+	if err != nil {
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, toHelmReleaseDryRunResponse(rel))
+}
+
+func (h *HelmReleaseHandler) runInstall(c *gin.Context, dryRun bool) (rel *release.Release, status int, err error) {
 	ctx := c.Request.Context()
 	namespace := strings.TrimSpace(c.Param("namespace"))
 	if namespace == "" || namespace == common.AllNamespaces {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "namespace is required"})
-		return
+		return nil, http.StatusBadRequest, fmt.Errorf("namespace is required")
 	}
 
 	var req helmReleaseInstallRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+		return nil, http.StatusBadRequest, err
 	}
 	req.ReleaseName = strings.TrimSpace(req.ReleaseName)
 	req.Namespace = strings.TrimSpace(req.Namespace)
@@ -235,29 +273,29 @@ func (h *HelmReleaseHandler) Create(c *gin.Context) {
 	req.RepositoryName = strings.TrimSpace(req.RepositoryName)
 	req.Source = strings.TrimSpace(req.Source)
 	if req.ReleaseName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "releaseName is required"})
-		return
+		return nil, http.StatusBadRequest, fmt.Errorf("releaseName is required")
 	}
 	if req.Namespace != "" && req.Namespace != namespace {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "request namespace does not match URL namespace"})
-		return
+		return nil, http.StatusBadRequest, fmt.Errorf("request namespace does not match URL namespace")
+	}
+	if !dryRun {
+		defer func() {
+			h.recordHistory(c, "install", req.ReleaseName, namespace, nil, rel, err == nil, err)
+		}()
 	}
 
 	repository, err := helmChartRepository(req.RepositoryName, req.Source)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "repository not found"})
-		return
+		return nil, http.StatusBadRequest, fmt.Errorf("repository not found")
 	}
 	loadedChart, err := helmutil.LoadArchive(req.ChartURL, repository)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+		return nil, http.StatusBadRequest, err
 	}
 
 	cfg, err := h.actionConfig(c, namespace)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return nil, http.StatusInternalServerError, err
 	}
 	values := req.Values
 	if values == nil {
@@ -266,6 +304,9 @@ func (h *HelmReleaseHandler) Create(c *gin.Context) {
 	description := req.Description
 	if description == "" {
 		description = "Install requested from Kite"
+		if dryRun {
+			description = "Dry run install requested from Kite"
+		}
 	}
 
 	install := action.NewInstall(cfg)
@@ -274,24 +315,24 @@ func (h *HelmReleaseHandler) Create(c *gin.Context) {
 	install.Timeout = helmActionTimeout
 	install.Description = description
 	install.CreateNamespace = req.CreateNamespace
+	if dryRun {
+		install.DryRunStrategy = action.DryRunClient
+	}
 	install.WaitStrategy = kube.HookOnlyStrategy
 	if req.Wait {
 		install.WaitStrategy = kube.StatusWatcherStrategy
 	}
 	releaser, err := install.RunWithContext(ctx, loadedChart, values)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return nil, http.StatusInternalServerError, err
 	}
-	rel, err := helmReleaseFromReleaser(releaser)
+	rel, err = helmReleaseFromReleaser(releaser)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return nil, http.StatusInternalServerError, err
 	}
-
-	result := toHelmRelease(rel, true)
-	c.JSON(http.StatusCreated, result)
+	return rel, http.StatusOK, nil
 }
+
 func (h *HelmReleaseHandler) Update(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "helm release updates must use the upgrade action"})
 }
@@ -318,7 +359,9 @@ func (h *HelmReleaseHandler) Describe(c *gin.Context) {
 }
 
 func (h *HelmReleaseHandler) registerCustomRoutes(group *gin.RouterGroup) {
+	group.POST("/:namespace/dry-run", h.DryRunInstall)
 	group.PUT("/:namespace/:name/upgrade", h.Upgrade)
+	group.PUT("/:namespace/:name/upgrade/dry-run", h.DryRunUpgrade)
 	group.PUT("/:namespace/:name/rollback", h.Rollback)
 }
 
@@ -372,14 +415,32 @@ func (h *HelmReleaseHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	currentReleaser, err := action.NewGet(cfg).Run(c.Param("name"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	current, err := helmReleaseFromReleaser(currentReleaser)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	success := false
+	var runErr error
+	defer func() {
+		h.recordHistory(c, "delete", c.Param("name"), c.Param("namespace"), current, nil, success, runErr)
+	}()
+
 	uninstall := action.NewUninstall(cfg)
 	uninstall.Timeout = helmActionTimeout
 	uninstall.Description = "Deleted from Kite"
 	uninstall.WaitStrategy = kube.HookOnlyStrategy
 	if _, err := uninstall.Run(c.Param("name")); err != nil {
+		runErr = err
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	success = true
 	c.JSON(http.StatusOK, gin.H{"message": "helm release deleted"})
 }
 
@@ -396,7 +457,107 @@ type helmReleaseActionRequest struct {
 }
 
 func (h *HelmReleaseHandler) Upgrade(c *gin.Context) {
+	_, status, err := h.runUpgrade(c, false)
+	if err != nil {
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "helm release upgraded"})
+}
+
+func (h *HelmReleaseHandler) DryRunUpgrade(c *gin.Context) {
+	result, status, err := h.runUpgrade(c, true)
+	if err != nil {
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, toHelmReleaseDryRunDiffResponse(result.current, result.release))
+}
+
+func (h *HelmReleaseHandler) runUpgrade(c *gin.Context, dryRun bool) (result helmReleaseRunResult, status int, err error) {
 	ctx := c.Request.Context()
+	namespace, name := c.Param("namespace"), c.Param("name")
+	var req helmReleaseActionRequest
+	_ = c.ShouldBindJSON(&req)
+
+	cfg, err := h.actionConfig(c, namespace)
+	if err != nil {
+		return helmReleaseRunResult{}, http.StatusInternalServerError, err
+	}
+	currentReleaser, err := action.NewGet(cfg).Run(name)
+	if err != nil {
+		return helmReleaseRunResult{}, http.StatusInternalServerError, err
+	}
+	current, err := helmReleaseFromReleaser(currentReleaser)
+	if err != nil {
+		return helmReleaseRunResult{}, http.StatusInternalServerError, err
+	}
+	if current.Chart == nil {
+		return helmReleaseRunResult{}, http.StatusInternalServerError, fmt.Errorf("helm release chart is missing")
+	}
+	result.current = current
+	if !dryRun {
+		defer func() {
+			h.recordHistory(c, "upgrade", name, namespace, current, result.release, err == nil, err)
+		}()
+	}
+
+	chartToUpgrade := current.Chart
+	if strings.TrimSpace(req.ChartURL) != "" {
+		req.ChartURL = strings.TrimSpace(req.ChartURL)
+		repository, err := helmChartRepository(
+			strings.TrimSpace(req.RepositoryName),
+			strings.TrimSpace(req.Source),
+		)
+		if err != nil {
+			return helmReleaseRunResult{}, http.StatusBadRequest, fmt.Errorf("repository not found")
+		}
+		chartToUpgrade, err = helmutil.LoadArchive(req.ChartURL, repository)
+		if err != nil {
+			return helmReleaseRunResult{}, http.StatusBadRequest, err
+		}
+	}
+
+	values := req.Values
+	if values == nil {
+		values = map[string]interface{}{}
+	}
+	description := req.Description
+	if description == "" {
+		description = "Dry run upgrade requested from Kite"
+		if !dryRun {
+			description = "Upgrade requested from Kite"
+		}
+	}
+
+	upgrade := action.NewUpgrade(cfg)
+	upgrade.Namespace = namespace
+	upgrade.Timeout = helmActionTimeout
+	upgrade.ReuseValues = req.Values == nil
+	upgrade.Description = description
+	upgrade.ForceConflicts = req.ForceConflicts
+	upgrade.RollbackOnFailure = req.RollbackOnFailure
+	if dryRun {
+		upgrade.DryRunStrategy = action.DryRunClient
+	}
+	upgrade.WaitStrategy = kube.HookOnlyStrategy
+	if req.Wait {
+		upgrade.WaitStrategy = kube.StatusWatcherStrategy
+	}
+	releaser, err := upgrade.RunWithContext(ctx, name, chartToUpgrade, values)
+	if err != nil {
+		return helmReleaseRunResult{}, http.StatusInternalServerError, err
+	}
+	rel, err := helmReleaseFromReleaser(releaser)
+	if err != nil {
+		return helmReleaseRunResult{}, http.StatusInternalServerError, err
+	}
+	result.release = rel
+	return result, http.StatusOK, nil
+}
+
+func (h *HelmReleaseHandler) Rollback(c *gin.Context) {
 	namespace, name := c.Param("namespace"), c.Param("name")
 	var req helmReleaseActionRequest
 	_ = c.ShouldBindJSON(&req)
@@ -416,81 +577,19 @@ func (h *HelmReleaseHandler) Upgrade(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	if current.Chart == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "helm release chart is missing"})
-		return
-	}
+	success := false
+	var next *release.Release
+	var runErr error
+	defer func() {
+		h.recordHistory(c, "rollback", name, namespace, current, next, success, runErr)
+	}()
 
-	chartToUpgrade := current.Chart
-	if strings.TrimSpace(req.ChartURL) != "" {
-		req.ChartURL = strings.TrimSpace(req.ChartURL)
-		repository, err := helmChartRepository(
-			strings.TrimSpace(req.RepositoryName),
-			strings.TrimSpace(req.Source),
-		)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "repository not found"})
-			return
-		}
-		chartToUpgrade, err = helmutil.LoadArchive(req.ChartURL, repository)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-	}
-
-	values := req.Values
-	if values == nil {
-		values = map[string]interface{}{}
-	}
-	description := req.Description
-	if description == "" {
-		description = "Upgrade requested from Kite"
-	}
-
-	upgrade := action.NewUpgrade(cfg)
-	upgrade.Namespace = namespace
-	upgrade.Timeout = helmActionTimeout
-	upgrade.ReuseValues = req.Values == nil
-	upgrade.Description = description
-	upgrade.ForceConflicts = req.ForceConflicts
-	upgrade.RollbackOnFailure = req.RollbackOnFailure
-	upgrade.WaitStrategy = kube.HookOnlyStrategy
-	if req.Wait {
-		upgrade.WaitStrategy = kube.StatusWatcherStrategy
-	}
-	if _, err := upgrade.RunWithContext(ctx, name, chartToUpgrade, values); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "helm release upgraded"})
-}
-
-func (h *HelmReleaseHandler) Rollback(c *gin.Context) {
-	namespace, name := c.Param("namespace"), c.Param("name")
-	var req helmReleaseActionRequest
-	_ = c.ShouldBindJSON(&req)
-
-	cfg, err := h.actionConfig(c, namespace)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
 	targetRevision := req.Revision
 	if targetRevision == 0 {
-		currentReleaser, err := action.NewGet(cfg).Run(name)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		current, err := helmReleaseFromReleaser(currentReleaser)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
 		targetRevision = current.Version - 1
 	}
 	if targetRevision <= 0 {
+		runErr = fmt.Errorf("no previous helm release revision found")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "no previous helm release revision found"})
 		return
 	}
@@ -500,10 +599,56 @@ func (h *HelmReleaseHandler) Rollback(c *gin.Context) {
 	rollback.Timeout = helmActionTimeout
 	rollback.WaitStrategy = kube.HookOnlyStrategy
 	if err := rollback.Run(name); err != nil {
+		runErr = err
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if nextReleaser, err := action.NewGet(cfg).Run(name); err == nil {
+		next, err = helmReleaseFromReleaser(nextReleaser)
+		if err != nil {
+			klog.Errorf("Failed to read rolled back helm release: %v", err)
+		}
+	} else {
+		klog.Errorf("Failed to read rolled back helm release: %v", err)
+	}
+	success = true
 	c.JSON(http.StatusOK, gin.H{"message": "helm release rolled back", "revision": targetRevision})
+}
+
+func (h *HelmReleaseHandler) recordHistory(c *gin.Context, opType, name, namespace string, prev, curr *release.Release, success bool, err error) {
+	cs := c.MustGet("cluster").(*cluster.ClientSet)
+	user := c.MustGet("user").(model.User)
+	if curr != nil {
+		name = curr.Name
+		namespace = curr.Namespace
+	} else if prev != nil {
+		name = prev.Name
+		namespace = prev.Namespace
+	}
+
+	errMsg := ""
+	if err != nil {
+		errMsg = err.Error()
+	}
+	resourceYAML := helmReleaseToYAML(curr)
+	if opType == "delete" {
+		resourceYAML = ""
+	}
+	history := model.ResourceHistory{
+		ClusterName:   cs.Name,
+		ResourceType:  helmReleaseResourceName,
+		ResourceName:  name,
+		Namespace:     namespace,
+		OperationType: opType,
+		ResourceYAML:  resourceYAML,
+		PreviousYAML:  helmReleaseToYAML(prev),
+		Success:       success,
+		ErrorMessage:  errMsg,
+		OperatorID:    user.ID,
+	}
+	if err := model.DB.Create(&history).Error; err != nil {
+		klog.Errorf("Failed to create helm release history: %v", err)
+	}
 }
 
 func (h *HelmReleaseHandler) list(c *gin.Context, namespace string, details bool) (*HelmReleaseList, error) {
@@ -615,6 +760,21 @@ func helmReleasesFromReleasers(releasers []helmrelease.Releaser) ([]*release.Rel
 	return releases, nil
 }
 
+func helmReleaseToYAML(rel *release.Release) string {
+	if rel == nil {
+		return ""
+	}
+	helmRelease := toHelmRelease(rel, true)
+	helmRelease.Spec.DefaultValues = nil
+	helmRelease.Spec.Manifest = ""
+	helmRelease.Spec.Notes = ""
+	data, err := yaml.Marshal(helmRelease)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
 func toHelmRelease(rel *release.Release, details bool) HelmRelease {
 	chartName, chartVersion, appVersion := helmChartInfo(rel)
 	chartIcon := ""
@@ -667,6 +827,23 @@ func toHelmRelease(rel *release.Release, details bool) HelmRelease {
 		hr.Status.Resources = resolveManifestResources(rel.Manifest, rel.Namespace)
 	}
 	return hr
+}
+
+func toHelmReleaseDryRunResponse(rel *release.Release) HelmReleaseDryRunResponse {
+	return HelmReleaseDryRunResponse{
+		Resources: resolveManifestPreviewResources(rel.Manifest, rel.Namespace),
+	}
+}
+
+func toHelmReleaseDryRunDiffResponse(current, next *release.Release) HelmReleaseDryRunResponse {
+	return HelmReleaseDryRunResponse{
+		Resources: diffManifestPreviewResources(
+			current.Manifest,
+			current.Namespace,
+			next.Manifest,
+			next.Namespace,
+		),
+	}
 }
 
 func helmChartInfo(rel *release.Release) (string, string, string) {
@@ -749,11 +926,9 @@ func helmHookLastRun(hook *release.Hook) map[string]interface{} {
 }
 
 func resolveManifestResources(manifest, defaultNamespace string) []HelmReleaseResource {
-	docs := strings.Split(manifest, "\n---")
 	out := []HelmReleaseResource{}
-	for _, doc := range docs {
-		doc = strings.TrimSpace(doc)
-		if doc == "" {
+	for _, doc := range splitManifestDocuments(manifest) {
+		if isCommentOnlyManifestDocument(doc) {
 			continue
 		}
 		var u unstructured.Unstructured
@@ -773,4 +948,145 @@ func resolveManifestResources(manifest, defaultNamespace string) []HelmReleaseRe
 		})
 	}
 	return out
+}
+
+func resolveManifestPreviewResources(manifest, defaultNamespace string) []HelmReleaseDryRunResource {
+	out := []HelmReleaseDryRunResource{}
+	for i, doc := range splitManifestDocuments(manifest) {
+		if isCommentOnlyManifestDocument(doc) {
+			continue
+		}
+		content := trimHelmSourceComment(doc)
+		var u unstructured.Unstructured
+		if err := yaml.Unmarshal([]byte(doc), &u.Object); err != nil || u.GetKind() == "" || u.GetName() == "" {
+			out = append(out, HelmReleaseDryRunResource{
+				Path:    fmt.Sprintf("manifest-%d.yaml", i+1),
+				Content: content,
+			})
+			continue
+		}
+		ns := u.GetNamespace()
+		_, clusterScoped := helmClusterScopedKinds[strings.ToLower(u.GetKind())]
+		if ns == "" && !clusterScoped {
+			ns = defaultNamespace
+		}
+		resource := HelmReleaseResource{
+			APIVersion: u.GetAPIVersion(),
+			Kind:       u.GetKind(),
+			Name:       u.GetName(),
+			Namespace:  ns,
+		}
+		out = append(out, HelmReleaseDryRunResource{
+			HelmReleaseResource: resource,
+			Path:                manifestPreviewPath(resource, i),
+			Content:             content,
+		})
+	}
+	return out
+}
+
+func diffManifestPreviewResources(currentManifest, currentNamespace, nextManifest, nextNamespace string) []HelmReleaseDryRunResource {
+	currentResources := resolveManifestPreviewResources(currentManifest, currentNamespace)
+	nextResources := resolveManifestPreviewResources(nextManifest, nextNamespace)
+	currentByPath := make(map[string]HelmReleaseDryRunResource, len(currentResources))
+	nextByPath := make(map[string]HelmReleaseDryRunResource, len(nextResources))
+	for _, resource := range currentResources {
+		currentByPath[resource.Path] = resource
+	}
+	for _, resource := range nextResources {
+		nextByPath[resource.Path] = resource
+	}
+
+	out := make([]HelmReleaseDryRunResource, 0, len(currentResources)+len(nextResources))
+	seen := make(map[string]struct{}, len(currentResources)+len(nextResources))
+	for _, resource := range nextResources {
+		if _, ok := seen[resource.Path]; ok {
+			continue
+		}
+		seen[resource.Path] = struct{}{}
+		nextResource := nextByPath[resource.Path]
+		currentResource, exists := currentByPath[resource.Path]
+		nextResource.OriginalContent = currentResource.Content
+		nextResource.ModifiedContent = nextResource.Content
+		switch {
+		case !exists:
+			nextResource.Status = "added"
+		case currentResource.Content == nextResource.Content:
+			nextResource.Status = "unchanged"
+		default:
+			nextResource.Status = "changed"
+		}
+		out = append(out, nextResource)
+	}
+
+	for _, resource := range currentResources {
+		if _, ok := seen[resource.Path]; ok {
+			continue
+		}
+		if _, exists := nextByPath[resource.Path]; exists {
+			continue
+		}
+		resource.OriginalContent = resource.Content
+		resource.ModifiedContent = ""
+		resource.Status = "deleted"
+		out = append(out, resource)
+	}
+	return out
+}
+
+func splitManifestDocuments(manifest string) []string {
+	docs := []string{}
+	lines := []string{}
+	for _, line := range strings.Split(manifest, "\n") {
+		marker := strings.TrimRight(line, " \t\r")
+		if marker == "---" || strings.HasPrefix(marker, "--- #") {
+			doc := strings.TrimSpace(strings.Join(lines, "\n"))
+			if doc != "" {
+				docs = append(docs, doc)
+			}
+			lines = lines[:0]
+			continue
+		}
+		lines = append(lines, line)
+	}
+
+	doc := strings.TrimSpace(strings.Join(lines, "\n"))
+	if doc != "" {
+		docs = append(docs, doc)
+	}
+	return docs
+}
+
+func isCommentOnlyManifestDocument(content string) bool {
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" && !strings.HasPrefix(line, "#") {
+			return false
+		}
+	}
+	return true
+}
+
+func trimHelmSourceComment(content string) string {
+	lines := strings.Split(content, "\n")
+	if len(lines) == 0 || !strings.HasPrefix(strings.TrimSpace(lines[0]), "# Source:") {
+		return content
+	}
+	return strings.TrimSpace(strings.Join(lines[1:], "\n"))
+}
+
+func manifestPreviewPath(resource HelmReleaseResource, index int) string {
+	scope := resource.Namespace
+	if scope == "" {
+		scope = "cluster"
+	}
+	kind := resource.Kind
+	if kind == "" {
+		kind = "Resource"
+	}
+	name := resource.Name
+	if name == "" {
+		name = fmt.Sprintf("manifest-%d", index+1)
+	}
+	return scope + "/" + kind + "/" + name + ".yaml"
 }

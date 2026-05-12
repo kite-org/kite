@@ -8,11 +8,13 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	semver "github.com/blang/semver/v4"
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/helmutil"
 	"github.com/zxh326/kite/pkg/model"
@@ -26,6 +28,7 @@ import (
 const (
 	helmRepositoryIndexCacheTTL = 5 * time.Minute
 	helmChartContentCacheTTL    = 10 * time.Minute
+	artifactHubCacheTTL         = 5 * time.Minute
 	artifactHubSearchURL        = "https://artifacthub.io/api/v1/packages/search"
 	artifactHubPackageAPIURL    = "https://artifacthub.io/api/v1/packages/helm/"
 	artifactHubValuesAPIURL     = "https://artifacthub.io/api/v1/packages/"
@@ -49,6 +52,17 @@ type cachedChartContent struct {
 	content   helmChartContent
 	expiresAt time.Time
 }
+
+type cachedArtifactHubResponse struct {
+	data      []byte
+	headers   http.Header
+	expiresAt time.Time
+}
+
+var (
+	artifactHubCacheMu sync.Mutex
+	artifactHubCache   = map[string]cachedArtifactHubResponse{}
+)
 
 type createHelmRepositoryRequest struct {
 	Name     string `json:"name" binding:"required"`
@@ -89,9 +103,9 @@ type helmChart struct {
 }
 
 type helmChartVersion struct {
-	Version    string     `json:"version"`
-	AppVersion string     `json:"appVersion,omitempty"`
-	UpdatedAt  *time.Time `json:"updatedAt,omitempty"`
+	Version     string     `json:"version"`
+	AppVersion  string     `json:"appVersion,omitempty"`
+	PublishedAt *time.Time `json:"publishedAt,omitempty"`
 }
 
 type helmChartDetail struct {
@@ -101,13 +115,19 @@ type helmChartDetail struct {
 }
 
 type helmChartContentResponse struct {
+	Content   string          `json:"content,omitempty"`
+	Templates []chartTemplate `json:"templates,omitempty"`
+}
+
+type chartTemplate struct {
+	Path    string `json:"path"`
 	Content string `json:"content"`
 }
 
 type helmChartContent struct {
 	Readme    string
 	Values    string
-	Templates string
+	Templates []chartTemplate
 }
 
 type artifactHubSearchResponse struct {
@@ -435,16 +455,17 @@ func (h *HelmChartHandler) GetArtifactHubChartContent(c *gin.Context) {
 		return
 	}
 
-	content := string(contentData)
 	if contentName == "templates" {
-		content, err = artifactHubTemplates(contentData)
+		templates, err := artifactHubTemplates(contentData)
 		if err != nil {
 			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 			return
 		}
+		c.JSON(http.StatusOK, helmChartContentResponse{Templates: templates})
+		return
 	}
 
-	c.JSON(http.StatusOK, helmChartContentResponse{Content: content})
+	c.JSON(http.StatusOK, helmChartContentResponse{Content: string(contentData)})
 }
 
 func (h *HelmChartHandler) GetChart(c *gin.Context) {
@@ -479,11 +500,12 @@ func (h *HelmChartHandler) GetChart(c *gin.Context) {
 	versions := []helmChartVersion{}
 	for _, chartVersion := range indexFile.Entries[chartName] {
 		versions = append(versions, helmChartVersion{
-			Version:    chartVersion.Version,
-			AppVersion: chartVersion.AppVersion,
-			UpdatedAt:  chartUpdatedAt(indexFile.Generated, chartVersion),
+			Version:     chartVersion.Version,
+			AppVersion:  chartVersion.AppVersion,
+			PublishedAt: chartUpdatedAt(indexFile.Generated, chartVersion),
 		})
 	}
+	sortHelmChartVersions(versions)
 
 	c.JSON(http.StatusOK, helmChartDetail{
 		helmChart: toHelmChart(repository, indexFile.Generated, entry),
@@ -531,7 +553,7 @@ func (h *HelmChartHandler) GetChartContent(c *gin.Context) {
 		c.JSON(http.StatusOK, helmChartContentResponse{Content: content.Values})
 		return
 	}
-	c.JSON(http.StatusOK, helmChartContentResponse{Content: content.Templates})
+	c.JSON(http.StatusOK, helmChartContentResponse{Templates: content.Templates})
 }
 
 func (h *HelmChartHandler) loadRepositoryIndex(repository model.HelmRepository) (*repo.IndexFile, error) {
@@ -680,11 +702,12 @@ func toArtifactHubChartDetail(pkg artifactHubPackageDetail) helmChartDetail {
 	versions := make([]helmChartVersion, 0, len(pkg.AvailableVersions))
 	for _, version := range pkg.AvailableVersions {
 		versions = append(versions, helmChartVersion{
-			Version:    version.Version,
-			AppVersion: version.AppVersion,
-			UpdatedAt:  artifactHubUpdatedAt(version.TS),
+			Version:     version.Version,
+			AppVersion:  version.AppVersion,
+			PublishedAt: artifactHubUpdatedAt(version.TS),
 		})
 	}
+	sortHelmChartVersions(versions)
 
 	return helmChartDetail{
 		helmChart: helmChart{
@@ -725,6 +748,49 @@ func artifactHubUpdatedAt(ts int64) *time.Time {
 	return &v
 }
 
+func sortHelmChartVersions(versions []helmChartVersion) {
+	sort.SliceStable(versions, func(i, j int) bool {
+		if cmp := compareTimes(versions[i].PublishedAt, versions[j].PublishedAt); cmp != 0 {
+			return cmp > 0
+		}
+		return compareChartVersions(versions[i].Version, versions[j].Version) > 0
+	})
+}
+
+func compareTimes(a, b *time.Time) int {
+	if a == nil && b == nil {
+		return 0
+	}
+	if a == nil {
+		return -1
+	}
+	if b == nil {
+		return 1
+	}
+	if a.After(*b) {
+		return 1
+	}
+	if a.Before(*b) {
+		return -1
+	}
+	return 0
+}
+
+func compareChartVersions(a, b string) int {
+	parsedA, errA := semver.ParseTolerant(a)
+	parsedB, errB := semver.ParseTolerant(b)
+	if errA == nil && errB == nil {
+		return parsedA.Compare(parsedB)
+	}
+	if errA == nil {
+		return 1
+	}
+	if errB == nil {
+		return -1
+	}
+	return strings.Compare(a, b)
+}
+
 func fetchArtifactHubChartDetail(c *gin.Context, repositoryName, chartName, version string) (artifactHubPackageDetail, error) {
 	packageURL := artifactHubPackageAPIURL + url.PathEscape(repositoryName) + "/" + url.PathEscape(chartName)
 	if version != "" {
@@ -748,6 +814,20 @@ func fetchArtifactHub(c *gin.Context, targetURL string) ([]byte, error) {
 }
 
 func fetchArtifactHubWithHeaders(c *gin.Context, targetURL string) ([]byte, http.Header, error) {
+	now := time.Now()
+	artifactHubCacheMu.Lock()
+	cached, ok := artifactHubCache[targetURL]
+	if ok && now.Before(cached.expiresAt) {
+		data := append([]byte(nil), cached.data...)
+		headers := cached.headers.Clone()
+		artifactHubCacheMu.Unlock()
+		return data, headers, nil
+	}
+	if ok {
+		delete(artifactHubCache, targetURL)
+	}
+	artifactHubCacheMu.Unlock()
+
 	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, targetURL, nil)
 	if err != nil {
 		return nil, nil, err
@@ -768,7 +848,17 @@ func fetchArtifactHubWithHeaders(c *gin.Context, targetURL string) ([]byte, http
 	if err != nil {
 		return nil, nil, err
 	}
-	return data, resp.Header, nil
+	headers := resp.Header.Clone()
+
+	artifactHubCacheMu.Lock()
+	artifactHubCache[targetURL] = cachedArtifactHubResponse{
+		data:      append([]byte(nil), data...),
+		headers:   headers.Clone(),
+		expiresAt: time.Now().Add(artifactHubCacheTTL),
+	}
+	artifactHubCacheMu.Unlock()
+
+	return data, headers, nil
 }
 
 func artifactHubKubeVersion(data json.RawMessage) string {
@@ -783,27 +873,24 @@ func artifactHubKubeVersion(data json.RawMessage) string {
 	return parsed.KubeVersion
 }
 
-func artifactHubTemplates(data []byte) (string, error) {
+func artifactHubTemplates(data []byte) ([]chartTemplate, error) {
 	var result artifactHubTemplatesResponse
 	if err := json.Unmarshal(data, &result); err != nil {
-		return "", err
+		return nil, err
 	}
 
-	var builder strings.Builder
+	templates := make([]chartTemplate, 0, len(result.Templates))
 	for _, file := range result.Templates {
 		content, err := base64.StdEncoding.DecodeString(file.Data)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		if builder.Len() > 0 {
-			builder.WriteString("\n---\n")
-		}
-		builder.WriteString("# Source: ")
-		builder.WriteString(file.Name)
-		builder.WriteByte('\n')
-		builder.Write(content)
+		templates = append(templates, chartTemplate{
+			Path:    chartTemplatePath(file.Name),
+			Content: string(content),
+		})
 	}
-	return builder.String(), nil
+	return templates, nil
 }
 
 func chartUpdatedAt(generated time.Time, entry *repo.ChartVersion) *time.Time {
@@ -834,32 +921,25 @@ func helmChartMatchesQuery(chart helmChart, query string) bool {
 }
 
 func repositoryIndexCacheKey(repository model.HelmRepository) string {
-	return strings.Join([]string{
-		repository.Name,
-		repository.URL,
-		repository.Username,
-	}, "\x00")
+	return repository.URL
 }
 
 func chartContentCacheKey(repository model.HelmRepository, entry *repo.ChartVersion) string {
-	return strings.Join([]string{
-		repositoryIndexCacheKey(repository),
-		entry.Name,
-		entry.Version,
-		strings.Join(entry.URLs, "\x00"),
-	}, "\x00")
+	return helmutil.ResolveURL(repository.URL, entry.URLs[0])
 }
 
 func (h *HelmChartHandler) clearRepositoryCache(repository model.HelmRepository) {
 	cacheKey := repositoryIndexCacheKey(repository)
+	helmutil.ClearRepositoryArchiveCache(repository)
 
 	h.indexCacheMu.Lock()
 	delete(h.indexCache, cacheKey)
 	h.indexCacheMu.Unlock()
 
 	h.contentCacheMu.Lock()
+	cacheKeyPrefix := strings.TrimRight(cacheKey, "/") + "/"
 	for key := range h.contentCache {
-		if key == cacheKey || strings.HasPrefix(key, cacheKey+"\x00") {
+		if key == cacheKey || strings.HasPrefix(key, cacheKeyPrefix) {
 			delete(h.contentCache, key)
 		}
 	}
@@ -899,19 +979,20 @@ func chartValues(loadedChart *chart.Chart) (string, error) {
 	return string(values), nil
 }
 
-func chartTemplates(files []*common.File) string {
-	var builder strings.Builder
+func chartTemplates(files []*common.File) []chartTemplate {
+	templates := make([]chartTemplate, 0, len(files))
 	for _, file := range files {
 		if file == nil {
 			continue
 		}
-		if builder.Len() > 0 {
-			builder.WriteString("\n---\n")
-		}
-		builder.WriteString("# Source: ")
-		builder.WriteString(file.Name)
-		builder.WriteByte('\n')
-		builder.Write(file.Data)
+		templates = append(templates, chartTemplate{
+			Path:    chartTemplatePath(file.Name),
+			Content: string(file.Data),
+		})
 	}
-	return builder.String()
+	return templates
+}
+
+func chartTemplatePath(name string) string {
+	return strings.TrimPrefix(strings.TrimPrefix(name, "./"), "templates/")
 }

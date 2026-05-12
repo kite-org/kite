@@ -205,7 +205,7 @@ export interface HelmChart {
 export interface HelmChartVersion {
   version: string
   appVersion?: string
-  updatedAt?: string
+  publishedAt?: string
 }
 
 export interface HelmChartList {
@@ -215,8 +215,14 @@ export interface HelmChartList {
 
 export type HelmChartContentType = 'values' | 'templates'
 
+export interface HelmChartTemplate {
+  path: string
+  content: string
+}
+
 export interface HelmChartContent {
   content?: string
+  templates?: HelmChartTemplate[]
 }
 
 export interface HelmChartDetail extends HelmChart {
@@ -245,6 +251,22 @@ export interface HelmReleaseUpgradeRequest {
   forceConflicts?: boolean
   wait?: boolean
   rollbackOnFailure?: boolean
+}
+
+export interface HelmReleaseDryRunResource {
+  path: string
+  content: string
+  originalContent?: string
+  modifiedContent?: string
+  status?: 'added' | 'deleted' | 'changed' | 'unchanged'
+  apiVersion?: string
+  kind?: string
+  name?: string
+  namespace?: string
+}
+
+export interface HelmReleaseDryRunResponse {
+  resources: HelmReleaseDryRunResource[]
 }
 
 type listMetadataType = {

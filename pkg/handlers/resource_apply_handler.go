@@ -77,7 +77,12 @@ func (h *ResourceApplyHandler) ApplyResource(c *gin.Context) {
 		}
 
 		resource := strings.ToLower(obj.GetKind()) + "s"
-		if !rbac.CanAccess(user, resource, "create", cs.Name, obj.GetNamespace()) {
+		canCreate := rbac.CanAccess(user, resource, string(common.VerbCreate), cs.Name, obj.GetNamespace())
+		canUpdate := false
+		if !canCreate {
+			canUpdate = rbac.CanAccess(user, resource, string(common.VerbUpdate), cs.Name, obj.GetNamespace())
+		}
+		if !canCreate && !canUpdate {
 			c.JSON(http.StatusForbidden, gin.H{
 				"error": rbac.NoAccess(user.Key(), string(common.VerbCreate), resource, obj.GetNamespace(), cs.Name)})
 			return
@@ -97,12 +102,25 @@ func (h *ResourceApplyHandler) ApplyResource(c *gin.Context) {
 		switch {
 		case apierrors.IsNotFound(err):
 			operation = "create"
+			if !canCreate {
+				c.JSON(http.StatusForbidden, gin.H{
+					"error": rbac.NoAccess(user.Key(), string(common.VerbCreate), resource, obj.GetNamespace(), cs.Name)})
+				return
+			}
 			err = cs.K8sClient.Create(ctx, obj)
 			if err != nil {
 				klog.Errorf("Failed to create resource: %v", err)
 			}
 		case err == nil:
 			operation = "update"
+			if !canUpdate {
+				canUpdate = rbac.CanAccess(user, resource, string(common.VerbUpdate), cs.Name, obj.GetNamespace())
+			}
+			if !canUpdate {
+				c.JSON(http.StatusForbidden, gin.H{
+					"error": rbac.NoAccess(user.Key(), string(common.VerbUpdate), resource, obj.GetNamespace(), cs.Name)})
+				return
+			}
 			obj.SetResourceVersion(existingObj.GetResourceVersion())
 			err = cs.K8sClient.Update(ctx, obj)
 			if err != nil {

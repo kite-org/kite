@@ -38,7 +38,7 @@ func (h *AuthHandler) RequireAPIKeyAuth(c *gin.Context, token string) {
 		c.Abort()
 		return
 	}
-	if apikey.Provider != common.APIKeyProvider || key == "" || string(apikey.APIKey) == "" || key != string(apikey.APIKey) {
+	if !apikey.Enabled || apikey.Provider != common.APIKeyProvider || key == "" || string(apikey.APIKey) == "" || key != string(apikey.APIKey) {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": "Invalid API key",
 		})

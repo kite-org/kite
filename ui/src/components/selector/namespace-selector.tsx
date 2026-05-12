@@ -27,6 +27,7 @@ export function NamespaceSelector({
   disabled = false,
   triggerClassName,
   multiple = false,
+  modal = false,
 }: {
   selectedNamespace?: string
   handleNamespaceChange: (namespace: string) => void
@@ -34,6 +35,7 @@ export function NamespaceSelector({
   disabled?: boolean
   triggerClassName?: string
   multiple?: boolean
+  modal?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const { data, isLoading } = useResources('namespaces')
@@ -88,7 +90,7 @@ export function NamespaceSelector({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={modal}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -111,7 +113,7 @@ export function NamespaceSelector({
       >
         <Command>
           <CommandInput placeholder="Search..." className="h-9" />
-          <CommandList className="max-h-[300px] overflow-x-hidden overflow-y-auto [ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <CommandList className="max-h-[min(50dvh,300px)] overflow-x-hidden overflow-y-auto overscroll-contain">
             {isLoading ? (
               <div className="flex items-center justify-center p-6 text-sm">
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />

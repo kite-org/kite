@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/zxh326/kite/pkg/model"
 	chart "helm.sh/helm/v4/pkg/chart/v2"
@@ -14,6 +16,18 @@ import (
 	"helm.sh/helm/v4/pkg/registry"
 	repo "helm.sh/helm/v4/pkg/repo/v1"
 )
+
+const archiveCacheTTL = 10 * time.Minute
+
+var (
+	archiveCacheMu sync.Mutex
+	archiveCache   = map[string]cachedArchive{}
+)
+
+type cachedArchive struct {
+	data      []byte
+	expiresAt time.Time
+}
 
 func LoadRepositoryArchive(repository model.HelmRepository, entry *repo.ChartVersion) (*chart.Chart, error) {
 	if len(entry.URLs) == 0 {
@@ -35,6 +49,17 @@ func LoadArchive(chartURL string, repository *model.HelmRepository) (*chart.Char
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" && parsedURL.Scheme != "oci" {
 		return nil, fmt.Errorf("unsupported chartUrl scheme")
 	}
+
+	cacheKey := archiveCacheKey(chartURL)
+	now := time.Now()
+	archiveCacheMu.Lock()
+	cached, ok := archiveCache[cacheKey]
+	if ok && now.Before(cached.expiresAt) {
+		data := append([]byte(nil), cached.data...)
+		archiveCacheMu.Unlock()
+		return loader.LoadArchive(bytes.NewReader(data))
+	}
+	archiveCacheMu.Unlock()
 
 	client, err := getter.Getters().ByScheme(parsedURL.Scheme)
 	if err != nil {
@@ -82,7 +107,20 @@ func LoadArchive(chartURL string, repository *model.HelmRepository) (*chart.Char
 	if err != nil {
 		return nil, err
 	}
-	return loader.LoadArchive(bytes.NewReader(data.Bytes()))
+	archiveData := data.Bytes()
+	loadedChart, err := loader.LoadArchive(bytes.NewReader(archiveData))
+	if err != nil {
+		return nil, err
+	}
+
+	archiveCacheMu.Lock()
+	archiveCache[cacheKey] = cachedArchive{
+		data:      append([]byte(nil), archiveData...),
+		expiresAt: time.Now().Add(archiveCacheTTL),
+	}
+	archiveCacheMu.Unlock()
+
+	return loadedChart, nil
 }
 
 func ResolveURL(baseURL, refURL string) string {
@@ -106,4 +144,21 @@ func sameURLHost(baseURL, targetURL string) bool {
 		return false
 	}
 	return strings.EqualFold(base.Hostname(), target.Hostname())
+}
+
+func archiveCacheKey(chartURL string) string {
+	return chartURL
+}
+
+func ClearRepositoryArchiveCache(repository model.HelmRepository) {
+	cacheKey := repository.URL
+	cacheKeyPrefix := strings.TrimRight(cacheKey, "/") + "/"
+
+	archiveCacheMu.Lock()
+	for key := range archiveCache {
+		if key == cacheKey || strings.HasPrefix(key, cacheKeyPrefix) {
+			delete(archiveCache, key)
+		}
+	}
+	archiveCacheMu.Unlock()
 }

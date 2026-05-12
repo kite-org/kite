@@ -11,11 +11,14 @@ import type {
   HelmChart,
   HelmChartVersion,
   HelmRelease,
+  HelmReleaseDryRunResponse,
   HelmReleaseHistoryItem,
   HelmReleaseResource,
+  HelmReleaseUpgradeRequest,
   RelatedResources,
 } from '@/types/api'
 import {
+  dryRunUpgradeHelmRelease,
   rollbackHelmRelease,
   upgradeHelmRelease,
   useArtifactHubCharts,
@@ -69,10 +72,15 @@ import {
 import { PodStatusIcon } from '@/components/pod-status-icon'
 import { SimpleTable } from '@/components/simple-table'
 import { SimpleYamlEditor } from '@/components/simple-yaml-editor'
-import { TextViewer } from '@/components/text-viewer'
 import { WorkloadSummaryCard } from '@/components/workload-overview-parts'
 import { WorkloadPodsCard } from '@/components/workload-pods-card'
 import { YamlEditor } from '@/components/yaml-editor'
+import {
+  YamlFileTreeDiffViewerNative as YamlFileTreeDiffViewer,
+  YamlFileTreeViewerNative as YamlFileTreeViewer,
+  type YamlDiffTreeItem,
+  type YamlFileTreeItem,
+} from '@/components/yaml-file-tree-viewer-native'
 
 import {
   ResourceDetailShell,
@@ -269,6 +277,164 @@ function sortHelmRelatedResources(resources: RelatedResources[]) {
       `${b.namespace || ''}/${b.name}`
     )
   })
+}
+
+function toDryRunDiffFiles(
+  resources: HelmReleaseDryRunResponse['resources'],
+  options?: { ignoreMetadataChanges?: boolean }
+): YamlDiffTreeItem[] {
+  return resources.map((resource) => {
+    let originalContent = resource.originalContent || ''
+    let modifiedContent = resource.modifiedContent || ''
+    let status = resource.status || 'unchanged'
+
+    if (options?.ignoreMetadataChanges && status === 'changed') {
+      originalContent = stripYamlMetadataChanges(originalContent)
+      modifiedContent = stripYamlMetadataChanges(modifiedContent)
+      if (originalContent === modifiedContent) {
+        status = 'unchanged'
+      }
+    }
+
+    return {
+      path: resource.path,
+      originalContent,
+      modifiedContent,
+      status,
+    }
+  })
+}
+
+function stripYamlMetadataChanges(content: string) {
+  if (!content.trim()) {
+    return content
+  }
+
+  try {
+    const parsed = yaml.load(content)
+    return yaml
+      .dump(stripMetadataLabelsAndAnnotations(parsed), {
+        indent: 2,
+        lineWidth: -1,
+        noRefs: true,
+      })
+      .trim()
+  } catch {
+    return content
+  }
+}
+
+function stripMetadataLabelsAndAnnotations(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(stripMetadataLabelsAndAnnotations)
+  }
+  if (!isRecord(value)) {
+    return value
+  }
+
+  const next: Record<string, unknown> = {}
+  for (const [key, child] of Object.entries(value)) {
+    if (key === 'metadata' && isRecord(child)) {
+      const metadata = stripMetadataLabelsAndAnnotations(child)
+      if (!isRecord(metadata)) {
+        continue
+      }
+      delete metadata.labels
+      delete metadata.annotations
+      if (Object.keys(metadata).length > 0) {
+        next[key] = metadata
+      }
+      continue
+    }
+    next[key] = stripMetadataLabelsAndAnnotations(child)
+  }
+  return next
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function toManifestFiles(
+  manifest: string,
+  defaultNamespace: string,
+  resources: HelmReleaseResource[] = []
+): YamlFileTreeItem[] {
+  let resourceIndex = 0
+
+  return splitManifestDocuments(manifest).map((doc, index) => {
+    const content = trimHelmSourceComment(doc)
+    let path = `manifest-${index + 1}.yaml`
+
+    try {
+      const parsed = yaml.load(doc) as
+        | {
+            kind?: string
+            metadata?: {
+              name?: string
+              namespace?: string
+            }
+          }
+        | undefined
+
+      if (parsed?.kind && parsed.metadata?.name) {
+        const resource = resources[resourceIndex]
+        resourceIndex += 1
+        path = manifestResourcePath(
+          resource || {
+            apiVersion: '',
+            kind: parsed.kind,
+            name: parsed.metadata.name,
+            namespace: parsed.metadata.namespace || defaultNamespace,
+          },
+          index
+        )
+      }
+    } catch {
+      path = `manifest-${index + 1}.yaml`
+    }
+
+    return { path, content }
+  })
+}
+
+function splitManifestDocuments(manifest: string) {
+  const docs: string[] = []
+  let lines: string[] = []
+
+  for (const line of manifest.split('\n')) {
+    const marker = line.replace(/[ \t\r]+$/, '')
+    if (marker === '---' || marker.startsWith('--- #')) {
+      const doc = lines.join('\n').trim()
+      if (doc) {
+        docs.push(doc)
+      }
+      lines = []
+      continue
+    }
+    lines.push(line)
+  }
+
+  const doc = lines.join('\n').trim()
+  if (doc) {
+    docs.push(doc)
+  }
+  return docs
+}
+
+function trimHelmSourceComment(content: string) {
+  const lines = content.split('\n')
+  if (lines[0]?.trim().startsWith('# Source:')) {
+    return lines.slice(1).join('\n').trim()
+  }
+  return content
+}
+
+function manifestResourcePath(resource: HelmReleaseResource, index: number) {
+  const scope = resource.namespace || 'cluster'
+  const kind = resource.kind || 'Resource'
+  const name = resource.name || `manifest-${index + 1}`
+  return `${scope}/${kind}/${name}.yaml`
 }
 
 function HelmReleaseHistoryValuesDialog({
@@ -813,12 +979,16 @@ function UpgradeHelmReleaseDialog({
   const [forceConflicts, setForceConflicts] = useState(false)
   const [wait, setWait] = useState(false)
   const [rollbackOnFailure, setRollbackOnFailure] = useState(false)
+  const [ignoreMetadataChanges, setIgnoreMetadataChanges] = useState(false)
   const releaseDefaultValues = useMemo(
     () => yaml.dump(release.spec?.defaultValues || {}, { indent: 2 }),
     [release.spec?.defaultValues]
   )
   const [error, setError] = useState('')
   const [isUpgrading, setIsUpgrading] = useState(false)
+  const [isDryRunning, setIsDryRunning] = useState(false)
+  const [dryRunPreview, setDryRunPreview] =
+    useState<HelmReleaseDryRunResponse | null>(null)
   const chartsQuery = useHelmCharts({
     query: chartName,
     enabled: open && !!chartName,
@@ -1010,19 +1180,38 @@ function UpgradeHelmReleaseDialog({
       : t('helm.messages.chartSourceCurrentRelease', {
           defaultValue: 'Using the chart stored in the current release.',
         })
+  const chartDetailSearchParams = new URLSearchParams()
+  if (activeChartSource === 'artifacthub') {
+    chartDetailSearchParams.set('source', 'artifacthub')
+  }
+  if (activeVersion) {
+    chartDetailSearchParams.set('version', activeVersion)
+  }
+  const chartDetailSearch = chartDetailSearchParams.toString()
+  const chartDetailPath = activeChart
+    ? `/charts/${encodeURIComponent(activeRepository)}/${encodeURIComponent(activeChart.name)}${chartDetailSearch ? `?${chartDetailSearch}` : ''}`
+    : ''
   const defaultValues = isDefaultValuesLoading
     ? t('helm.messages.loadingValues', {
         defaultValue: 'Loading values...',
       })
     : defaultValuesQuery.data?.content || releaseDefaultValues
+  const dryRunDiffFiles = useMemo(
+    () =>
+      dryRunPreview
+        ? toDryRunDiffFiles(dryRunPreview.resources, {
+            ignoreMetadataChanges,
+          })
+        : [],
+    [dryRunPreview, ignoreMetadataChanges]
+  )
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+  const buildUpgradeRequest = (): HelmReleaseUpgradeRequest | null => {
     setError('')
 
     if (!chartUrl && !canUseCurrentChart) {
       setError(t('helmCharts.messages.noChartUrl'))
-      return
+      return null
     }
 
     let values: Record<string, unknown> = {}
@@ -1031,13 +1220,56 @@ function UpgradeHelmReleaseDialog({
         const parsed = yaml.load(valuesYaml)
         if (parsed && (typeof parsed !== 'object' || Array.isArray(parsed))) {
           setError(t('helmCharts.messages.invalidValues'))
-          return
+          return null
         }
         values = (parsed || {}) as Record<string, unknown>
       } catch (err) {
         setError(translateError(err, t))
-        return
+        return null
       }
+    }
+
+    return {
+      ...(chartUrl
+        ? {
+            chartUrl,
+            repositoryName: activeChart?.repositoryName,
+            source: activeChart?.source,
+          }
+        : {}),
+      values,
+      forceConflicts,
+      wait,
+      rollbackOnFailure,
+    }
+  }
+
+  const handleDryRun = async () => {
+    const request = buildUpgradeRequest()
+    if (!request) {
+      return
+    }
+
+    setIsDryRunning(true)
+    try {
+      const preview = await dryRunUpgradeHelmRelease(
+        release.metadata.namespace,
+        release.metadata.name,
+        request
+      )
+      setDryRunPreview(preview)
+    } catch (err) {
+      const message = translateError(err, t)
+      setError(message)
+    } finally {
+      setIsDryRunning(false)
+    }
+  }
+
+  const handleUpgrade = async () => {
+    const request = buildUpgradeRequest()
+    if (!request) {
+      return
     }
 
     setIsUpgrading(true)
@@ -1045,19 +1277,7 @@ function UpgradeHelmReleaseDialog({
       await upgradeHelmRelease(
         release.metadata.namespace,
         release.metadata.name,
-        {
-          ...(chartUrl
-            ? {
-                chartUrl,
-                repositoryName: activeChart?.repositoryName,
-                source: activeChart?.source,
-              }
-            : {}),
-          values,
-          forceConflicts,
-          wait,
-          rollbackOnFailure,
-        }
+        request
       )
       onOpenChange(false)
       await onComplete()
@@ -1069,9 +1289,26 @@ function UpgradeHelmReleaseDialog({
     }
   }
 
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (dryRunPreview) {
+      await handleUpgrade()
+      return
+    }
+    await handleDryRun()
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[calc(100dvh-4rem)] max-h-[calc(100dvh-4rem)] w-[calc(100vw-4rem)] !max-w-[calc(100vw-4rem)] flex-col overflow-hidden">
+      <DialogContent
+        className="flex h-[calc(100dvh-4rem)] max-h-[calc(100dvh-4rem)] w-[calc(100vw-4rem)] !max-w-[calc(100vw-4rem)] flex-col overflow-hidden"
+        onPointerDownOutside={(event) => {
+          event.preventDefault()
+        }}
+        onEscapeKeyDown={(event) => {
+          event.preventDefault()
+        }}
+      >
         <form
           onSubmit={handleSubmit}
           className="flex h-full min-h-0 flex-col gap-4"
@@ -1097,7 +1334,13 @@ function UpgradeHelmReleaseDialog({
             </div>
           ) : null}
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+          <div
+            className={
+              dryRunPreview
+                ? 'flex min-h-0 flex-1 flex-col gap-4 overflow-hidden pr-1'
+                : 'min-h-0 flex-1 space-y-4 overflow-y-auto pr-1'
+            }
+          >
             <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_14rem]">
               <div className="grid gap-2 md:max-w-xl">
                 <Label>{t('helm.fields.chart')}</Label>
@@ -1116,8 +1359,9 @@ function UpgradeHelmReleaseDialog({
                     onValueChange={(value) => {
                       setSelectedRepository(value)
                       setSelectedVersion('')
+                      setDryRunPreview(null)
                     }}
-                    disabled={isUpgrading}
+                    disabled={isUpgrading || isDryRunning || !!dryRunPreview}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue
@@ -1156,7 +1400,7 @@ function UpgradeHelmReleaseDialog({
                     </span>
                   </div>
                 )}
-                <p className="text-xs text-muted-foreground">
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                   {isChartSourceLoading ? (
                     <span className="inline-flex items-center gap-1">
                       <Loader2 className="size-3 animate-spin" />
@@ -1165,7 +1409,21 @@ function UpgradeHelmReleaseDialog({
                       })}
                     </span>
                   ) : (
-                    chartSourceLabel
+                    <>
+                      <span>{chartSourceLabel}</span>
+                      {chartDetailPath ? (
+                        <Link
+                          to={chartDetailPath}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="app-link whitespace-nowrap"
+                        >
+                          {t('helm.messages.chartDetailsLink', {
+                            defaultValue: 'Chart details',
+                          })}
+                        </Link>
+                      ) : null}
+                    </>
                   )}
                 </p>
               </div>
@@ -1175,17 +1433,24 @@ function UpgradeHelmReleaseDialog({
                 {visibleVersionOptions.length > 0 ? (
                   <Select
                     value={activeVersion}
-                    onValueChange={setSelectedVersion}
-                    disabled={isUpgrading}
+                    onValueChange={(value) => {
+                      setSelectedVersion(value)
+                      setDryRunPreview(null)
+                    }}
+                    disabled={isUpgrading || isDryRunning || !!dryRunPreview}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent viewportClassName="h-auto max-h-72 overflow-y-auto">
+                    <SelectContent
+                      className="min-w-80"
+                      viewportClassName="h-auto max-h-72 overflow-y-auto"
+                    >
                       {visibleVersionOptions.map((version) => (
                         <SelectItem
                           key={version.version}
                           value={version.version}
+                          textValue={version.version}
                         >
                           <span className="tabular-nums">
                             {version.version}
@@ -1201,6 +1466,11 @@ function UpgradeHelmReleaseDialog({
                           {version.appVersion ? (
                             <span className="text-xs text-muted-foreground">
                               {version.appVersion}
+                            </span>
+                          ) : null}
+                          {version.publishedAt ? (
+                            <span className="text-xs text-muted-foreground tabular-nums">
+                              {formatDate(version.publishedAt)}
                             </span>
                           ) : null}
                         </SelectItem>
@@ -1240,37 +1510,67 @@ function UpgradeHelmReleaseDialog({
               </div>
             </div>
 
-            <div className="grid min-h-0 gap-4 lg:grid-cols-2">
-              <div className="grid min-h-0 gap-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Label>{t('helmCharts.fields.defaultValues')}</Label>
-                  {isDefaultValuesLoading ? (
-                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                      <Loader2 className="size-3 animate-spin" />
-                      {t('helm.messages.loadingValues', {
-                        defaultValue: 'Loading values...',
-                      })}
-                    </span>
-                  ) : null}
+            {dryRunPreview ? (
+              <div className="flex min-h-0 flex-1 flex-col gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-3 text-sm">
+                  <Label
+                    htmlFor="helm-dry-run-ignore-metadata-changes"
+                    className="flex items-center gap-2 font-normal text-muted-foreground"
+                  >
+                    <Checkbox
+                      id="helm-dry-run-ignore-metadata-changes"
+                      checked={ignoreMetadataChanges}
+                      onCheckedChange={(value) =>
+                        setIgnoreMetadataChanges(value === true)
+                      }
+                      disabled={isUpgrading || isDryRunning}
+                    />
+                    {t('helm.fields.ignoreLabelsAnnotationsChanges')}
+                  </Label>
                 </div>
-                <SimpleYamlEditor
-                  value={defaultValues}
-                  onChange={() => undefined}
-                  disabled
-                  height="calc(100dvh - 20rem)"
+                <YamlFileTreeDiffViewer
+                  files={dryRunDiffFiles}
+                  title={t('helm.fields.dryRunPreview')}
+                  emptyMessage={t('helm.messages.noDryRunResources')}
+                  fillHeight
                 />
               </div>
+            ) : (
+              <div className="grid min-h-0 gap-4 lg:grid-cols-2">
+                <div className="grid min-h-0 gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>{t('helmCharts.fields.defaultValues')}</Label>
+                    {isDefaultValuesLoading ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <Loader2 className="size-3 animate-spin" />
+                        {t('helm.messages.loadingValues', {
+                          defaultValue: 'Loading values...',
+                        })}
+                      </span>
+                    ) : null}
+                  </div>
+                  <SimpleYamlEditor
+                    value={defaultValues}
+                    onChange={() => undefined}
+                    disabled
+                    height="calc(100dvh - 20rem)"
+                  />
+                </div>
 
-              <div className="grid min-h-0 gap-2">
-                <Label>{t('helmCharts.fields.customValues')}</Label>
-                <SimpleYamlEditor
-                  value={valuesYaml}
-                  onChange={(value) => setValuesYaml(value || '')}
-                  disabled={isUpgrading}
-                  height="calc(100dvh - 20rem)"
-                />
+                <div className="grid min-h-0 gap-2">
+                  <Label>{t('helmCharts.fields.customValues')}</Label>
+                  <SimpleYamlEditor
+                    value={valuesYaml}
+                    onChange={(value) => {
+                      setValuesYaml(value || '')
+                      setDryRunPreview(null)
+                    }}
+                    disabled={isUpgrading || isDryRunning}
+                    height="calc(100dvh - 20rem)"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {chartLookupError ? (
               <p className="text-sm text-muted-foreground">
@@ -1294,7 +1594,7 @@ function UpgradeHelmReleaseDialog({
                   id="helm-upgrade-force-conflicts"
                   checked={forceConflicts}
                   onCheckedChange={(value) => setForceConflicts(value === true)}
-                  disabled={isUpgrading}
+                  disabled={isUpgrading || isDryRunning}
                 />
                 {t('helm.fields.forceConflicts')}
               </Label>
@@ -1306,7 +1606,7 @@ function UpgradeHelmReleaseDialog({
                   id="helm-upgrade-wait"
                   checked={wait}
                   onCheckedChange={(value) => setWait(value === true)}
-                  disabled={isUpgrading}
+                  disabled={isUpgrading || isDryRunning}
                 />
                 {t('helm.fields.wait')}
               </Label>
@@ -1320,23 +1620,55 @@ function UpgradeHelmReleaseDialog({
                   onCheckedChange={(value) =>
                     setRollbackOnFailure(value === true)
                   }
-                  disabled={isUpgrading}
+                  disabled={isUpgrading || isDryRunning}
                 />
                 {t('helm.fields.rollbackOnFailure')}
               </Label>
             </div>
+            {dryRunPreview ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDryRunPreview(null)}
+                disabled={isUpgrading || isDryRunning}
+              >
+                {t('helm.actions.backToValues')}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isUpgrading || isDryRunning}
+              >
+                {t('common.actions.cancel')}
+              </Button>
+            )}
+            {!dryRunPreview ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleDryRun()}
+                disabled={
+                  isUpgrading ||
+                  isDryRunning ||
+                  !activeVersion ||
+                  isChartPackageLoading ||
+                  (!chartUrl && !canUseCurrentChart)
+                }
+              >
+                {isDryRunning ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : null}
+                {t('helm.actions.dryRun')}
+              </Button>
+            ) : null}
             <Button
               type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isUpgrading}
-            >
-              {t('common.actions.cancel')}
-            </Button>
-            <Button
-              type="submit"
+              onClick={() => void handleUpgrade()}
               disabled={
                 isUpgrading ||
+                isDryRunning ||
                 !activeVersion ||
                 isChartPackageLoading ||
                 (!chartUrl && !canUseCurrentChart)
@@ -1401,6 +1733,20 @@ export function HelmReleaseDetail(props: { namespace: string; name: string }) {
     }
     return items
   }, [releasePods])
+  const manifestFiles = useMemo(
+    () =>
+      toManifestFiles(
+        data?.spec?.manifest || '',
+        data?.spec?.namespace || namespace,
+        data?.status?.resources
+      ),
+    [
+      data?.spec?.manifest,
+      data?.spec?.namespace,
+      data?.status?.resources,
+      namespace,
+    ]
+  )
 
   const tabs = useMemo<ResourceDetailShellTab<HelmRelease>[]>(
     () => [
@@ -1450,9 +1796,10 @@ export function HelmReleaseDetail(props: { namespace: string; name: string }) {
         value: 'manifest',
         label: t('helm.tabs.manifest'),
         content: data ? (
-          <TextViewer
-            value={data.spec?.manifest || ''}
+          <YamlFileTreeViewer
+            files={manifestFiles}
             title={t('helm.tabs.manifest')}
+            emptyMessage={t('helm.messages.noResources')}
           />
         ) : null,
       },
@@ -1462,6 +1809,7 @@ export function HelmReleaseDetail(props: { namespace: string; name: string }) {
       data,
       initContainers,
       labelSelector,
+      manifestFiles,
       name,
       namespace,
       refetch,

@@ -1139,7 +1139,8 @@
       "keywords": "关键词",
       "versions": "版本",
       "defaultValues": "默认 Values",
-      "customValues": "自定义 Values"
+      "customValues": "自定义 Values",
+      "updatedAt": "更新时间"
     },
     "filters": {
       "allRepositories": "全部 Repository",
@@ -1159,6 +1160,7 @@
       "noVersions": "未找到版本",
       "noChartUrl": "缺少 Chart 包 URL。",
       "invalidValues": "Values 必须是 YAML 对象。",
+      "artifactHubTrafficNotice": "从该来源搜索或查看 Chart 信息时，Kite 会访问 <artifactHub>Artifact Hub</artifactHub>。Kite 仅展示第三方数据，不对其中内容负责。",
       "installed": "Helm Release 已安装"
     },
     "placeholders": {
@@ -1167,6 +1169,8 @@
   },
   "helm": {
     "actions": {
+      "backToValues": "上一步",
+      "dryRun": "Dry Run",
       "upgrade": "升级",
       "rollback": "回滚"
     },
@@ -1174,14 +1178,23 @@
       "chart": "Chart",
       "version": "版本",
       "appVersion": "App 版本",
+      "publishedAt": "发布日期",
       "kubeVersion": "Kubernetes 版本",
       "releaseName": "Release 名称",
       "createNamespace": "创建 Namespace",
+      "dryRunPreview": "Dry Run 预览",
+      "ignoreLabelsAnnotationsChanges": "忽略标签/注解变更（仅 Diff）",
       "forceConflicts": "force-conflicts",
       "wait": "wait",
       "rollbackOnFailure": "rollback-on-failure",
       "firstDeployed": "首次部署",
       "lastDeployed": "上次部署"
+    },
+    "diff": {
+      "added": "新增",
+      "deleted": "删除",
+      "changed": "变更",
+      "unchanged": "未变化"
     },
     "tabs": {
       "manifest": "Manifest",
@@ -1190,6 +1203,7 @@
     },
     "messages": {
       "noResources": "未找到资源",
+      "noDryRunResources": "Dry Run 没有渲染出资源。",
       "noHistory": "未找到历史记录",
       "rollbackStarted": "已发起回滚",
       "rollbackConfirmTitle": "确认回滚 Release？",
@@ -1197,8 +1211,8 @@
       "chartNotFound": "在已管理的 Helm Repository 和 Artifact Hub 中均未找到这个 Chart。",
       "chartSourceManagedRepository": "当前使用已管理的 Chart Repository：{{repository}}。",
       "chartSourceArtifactHubVerified": "当前使用 Artifact Hub Chart：{{repository}}（Verified Publisher）。",
-      "chartSourceArtifactHubVerifiedShort": "Artifact Hub（已验证）",
       "chartSourceArtifactHub": "当前使用 Artifact Hub Chart：{{repository}}。",
+      "chartDetailsLink": "Chart 详情",
       "chartSourceCurrentRelease": "当前使用 Release 中保存的 Chart。",
       "chartSourceSelectChart": "请选择要使用的 Chart 包。默认使用当前 Chart。",
       "newVersionAvailable": "新版本 {{version}}",

@@ -27,24 +27,13 @@ async function fillMonacoEditor(
 
   await expect(editor).toBeVisible({ timeout: 60_000 })
   const firstLine = value.trim().split('\n')[0]
-  const shortcutModifier = process.platform === 'darwin' ? 'Meta' : 'Control'
-  const pasteShortcut = `${shortcutModifier}+V`
 
   await editorText.click({ position: { x: 10, y: 10 } })
-  await page.keyboard.press(`${shortcutModifier}+A`)
+  await page.keyboard.press('Control+A')
   await page.keyboard.press('Backspace')
-  await page.evaluate(
-    async (text) => navigator.clipboard.writeText(text),
-    value
-  )
-  await page.keyboard.press(pasteShortcut)
-  const pastedText = ((await editorText.textContent()) || '').replace(
-    /\u00a0/g,
-    ' '
-  )
-  if (!pastedText.includes(firstLine)) {
-    await page.keyboard.press(pasteShortcut)
-  }
+  await page.keyboard.press('Meta+A')
+  await page.keyboard.press('Backspace')
+  await page.keyboard.insertText(value)
   await expect(editorText).toContainText(firstLine)
 }
 
@@ -130,6 +119,57 @@ async function expectReleaseValues(
   if (absentText) {
     await expect(editorText).not.toContainText(absentText)
   }
+}
+
+async function expectAppliedPodLabel(
+  page: Page,
+  releaseName: string,
+  expectedMode: string
+) {
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(
+          `/api/v1/deployments/${namespace}?labelSelector=${encodeURIComponent(
+            `app.kubernetes.io/instance=${releaseName}`
+          )}`
+        )
+        if (!response.ok()) {
+          return ''
+        }
+        const body = (await response.json()) as {
+          items?: Array<{
+            spec?: {
+              template?: {
+                metadata?: {
+                  labels?: Record<string, string>
+                }
+              }
+            }
+          }>
+        }
+        const labels = (body.items || []).map(
+          (item) => item.spec?.template?.metadata?.labels?.['e2e-mode'] || ''
+        )
+        if (!labels.length || labels.some((label) => !label)) {
+          return ''
+        }
+        return labels.every((label) => label === expectedMode)
+          ? expectedMode
+          : labels.join(',')
+      },
+      { timeout: 60_000 }
+    )
+    .toBe(expectedMode)
+}
+
+async function expectDryRunPreview(dialog: Locator) {
+  await expect(dialog.getByText('Dry run preview')).toBeVisible({
+    timeout: 120_000,
+  })
+  await expect(
+    dialog.getByText('No resources rendered by dry run.')
+  ).toBeHidden()
 }
 
 async function deleteReleaseFromCurrentPage(page: Page, releaseName: string) {
@@ -274,6 +314,11 @@ test.describe('helm kite lifecycle', () => {
       await installDialog.getByLabel('Release Name').fill(releaseName)
       await fillMonacoEditor(page, installDialog, 1, baseValues)
       await expect(
+        installDialog.getByRole('button', { name: 'Dry Run' })
+      ).toBeEnabled({ timeout: 60_000 })
+      await installDialog.getByRole('button', { name: 'Dry Run' }).click()
+      await expectDryRunPreview(installDialog)
+      await expect(
         installDialog.getByRole('button', { name: 'Install' })
       ).toBeEnabled({ timeout: 60_000 })
       await installDialog.getByRole('button', { name: 'Install' }).click()
@@ -284,6 +329,7 @@ test.describe('helm kite lifecycle', () => {
       )
       await expectReleaseSummary(page, releaseName, installVersion, 1)
       await expectReleaseValues(page, 'e2e-mode: base', 'e2e-mode: upgraded')
+      await expectAppliedPodLabel(page, releaseName, 'base')
 
       await page.getByRole('button', { name: 'Upgrade' }).click()
       const customValuesUpgradeDialog = page.getByRole('dialog', {
@@ -291,6 +337,16 @@ test.describe('helm kite lifecycle', () => {
       })
       await expect(customValuesUpgradeDialog).toBeVisible()
       await fillMonacoEditor(page, customValuesUpgradeDialog, 1, upgradedValues)
+      await expect(
+        customValuesUpgradeDialog.getByRole('button', { name: 'Dry Run' })
+      ).toBeEnabled({ timeout: 60_000 })
+      await customValuesUpgradeDialog
+        .getByRole('button', { name: 'Dry Run' })
+        .click()
+      await expectDryRunPreview(customValuesUpgradeDialog)
+      await expect(
+        customValuesUpgradeDialog.getByText('Changed').first()
+      ).toBeVisible()
       await expect(
         customValuesUpgradeDialog.getByRole('button', { name: 'Upgrade' })
       ).toBeEnabled({ timeout: 60_000 })
@@ -302,6 +358,7 @@ test.describe('helm kite lifecycle', () => {
       await page.reload()
       await expectReleaseSummary(page, releaseName, installVersion, 2)
       await expectReleaseValues(page, 'e2e-mode: upgraded')
+      await expectAppliedPodLabel(page, releaseName, 'upgraded')
 
       await page.getByRole('tab', { name: 'History' }).click()
       await expect(
@@ -319,6 +376,7 @@ test.describe('helm kite lifecycle', () => {
       await page.reload()
       await expectReleaseSummary(page, releaseName, installVersion, 3)
       await expectReleaseValues(page, 'e2e-mode: base', 'e2e-mode: upgraded')
+      await expectAppliedPodLabel(page, releaseName, 'base')
 
       await page.getByRole('button', { name: 'Upgrade' }).click()
       const versionUpgradeDialog = page.getByRole('dialog', {
@@ -343,6 +401,7 @@ test.describe('helm kite lifecycle', () => {
       await page.reload()
       await expectReleaseSummary(page, releaseName, specifiedUpgradeVersion, 4)
       await expectReleaseValues(page, 'e2e-mode: upgraded')
+      await expectAppliedPodLabel(page, releaseName, 'upgraded')
 
       await deleteReleaseFromCurrentPage(page, releaseName)
       await page.getByPlaceholder('Search Helm Release...').fill(releaseName)

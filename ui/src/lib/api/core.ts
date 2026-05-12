@@ -8,6 +8,7 @@ import {
   HelmChartDetail,
   HelmChartList,
   HelmRelease,
+  HelmReleaseDryRunResponse,
   HelmReleaseHistoryResponse,
   HelmReleaseInstallRequest,
   HelmReleaseUpgradeRequest,
@@ -133,6 +134,17 @@ export const upgradeHelmRelease = async (
   )
 }
 
+export const dryRunUpgradeHelmRelease = async (
+  namespace: string,
+  name: string,
+  body?: HelmReleaseUpgradeRequest
+): Promise<HelmReleaseDryRunResponse> => {
+  return apiClient.put<HelmReleaseDryRunResponse>(
+    `/helmrelease/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/upgrade/dry-run`,
+    body || {}
+  )
+}
+
 export const rollbackHelmRelease = async (
   namespace: string,
   name: string,
@@ -150,6 +162,16 @@ export const installHelmRelease = async (
 ): Promise<HelmRelease> => {
   return apiClient.post<HelmRelease>(
     `/helmrelease/${encodeURIComponent(namespace)}`,
+    body
+  )
+}
+
+export const dryRunInstallHelmRelease = async (
+  namespace: string,
+  body: HelmReleaseInstallRequest
+): Promise<HelmReleaseDryRunResponse> => {
+  return apiClient.post<HelmReleaseDryRunResponse>(
+    `/helmrelease/${encodeURIComponent(namespace)}/dry-run`,
     body
   )
 }

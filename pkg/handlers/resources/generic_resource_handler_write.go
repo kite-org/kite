@@ -25,6 +25,13 @@ func (h *GenericResourceHandler[T, V]) Create(c *gin.Context) {
 		return
 	}
 
+	if !h.isClusterScoped {
+		namespace := c.Param("namespace")
+		if namespace != "" && namespace != common.AllNamespaces {
+			resource.SetNamespace(namespace)
+		}
+	}
+
 	ctx := c.Request.Context()
 
 	var success bool

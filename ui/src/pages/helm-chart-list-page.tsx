@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type SubmitEvent } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import {
   ColumnFiltersState,
@@ -20,7 +20,7 @@ import {
   Trash2,
   XCircle,
 } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 
@@ -72,6 +72,59 @@ const artifactHubSource = 'artifacthub'
 const repositoriesSource = 'repositories'
 const columnHelper = createColumnHelper<HelmChart>()
 type ChartSource = typeof artifactHubSource | typeof repositoriesSource
+type HelmChartListSessionState = {
+  chartSource?: ChartSource
+  verifiedPublisherOnly?: boolean
+  searchQuery?: string
+  repositoryFilter?: string
+  pagination?: PaginationState
+}
+
+const helmChartListSessionStorageKey = 'kite-helm-chart-list-state'
+const defaultPagination: PaginationState = {
+  pageIndex: 0,
+  pageSize: 20,
+}
+
+function readHelmChartListSessionState(): HelmChartListSessionState {
+  const value = sessionStorage.getItem(helmChartListSessionStorageKey)
+  if (!value) {
+    return {}
+  }
+
+  try {
+    const state = JSON.parse(value) as HelmChartListSessionState
+    const pagination = state.pagination
+
+    return {
+      chartSource:
+        state.chartSource === artifactHubSource ||
+        state.chartSource === repositoriesSource
+          ? state.chartSource
+          : undefined,
+      verifiedPublisherOnly:
+        typeof state.verifiedPublisherOnly === 'boolean'
+          ? state.verifiedPublisherOnly
+          : undefined,
+      searchQuery:
+        typeof state.searchQuery === 'string' ? state.searchQuery : undefined,
+      repositoryFilter:
+        typeof state.repositoryFilter === 'string'
+          ? state.repositoryFilter
+          : undefined,
+      pagination:
+        pagination &&
+        Number.isInteger(pagination.pageIndex) &&
+        pagination.pageIndex >= 0 &&
+        Number.isInteger(pagination.pageSize) &&
+        pagination.pageSize > 0
+          ? pagination
+          : undefined,
+    }
+  } catch {
+    return {}
+  }
+}
 
 function chartDetailPath(chart: HelmChart) {
   const path = `/charts/${encodeURIComponent(chart.repositoryName)}/${encodeURIComponent(chart.name)}`
@@ -125,7 +178,7 @@ function AddRepositoryDialog({
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError('')
     setIsSubmitting(true)
@@ -226,26 +279,53 @@ function AddRepositoryDialog({
 export function HelmChartListPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const [chartSource, setChartSource] = useState<ChartSource>(artifactHubSource)
-  const [verifiedPublisherOnly, setVerifiedPublisherOnly] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [repositoryFilter, setRepositoryFilter] = useState(allRepositories)
+  const [initialSessionState] = useState(readHelmChartListSessionState)
+  const [chartSource, setChartSource] = useState<ChartSource>(
+    initialSessionState.chartSource ?? artifactHubSource
+  )
+  const [verifiedPublisherOnly, setVerifiedPublisherOnly] = useState(
+    initialSessionState.verifiedPublisherOnly ?? false
+  )
+  const [searchQuery, setSearchQuery] = useState(
+    initialSessionState.searchQuery ?? ''
+  )
+  const [repositoryFilter, setRepositoryFilter] = useState(
+    initialSessionState.repositoryFilter ?? allRepositories
+  )
   const [dialogOpen, setDialogOpen] = useState(false)
   const [repositoryToDelete, setRepositoryToDelete] =
     useState<HelmRepository | null>(null)
   const [isDeletingRepository, setIsDeletingRepository] = useState(false)
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: 20,
-  })
+  const [pagination, setPagination] = useState<PaginationState>(
+    initialSessionState.pagination ?? defaultPagination
+  )
   const selectedRepository =
     repositoryFilter === allRepositories ? undefined : repositoryFilter
   const isArtifactHubSource = chartSource === artifactHubSource
   const canManageRepositories = user?.isAdmin() ?? false
 
   usePageTitle(t('nav.helmCharts'))
+
+  useEffect(() => {
+    sessionStorage.setItem(
+      helmChartListSessionStorageKey,
+      JSON.stringify({
+        chartSource,
+        verifiedPublisherOnly,
+        searchQuery,
+        repositoryFilter,
+        pagination,
+      })
+    )
+  }, [
+    chartSource,
+    verifiedPublisherOnly,
+    searchQuery,
+    repositoryFilter,
+    pagination,
+  ])
 
   const { data: repositories = [], refetch: refetchRepositories } =
     useHelmRepositories()
@@ -321,7 +401,7 @@ export function HelmChartListPage() {
         ),
       }),
       columnHelper.accessor('updatedAt', {
-        header: t('common.fields.updated'),
+        header: t('helmCharts.fields.updatedAt'),
         cell: ({ getValue }) => (
           <span className="text-sm text-muted-foreground tabular-nums">
             {getValue() ? formatDate(getValue() || '') : '-'}
@@ -607,6 +687,24 @@ export function HelmChartListPage() {
             </div>
           </div>
         </div>
+
+        {isArtifactHubSource ? (
+          <p className="text-pretty text-xs text-muted-foreground">
+            <Trans
+              i18nKey="helmCharts.messages.artifactHubTrafficNotice"
+              components={{
+                artifactHub: (
+                  <a
+                    href="https://artifacthub.io"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="app-link"
+                  />
+                ),
+              }}
+            />
+          </p>
+        ) : null}
 
         <ResourceTableView
           table={table}

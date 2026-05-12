@@ -1052,7 +1052,8 @@
       "keywords": "Keywords",
       "versions": "Versions",
       "defaultValues": "Default values",
-      "customValues": "Custom values"
+      "customValues": "Custom values",
+      "updatedAt": "Updated"
     },
     "filters": {
       "allRepositories": "All repositories",
@@ -1072,6 +1073,7 @@
       "noVersions": "No versions found",
       "noChartUrl": "Chart package URL is missing.",
       "invalidValues": "Values must be a YAML object.",
+      "artifactHubTrafficNotice": "Security notice: Kite contacts <artifactHub>Artifact Hub</artifactHub> when searching or viewing chart information from this source. Kite only displays third-party data and is not responsible for its content.",
       "installed": "Helm release installed"
     },
     "placeholders": {
@@ -1080,6 +1082,8 @@
   },
   "helm": {
     "actions": {
+      "backToValues": "Back",
+      "dryRun": "Dry Run",
       "upgrade": "Upgrade",
       "rollback": "Rollback"
     },
@@ -1087,14 +1091,23 @@
       "chart": "Chart",
       "version": "Version",
       "appVersion": "App Version",
+      "publishedAt": "Published",
       "kubeVersion": "Kubernetes Version",
       "releaseName": "Release Name",
       "createNamespace": "Create namespace",
+      "dryRunPreview": "Dry run preview",
+      "ignoreLabelsAnnotationsChanges": "Ignore labels/annotations changes (diff only)",
       "forceConflicts": "force-conflicts",
       "wait": "wait",
       "rollbackOnFailure": "rollback-on-failure",
       "firstDeployed": "First Deployed",
       "lastDeployed": "Last Deployed"
+    },
+    "diff": {
+      "added": "Added",
+      "deleted": "Deleted",
+      "changed": "Changed",
+      "unchanged": "Unchanged"
     },
     "tabs": {
       "manifest": "Manifest",
@@ -1103,6 +1116,7 @@
     },
     "messages": {
       "noResources": "No resources found",
+      "noDryRunResources": "No resources rendered by dry run.",
       "noHistory": "No history found",
       "rollbackStarted": "Rollback requested",
       "rollbackConfirmTitle": "Rollback release?",
@@ -1112,6 +1126,7 @@
       "chartSourceArtifactHubVerified": "Using Artifact Hub chart from {{repository}} (verified publisher).",
       "chartSourceArtifactHubVerifiedShort": "Artifact Hub (verified)",
       "chartSourceArtifactHub": "Using Artifact Hub chart from {{repository}}.",
+      "chartDetailsLink": "Chart details",
       "chartSourceCurrentRelease": "Using the chart stored in the current release.",
       "chartSourceSelectChart": "Select a chart to use a different chart package. Defaults to the current chart.",
       "newVersionAvailable": "New {{version}}",
