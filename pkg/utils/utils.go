@@ -45,7 +45,12 @@ func ToEnvName(input string) string {
 }
 
 func GetImageRegistryAndRepo(image string) (string, string) {
-	image = strings.SplitN(image, ":", 2)[0]
+	if digestIndex := strings.Index(image, "@"); digestIndex >= 0 {
+		image = image[:digestIndex]
+	}
+	if tagIndex := strings.LastIndex(image, ":"); tagIndex > strings.LastIndex(image, "/") {
+		image = image[:tagIndex]
+	}
 	parts := strings.Split(image, "/")
 	if len(parts) == 1 {
 		return "", "library/" + parts[0]

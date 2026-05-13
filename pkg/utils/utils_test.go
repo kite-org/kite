@@ -92,6 +92,8 @@ func TestGetImageRegistryAndRepo(t *testing.T) {
 		{"quay.io/my-org/my-repo", "quay.io", "my-org/my-repo"},
 		{"quay.io/my-org/my-repo:tag", "quay.io", "my-org/my-repo"},
 		{"registry.example.com/my-repo/test", "registry.example.com", "my-repo/test"},
+		{"localhost:5000/team/api:1.2.3", "localhost:5000", "team/api"},
+		{"registry.example.com:5000/team/api@sha256:abcdef", "registry.example.com:5000", "team/api"},
 	}
 	for _, tc := range testcase {
 		registry, repo := GetImageRegistryAndRepo(tc.image)

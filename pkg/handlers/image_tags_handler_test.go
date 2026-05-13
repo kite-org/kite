@@ -24,6 +24,7 @@ func TestGetRegistry(t *testing.T) {
 		{name: "implicit docker hub", image: "nginx:latest", wantDocker: true, wantRepo: "library/nginx"},
 		{name: "explicit docker hub", image: "docker.io/library/nginx:latest", wantDocker: true, wantRepo: "library/nginx"},
 		{name: "custom registry", image: "ghcr.io/org/image:1.0", wantDocker: false, wantBase: "ghcr.io", wantRepo: "org/image"},
+		{name: "custom registry with port", image: "localhost:5000/org/image:1.0", wantDocker: false, wantBase: "localhost:5000", wantRepo: "org/image"},
 	}
 
 	for _, tt := range tests {
