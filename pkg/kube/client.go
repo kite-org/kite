@@ -19,7 +19,6 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
-	policyv1 "k8s.io/api/policy/v1"
 	metricsv1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	metricsclient "k8s.io/metrics/pkg/client/clientset/versioned"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,7 +36,6 @@ func init() {
 	_ = apiextensionsv1.AddToScheme(runtimeScheme)
 	_ = gatewayapiv1.Install(runtimeScheme)
 	_ = metricsv1.AddToScheme(runtimeScheme)
-	_ = policyv1.AddToScheme(runtimeScheme)
 }
 
 func controllerRuntimeLogger(logger logr.Logger) logr.Logger {
