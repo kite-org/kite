@@ -102,12 +102,16 @@ func InitDB() {
 		ResourceTemplate{},
 		PendingSession{},
 		HelmRepository{},
+		ScheduledTask{},
 	}
 	for _, model := range models {
 		err = DB.AutoMigrate(model)
 		if err != nil {
 			panic("failed to migrate database: " + err.Error())
 		}
+	}
+	if _, err = EnsureSystemUser(); err != nil {
+		panic("failed to ensure system user: " + err.Error())
 	}
 
 	sqldb, err := DB.DB()

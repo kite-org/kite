@@ -8,6 +8,8 @@ import {
   HelmChartDetail,
   HelmChartList,
   HelmRelease,
+  HelmReleaseAutoUpgrade,
+  HelmReleaseAutoUpgradeRequest,
   HelmReleaseDryRunResponse,
   HelmReleaseHistoryResponse,
   HelmReleaseInstallRequest,
@@ -154,6 +156,39 @@ export const rollbackHelmRelease = async (
     `/helmrelease/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/rollback`,
     revision ? { revision } : {}
   )
+}
+
+export const fetchHelmReleaseAutoUpgrade = (
+  namespace: string,
+  name: string
+): Promise<HelmReleaseAutoUpgrade> => {
+  return fetchAPI<HelmReleaseAutoUpgrade>(
+    `/helmrelease/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/auto-upgrade`
+  )
+}
+
+export const updateHelmReleaseAutoUpgrade = (
+  namespace: string,
+  name: string,
+  body: HelmReleaseAutoUpgradeRequest
+): Promise<HelmReleaseAutoUpgrade> => {
+  return apiClient.put<HelmReleaseAutoUpgrade>(
+    `/helmrelease/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/auto-upgrade`,
+    body
+  )
+}
+
+export const useHelmReleaseAutoUpgrade = (
+  namespace: string,
+  name: string,
+  options?: { enabled?: boolean; staleTime?: number }
+) => {
+  return useQuery({
+    queryKey: ['helmrelease-auto-upgrade', namespace, name],
+    queryFn: () => fetchHelmReleaseAutoUpgrade(namespace, name),
+    enabled: (options?.enabled ?? true) && !!namespace && !!name,
+    staleTime: options?.staleTime || 30000,
+  })
 }
 
 export const installHelmRelease = async (

@@ -30,6 +30,11 @@ type User struct {
 	SidebarPreference string `json:"sidebar_preference,omitempty" gorm:"type:text"`
 }
 
+const (
+	SystemUserUsername = "__kite_system__"
+	SystemUserProvider = "System"
+)
+
 func (u *User) Key() string {
 	if u.Username != "" {
 		return u.Username
@@ -108,6 +113,34 @@ func GetAnonymousUser() *User {
 	return user
 }
 
+func EnsureSystemUser() (*User, error) {
+	user := User{
+		Username: SystemUserUsername,
+		Name:     "Kite System",
+		Provider: SystemUserProvider,
+		Enabled:  true,
+	}
+	if err := DB.Where("username = ?", SystemUserUsername).FirstOrCreate(&user).Error; err != nil {
+		return nil, err
+	}
+	updates := map[string]interface{}{}
+	if user.Provider != SystemUserProvider {
+		updates["provider"] = SystemUserProvider
+	}
+	if !user.Enabled {
+		updates["enabled"] = true
+	}
+	if user.Name == "" {
+		updates["name"] = "Kite System"
+	}
+	if len(updates) > 0 {
+		if err := DB.Model(&user).Updates(updates).Error; err != nil {
+			return nil, err
+		}
+	}
+	return &user, nil
+}
+
 func FindWithSubOrUpsertUser(user *User) error {
 	if user.Sub == "" {
 		return errors.New("user sub is empty")
@@ -144,7 +177,7 @@ func ListUsers(limit int, offset int, search string, sortBy string, sortOrder st
 	if limit <= 0 {
 		limit = 20
 	}
-	query := DB.Model(&User{}).Where("users.provider != ?", common.APIKeyProvider)
+	query := DB.Model(&User{}).Where("users.provider NOT IN ?", []string{common.APIKeyProvider, SystemUserProvider})
 	if role != "" {
 		query = query.Joins(
 			"JOIN role_assignments ra ON ra.subject = users.username AND ra.subject_type = ?",

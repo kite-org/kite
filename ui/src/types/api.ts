@@ -256,6 +256,36 @@ export interface HelmReleaseUpgradeRequest {
   rollbackOnFailure?: boolean
 }
 
+export interface HelmReleaseAutoUpgrade {
+  clusterName: string
+  namespace: string
+  releaseName: string
+  enabled: boolean
+  scheduleType: 'interval' | 'daily'
+  intervalMinutes: number
+  scheduleTime: string
+  timeoutMinutes: number
+  rollbackOnFailure: boolean
+  source?: 'repository' | 'artifacthub'
+  repositoryName?: string
+  chartName?: string
+  lastCheckedAt?: string
+  lastUpgradedAt?: string
+  lastError?: string
+}
+
+export interface HelmReleaseAutoUpgradeRequest {
+  enabled: boolean
+  scheduleType: 'interval' | 'daily'
+  intervalMinutes: number
+  scheduleTime: string
+  timeoutMinutes: number
+  rollbackOnFailure: boolean
+  source?: 'repository' | 'artifacthub'
+  repositoryName?: string
+  chartName?: string
+}
+
 export interface HelmReleaseDryRunResource {
   path: string
   content: string

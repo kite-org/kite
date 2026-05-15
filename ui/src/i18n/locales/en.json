@@ -1094,7 +1094,8 @@
       "backToValues": "Back",
       "dryRun": "Dry Run",
       "upgrade": "Upgrade",
-      "rollback": "Rollback"
+      "rollback": "Rollback",
+      "autoUpgrade": "Auto upgrade"
     },
     "fields": {
       "chart": "Chart",
@@ -1108,9 +1109,22 @@
       "ignoreLabelsAnnotationsChanges": "Ignore labels/annotations changes (diff only)",
       "forceConflicts": "force-conflicts",
       "wait": "wait",
-      "rollbackOnFailure": "rollback-on-failure",
+      "rollbackOnFailure": "Rollback on failure",
       "firstDeployed": "First Deployed",
-      "lastDeployed": "Last Deployed"
+      "lastDeployed": "Last Deployed",
+      "autoUpgrade": "Auto upgrade",
+      "chartRepository": "Chart repository",
+      "upgradeSettings": "Upgrade settings",
+      "status": "Status",
+      "schedule": "Schedule",
+      "scheduleInterval": "Interval",
+      "scheduleDaily": "Daily",
+      "intervalMinutes": "Interval (minutes)",
+      "scheduleTime": "Time",
+      "timeoutMinutes": "Timeout (minutes)",
+      "lastChecked": "Last checked",
+      "lastUpgraded": "Last upgraded",
+      "lastError": "Last error"
     },
     "diff": {
       "added": "Added",
@@ -1142,7 +1156,19 @@
       "loadingChart": "Loading chart...",
       "loadingVersions": "Loading versions...",
       "loadingChartPackage": "Loading chart package...",
-      "loadingValues": "Loading values..."
+      "loadingValues": "Loading values...",
+      "autoUpgradeSaved": "Auto upgrade saved",
+      "autoUpgradeDescription": "Upgrade when a newer chart version is available.",
+      "autoUpgradeChartDescription": "Chart source for version checks.",
+      "autoUpgradeScheduleDescription": "When to check for updates.",
+      "autoUpgradeIntervalDescription": "Check frequency.",
+      "autoUpgradeScheduleTimeDescription": "Check once per day.",
+      "autoUpgradeTimeoutDescription": "Upgrade wait limit.",
+      "autoUpgradeRollbackDescription": "Rollback failed upgrades.",
+      "invalidAutoUpgradeInterval": "Interval must be at least 1 minute.",
+      "invalidAutoUpgradeScheduleTime": "Enter a valid time.",
+      "invalidAutoUpgradeTimeout": "Timeout must be at least 1 minute.",
+      "autoUpgradeChartRequired": "Select a chart for auto upgrade."
     },
     "placeholders": {
       "selectChart": "Select a chart..."

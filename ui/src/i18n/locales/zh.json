@@ -1181,7 +1181,8 @@
       "backToValues": "上一步",
       "dryRun": "Dry Run",
       "upgrade": "升级",
-      "rollback": "回滚"
+      "rollback": "回滚",
+      "autoUpgrade": "自动升级"
     },
     "fields": {
       "chart": "Chart",
@@ -1195,9 +1196,22 @@
       "ignoreLabelsAnnotationsChanges": "忽略标签/注解变更（仅 Diff）",
       "forceConflicts": "force-conflicts",
       "wait": "wait",
-      "rollbackOnFailure": "rollback-on-failure",
+      "rollbackOnFailure": "失败时回滚",
       "firstDeployed": "首次部署",
-      "lastDeployed": "上次部署"
+      "lastDeployed": "上次部署",
+      "autoUpgrade": "自动升级",
+      "chartRepository": "Chart 仓库",
+      "upgradeSettings": "升级设置",
+      "status": "状态",
+      "schedule": "调度",
+      "scheduleInterval": "间隔",
+      "scheduleDaily": "每天",
+      "intervalMinutes": "间隔（分钟）",
+      "scheduleTime": "时间",
+      "timeoutMinutes": "超时（分钟）",
+      "lastChecked": "上次检查",
+      "lastUpgraded": "上次升级",
+      "lastError": "最近错误"
     },
     "diff": {
       "added": "新增",
@@ -1220,6 +1234,7 @@
       "chartNotFound": "在已管理的 Helm Repository 和 Artifact Hub 中均未找到这个 Chart。",
       "chartSourceManagedRepository": "当前使用已管理的 Chart Repository：{{repository}}。",
       "chartSourceArtifactHubVerified": "当前使用 Artifact Hub Chart：{{repository}}（Verified Publisher）。",
+      "chartSourceArtifactHubVerifiedShort": "Artifact Hub（已验证）",
       "chartSourceArtifactHub": "当前使用 Artifact Hub Chart：{{repository}}。",
       "chartDetailsLink": "Chart 详情",
       "chartSourceCurrentRelease": "当前使用 Release 中保存的 Chart。",
@@ -1228,7 +1243,19 @@
       "loadingChart": "正在加载 Chart...",
       "loadingVersions": "正在加载版本...",
       "loadingChartPackage": "正在加载 Chart 包...",
-      "loadingValues": "正在加载 Values..."
+      "loadingValues": "正在加载 Values...",
+      "autoUpgradeSaved": "自动升级配置已保存",
+      "autoUpgradeDescription": "发现新 Chart 版本时升级。",
+      "autoUpgradeChartDescription": "用于检查版本的 Chart 来源。",
+      "autoUpgradeScheduleDescription": "检查更新的时间。",
+      "autoUpgradeIntervalDescription": "检查频率。",
+      "autoUpgradeScheduleTimeDescription": "每天检查一次。",
+      "autoUpgradeTimeoutDescription": "升级等待上限。",
+      "autoUpgradeRollbackDescription": "失败时回滚。",
+      "invalidAutoUpgradeInterval": "间隔至少为 1 分钟。",
+      "invalidAutoUpgradeScheduleTime": "请输入有效时间。",
+      "invalidAutoUpgradeTimeout": "超时至少为 1 分钟。",
+      "autoUpgradeChartRequired": "请选择用于自动升级的 Chart。"
     },
     "placeholders": {
       "selectChart": "选择 Chart..."
