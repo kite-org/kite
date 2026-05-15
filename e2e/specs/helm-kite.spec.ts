@@ -331,7 +331,7 @@ test.describe('helm kite lifecycle', () => {
       await expectReleaseValues(page, 'e2e-mode: base', 'e2e-mode: upgraded')
       await expectAppliedPodLabel(page, releaseName, 'base')
 
-      await page.getByRole('button', { name: 'Upgrade' }).click()
+      await page.getByRole('button', { name: 'Upgrade', exact: true }).click()
       const customValuesUpgradeDialog = page.getByRole('dialog', {
         name: 'Upgrade',
       })
@@ -378,7 +378,7 @@ test.describe('helm kite lifecycle', () => {
       await expectReleaseValues(page, 'e2e-mode: base', 'e2e-mode: upgraded')
       await expectAppliedPodLabel(page, releaseName, 'base')
 
-      await page.getByRole('button', { name: 'Upgrade' }).click()
+      await page.getByRole('button', { name: 'Upgrade', exact: true }).click()
       const versionUpgradeDialog = page.getByRole('dialog', {
         name: 'Upgrade',
       })

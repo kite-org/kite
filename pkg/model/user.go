@@ -63,7 +63,7 @@ func AddUser(user *User) error {
 }
 
 func CountUsers() (count int64, err error) {
-	return count, DB.Model(&User{}).Count(&count).Error
+	return count, DB.Model(&User{}).Where("username != ?", SystemUserUsername).Count(&count).Error
 }
 
 // userCache is a thread-safe LRU with 30s TTL.
