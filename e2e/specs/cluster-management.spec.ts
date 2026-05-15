@@ -22,7 +22,7 @@ test.describe('cluster management', () => {
     await page.goto('/settings?tab=clusters')
     await expect(row).toBeVisible()
 
-    await row.getByRole('button', { name: '•••' }).click()
+    await row.getByRole('button', { name: 'Actions' }).click()
     await page.getByRole('menuitem', { name: 'Edit' }).click()
 
     const dialog = page.getByRole('dialog', { name: 'Edit Cluster' })

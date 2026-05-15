@@ -57,7 +57,7 @@ test('custom role grants namespaces and denies nodes', async ({
     .getByPlaceholder('* or pods,deployments')
     .press('Enter')
 
-  const verbsInput = roleDialog.getByPlaceholder('* or get,list,create')
+  const verbsInput = roleDialog.getByPlaceholder(/get.*create/)
   await verbsInput.fill('get')
   await verbsInput.press('Enter')
   await verbsInput.fill('list')

@@ -108,7 +108,7 @@ async function configureLDAPViaUI(page: Page) {
     .locator('div.rounded-lg.border')
     .filter({ has: page.getByText(/^LDAP$/) })
     .first()
-  const ldapSwitch = ldapSection.getByRole('switch')
+  const ldapSwitch = ldapSection.getByRole('switch').first()
   if ((await ldapSwitch.getAttribute('data-state')) !== 'checked') {
     await ldapSwitch.click()
   }
@@ -160,7 +160,7 @@ async function configureUsernameClaimOAuthViaUI(page: Page) {
     .filter({ hasText: usernameClaimOAuthProvider.name })
 
   if (await providerRow.count()) {
-    await providerRow.getByRole('button', { name: '•••' }).click()
+    await providerRow.getByRole('button', { name: 'Actions' }).click()
     await page.getByRole('menuitem', { name: 'Edit' }).click()
 
     const dialog = page.getByRole('dialog', { name: 'Edit OAuth Provider' })
@@ -211,7 +211,7 @@ async function configureRestrictedOAuthViaUI(page: Page) {
     .filter({ hasText: restrictedOAuthProvider.name })
 
   if (await providerRow.count()) {
-    await providerRow.getByRole('button', { name: '•••' }).click()
+    await providerRow.getByRole('button', { name: 'Actions' }).click()
     await page.getByRole('menuitem', { name: 'Edit' }).click()
 
     const dialog = page.getByRole('dialog', { name: 'Edit OAuth Provider' })
@@ -257,7 +257,7 @@ async function configureCustomGroupClaimOAuthViaUI(page: Page) {
     .filter({ hasText: customGroupClaimOAuthProvider.name })
 
   if (await providerRow.count()) {
-    await providerRow.getByRole('button', { name: '•••' }).click()
+    await providerRow.getByRole('button', { name: 'Actions' }).click()
     await page.getByRole('menuitem', { name: 'Edit' }).click()
 
     const dialog = page.getByRole('dialog', { name: 'Edit OAuth Provider' })
@@ -311,7 +311,7 @@ async function assignViewerRoleViaUI(page: Page, groupName: string) {
   const viewerRow = page.getByRole('row').filter({ hasText: 'viewer' })
   await expect(viewerRow).toBeVisible()
 
-  await viewerRow.getByRole('button', { name: '•••' }).click()
+  await viewerRow.getByRole('button', { name: 'Actions' }).click()
   await page.getByRole('menuitem', { name: 'Assign' }).click()
 
   const dialog = page.getByRole('dialog', { name: 'Assign Role - viewer' })

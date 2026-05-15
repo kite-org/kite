@@ -36,7 +36,7 @@ async function assignBuiltInRole(
   const row = page.getByRole('row').filter({ hasText: username }).first()
   await expect(row).toBeVisible()
 
-  await row.getByRole('button', { name: '•••' }).click()
+  await row.getByRole('button', { name: 'Actions' }).click()
   await page.getByRole('menuitem', { name: 'Assign' }).click()
 
   const dialog = page.getByRole('dialog', { name: 'Assign Roles' })
@@ -60,7 +60,7 @@ async function deleteUser(
   const row = page.getByRole('row').filter({ hasText: username }).first()
   await expect(row).toBeVisible()
 
-  await row.getByRole('button', { name: '•••' }).click()
+  await row.getByRole('button', { name: 'Actions' }).click()
   await page.getByRole('menuitem', { name: 'Delete' }).click()
 
   const dialog = page.getByRole('dialog').last()
