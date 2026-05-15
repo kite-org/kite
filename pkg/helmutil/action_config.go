@@ -1,6 +1,7 @@
 package helmutil
 
 import (
+	"github.com/zxh326/kite/pkg/common"
 	"helm.sh/helm/v4/pkg/action"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/discovery"
@@ -23,6 +24,13 @@ func NewActionConfig(config *rest.Config, namespace string) (*action.Configurati
 		return nil, err
 	}
 	return cfg, nil
+}
+
+func StorageNamespace(namespace string) string {
+	if namespace == common.AllNamespaces {
+		return ""
+	}
+	return namespace
 }
 
 func (g *restClientGetter) ToRESTConfig() (*rest.Config, error) {

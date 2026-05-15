@@ -126,11 +126,12 @@ func (m *Manager) finish(task model.ScheduledTask, runAt time.Time, err error) {
 	if scheduleErr == nil {
 		updates["next_run_at"] = nextRunAt
 	}
-	if err != nil {
+	switch {
+	case err != nil:
 		updates["last_error"] = err.Error()
-	} else if scheduleErr != nil {
+	case scheduleErr != nil:
 		updates["last_error"] = scheduleErr.Error()
-	} else {
+	default:
 		updates["last_success_at"] = runAt
 	}
 	if dbErr := model.DB.Model(&model.ScheduledTask{}).Where("id = ?", task.ID).Updates(updates).Error; dbErr != nil {

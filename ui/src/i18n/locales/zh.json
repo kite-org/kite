@@ -1251,7 +1251,6 @@
       "autoUpgradeIntervalDescription": "检查频率。",
       "autoUpgradeScheduleTimeDescription": "每天检查一次。",
       "autoUpgradeTimeoutDescription": "升级等待上限。",
-      "autoUpgradeRollbackDescription": "失败时回滚。",
       "invalidAutoUpgradeInterval": "间隔至少为 1 分钟。",
       "invalidAutoUpgradeScheduleTime": "请输入有效时间。",
       "invalidAutoUpgradeTimeout": "超时至少为 1 分钟。",

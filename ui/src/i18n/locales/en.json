@@ -1164,7 +1164,6 @@
       "autoUpgradeIntervalDescription": "Check frequency.",
       "autoUpgradeScheduleTimeDescription": "Check once per day.",
       "autoUpgradeTimeoutDescription": "Upgrade wait limit.",
-      "autoUpgradeRollbackDescription": "Rollback failed upgrades.",
       "invalidAutoUpgradeInterval": "Interval must be at least 1 minute.",
       "invalidAutoUpgradeScheduleTime": "Enter a valid time.",
       "invalidAutoUpgradeTimeout": "Timeout must be at least 1 minute.",

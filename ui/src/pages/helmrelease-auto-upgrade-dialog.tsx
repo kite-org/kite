@@ -221,104 +221,121 @@ export function HelmReleaseAutoUpgradeDialog({
             </section>
 
             <section className="rounded-lg border p-4">
-              <h3 className="mb-4 text-balance text-base font-semibold">
-                {t('helm.fields.upgradeSettings')}
-              </h3>
-              <div className="grid items-start gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <div className="grid gap-2">
-                  <Label>{t('helm.fields.schedule')}</Label>
-                  <p className="text-pretty text-sm text-muted-foreground">
-                    {t('helm.messages.autoUpgradeScheduleDescription')}
-                  </p>
-                  <Tabs
-                    value={scheduleType}
-                    onValueChange={(value) =>
-                      setScheduleType(value as 'interval' | 'daily')
-                    }
-                  >
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger
-                        value="interval"
-                        disabled={!enabled || isSaving || configQuery.isLoading}
-                      >
-                        {t('helm.fields.scheduleInterval')}
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="daily"
-                        disabled={!enabled || isSaving || configQuery.isLoading}
-                      >
-                        {t('helm.fields.scheduleDaily')}
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </div>
+              <div className="grid gap-5 lg:grid-cols-[12rem_minmax(0,1fr)]">
+                <h3 className="text-balance text-base font-semibold">
+                  {t('helm.fields.upgradeSettings')}
+                </h3>
 
-                <div className="grid gap-2">
-                  {scheduleType === 'interval' ? (
-                    <>
-                      <Label htmlFor="helm-auto-upgrade-interval">
-                        {t('helm.fields.intervalMinutes')}
+                <div className="space-y-5">
+                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_14rem] sm:items-start">
+                    <div className="space-y-1.5">
+                      <Label>{t('helm.fields.schedule')}</Label>
+                      <p className="text-pretty text-sm text-muted-foreground">
+                        {t('helm.messages.autoUpgradeScheduleDescription')}
+                      </p>
+                    </div>
+                    <Tabs
+                      value={scheduleType}
+                      onValueChange={(value) =>
+                        setScheduleType(value as 'interval' | 'daily')
+                      }
+                      className="w-full"
+                    >
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger
+                          value="interval"
+                          disabled={
+                            !enabled || isSaving || configQuery.isLoading
+                          }
+                        >
+                          {t('helm.fields.scheduleInterval')}
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="daily"
+                          disabled={
+                            !enabled || isSaving || configQuery.isLoading
+                          }
+                        >
+                          {t('helm.fields.scheduleDaily')}
+                        </TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-2">
+                      {scheduleType === 'interval' ? (
+                        <>
+                          <Label htmlFor="helm-auto-upgrade-interval">
+                            {t('helm.fields.intervalMinutes')}
+                          </Label>
+                          <p className="text-pretty text-sm text-muted-foreground">
+                            {t('helm.messages.autoUpgradeIntervalDescription')}
+                          </p>
+                          <Input
+                            id="helm-auto-upgrade-interval"
+                            type="number"
+                            min={1}
+                            value={intervalMinutes}
+                            onChange={(event) =>
+                              setIntervalMinutes(event.target.value)
+                            }
+                            disabled={
+                              !enabled || isSaving || configQuery.isLoading
+                            }
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <Label htmlFor="helm-auto-upgrade-schedule-time">
+                            {t('helm.fields.scheduleTime')}
+                          </Label>
+                          <p className="text-pretty text-sm text-muted-foreground">
+                            {t(
+                              'helm.messages.autoUpgradeScheduleTimeDescription'
+                            )}
+                          </p>
+                          <Input
+                            id="helm-auto-upgrade-schedule-time"
+                            type="time"
+                            value={scheduleTime}
+                            onChange={(event) =>
+                              setScheduleTime(event.target.value)
+                            }
+                            disabled={
+                              !enabled || isSaving || configQuery.isLoading
+                            }
+                          />
+                        </>
+                      )}
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="helm-auto-upgrade-timeout">
+                        {t('helm.fields.timeoutMinutes')}
                       </Label>
                       <p className="text-pretty text-sm text-muted-foreground">
-                        {t('helm.messages.autoUpgradeIntervalDescription')}
+                        {t('helm.messages.autoUpgradeTimeoutDescription')}
                       </p>
                       <Input
-                        id="helm-auto-upgrade-interval"
+                        id="helm-auto-upgrade-timeout"
                         type="number"
                         min={1}
-                        value={intervalMinutes}
+                        value={timeoutMinutes}
                         onChange={(event) =>
-                          setIntervalMinutes(event.target.value)
+                          setTimeoutMinutes(event.target.value)
                         }
                         disabled={!enabled || isSaving || configQuery.isLoading}
                       />
-                    </>
-                  ) : (
-                    <>
-                      <Label htmlFor="helm-auto-upgrade-schedule-time">
-                        {t('helm.fields.scheduleTime')}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="helm-auto-upgrade-rollback-on-failure">
+                        {t('helm.fields.rollbackOnFailure')}
                       </Label>
-                      <p className="text-pretty text-sm text-muted-foreground">
-                        {t('helm.messages.autoUpgradeScheduleTimeDescription')}
-                      </p>
-                      <Input
-                        id="helm-auto-upgrade-schedule-time"
-                        type="time"
-                        value={scheduleTime}
-                        onChange={(event) =>
-                          setScheduleTime(event.target.value)
-                        }
-                        disabled={!enabled || isSaving || configQuery.isLoading}
-                      />
-                    </>
-                  )}
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="helm-auto-upgrade-timeout">
-                    {t('helm.fields.timeoutMinutes')}
-                  </Label>
-                  <p className="text-pretty text-sm text-muted-foreground">
-                    {t('helm.messages.autoUpgradeTimeoutDescription')}
-                  </p>
-                  <Input
-                    id="helm-auto-upgrade-timeout"
-                    type="number"
-                    min={1}
-                    value={timeoutMinutes}
-                    onChange={(event) => setTimeoutMinutes(event.target.value)}
-                    disabled={!enabled || isSaving || configQuery.isLoading}
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="helm-auto-upgrade-rollback-on-failure">
-                    {t('helm.fields.rollbackOnFailure')}
-                  </Label>
-                  <p className="text-pretty text-sm text-muted-foreground">
-                    {t('helm.messages.autoUpgradeRollbackDescription')}
-                  </p>
-                  <div className="flex h-9 items-center">
+                    </div>
                     <Switch
                       id="helm-auto-upgrade-rollback-on-failure"
                       checked={rollbackOnFailure}
