@@ -318,7 +318,7 @@ async function assignViewerRoleViaUI(page: Page, groupName: string) {
   await expect(dialog).toBeVisible()
 
   if (!(await dialog.getByText(groupName).count())) {
-    await dialog.getByRole('combobox').click()
+    await dialog.getByRole('combobox').filter({ hasText: /^User$/ }).click()
     await page.getByRole('option', { name: 'OIDC Group' }).click()
     await dialog.getByPlaceholder('username or group name').fill(groupName)
     await dialog.getByRole('button', { name: 'Assign' }).click()

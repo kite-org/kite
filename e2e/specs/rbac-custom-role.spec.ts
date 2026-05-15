@@ -63,7 +63,7 @@ test('custom role grants namespaces and denies nodes', async ({
   await verbsInput.fill('list')
   await verbsInput.press('Enter')
 
-  await roleDialog.getByRole('button', { name: 'Create' }).click()
+  await roleDialog.getByRole('button', { name: 'Create', exact: true }).click()
 
   const roleRow = page.getByRole('row').filter({ hasText: roleName })
   await expect(roleRow).toBeVisible()

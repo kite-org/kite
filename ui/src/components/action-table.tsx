@@ -51,7 +51,11 @@ export function ActionTable<T>({
           <div className="text-right">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={t('common.fields.actions', 'Actions')}
+                >
                   •••
                 </Button>
               </DropdownMenuTrigger>
