@@ -74,7 +74,9 @@ test('custom role grants namespaces and denies nodes', async ({
   const assignDialog = page.getByRole('dialog', { name: `Assign Role - ${roleName}` })
   await expect(assignDialog).toBeVisible()
 
-  await assignDialog.getByPlaceholder('username or group name').fill(username)
+  await assignDialog.getByRole('combobox').filter({ hasText: 'Select user' }).click()
+  await page.getByPlaceholder('Search users...').fill(username)
+  await page.getByRole('option', { name: username }).click()
   await assignDialog.getByRole('button', { name: 'Assign' }).click()
   await assignDialog.getByRole('button', { name: 'Cancel' }).click()
   await expect(assignDialog).toBeHidden()
