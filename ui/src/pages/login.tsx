@@ -29,6 +29,7 @@ export function LoginPage() {
     loginWithCredentials,
     credentialProviders,
     oauthProviders,
+    loginPrompt,
     isLoading,
   } = useAuth()
   const [searchParams] = useSearchParams()
@@ -41,6 +42,11 @@ export function LoginPage() {
 
   const error = searchParams.get('error')
   const totalProviders = credentialProviders.length + oauthProviders.length
+  const loginPromptContent = loginPrompt.trim()
+  const loginPromptLines = loginPromptContent
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
 
   useEffect(() => {
     if (
@@ -196,6 +202,14 @@ export function LoginPage() {
               <CardDescription className="text-gray-600">
                 {t('login.subtitle')}
               </CardDescription>
+              {loginPromptLines.map((line, index) => (
+                <p
+                  key={`${index}-${line}`}
+                  className="text-sm text-gray-500 mt-2"
+                >
+                  {line}
+                </p>
+              ))}
             </CardHeader>
             <CardContent className="space-y-4">
               {error && (

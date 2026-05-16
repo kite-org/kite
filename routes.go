@@ -22,6 +22,7 @@ func setupAPIRouter(r *gin.RouterGroup, cm *cluster.ClusterManager) {
 	helmChartsHandler := handlers.NewHelmChartHandler()
 
 	registerBaseRoutes(r)
+	r.GET("/api/v1/bootstrap", authHandler.Bootstrap)
 	registerAuthRoutes(r, authHandler)
 	registerUserRoutes(r, authHandler)
 	registerAdminRoutes(r, authHandler, cm, helmChartsHandler)
@@ -36,13 +37,11 @@ func registerBaseRoutes(r *gin.RouterGroup) {
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
-	r.GET("/api/v1/init_check", handlers.InitCheck)
 	r.GET("/api/v1/version", version.GetVersion)
 }
 
 func registerAuthRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler) {
 	authGroup := r.Group("/api/auth")
-	authGroup.GET("/providers", authHandler.GetProviders)
 	authGroup.POST("/setup/create_super_user", authHandler.CreateSuperUser)
 	authGroup.POST("/login/password", authHandler.PasswordLogin)
 	authGroup.POST("/login/ldap", authHandler.LDAPLogin)
@@ -155,7 +154,6 @@ func registerProtectedRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, 
 	proxyHandler := handlers.NewProxyHandler()
 	proxyHandler.RegisterRoutes(api)
 
-	api.GET("/ai/status", ai.HandleAIStatus)
 	api.POST("/ai/chat", ai.HandleChat)
 	api.POST("/ai/execute/continue", ai.HandleExecuteContinue)
 	api.POST("/ai/input/continue", ai.HandleInputContinue)

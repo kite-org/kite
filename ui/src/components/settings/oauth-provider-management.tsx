@@ -130,6 +130,7 @@ export function OAuthProviderManagement() {
     mutationFn: createOAuthProvider,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['oauth-provider-list'] })
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] })
       toast.success(
         t(
           'oauthManagement.messages.created',
@@ -160,6 +161,7 @@ export function OAuthProviderManagement() {
     }) => updateOAuthProvider(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['oauth-provider-list'] })
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] })
       toast.success(
         t(
           'oauthManagement.messages.updated',
@@ -185,6 +187,7 @@ export function OAuthProviderManagement() {
     mutationFn: deleteOAuthProvider,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['oauth-provider-list'] })
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] })
       toast.success(
         t(
           'oauthManagement.messages.deleted',

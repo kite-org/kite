@@ -102,6 +102,7 @@ export function AuthenticationManagement() {
         queryKey: ['ldap-setting'],
       })
       queryClient.invalidateQueries({ queryKey: ['general-setting'] })
+      queryClient.invalidateQueries({ queryKey: ['bootstrap'] })
       toast.success(
         t(
           'authenticationManagement.messages.updated',

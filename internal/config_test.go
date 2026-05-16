@@ -10,8 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
+	"github.com/zxh326/kite/pkg/auth"
 	"github.com/zxh326/kite/pkg/common"
-	"github.com/zxh326/kite/pkg/handlers"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/rbac"
 	"github.com/zxh326/kite/pkg/utils"
@@ -409,9 +409,9 @@ func TestLoadConfigFromFile_StartupOverwrite(t *testing.T) {
 	}
 }
 
-// TestInitCheckWithManagedClusters tests that InitCheck returns initialized=true
+// TestBootstrapWithManagedClusters tests that bootstrap returns initialized=true
 // when clusters are managed AND a user exists.
-func TestInitCheckWithManagedClusters(t *testing.T) {
+func TestBootstrapWithManagedClusters(t *testing.T) {
 	setupTestDB(t)
 	saveManagedSections(t)
 	common.ManagedSections["clusters"] = true
@@ -421,7 +421,7 @@ func TestInitCheckWithManagedClusters(t *testing.T) {
 	rbac.SyncNow = make(chan struct{}, 10)
 	t.Cleanup(func() { rbac.SyncNow = oldSyncNow })
 
-	// Create a user so InitCheck considers step 1 (user) done
+	// Create a user so bootstrap considers step 1 (user) done
 	if err := model.InitDefaultRole(); err != nil {
 		t.Fatalf("InitDefaultRole: %v", err)
 	}
@@ -431,10 +431,10 @@ func TestInitCheckWithManagedClusters(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.GET("/api/v1/init_check", handlers.InitCheck)
+	r.GET("/api/v1/bootstrap", auth.NewAuthHandler().Bootstrap)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/init_check", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/bootstrap", nil)
 	r.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
@@ -445,17 +445,21 @@ func TestInitCheckWithManagedClusters(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if init, ok := result["initialized"].(bool); !ok || !init {
-		t.Errorf("initialized = %v, want true", result["initialized"])
+	setup, ok := result["setup"].(map[string]any)
+	if !ok {
+		t.Fatalf("setup = %v, want object", result["setup"])
 	}
-	if step, ok := result["step"].(float64); !ok || step != 2 {
-		t.Errorf("step = %v, want 2", result["step"])
+	if init, ok := setup["initialized"].(bool); !ok || !init {
+		t.Errorf("initialized = %v, want true", setup["initialized"])
+	}
+	if step, ok := setup["step"].(float64); !ok || step != 2 {
+		t.Errorf("step = %v, want 2", setup["step"])
 	}
 }
 
-// TestInitCheckWithManagedClustersNoUsers tests that InitCheck returns initialized=false
+// TestBootstrapWithManagedClustersNoUsers tests that bootstrap returns initialized=false
 // when clusters are managed but no user exists.
-func TestInitCheckWithManagedClustersNoUsers(t *testing.T) {
+func TestBootstrapWithManagedClustersNoUsers(t *testing.T) {
 	setupTestDB(t)
 	saveManagedSections(t)
 	common.ManagedSections["clusters"] = true
@@ -467,10 +471,10 @@ func TestInitCheckWithManagedClustersNoUsers(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.GET("/api/v1/init_check", handlers.InitCheck)
+	r.GET("/api/v1/bootstrap", auth.NewAuthHandler().Bootstrap)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/init_check", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/bootstrap", nil)
 	r.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
@@ -481,11 +485,15 @@ func TestInitCheckWithManagedClustersNoUsers(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if init, ok := result["initialized"].(bool); !ok || init {
-		t.Errorf("initialized = %v, want false (no users)", result["initialized"])
+	setup, ok := result["setup"].(map[string]any)
+	if !ok {
+		t.Fatalf("setup = %v, want object", result["setup"])
 	}
-	if step, ok := result["step"].(float64); !ok || step != 0 {
-		t.Errorf("step = %v, want 0 (no users)", result["step"])
+	if init, ok := setup["initialized"].(bool); !ok || init {
+		t.Errorf("initialized = %v, want false (no users)", setup["initialized"])
+	}
+	if step, ok := setup["step"].(float64); !ok || step != 0 {
+		t.Errorf("step = %v, want 0 (no users)", setup["step"])
 	}
 }
 

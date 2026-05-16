@@ -10,20 +10,6 @@ import (
 	"github.com/zxh326/kite/pkg/model"
 )
 
-// HandleAIStatus returns whether AI features are enabled.
-func HandleAIStatus(c *gin.Context) {
-	cfg, err := LoadRuntimeConfig()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to load AI config: %v", err)})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"enabled":  cfg.Enabled,
-		"provider": cfg.Provider,
-		"model":    cfg.Model,
-	})
-}
-
 // HandleChat handles the SSE streaming chat endpoint.
 func HandleChat(c *gin.Context) {
 	cfg, err := LoadRuntimeConfig()
@@ -209,6 +195,7 @@ func HandleGetGeneralSetting(c *gin.Context) {
 		"enableAnalytics":       setting.EnableAnalytics,
 		"enableVersionCheck":    setting.EnableVersionCheck,
 		"passwordLoginDisabled": setting.PasswordLoginDisabled,
+		"loginPrompt":           setting.LoginPrompt,
 	})
 }
 
@@ -225,6 +212,7 @@ type UpdateGeneralSettingRequest struct {
 	EnableAnalytics       bool    `json:"enableAnalytics"`
 	EnableVersionCheck    bool    `json:"enableVersionCheck"`
 	PasswordLoginDisabled *bool   `json:"passwordLoginDisabled"`
+	LoginPrompt           string  `json:"loginPrompt"`
 }
 
 func HandleUpdateGeneralSetting(c *gin.Context) {
@@ -299,6 +287,7 @@ func HandleUpdateGeneralSetting(c *gin.Context) {
 		"node_terminal_image":  nodeTerminalImage,
 		"enable_analytics":     req.EnableAnalytics,
 		"enable_version_check": req.EnableVersionCheck,
+		"login_prompt":         strings.TrimSpace(req.LoginPrompt),
 	}
 	if req.PasswordLoginDisabled != nil {
 		updates["password_login_disabled"] = *req.PasswordLoginDisabled
@@ -328,6 +317,7 @@ func HandleUpdateGeneralSetting(c *gin.Context) {
 		"enableAnalytics":       updated.EnableAnalytics,
 		"enableVersionCheck":    updated.EnableVersionCheck,
 		"passwordLoginDisabled": updated.PasswordLoginDisabled,
+		"loginPrompt":           updated.LoginPrompt,
 	})
 }
 

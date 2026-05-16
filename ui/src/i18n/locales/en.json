@@ -735,6 +735,14 @@
         "enableVersionCheck": "Enable version check"
       }
     },
+    "loginPrompt": {
+      "title": "Login Prompt",
+      "description": "Show a custom message on the login page.",
+      "form": {
+        "message": "Message",
+        "placeholder": "Leave empty to hide the login prompt"
+      }
+    },
     "errors": {
       "modelRequired": "Model is required",
       "apiKeyRequired": "API Key is required when AI Agent is enabled",
