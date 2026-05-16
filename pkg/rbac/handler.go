@@ -3,11 +3,32 @@ package rbac
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
 )
+
+type roleReq struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Clusters    []string `json:"clusters"`
+	Namespaces  []string `json:"namespaces"`
+	Resources   []string `json:"resources"`
+	Verbs       []string `json:"verbs"`
+}
+
+func (req roleReq) toRole() model.Role {
+	return model.Role{
+		Name:        strings.TrimSpace(req.Name),
+		Description: req.Description,
+		Clusters:    model.SliceString(req.Clusters),
+		Namespaces:  model.SliceString(req.Namespaces),
+		Resources:   model.SliceString(req.Resources),
+		Verbs:       model.SliceString(req.Verbs),
+	}
+}
 
 // ListRoles returns all roles with assignments
 func ListRoles(c *gin.Context) {
@@ -42,11 +63,12 @@ func CreateRole(c *gin.Context) {
 		return
 	}
 
-	var role model.Role
-	if err := c.ShouldBindJSON(&role); err != nil {
+	var req roleReq
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	role := req.toRole()
 	if role.Name == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "role name is required"})
 		return
@@ -73,7 +95,7 @@ func UpdateRole(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role id"})
 		return
 	}
-	var req model.Role
+	var req roleReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -83,13 +105,18 @@ func UpdateRole(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "role not found"})
 		return
 	}
+	roleData := req.toRole()
+	if roleData.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "role name is required"})
+		return
+	}
 	// update fields
-	role.Name = req.Name
-	role.Description = req.Description
-	role.Clusters = req.Clusters
-	role.Namespaces = req.Namespaces
-	role.Resources = req.Resources
-	role.Verbs = req.Verbs
+	role.Name = roleData.Name
+	role.Description = roleData.Description
+	role.Clusters = roleData.Clusters
+	role.Namespaces = roleData.Namespaces
+	role.Resources = roleData.Resources
+	role.Verbs = roleData.Verbs
 
 	if err := model.DB.Save(&role).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update role: " + err.Error()})

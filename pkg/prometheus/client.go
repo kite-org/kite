@@ -217,10 +217,7 @@ func (c *Client) QueryRange(ctx context.Context, query string, r v1.Range, opts 
 	return c.client.QueryRange(ctx, query, r, opts...)
 }
 
-func (c *Client) GetCPUUsage(ctx context.Context, namespace, podNamePrefix, container string, timeRange, step time.Duration) ([]UsageDataPoint, error) {
-	now := time.Now()
-	start := now.Add(-timeRange)
-
+func (c *Client) GetCPUUsage(ctx context.Context, namespace, podNamePrefix, container string, start, end time.Time, step time.Duration) ([]UsageDataPoint, error) {
 	// Build query conditionally based on whether pod name prefix and container are provided
 	conditions := []string{
 		`container!="POD"`, // Exclude the "POD" container
@@ -236,13 +233,10 @@ func (c *Client) GetCPUUsage(ctx context.Context, namespace, podNamePrefix, cont
 		conditions = append(conditions, fmt.Sprintf(`namespace="%s"`, namespace))
 	}
 	query := fmt.Sprintf(`sum(rate(container_cpu_usage_seconds_total{%s}[1m]))`, strings.Join(conditions, ","))
-	return c.queryRange(ctx, query, start, now, step)
+	return c.queryRange(ctx, query, start, end, step)
 }
 
-func (c *Client) GetMemoryUsage(ctx context.Context, namespace, podNamePrefix, container string, timeRange, step time.Duration) ([]UsageDataPoint, error) {
-	now := time.Now()
-	start := now.Add(-timeRange)
-
+func (c *Client) GetMemoryUsage(ctx context.Context, namespace, podNamePrefix, container string, start, end time.Time, step time.Duration) ([]UsageDataPoint, error) {
 	// Build query conditionally based on whether pod name prefix and container are provided
 	conditions := []string{
 		`container!="POD"`, // Exclude the "POD" container
@@ -258,13 +252,10 @@ func (c *Client) GetMemoryUsage(ctx context.Context, namespace, podNamePrefix, c
 		conditions = append(conditions, fmt.Sprintf(`namespace="%s"`, namespace))
 	}
 	query := fmt.Sprintf(`sum(container_memory_usage_bytes{%s}) / 1024 / 1024`, strings.Join(conditions, ","))
-	return c.queryRange(ctx, query, start, now, step)
+	return c.queryRange(ctx, query, start, end, step)
 }
 
-func (c *Client) GetNetworkInUsage(ctx context.Context, namespace, podNamePrefix, container string, timeRange, step time.Duration) ([]UsageDataPoint, error) {
-	now := time.Now()
-	start := now.Add(-timeRange)
-
+func (c *Client) GetNetworkInUsage(ctx context.Context, namespace, podNamePrefix, container string, start, end time.Time, step time.Duration) ([]UsageDataPoint, error) {
 	conditions := []string{}
 	if podNamePrefix != "" {
 		conditions = append(conditions, fmt.Sprintf(`pod=~"%s.*"`, podNamePrefix))
@@ -276,13 +267,10 @@ func (c *Client) GetNetworkInUsage(ctx context.Context, namespace, podNamePrefix
 		conditions = append(conditions, fmt.Sprintf(`namespace="%s"`, namespace))
 	}
 	query := fmt.Sprintf(`sum(rate(container_network_receive_bytes_total{%s}[1m]))`, strings.Join(conditions, ","))
-	return c.queryRange(ctx, query, start, now, step)
+	return c.queryRange(ctx, query, start, end, step)
 }
 
-func (c *Client) GetNetworkOutUsage(ctx context.Context, namespace, podNamePrefix, container string, timeRange, step time.Duration) ([]UsageDataPoint, error) {
-	now := time.Now()
-	start := now.Add(-timeRange)
-
+func (c *Client) GetNetworkOutUsage(ctx context.Context, namespace, podNamePrefix, container string, start, end time.Time, step time.Duration) ([]UsageDataPoint, error) {
 	conditions := []string{}
 	if podNamePrefix != "" {
 		conditions = append(conditions, fmt.Sprintf(`pod=~"%s.*"`, podNamePrefix))
@@ -294,13 +282,10 @@ func (c *Client) GetNetworkOutUsage(ctx context.Context, namespace, podNamePrefi
 		conditions = append(conditions, fmt.Sprintf(`namespace="%s"`, namespace))
 	}
 	query := fmt.Sprintf(`sum(rate(container_network_transmit_bytes_total{%s}[1m]))`, strings.Join(conditions, ","))
-	return c.queryRange(ctx, query, start, now, step)
+	return c.queryRange(ctx, query, start, end, step)
 }
 
-func (c *Client) GetDiskReadUsage(ctx context.Context, namespace, podNamePrefix, container string, timeRange, step time.Duration) ([]UsageDataPoint, error) {
-	now := time.Now()
-	start := now.Add(-timeRange)
-
+func (c *Client) GetDiskReadUsage(ctx context.Context, namespace, podNamePrefix, container string, start, end time.Time, step time.Duration) ([]UsageDataPoint, error) {
 	conditions := []string{
 		`container!="POD"`, // Exclude the "POD" container
 		`container!=""`,    // Exclude empty containers
@@ -315,13 +300,10 @@ func (c *Client) GetDiskReadUsage(ctx context.Context, namespace, podNamePrefix,
 		conditions = append(conditions, fmt.Sprintf(`namespace="%s"`, namespace))
 	}
 	query := fmt.Sprintf(`sum(rate(container_fs_reads_bytes_total{%s}[1m]))`, strings.Join(conditions, ","))
-	return c.queryRange(ctx, query, start, now, step)
+	return c.queryRange(ctx, query, start, end, step)
 }
 
-func (c *Client) GetDiskWriteUsage(ctx context.Context, namespace, podNamePrefix, container string, timeRange, step time.Duration) ([]UsageDataPoint, error) {
-	now := time.Now()
-	start := now.Add(-timeRange)
-
+func (c *Client) GetDiskWriteUsage(ctx context.Context, namespace, podNamePrefix, container string, start, end time.Time, step time.Duration) ([]UsageDataPoint, error) {
 	conditions := []string{
 		`container!="POD"`, // Exclude the "POD" container
 		`container!=""`,    // Exclude empty containers
@@ -336,15 +318,14 @@ func (c *Client) GetDiskWriteUsage(ctx context.Context, namespace, podNamePrefix
 		conditions = append(conditions, fmt.Sprintf(`namespace="%s"`, namespace))
 	}
 	query := fmt.Sprintf(`sum(rate(container_fs_writes_bytes_total{%s}[1m]))`, strings.Join(conditions, ","))
-	return c.queryRange(ctx, query, start, now, step)
+	return c.queryRange(ctx, query, start, end, step)
 }
 
-func FillMissingDataPoints(timeRange time.Duration, step time.Duration, existing []UsageDataPoint) []UsageDataPoint {
+func FillMissingDataPoints(startTime time.Time, step time.Duration, existing []UsageDataPoint) []UsageDataPoint {
 	if len(existing) == 0 {
 		return existing
 	}
 
-	startTime := time.Now().Add(-timeRange)
 	firstTime := existing[0].Timestamp
 
 	if firstTime.Sub(startTime) <= step {
@@ -381,43 +362,46 @@ func (c *Client) GetPodMetrics(ctx context.Context, namespace, podName, containe
 		return nil, fmt.Errorf("unsupported duration: %s", duration)
 	}
 
-	cpuData, err := c.GetCPUUsage(ctx, namespace, podName, container, timeRange, step)
+	now := time.Now()
+	start := now.Add(-timeRange)
+
+	cpuData, err := c.GetCPUUsage(ctx, namespace, podName, container, start, now, step)
 	if err != nil {
 		return nil, fmt.Errorf("error querying pod CPU usage: %w", err)
 	}
 	// Memory usage query for specific pod
-	memoryData, err := c.GetMemoryUsage(ctx, namespace, podName, container, timeRange, step)
+	memoryData, err := c.GetMemoryUsage(ctx, namespace, podName, container, start, now, step)
 	if err != nil {
 		return nil, fmt.Errorf("error querying pod Memory usage: %w", err)
 	}
 
-	networkInData, err := c.GetNetworkInUsage(ctx, namespace, podName, container, timeRange, step)
+	networkInData, err := c.GetNetworkInUsage(ctx, namespace, podName, container, start, now, step)
 	if err != nil {
 		return nil, fmt.Errorf("error querying pod Network incoming usage: %w", err)
 	}
 
-	networkOutData, err := c.GetNetworkOutUsage(ctx, namespace, podName, container, timeRange, step)
+	networkOutData, err := c.GetNetworkOutUsage(ctx, namespace, podName, container, start, now, step)
 	if err != nil {
 		return nil, fmt.Errorf("error querying pod Network outgoing usage: %w", err)
 	}
 
-	diskReadData, err := c.GetDiskReadUsage(ctx, namespace, podName, container, timeRange, step)
+	diskReadData, err := c.GetDiskReadUsage(ctx, namespace, podName, container, start, now, step)
 	if err != nil {
 		return nil, fmt.Errorf("error querying pod Disk read usage: %w", err)
 	}
 
-	diskWriteData, err := c.GetDiskWriteUsage(ctx, namespace, podName, container, timeRange, step)
+	diskWriteData, err := c.GetDiskWriteUsage(ctx, namespace, podName, container, start, now, step)
 	if err != nil {
 		return nil, fmt.Errorf("error querying pod Disk write usage: %w", err)
 	}
 
 	return &PodMetrics{
-		CPU:        FillMissingDataPoints(timeRange, step, cpuData),
-		Memory:     FillMissingDataPoints(timeRange, step, memoryData),
-		NetworkIn:  FillMissingDataPoints(timeRange, step, networkInData),
-		NetworkOut: FillMissingDataPoints(timeRange, step, networkOutData),
-		DiskRead:   FillMissingDataPoints(timeRange, step, diskReadData),
-		DiskWrite:  FillMissingDataPoints(timeRange, step, diskWriteData),
+		CPU:        FillMissingDataPoints(start, step, cpuData),
+		Memory:     FillMissingDataPoints(start, step, memoryData),
+		NetworkIn:  FillMissingDataPoints(start, step, networkInData),
+		NetworkOut: FillMissingDataPoints(start, step, networkOutData),
+		DiskRead:   FillMissingDataPoints(start, step, diskReadData),
+		DiskWrite:  FillMissingDataPoints(start, step, diskWriteData),
 		Fallback:   false,
 	}, nil
 }

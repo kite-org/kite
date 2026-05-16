@@ -77,7 +77,7 @@ func TestQueryRange(t *testing.T) {
 }
 
 func TestFillMissingDataPoints(t *testing.T) {
-	if got := FillMissingDataPoints(time.Minute, time.Second, nil); got != nil {
+	if got := FillMissingDataPoints(time.Now().Add(-time.Minute), time.Second, nil); got != nil {
 		t.Fatalf("FillMissingDataPoints() nil = %#v, want nil", got)
 	}
 
@@ -91,7 +91,7 @@ func TestFillMissingDataPoints(t *testing.T) {
 		},
 	}
 
-	got := FillMissingDataPoints(timeRange, step, existing)
+	got := FillMissingDataPoints(now.Add(-timeRange), step, existing)
 	if len(got) != 3 {
 		t.Fatalf("FillMissingDataPoints() len = %d, want 3", len(got))
 	}
