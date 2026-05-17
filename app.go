@@ -8,11 +8,11 @@ import (
 	"github.com/zxh326/kite/internal"
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/common"
-	"github.com/zxh326/kite/pkg/handlers"
 	"github.com/zxh326/kite/pkg/middleware"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/rbac"
 	"github.com/zxh326/kite/pkg/scheduler"
+	"github.com/zxh326/kite/pkg/templates"
 	"k8s.io/klog/v2"
 )
 
@@ -30,7 +30,7 @@ func initializeApp(ctx context.Context) (*cluster.ClusterManager, error) {
 	}
 
 	rbac.InitRBAC()
-	handlers.InitTemplates()
+	templates.InitTemplates()
 	internal.LoadConfigFromFile(common.ConfigFilePath)
 	if common.ConfigFilePath == "" {
 		internal.LoadConfigFromEnv()

@@ -1,4 +1,4 @@
-package handlers
+package search
 
 import (
 	"context"
@@ -13,16 +13,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/zxh326/kite/pkg/common"
-	"github.com/zxh326/kite/pkg/handlers/resources"
 	"github.com/zxh326/kite/pkg/middleware"
 	"github.com/zxh326/kite/pkg/model"
+	"github.com/zxh326/kite/pkg/resources"
 	"github.com/zxh326/kite/pkg/utils"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
 )
 
 type SearchHandler struct {
-	cache *expirable.LRU[string, []common.SearchResult]
+	cache       *expirable.LRU[string, []common.SearchResult]
+	searchFuncs map[string]resources.SearchFunc
 }
 type SearchResponse struct {
 	Results []common.SearchResult `json:"results"`
@@ -47,9 +48,10 @@ var searchResourceOrder = map[string]int{
 	string(common.PodDisruptionBudgets): 10,
 }
 
-func NewSearchHandler() *SearchHandler {
+func NewSearchHandler(searchFuncs map[string]resources.SearchFunc) *SearchHandler {
 	return &SearchHandler{
-		cache: expirable.NewLRU[string, []common.SearchResult](100, nil, time.Minute*10),
+		cache:       expirable.NewLRU[string, []common.SearchResult](100, nil, time.Minute*10),
+		searchFuncs: searchFuncs,
 	}
 }
 
@@ -62,16 +64,15 @@ func (h *SearchHandler) Search(c *gin.Context, query string, limit int) ([]commo
 	limit = normalizeSearchLimit(limit)
 
 	// Determine which resource types to search
-	searchFuncs := resources.SearchFuncs
 	guessSearchResources, q := utils.GuessSearchResources(query)
 
 	// Collect the search functions to execute
 	type searchEntry struct {
 		name string
-		fn   func(*gin.Context, string, int64) ([]common.SearchResult, error)
+		fn   resources.SearchFunc
 	}
 	var entries []searchEntry
-	for name, searchFunc := range searchFuncs {
+	for name, searchFunc := range h.searchFuncs {
 		if guessSearchResources == "all" || name == guessSearchResources {
 			entries = append(entries, searchEntry{name: name, fn: searchFunc})
 		}
@@ -83,6 +84,7 @@ func (h *SearchHandler) Search(c *gin.Context, query string, limit int) ([]commo
 	g, _ := errgroup.WithContext(context.Background())
 
 	for i, entry := range entries {
+		searchContext := c.Copy()
 		g.Go(func() (err error) {
 			defer func() {
 				if r := recover(); r != nil {
@@ -90,7 +92,7 @@ func (h *SearchHandler) Search(c *gin.Context, query string, limit int) ([]commo
 					hadFailure.Store(true)
 				}
 			}()
-			results, searchErr := entry.fn(c, q, int64(limit))
+			results, searchErr := entry.fn(searchContext, q, int64(limit))
 			if searchErr != nil {
 				klog.Errorf("search: resource %q failed: %v", entry.name, searchErr)
 				hadFailure.Store(true)

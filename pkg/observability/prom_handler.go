@@ -1,4 +1,4 @@
-package handlers
+package observability
 
 import (
 	"fmt"

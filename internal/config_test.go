@@ -11,9 +11,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/zxh326/kite/pkg/common"
-	"github.com/zxh326/kite/pkg/handlers"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/rbac"
+	"github.com/zxh326/kite/pkg/system"
 	"github.com/zxh326/kite/pkg/utils"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -431,7 +431,7 @@ func TestInitCheckWithManagedClusters(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.GET("/api/v1/init_check", handlers.InitCheck)
+	r.GET("/api/v1/init_check", system.InitCheck)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/init_check", nil)
@@ -467,7 +467,7 @@ func TestInitCheckWithManagedClustersNoUsers(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.GET("/api/v1/init_check", handlers.InitCheck)
+	r.GET("/api/v1/init_check", system.InitCheck)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/init_check", nil)

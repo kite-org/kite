@@ -1,4 +1,4 @@
-package handlers
+package terminal
 
 import (
 	"context"
@@ -11,11 +11,11 @@ import (
 
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/common"
-	"github.com/zxh326/kite/pkg/handlers/wsutil"
 	"github.com/zxh326/kite/pkg/kube"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/rbac"
 	"github.com/zxh326/kite/pkg/utils"
+	"github.com/zxh326/kite/pkg/wsutil"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

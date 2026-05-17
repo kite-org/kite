@@ -71,10 +71,12 @@ type Restartable interface {
 	Restart(c *gin.Context, namespace, name string) error
 }
 
+type SearchFunc func(c *gin.Context, query string, limit int64) ([]common.SearchResult, error)
+
 var handlers = map[string]resourceHandler{}
 
-func RegisterRoutes(group *gin.RouterGroup) {
-	handlers = map[string]resourceHandler{
+func newResourceHandlers() map[string]resourceHandler {
+	return map[string]resourceHandler{
 		string(common.Pods):       NewPodHandler(),
 		string(common.Namespaces): NewGenericResourceHandler[*corev1.Namespace, *corev1.NamespaceList](common.Namespaces),
 		string(common.Nodes):      NewNodeHandler(),
@@ -180,6 +182,20 @@ func RegisterRoutes(group *gin.RouterGroup) {
 		),
 		string(common.HelmReleases): NewHelmReleaseHandler(),
 	}
+}
+
+func SearchFuncs() map[string]SearchFunc {
+	searchFuncs := map[string]SearchFunc{}
+	for name, handler := range newResourceHandlers() {
+		if handler.Searchable() {
+			searchFuncs[name] = handler.Search
+		}
+	}
+	return searchFuncs
+}
+
+func RegisterRoutes(group *gin.RouterGroup) {
+	handlers = newResourceHandlers()
 
 	for name, handler := range handlers {
 		g := group.Group("/" + name)
@@ -188,10 +204,6 @@ func RegisterRoutes(group *gin.RouterGroup) {
 			registerClusterScopeRoutes(g, handler)
 		} else {
 			registerNamespaceScopeRoutes(g, handler)
-		}
-
-		if handler.Searchable() {
-			RegisterSearchFunc(name, handler.Search)
 		}
 	}
 
@@ -246,12 +258,6 @@ func registerNamespaceScopeRoutes(group *gin.RouterGroup, handler resourceHandle
 	group.PATCH("/:namespace/:name", handler.Patch)
 	group.GET("/:namespace/:name/history", handler.ListHistory)
 	group.GET("/:namespace/:name/describe", handler.Describe)
-}
-
-var SearchFuncs = map[string]func(c *gin.Context, query string, limit int64) ([]common.SearchResult, error){}
-
-func RegisterSearchFunc(resourceType string, searchFunc func(c *gin.Context, query string, limit int64) ([]common.SearchResult, error)) {
-	SearchFuncs[resourceType] = searchFunc
 }
 
 func GetResource(c *gin.Context, resource, namespace, name string) (interface{}, error) {

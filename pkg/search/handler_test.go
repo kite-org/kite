@@ -1,4 +1,4 @@
-package handlers
+package search
 
 import (
 	"encoding/json"
@@ -11,9 +11,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/common"
-	"github.com/zxh326/kite/pkg/handlers/resources"
 	"github.com/zxh326/kite/pkg/middleware"
 	"github.com/zxh326/kite/pkg/model"
+	"github.com/zxh326/kite/pkg/resources"
 )
 
 func TestNormalizeSearchQuery(t *testing.T) {
@@ -106,19 +106,13 @@ func TestGetSearchClusterNamePrecedence(t *testing.T) {
 }
 
 func TestGlobalSearchNegativeLimitDoesNotPanic(t *testing.T) {
-	oldSearchFuncs := resources.SearchFuncs
-	resources.SearchFuncs = map[string]func(*gin.Context, string, int64) ([]common.SearchResult, error){}
-	t.Cleanup(func() {
-		resources.SearchFuncs = oldSearchFuncs
-	})
-
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(rec)
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/search?q=po&limit=-1", nil)
 	ctx.Set("user", model.AnonymousUser)
 
-	handler := NewSearchHandler()
+	handler := NewSearchHandler(map[string]resources.SearchFunc{})
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -134,8 +128,7 @@ func TestGlobalSearchNegativeLimitDoesNotPanic(t *testing.T) {
 }
 
 func TestGlobalSearchCacheKeyIncludesClusterAndLimit(t *testing.T) {
-	oldSearchFuncs := resources.SearchFuncs
-	resources.SearchFuncs = map[string]func(*gin.Context, string, int64) ([]common.SearchResult, error){
+	searchFuncs := map[string]resources.SearchFunc{
 		"pods": func(c *gin.Context, _ string, _ int64) ([]common.SearchResult, error) {
 			clusterName := c.GetString(middleware.ClusterNameKey)
 			switch clusterName {
@@ -155,11 +148,8 @@ func TestGlobalSearchCacheKeyIncludesClusterAndLimit(t *testing.T) {
 			}
 		},
 	}
-	t.Cleanup(func() {
-		resources.SearchFuncs = oldSearchFuncs
-	})
 
-	handler := NewSearchHandler()
+	handler := NewSearchHandler(searchFuncs)
 
 	ctx := newSearchContext(t, "cluster-a")
 	if _, err := handler.Search(ctx, "po target", 1); err != nil {
@@ -232,13 +222,11 @@ func performGlobalSearch(t *testing.T, handler *SearchHandler, clusterName, targ
 
 // TestSearchParallelExecution verifies that multiple resource searches run concurrently.
 func TestSearchParallelExecution(t *testing.T) {
-	oldSearchFuncs := resources.SearchFuncs
-
 	// Track concurrent execution: each func sleeps and records max concurrency.
 	var running atomic.Int32
 	var maxConcurrent atomic.Int32
 
-	slowSearch := func(results []common.SearchResult) func(*gin.Context, string, int64) ([]common.SearchResult, error) {
+	slowSearch := func(results []common.SearchResult) resources.SearchFunc {
 		return func(_ *gin.Context, _ string, _ int64) ([]common.SearchResult, error) {
 			cur := running.Add(1)
 			// Update max concurrency seen
@@ -254,14 +242,13 @@ func TestSearchParallelExecution(t *testing.T) {
 		}
 	}
 
-	resources.SearchFuncs = map[string]func(*gin.Context, string, int64) ([]common.SearchResult, error){
+	searchFuncs := map[string]resources.SearchFunc{
 		"pods":        slowSearch([]common.SearchResult{{Name: "nginx", ResourceType: "pods"}}),
 		"services":    slowSearch([]common.SearchResult{{Name: "nginx-svc", ResourceType: "services"}}),
 		"deployments": slowSearch([]common.SearchResult{{Name: "nginx-deploy", ResourceType: "deployments"}}),
 	}
-	t.Cleanup(func() { resources.SearchFuncs = oldSearchFuncs })
 
-	handler := NewSearchHandler()
+	handler := NewSearchHandler(searchFuncs)
 	ctx := newSearchContext(t, "test-cluster")
 
 	start := time.Now()
@@ -290,25 +277,23 @@ func TestSearchParallelExecution(t *testing.T) {
 // TestSearchPartialFailure ensures that one failing resource type doesn't break others
 // and that partial results due to errors are NOT cached.
 func TestSearchPartialFailure(t *testing.T) {
-	oldSearchFuncs := resources.SearchFuncs
 	var callCount atomic.Int32
-	resources.SearchFuncs = map[string]func(*gin.Context, string, int64) ([]common.SearchResult, error){
-		"pods": func(_ *gin.Context, _ string, _ int64) ([]common.SearchResult, error) { //nolint:unparam // signature required by SearchFuncs
+	searchFuncs := map[string]resources.SearchFunc{
+		"pods": func(_ *gin.Context, _ string, _ int64) ([]common.SearchResult, error) {
 			callCount.Add(1)
 			return []common.SearchResult{{Name: "ok-pod", ResourceType: "pods"}}, nil
 		},
-		"services": func(_ *gin.Context, _ string, _ int64) ([]common.SearchResult, error) { //nolint:unparam // signature required by SearchFuncs
+		"services": func(_ *gin.Context, _ string, _ int64) ([]common.SearchResult, error) {
 			callCount.Add(1)
 			return nil, fmt.Errorf("simulated API server error")
 		},
-		"deployments": func(_ *gin.Context, _ string, _ int64) ([]common.SearchResult, error) { //nolint:unparam // signature required by SearchFuncs
+		"deployments": func(_ *gin.Context, _ string, _ int64) ([]common.SearchResult, error) {
 			callCount.Add(1)
 			return []common.SearchResult{{Name: "ok-deploy", ResourceType: "deployments"}}, nil
 		},
 	}
-	t.Cleanup(func() { resources.SearchFuncs = oldSearchFuncs })
 
-	handler := NewSearchHandler()
+	handler := NewSearchHandler(searchFuncs)
 	ctx := newSearchContext(t, "test-cluster")
 
 	results, err := handler.Search(ctx, "ok", 50)
@@ -344,16 +329,14 @@ func TestSearchPartialFailure(t *testing.T) {
 func TestGlobalSearchCacheDoesNotTriggerBackgroundRefresh(t *testing.T) {
 	var searchCallCount atomic.Int32
 
-	oldSearchFuncs := resources.SearchFuncs
-	resources.SearchFuncs = map[string]func(*gin.Context, string, int64) ([]common.SearchResult, error){
-		"pods": func(_ *gin.Context, _ string, _ int64) ([]common.SearchResult, error) { //nolint:unparam // signature required by SearchFuncs
+	searchFuncs := map[string]resources.SearchFunc{
+		"pods": func(_ *gin.Context, _ string, _ int64) ([]common.SearchResult, error) {
 			searchCallCount.Add(1)
 			return []common.SearchResult{{Name: "nginx", ResourceType: "pods"}}, nil
 		},
 	}
-	t.Cleanup(func() { resources.SearchFuncs = oldSearchFuncs })
 
-	handler := NewSearchHandler()
+	handler := NewSearchHandler(searchFuncs)
 
 	// First call: populates the cache
 	resp := performGlobalSearch(t, handler, "test-cluster", "/search?q=nginx&limit=50")
@@ -382,11 +365,10 @@ func TestGlobalSearchCacheDoesNotTriggerBackgroundRefresh(t *testing.T) {
 // TestSearchPanicDoesNotCacheResults verifies that when a search function panics,
 // partial results are still returned but NOT cached (avoids serving stale incomplete data).
 func TestSearchPanicDoesNotCacheResults(t *testing.T) {
-	oldSearchFuncs := resources.SearchFuncs
 	var callCount atomic.Int32
 
-	resources.SearchFuncs = map[string]func(*gin.Context, string, int64) ([]common.SearchResult, error){
-		"pods": func(_ *gin.Context, _ string, _ int64) ([]common.SearchResult, error) { //nolint:unparam // signature required by SearchFuncs
+	searchFuncs := map[string]resources.SearchFunc{
+		"pods": func(_ *gin.Context, _ string, _ int64) ([]common.SearchResult, error) {
 			callCount.Add(1)
 			return []common.SearchResult{{Name: "ok-pod", ResourceType: "pods"}}, nil
 		},
@@ -395,9 +377,8 @@ func TestSearchPanicDoesNotCacheResults(t *testing.T) {
 			panic("simulated nil-pointer in service search")
 		},
 	}
-	t.Cleanup(func() { resources.SearchFuncs = oldSearchFuncs })
 
-	handler := NewSearchHandler()
+	handler := NewSearchHandler(searchFuncs)
 
 	// First call: one func panics → partial results returned, cache NOT written
 	ctx1 := newSearchContext(t, "test-cluster")
@@ -430,11 +411,7 @@ func TestSearchPanicDoesNotCacheResults(t *testing.T) {
 
 // TestSearchEmptyResourceFuncs verifies Search handles zero searchable types gracefully.
 func TestSearchEmptyResourceFuncs(t *testing.T) {
-	oldSearchFuncs := resources.SearchFuncs
-	resources.SearchFuncs = map[string]func(*gin.Context, string, int64) ([]common.SearchResult, error){}
-	t.Cleanup(func() { resources.SearchFuncs = oldSearchFuncs })
-
-	handler := NewSearchHandler()
+	handler := NewSearchHandler(map[string]resources.SearchFunc{})
 	ctx := newSearchContext(t, "test-cluster")
 
 	results, err := handler.Search(ctx, "anything", 50)

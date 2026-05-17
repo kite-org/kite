@@ -1,4 +1,4 @@
-package handlers
+package audit
 
 import (
 	"net/http"
