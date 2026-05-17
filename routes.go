@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/prometheus/client_golang/prometheus"
+	promclient "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/zxh326/kite/pkg/ai"
 	"github.com/zxh326/kite/pkg/apikeys"
@@ -13,8 +13,8 @@ import (
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/helm"
 	"github.com/zxh326/kite/pkg/images"
+	"github.com/zxh326/kite/pkg/metrics"
 	"github.com/zxh326/kite/pkg/middleware"
-	"github.com/zxh326/kite/pkg/observability"
 	"github.com/zxh326/kite/pkg/proxy"
 	"github.com/zxh326/kite/pkg/rbac"
 	"github.com/zxh326/kite/pkg/resources"
@@ -39,8 +39,8 @@ func setupAPIRouter(r *gin.RouterGroup, cm *cluster.ClusterManager) {
 }
 
 func registerBaseRoutes(r *gin.RouterGroup) {
-	r.GET("/metrics", gin.WrapH(promhttp.HandlerFor(prometheus.Gatherers{
-		prometheus.DefaultGatherer,
+	r.GET("/metrics", gin.WrapH(promhttp.HandlerFor(promclient.Gatherers{
+		promclient.DefaultGatherer,
 		ctrlmetrics.Registry,
 	}, promhttp.HandlerOpts{})))
 	r.GET("/healthz", func(c *gin.Context) {
@@ -135,11 +135,11 @@ func registerProtectedRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, 
 
 	api.GET("/overview", system.GetOverview)
 
-	promHandler := observability.NewPromHandler()
-	api.GET("/prometheus/resource-usage-history", promHandler.GetResourceUsageHistory)
-	api.GET("/prometheus/pods/:namespace/:podName/metrics", promHandler.GetPodMetrics)
+	metricsHandler := metrics.NewHandler()
+	api.GET("/prometheus/resource-usage-history", metricsHandler.GetResourceUsageHistory)
+	api.GET("/prometheus/pods/:namespace/:podName/metrics", metricsHandler.GetPodMetrics)
 
-	logsHandler := observability.NewLogsHandler()
+	logsHandler := resources.NewLogsHandler()
 	api.GET("/logs/:namespace/:podName/ws", logsHandler.HandleLogsWebSocket)
 
 	terminalHandler := terminal.NewTerminalHandler()

@@ -1,4 +1,4 @@
-package observability
+package resources
 
 import (
 	"context"

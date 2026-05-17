@@ -1,4 +1,4 @@
-package observability
+package metrics
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 )
 
-type PromHandler struct {
+type Handler struct {
 	metricsServerCache     map[string][]prometheus.UsageDataPoint
 	metricsServerCacheLock sync.Mutex
 }
@@ -25,8 +25,8 @@ var validDurations = map[string]bool{
 	"24h": true,
 }
 
-func NewPromHandler() *PromHandler {
-	h := &PromHandler{
+func NewHandler() *Handler {
+	h := &Handler{
 		metricsServerCache: make(map[string][]prometheus.UsageDataPoint),
 	}
 	go func() {
@@ -54,7 +54,7 @@ func NewPromHandler() *PromHandler {
 	return h
 }
 
-func (h *PromHandler) GetResourceUsageHistory(c *gin.Context) {
+func (h *Handler) GetResourceUsageHistory(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
@@ -87,7 +87,7 @@ func (h *PromHandler) GetResourceUsageHistory(c *gin.Context) {
 }
 
 // GetPodMetrics handles pod-specific metrics requests
-func (h *PromHandler) GetPodMetrics(c *gin.Context) {
+func (h *Handler) GetPodMetrics(c *gin.Context) {
 	ctx := c.Request.Context()
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
 	// Get path parameters
@@ -131,7 +131,7 @@ func (h *PromHandler) GetPodMetrics(c *gin.Context) {
 	c.JSON(http.StatusOK, podMetrics)
 }
 
-func (h *PromHandler) fetchPodMetricsFromMetricsServer(c *gin.Context, namespace, podName, container, labelSelector string) (*prometheus.PodMetrics, error) {
+func (h *Handler) fetchPodMetricsFromMetricsServer(c *gin.Context, namespace, podName, container, labelSelector string) (*prometheus.PodMetrics, error) {
 	ctx := c.Request.Context()
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
 	if cs.K8sClient.MetricsClient == nil {
