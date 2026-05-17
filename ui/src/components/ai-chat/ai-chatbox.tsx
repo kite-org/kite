@@ -6,9 +6,9 @@ import {
   type PointerEvent,
 } from 'react'
 import { useAIChatContext } from '@/contexts/ai-chat-context'
+import { useAuth } from '@/contexts/auth-context'
 import { useLocation, useSearchParams } from 'react-router-dom'
 
-import { useAIStatus } from '@/lib/api'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { AIChatPanel } from '@/components/ai-chat/ai-chat-panel'
 import { AIChatTrigger } from '@/components/ai-chat/ai-chat-trigger'
@@ -39,7 +39,8 @@ export function AIChatbox({
 }) {
   const isMobile = useIsMobile()
   const { isOpen, openChat, closeChat } = useAIChatContext()
-  const { data: { enabled: aiEnabled } = { enabled: false } } = useAIStatus()
+  const { capabilities } = useAuth()
+  const aiEnabled = capabilities.aiEnabled
   const { pathname } = useLocation()
   const shouldShowAIChatbox = standalone || !/^\/settings\/?$/.test(pathname)
 

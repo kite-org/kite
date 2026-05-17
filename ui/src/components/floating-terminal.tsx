@@ -3,7 +3,6 @@ import { useAuth } from '@/contexts/auth-context'
 import { useTerminal } from '@/contexts/terminal-context'
 import { ChevronDown, ChevronUp, Maximize2, Minimize2, X } from 'lucide-react'
 
-import { useGeneralSetting } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -17,14 +16,11 @@ const MIN_HEIGHT = 120
 const DEFAULT_HEIGHT_VH = 40
 
 export function FloatingTerminal() {
-  const { user } = useAuth()
+  const { user, capabilities } = useAuth()
   const { isOpen, isMinimized, closeTerminal, minimizeTerminal, openTerminal } =
     useTerminal()
   const isAdmin = user?.isAdmin() ?? false
-  const { data: generalSetting } = useGeneralSetting({
-    enabled: isAdmin && isOpen,
-  })
-  const kubectlEnabled = generalSetting?.kubectlEnabled ?? true
+  const kubectlEnabled = capabilities.kubectlEnabled
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [height, setHeight] = useState(
     () => (window.innerHeight * DEFAULT_HEIGHT_VH) / 100
@@ -82,7 +78,7 @@ export function FloatingTerminal() {
     closeTerminal()
   }, [closeTerminal])
 
-  if (!kubectlEnabled) return null
+  if (!isAdmin || !kubectlEnabled) return null
   if (!isOpen) return null
 
   return (

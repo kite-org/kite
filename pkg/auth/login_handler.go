@@ -14,36 +14,6 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func (h *AuthHandler) GetProviders(c *gin.Context) {
-	var credentialProviders []string
-
-	generalSetting, err := model.GetGeneralSetting()
-	if err != nil {
-		klog.Warningf("Failed to load general setting for providers: %v", err)
-	}
-	if generalSetting == nil || !generalSetting.PasswordLoginDisabled {
-		credentialProviders = append(credentialProviders, model.AuthProviderPassword)
-	}
-
-	oauthProviders := uniqueStrings(h.manager.GetAvailableProviders())
-
-	setting, err := model.GetLDAPSetting()
-	if err != nil {
-		klog.Warningf("Failed to load ldap setting for providers: %v", err)
-	} else if setting.Enabled {
-		credentialProviders = append(credentialProviders, model.AuthProviderLDAP)
-	}
-
-	credentialProviders = uniqueStrings(credentialProviders)
-	providers := append(append([]string{}, credentialProviders...), oauthProviders...)
-
-	c.JSON(http.StatusOK, gin.H{
-		"providers":           providers,
-		"credentialProviders": credentialProviders,
-		"oauthProviders":      oauthProviders,
-	})
-}
-
 func (h *AuthHandler) Login(c *gin.Context) {
 	provider := c.Query("provider")
 	if provider == "" {

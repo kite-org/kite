@@ -746,6 +746,14 @@
         "enableVersionCheck": "启用版本检查"
       }
     },
+    "loginPrompt": {
+      "title": "登录提示",
+      "description": "在登录页展示自定义提示。",
+      "form": {
+        "message": "提示内容",
+        "placeholder": "留空则不展示登录提示"
+      }
+    },
     "errors": {
       "modelRequired": "模型不能为空",
       "apiKeyRequired": "启用 AI Agent 时必须配置 API Key",

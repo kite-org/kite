@@ -4,7 +4,6 @@ import { useTerminal } from '@/contexts/terminal-context'
 import { Plus, Settings, TerminalSquare } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-import { useGeneralSetting } from '@/lib/api'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -20,14 +19,11 @@ import { UserMenu } from './user-menu'
 export function SiteHeader() {
   const isMobile = useIsMobile()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, capabilities } = useAuth()
   const { toggleTerminal, isOpen } = useTerminal()
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const isAdmin = user?.isAdmin() ?? false
-  const { data: generalSetting } = useGeneralSetting({
-    enabled: isAdmin,
-  })
-  const kubectlEnabled = generalSetting?.kubectlEnabled ?? true
+  const kubectlEnabled = capabilities.kubectlEnabled
 
   return (
     <>
