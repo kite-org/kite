@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"golang.org/x/net/websocket"
 
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/common"
@@ -41,42 +40,38 @@ func (h *NodeTerminalHandler) HandleNodeTerminalWebSocket(c *gin.Context) {
 
 	user := c.MustGet("user").(model.User)
 
-	websocket.Handler(func(conn *websocket.Conn) {
-		defer func() {
-			_ = conn.Close()
-		}()
+	wsutil.Serve(c.Writer, c.Request, func(ws *wsutil.Session) {
+		defer ws.Close()
+		ctx := ws.Context
 		if !rbac.CanAccess(user, string(common.Nodes), "exec", cs.Name, "") {
-			wsutil.SendErrorMessage(conn, rbac.NoAccess(user.Key(), string(common.VerbExec), string(common.Nodes), "", cs.Name))
+			ws.SendErrorMessage(rbac.NoAccess(user.Key(), string(common.VerbExec), string(common.Nodes), "", cs.Name))
 			return
 		}
-		node, err := cs.K8sClient.ClientSet.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+		node, err := cs.K8sClient.ClientSet.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 		if err != nil {
 			klog.Errorf("Failed to get node %s: %v", nodeName, err)
-			wsutil.SendErrorMessage(conn, fmt.Sprintf("Failed to get node %s: %v", nodeName, err))
+			ws.SendErrorMessage(fmt.Sprintf("Failed to get node %s: %v", nodeName, err))
 			return
 		}
 		if node == nil {
 			klog.Errorf("Node %s not found", nodeName)
-			wsutil.SendErrorMessage(conn, fmt.Sprintf("Node %s not found", nodeName))
+			ws.SendErrorMessage(fmt.Sprintf("Node %s not found", nodeName))
 			return
 		}
 		setting, err := model.GetGeneralSetting()
 		if err != nil {
 			klog.Errorf("Failed to load general setting: %v", err)
-			wsutil.SendErrorMessage(conn, fmt.Sprintf("Failed to load settings: %v", err))
+			ws.SendErrorMessage(fmt.Sprintf("Failed to load settings: %v", err))
 			return
 		}
 		nodeTerminalImage := strings.TrimSpace(setting.NodeTerminalImage)
 		if nodeTerminalImage == "" {
 			nodeTerminalImage = common.NodeTerminalImage
 		}
-		ctx, cancel := context.WithCancel(c.Request.Context())
-		defer cancel()
-
 		nodeAgentName, err := h.createNodeAgent(ctx, cs, nodeName, nodeTerminalImage)
 		if err != nil {
 			klog.Errorf("Failed to create node agent pod: %v", err)
-			wsutil.SendErrorMessage(conn, fmt.Sprintf("Failed to create node agent pod: %v", err))
+			ws.SendErrorMessage(fmt.Sprintf("Failed to create node agent pod: %v", err))
 			return
 		}
 
@@ -88,17 +83,17 @@ func (h *NodeTerminalHandler) HandleNodeTerminalWebSocket(c *gin.Context) {
 			}
 		}()
 
-		if err := waitForAgentPodReady(ctx, cs, conn, nodeAgentName, "ready!"); err != nil {
+		if err := waitForAgentPodReady(ctx, cs, ws, nodeAgentName, "ready!"); err != nil {
 			klog.Errorf("Failed to wait for pod ready: %v", err)
-			wsutil.SendErrorMessage(conn, fmt.Sprintf("Failed to wait for pod ready: %v", err))
+			ws.SendErrorMessage(fmt.Sprintf("Failed to wait for pod ready: %v", err))
 			return
 		}
 
-		session := kube.NewTerminalSession(cs.K8sClient, conn, common.AgentPodNamespace, nodeAgentName, common.NodeTerminalPodName)
+		session := kube.NewTerminalSession(cs.K8sClient, ws.Conn, common.AgentPodNamespace, nodeAgentName, common.NodeTerminalPodName)
 		if err := session.Start(ctx, "attach"); err != nil {
 			klog.Errorf("Terminal session error: %v", err)
 		}
-	}).ServeHTTP(c.Writer, c.Request)
+	})
 }
 
 func (h *NodeTerminalHandler) createNodeAgent(ctx context.Context, cs *cluster.ClientSet, nodeName, image string) (string, error) {

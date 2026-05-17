@@ -9,7 +9,6 @@ import (
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/utils"
 	"github.com/zxh326/kite/pkg/wsutil"
-	"golang.org/x/net/websocket"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -21,11 +20,11 @@ const (
 
 // waitForAgentPodReady polls until the named pod in AgentPodNamespace reaches Ready status,
 // sending progress dots over the WebSocket.
-func waitForAgentPodReady(ctx context.Context, cs *cluster.ClientSet, conn *websocket.Conn, podName, readyMsg string) error {
+func waitForAgentPodReady(ctx context.Context, cs *cluster.ClientSet, ws *wsutil.Session, podName, readyMsg string) error {
 	timeout := time.After(agentPodWaitTimeout)
 	ticker := time.NewTicker(agentPodCheckInterval)
 	defer ticker.Stop()
-	_ = wsutil.SendMessage(conn, "info", fmt.Sprintf("waiting for pod %s to be ready", podName))
+	_ = ws.SendMessage("info", fmt.Sprintf("waiting for pod %s to be ready", podName))
 
 	var pod *corev1.Pod
 	for {
@@ -33,8 +32,8 @@ func waitForAgentPodReady(ctx context.Context, cs *cluster.ClientSet, conn *webs
 		case <-ctx.Done():
 			return nil
 		case <-timeout:
-			_ = wsutil.SendMessage(conn, "info", "")
-			wsutil.SendErrorMessage(conn, utils.GetPodErrorMessage(pod))
+			_ = ws.SendMessage("info", "")
+			ws.SendErrorMessage(utils.GetPodErrorMessage(pod))
 			return fmt.Errorf("timeout waiting for pod %s to be ready", podName)
 		case <-ticker.C:
 			var err error
@@ -42,9 +41,9 @@ func waitForAgentPodReady(ctx context.Context, cs *cluster.ClientSet, conn *webs
 			if err != nil {
 				continue
 			}
-			_ = wsutil.SendMessage(conn, "stdout", ".")
+			_ = ws.SendMessage("stdout", ".")
 			if utils.IsPodReady(pod) {
-				_ = wsutil.SendMessage(conn, "info", readyMsg)
+				_ = ws.SendMessage("info", readyMsg)
 				return nil
 			}
 		}

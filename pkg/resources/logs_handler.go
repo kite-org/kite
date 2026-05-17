@@ -11,7 +11,6 @@ import (
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/rbac"
 	"github.com/zxh326/kite/pkg/wsutil"
-	"golang.org/x/net/websocket"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -29,20 +28,19 @@ func NewLogsHandler() *LogsHandler {
 
 // HandleLogsWebSocket handles WebSocket connections for log streaming
 func (h *LogsHandler) HandleLogsWebSocket(c *gin.Context) {
-	websocket.Handler(func(ws *websocket.Conn) {
-		ctx, cancel := context.WithCancel(c.Request.Context())
-		defer cancel()
+	wsutil.Serve(c.Writer, c.Request, func(ws *wsutil.Session) {
+		ctx := ws.Context
 		cs := c.MustGet("cluster").(*cluster.ClientSet)
 		user := c.MustGet("user").(model.User)
 		namespace := c.Param("namespace")
 		podName := c.Param("podName")
 		if namespace == "" || podName == "" {
-			wsutil.SendErrorMessage(ws, "namespace and podName are required")
+			ws.SendErrorMessage("namespace and podName are required")
 			return
 		}
 
 		if !rbac.CanAccess(user, string(common.Pods), "log", cs.Name, namespace) {
-			wsutil.SendErrorMessage(ws, rbac.NoAccess(user.Key(), string(common.VerbLog), string(common.Pods), namespace, cs.Name))
+			ws.SendErrorMessage(rbac.NoAccess(user.Key(), string(common.VerbLog), string(common.Pods), namespace, cs.Name))
 			return
 		}
 
@@ -54,7 +52,7 @@ func (h *LogsHandler) HandleLogsWebSocket(c *gin.Context) {
 
 		tail, err := strconv.ParseInt(tailLines, 10, 64)
 		if err != nil {
-			wsutil.SendErrorMessage(ws, "invalid tailLines parameter")
+			ws.SendErrorMessage("invalid tailLines parameter")
 			return
 		}
 		timestampsBool := timestamps == "true"
@@ -76,24 +74,24 @@ func (h *LogsHandler) HandleLogsWebSocket(c *gin.Context) {
 		if sinceSeconds != "" {
 			since, err := strconv.ParseInt(sinceSeconds, 10, 64)
 			if err != nil {
-				wsutil.SendErrorMessage(ws, "invalid sinceSeconds parameter")
+				ws.SendErrorMessage("invalid sinceSeconds parameter")
 				return
 			}
 			logOptions.SinceSeconds = &since
 		}
 
 		labelSelector := c.Query("labelSelector")
-		bl := kube.NewBatchLogHandler(ws, cs.K8sClient, logOptions)
+		bl := kube.NewBatchLogHandler(ws.Conn, cs.K8sClient, logOptions)
 
 		if podName == common.AllNamespaces && labelSelector != "" {
 			selector, err := metav1.ParseToLabelSelector(labelSelector)
 			if err != nil {
-				wsutil.SendErrorMessage(ws, "invalid labelSelector parameter: "+err.Error())
+				ws.SendErrorMessage("invalid labelSelector parameter: " + err.Error())
 				return
 			}
 			labelSelectorOption, err := metav1.LabelSelectorAsSelector(selector)
 			if err != nil {
-				wsutil.SendErrorMessage(ws, "failed to convert labelSelector: "+err.Error())
+				ws.SendErrorMessage("failed to convert labelSelector: " + err.Error())
 				return
 			}
 
@@ -102,7 +100,7 @@ func (h *LogsHandler) HandleLogsWebSocket(c *gin.Context) {
 			listOpts = append(listOpts, client.InNamespace(namespace))
 			listOpts = append(listOpts, client.MatchingLabelsSelector{Selector: labelSelectorOption})
 			if err := cs.K8sClient.List(ctx, podList, listOpts...); err != nil {
-				wsutil.SendErrorMessage(ws, "failed to list pods: "+err.Error())
+				ws.SendErrorMessage("failed to list pods: " + err.Error())
 				return
 			}
 			for _, pod := range podList.Items {
@@ -122,7 +120,7 @@ func (h *LogsHandler) HandleLogsWebSocket(c *gin.Context) {
 		}
 
 		bl.StreamLogs(ctx)
-	}).ServeHTTP(c.Writer, c.Request)
+	})
 }
 
 func (h *LogsHandler) watchPods(ctx context.Context, cs *cluster.ClientSet, namespace string, labelSelector labels.Selector, bl *kube.BatchLogHandler) {

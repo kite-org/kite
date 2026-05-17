@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zxh326/kite/pkg/common"
+	"github.com/zxh326/kite/pkg/wsutil"
 	"golang.org/x/net/websocket"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -133,11 +134,7 @@ func (session *TerminalSession) Read(p []byte) (int, error) {
 }
 
 func (session *TerminalSession) Write(p []byte) (int, error) {
-	msg := TerminalMessage{
-		Type: "stdout",
-		Data: string(p),
-	}
-	err := websocket.JSON.Send(session.conn, msg)
+	err := wsutil.SendMessage(session.conn, "stdout", string(p))
 	if err != nil {
 		log.Printf("Write stdout error: %v", err)
 		return 0, err
@@ -150,18 +147,13 @@ func (session *TerminalSession) Next() *remotecommand.TerminalSize {
 }
 
 func (session *TerminalSession) SendMessage(msgType, data string) {
-	msg := TerminalMessage{
-		Type: msgType,
-		Data: data,
-	}
-	err := websocket.JSON.Send(session.conn, msg)
-	if err != nil {
+	if err := wsutil.SendMessage(session.conn, msgType, data); err != nil {
 		klog.Errorf("Send message error: %v", err)
 	}
 }
 
 func (session *TerminalSession) SendErrorMessage(errMsg string) {
-	session.SendMessage("error", errMsg)
+	wsutil.SendErrorMessage(session.conn, errMsg)
 }
 
 func (session *TerminalSession) checkHeartbeat(ctx context.Context) {

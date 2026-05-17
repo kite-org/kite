@@ -1,7 +1,6 @@
 package terminal
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,7 +10,6 @@ import (
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/rbac"
 	"github.com/zxh326/kite/pkg/wsutil"
-	"golang.org/x/net/websocket"
 	"k8s.io/klog/v2"
 )
 
@@ -39,22 +37,19 @@ func (h *TerminalHandler) HandleTerminalWebSocket(c *gin.Context) {
 
 	user := c.MustGet("user").(model.User)
 
-	websocket.Handler(func(ws *websocket.Conn) {
-		ctx, cancel := context.WithCancel(c.Request.Context())
-		defer cancel()
-		session := kube.NewTerminalSession(cs.K8sClient, ws, namespace, podName, container)
+	wsutil.Serve(c.Writer, c.Request, func(ws *wsutil.Session) {
+		session := kube.NewTerminalSession(cs.K8sClient, ws.Conn, namespace, podName, container)
 		defer session.Close()
 
 		if !rbac.CanAccess(user, string(common.Pods), "exec", cs.Name, namespace) {
-			wsutil.SendErrorMessage(
-				ws,
+			ws.SendErrorMessage(
 				rbac.NoAccess(user.Key(), string(common.VerbExec), string(common.Pods), namespace, cs.Name),
 			)
 			return
 		}
 
-		if err := session.Start(ctx, "exec"); err != nil {
+		if err := session.Start(ws.Context, "exec"); err != nil {
 			klog.Errorf("Terminal session error: %v", err)
 		}
-	}).ServeHTTP(c.Writer, c.Request)
+	})
 }

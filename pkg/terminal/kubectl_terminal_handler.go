@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"golang.org/x/net/websocket"
 
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/kube"
@@ -38,24 +37,22 @@ func (h *KubectlTerminalHandler) HandleKubectlTerminalWebSocket(c *gin.Context) 
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
 	user := c.MustGet("user").(model.User)
 
-	websocket.Handler(func(conn *websocket.Conn) {
-		defer func() {
-			_ = conn.Close()
-		}()
+	wsutil.Serve(c.Writer, c.Request, func(ws *wsutil.Session) {
+		defer ws.Close()
 
 		// Only admin users can use the kubectl terminal
 		if !rbac.UserHasRole(user, model.DefaultAdminRole.Name) {
-			wsutil.SendErrorMessage(conn, "kubectl terminal is only available to admin users")
+			ws.SendErrorMessage("kubectl terminal is only available to admin users")
 			return
 		}
 
 		setting, err := model.GetGeneralSetting()
 		if err != nil {
-			wsutil.SendErrorMessage(conn, fmt.Sprintf("Failed to load settings: %v", err))
+			ws.SendErrorMessage(fmt.Sprintf("Failed to load settings: %v", err))
 			return
 		}
 		if !setting.KubectlEnabled {
-			wsutil.SendErrorMessage(conn, "kubectl terminal is disabled")
+			ws.SendErrorMessage("kubectl terminal is disabled")
 			return
 		}
 		kubectlImage := strings.TrimSpace(setting.KubectlImage)
@@ -63,13 +60,12 @@ func (h *KubectlTerminalHandler) HandleKubectlTerminalWebSocket(c *gin.Context) 
 			kubectlImage = common.KubectlTerminalImage
 		}
 
-		ctx, cancel := context.WithCancel(c.Request.Context())
-		defer cancel()
+		ctx := ws.Context
 
 		// Ensure the shared admin ServiceAccount + ClusterRoleBinding exist
 		if err := h.ensureAdminServiceAccount(ctx, cs); err != nil {
 			klog.Errorf("Failed to ensure kubectl admin SA: %v", err)
-			wsutil.SendErrorMessage(conn, fmt.Sprintf("Failed to setup kubectl terminal: %v", err))
+			ws.SendErrorMessage(fmt.Sprintf("Failed to setup kubectl terminal: %v", err))
 			return
 		}
 
@@ -78,7 +74,7 @@ func (h *KubectlTerminalHandler) HandleKubectlTerminalWebSocket(c *gin.Context) 
 		podName, err := h.createKubectlAgent(ctx, cs, instanceID, kubectlImage)
 		if err != nil {
 			klog.Errorf("Failed to create kubectl agent pod: %v", err)
-			wsutil.SendErrorMessage(conn, fmt.Sprintf("Failed to create kubectl agent pod: %v", err))
+			ws.SendErrorMessage(fmt.Sprintf("Failed to create kubectl agent pod: %v", err))
 			_ = h.cleanupPod(cs, instanceID)
 			return
 		}
@@ -90,17 +86,17 @@ func (h *KubectlTerminalHandler) HandleKubectlTerminalWebSocket(c *gin.Context) 
 			}
 		}()
 
-		if err := waitForAgentPodReady(ctx, cs, conn, podName, "kubectl agent ready!"); err != nil {
+		if err := waitForAgentPodReady(ctx, cs, ws, podName, "kubectl agent ready!"); err != nil {
 			klog.Errorf("Failed to wait for kubectl agent pod ready: %v", err)
-			wsutil.SendErrorMessage(conn, fmt.Sprintf("Failed to wait for kubectl agent pod ready: %v", err))
+			ws.SendErrorMessage(fmt.Sprintf("Failed to wait for kubectl agent pod ready: %v", err))
 			return
 		}
 
-		session := kube.NewTerminalSession(cs.K8sClient, conn, common.AgentPodNamespace, podName, common.KubectlTerminalPodName)
+		session := kube.NewTerminalSession(cs.K8sClient, ws.Conn, common.AgentPodNamespace, podName, common.KubectlTerminalPodName)
 		if err := session.Start(ctx, "attach"); err != nil {
 			klog.Errorf("Kubectl terminal session error: %v", err)
 		}
-	}).ServeHTTP(c.Writer, c.Request)
+	})
 }
 
 // ensureAdminServiceAccount creates a cluster-admin ServiceAccount once if it doesn't exist.
