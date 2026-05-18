@@ -48,7 +48,7 @@ type helmReleaseInstallRequest struct {
 
 func NewHelmReleaseHandler() *HelmReleaseHandler    { return &HelmReleaseHandler{} }
 func (h *HelmReleaseHandler) IsClusterScoped() bool { return false }
-func (h *HelmReleaseHandler) Searchable() bool      { return true }
+func (h *HelmReleaseHandler) Searchable() bool      { return false }
 func (h *HelmReleaseHandler) ListHistory(c *gin.Context) {
 	cfg, err := h.actionConfig(c, c.Param("namespace"))
 	if err != nil {

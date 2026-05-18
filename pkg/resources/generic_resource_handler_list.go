@@ -138,7 +138,7 @@ func (h *GenericResourceHandler[T, V]) List(c *gin.Context) {
 }
 
 func (h *GenericResourceHandler[T, V]) Search(c *gin.Context, q string, limit int64) ([]common.SearchResult, error) {
-	if !h.enableSearch || len(q) < 3 {
+	if !h.enableSearch || q == "" {
 		return nil, nil
 	}
 	cs := c.MustGet("cluster").(*cluster.ClientSet)

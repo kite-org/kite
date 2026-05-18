@@ -330,7 +330,7 @@
     "description": "搜索所有 Kubernetes 资源",
     "placeholder": "搜索资源...",
     "searching": "搜索中...",
-    "emptyHint": "输入至少 3 个字符开始搜索，或查看下方收藏...",
+    "emptyHint": "输入内容开始搜索，或查看下方收藏...",
     "favorites": "收藏",
     "resources": "资源",
     "noResults": "没有找到结果",

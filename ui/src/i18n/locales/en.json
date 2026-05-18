@@ -330,7 +330,7 @@
     "description": "Search across all Kubernetes resources",
     "placeholder": "Search resources...",
     "searching": "Searching...",
-    "emptyHint": "Type at least 3 characters to search or see favorites below...",
+    "emptyHint": "Start typing to search or see favorites below...",
     "favorites": "Favorites",
     "resources": "Resources",
     "noResults": "No results found",

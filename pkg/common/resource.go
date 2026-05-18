@@ -91,18 +91,17 @@ type ResourceMeta struct {
 	Group         string       // e.g. "" (core), "apps", "batch"
 	Version       string       // e.g. "v1"
 	ClusterScoped bool
-	Searchable    bool // whether this resource appears in search aliases
-	GlobalSearch  bool // whether this resource participates in global search
+	Searchable    bool // whether this resource participates in global search and aliases
 	Related       bool // whether this resource exposes the related-resources API
 }
 
 // Registry is the single source of truth for all known resource types.
 var Registry = []ResourceMeta{
 	// Core v1
-	{Kind: "Pod", Singular: "pod", Plural: Pods, Short: []string{"po"}, Version: "v1", Searchable: true, GlobalSearch: true, Related: true},
+	{Kind: "Pod", Singular: "pod", Plural: Pods, Short: []string{"po"}, Version: "v1", Searchable: true, Related: true},
 	{Kind: "Namespace", Singular: "namespace", Plural: Namespaces, Short: []string{"ns"}, Version: "v1", ClusterScoped: true},
-	{Kind: "Node", Singular: "node", Plural: Nodes, Version: "v1", ClusterScoped: true, GlobalSearch: true},
-	{Kind: "Service", Singular: "service", Plural: Services, Short: []string{"svc"}, Version: "v1", Searchable: true, GlobalSearch: true, Related: true},
+	{Kind: "Node", Singular: "node", Plural: Nodes, Version: "v1", ClusterScoped: true, Searchable: true},
+	{Kind: "Service", Singular: "service", Plural: Services, Short: []string{"svc"}, Version: "v1", Searchable: true, Related: true},
 	{Kind: "Endpoints", Singular: "endpoints", Plural: Endpoints, Short: []string{"ep"}, Version: "v1"},
 	{Kind: "EndpointSlice", Singular: "endpointslice", Plural: EndpointSlices, Version: "v1", Group: "discovery.k8s.io"},
 	{Kind: "PodTemplate", Singular: "podtemplate", Plural: PodTemplates, Version: "v1"},
@@ -110,22 +109,22 @@ var Registry = []ResourceMeta{
 	{Kind: "LimitRange", Singular: "limitrange", Plural: LimitRanges, Short: []string{"limits"}, Version: "v1"},
 	{Kind: "ResourceQuota", Singular: "resourcequota", Plural: ResourceQuotas, Short: []string{"quota"}, Version: "v1"},
 	{Kind: "ComponentStatus", Singular: "componentstatus", Plural: ComponentStatuses, Short: []string{"cs"}, Version: "v1", ClusterScoped: true},
-	{Kind: "ConfigMap", Singular: "configmap", Plural: ConfigMaps, Short: []string{"cm"}, Version: "v1", Searchable: true, GlobalSearch: true, Related: true},
-	{Kind: "Secret", Singular: "secret", Plural: Secrets, Version: "v1", Searchable: true, GlobalSearch: true, Related: true},
-	{Kind: "PersistentVolume", Singular: "persistentvolume", Plural: PersistentVolumes, Short: []string{"pv"}, Version: "v1", ClusterScoped: true, Searchable: true, GlobalSearch: true},
-	{Kind: "PersistentVolumeClaim", Singular: "persistentvolumeclaim", Plural: PersistentVolumeClaims, Short: []string{"pvc"}, Version: "v1", Searchable: true, GlobalSearch: true, Related: true},
+	{Kind: "ConfigMap", Singular: "configmap", Plural: ConfigMaps, Short: []string{"cm"}, Version: "v1", Searchable: true, Related: true},
+	{Kind: "Secret", Singular: "secret", Plural: Secrets, Version: "v1", Searchable: true, Related: true},
+	{Kind: "PersistentVolume", Singular: "persistentvolume", Plural: PersistentVolumes, Short: []string{"pv"}, Version: "v1", ClusterScoped: true, Searchable: true},
+	{Kind: "PersistentVolumeClaim", Singular: "persistentvolumeclaim", Plural: PersistentVolumeClaims, Short: []string{"pvc"}, Version: "v1", Searchable: true, Related: true},
 	{Kind: "ServiceAccount", Singular: "serviceaccount", Plural: ServiceAccounts, Short: []string{"sa"}, Version: "v1"},
 	{Kind: "Event", Singular: "event", Plural: Events, Short: []string{"ev"}, Version: "v1"},
 
 	// apps/v1
-	{Kind: "Deployment", Singular: "deployment", Plural: Deployments, Short: []string{"deploy", "dep"}, Group: "apps", Version: "v1", Searchable: true, GlobalSearch: true, Related: true},
+	{Kind: "Deployment", Singular: "deployment", Plural: Deployments, Short: []string{"deploy", "dep"}, Group: "apps", Version: "v1", Searchable: true, Related: true},
 	{Kind: "ReplicaSet", Singular: "replicaset", Plural: ReplicaSets, Short: []string{"rs"}, Group: "apps", Version: "v1"},
 	{Kind: "ControllerRevision", Singular: "controllerrevision", Plural: ControllerRevisions, Group: "apps", Version: "v1"},
 	{Kind: "StatefulSet", Singular: "statefulset", Plural: StatefulSets, Short: []string{"sts"}, Group: "apps", Version: "v1", Searchable: true, Related: true},
-	{Kind: "DaemonSet", Singular: "daemonset", Plural: DaemonSets, Short: []string{"ds"}, Group: "apps", Version: "v1", Searchable: true, GlobalSearch: true, Related: true},
+	{Kind: "DaemonSet", Singular: "daemonset", Plural: DaemonSets, Short: []string{"ds"}, Group: "apps", Version: "v1", Searchable: true, Related: true},
 
 	// policy/v1
-	{Kind: "PodDisruptionBudget", Singular: "poddisruptionbudget", Plural: PodDisruptionBudgets, Short: []string{"pdb"}, Group: "policy", Version: "v1", Searchable: true, GlobalSearch: true, Related: true},
+	{Kind: "PodDisruptionBudget", Singular: "poddisruptionbudget", Plural: PodDisruptionBudgets, Short: []string{"pdb"}, Group: "policy", Version: "v1", Searchable: true, Related: true},
 
 	// batch/v1
 	{Kind: "Job", Singular: "job", Plural: Jobs, Group: "batch", Version: "v1", Searchable: true},
@@ -207,10 +206,10 @@ var Registry = []ResourceMeta{
 	{Kind: "HTTPRoute", Singular: "httproute", Plural: HTTPRoutes, Group: "gateway.networking.k8s.io", Version: "v1", Related: true},
 
 	// autoscaling/v2
-	{Kind: "HorizontalPodAutoscaler", Singular: "horizontalpodautoscaler", Plural: HorizontalPodAutoscalers, Short: []string{"hpa"}, Group: "autoscaling", Version: "v2", GlobalSearch: true, Related: true},
+	{Kind: "HorizontalPodAutoscaler", Singular: "horizontalpodautoscaler", Plural: HorizontalPodAutoscalers, Short: []string{"hpa"}, Group: "autoscaling", Version: "v2", Searchable: true, Related: true},
 
 	// Synthetic resources
-	{Kind: "HelmRelease", Singular: "helmrelease", Plural: HelmReleases, Short: []string{"hr"}, Version: "v1", Searchable: true, GlobalSearch: true},
+	{Kind: "HelmRelease", Singular: "helmrelease", Plural: HelmReleases, Short: []string{"hr"}, Version: "v1"},
 }
 
 // resourceIndex maps lowercase alias → *ResourceMeta for O(1) lookups.

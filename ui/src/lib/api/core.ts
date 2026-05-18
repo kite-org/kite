@@ -91,7 +91,7 @@ export const globalSearch = async (
     namespace?: string
   }
 ): Promise<SearchResponse> => {
-  if (query.length < 2) {
+  if (!query.trim()) {
     return { results: [], total: 0 }
   }
 
@@ -105,7 +105,13 @@ export const globalSearch = async (
   }
 
   const endpoint = `/search?${params.toString()}`
-  return fetchAPI<SearchResponse>(endpoint)
+  const response = await fetchAPI<SearchResponse>(endpoint)
+  const results = response.results || []
+  return {
+    ...response,
+    results,
+    total: response.total ?? results.length,
+  }
 }
 // Scale deployment API
 export const scaleDeployment = async (

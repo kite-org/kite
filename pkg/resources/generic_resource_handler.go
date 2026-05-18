@@ -36,7 +36,7 @@ func NewGenericResourceHandler[T client.Object, V client.ObjectList](
 	return &GenericResourceHandler[T, V]{
 		name:            string(resourceType),
 		isClusterScoped: meta.ClusterScoped,
-		enableSearch:    meta.GlobalSearch,
+		enableSearch:    meta.Searchable,
 		objectType:      reflect.TypeOf(obj).Elem(),
 		listType:        reflect.TypeOf(list).Elem(),
 	}
