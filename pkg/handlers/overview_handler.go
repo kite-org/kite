@@ -92,17 +92,20 @@ func GetOverview(c *gin.Context) {
 		// Solution : int64 accumulation instead of resource.Quantity.Add()
 		for i := range pods.Items {
 			pod := &pods.Items[i]
-			for j := range pod.Spec.Containers {
-				container := &pod.Spec.Containers[j]
-				pm.cpuRequested += container.Resources.Requests.Cpu().MilliValue()
-				pm.memRequested += container.Resources.Requests.Memory().MilliValue()
+			// Skip terminal pods; leads to over counting
+			if pod.Status.Phase != v1.PodSucceeded && pod.Status.Phase != v1.PodFailed {
+				for j := range pod.Spec.Containers {
+					container := &pod.Spec.Containers[j]
+					pm.cpuRequested += container.Resources.Requests.Cpu().MilliValue()
+					pm.memRequested += container.Resources.Requests.Memory().MilliValue()
 
-				if container.Resources.Limits != nil {
-					if cpu := container.Resources.Limits.Cpu(); cpu != nil {
-						pm.cpuLimited += cpu.MilliValue()
-					}
-					if mem := container.Resources.Limits.Memory(); mem != nil {
-						pm.memLimited += mem.MilliValue()
+					if container.Resources.Limits != nil {
+						if cpu := container.Resources.Limits.Cpu(); cpu != nil {
+							pm.cpuLimited += cpu.MilliValue()
+						}
+						if mem := container.Resources.Limits.Memory(); mem != nil {
+							pm.memLimited += mem.MilliValue()
+						}
 					}
 				}
 			}
