@@ -11,14 +11,15 @@ import (
 )
 
 type UpgradeReleaseOptions struct {
-	Namespace         string
-	Timeout           time.Duration
-	ReuseValues       bool
-	Description       string
-	ForceConflicts    bool
-	RollbackOnFailure bool
-	DryRun            bool
-	Wait              bool
+	Namespace            string
+	Timeout              time.Duration
+	ReuseValues          bool
+	ResetThenReuseValues bool
+	Description          string
+	ForceConflicts       bool
+	RollbackOnFailure    bool
+	DryRun               bool
+	Wait                 bool
 }
 
 func UpgradeRelease(ctx context.Context, cfg *action.Configuration, name string, chartToUpgrade *chart.Chart, values map[string]interface{}, opts UpgradeReleaseOptions) (*release.Release, error) {
@@ -26,6 +27,7 @@ func UpgradeRelease(ctx context.Context, cfg *action.Configuration, name string,
 	upgrade.Namespace = opts.Namespace
 	upgrade.Timeout = opts.Timeout
 	upgrade.ReuseValues = opts.ReuseValues
+	upgrade.ResetThenReuseValues = opts.ResetThenReuseValues
 	upgrade.Description = opts.Description
 	upgrade.ForceConflicts = opts.ForceConflicts
 	upgrade.RollbackOnFailure = opts.RollbackOnFailure

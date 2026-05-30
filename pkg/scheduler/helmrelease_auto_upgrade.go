@@ -94,11 +94,11 @@ func (e *helmReleaseAutoUpgradeExecutor) Run(ctx context.Context, task model.Sch
 	}()
 
 	next, err = helmutil.UpgradeRelease(ctx, cfg, releaseName, loadedChart, map[string]interface{}{}, helmutil.UpgradeReleaseOptions{
-		Namespace:         payload.Namespace,
-		Timeout:           time.Duration(payload.TimeoutMinutes) * time.Minute,
-		ReuseValues:       true,
-		Description:       "Auto upgrade requested from Kite",
-		RollbackOnFailure: payload.RollbackOnFailure,
+		Namespace:            payload.Namespace,
+		Timeout:              time.Duration(payload.TimeoutMinutes) * time.Minute,
+		ResetThenReuseValues: true,
+		Description:          "Auto upgrade requested from Kite",
+		RollbackOnFailure:    payload.RollbackOnFailure,
 	})
 	if err != nil {
 		runErr = err
