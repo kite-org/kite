@@ -15,6 +15,7 @@ import (
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/middleware"
 	"github.com/zxh326/kite/pkg/model"
+	"github.com/zxh326/kite/pkg/rbac"
 	"github.com/zxh326/kite/pkg/resources"
 	"github.com/zxh326/kite/pkg/utils"
 	"golang.org/x/sync/errgroup"
@@ -139,6 +140,13 @@ func (h *SearchHandler) Search(c *gin.Context, query string, limit int) ([]commo
 
 // GlobalSearch handles global search across multiple resource types
 func (h *SearchHandler) GlobalSearch(c *gin.Context) {
+	user := c.MustGet("user").(model.User)
+	clusterName := getSearchClusterName(c)
+	if !rbac.CanAccessCluster(user, clusterName) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+
 	query := normalizeSearchQuery(c.Query("q"))
 	if query == "" {
 		c.JSON(http.StatusOK, SearchResponse{})
@@ -153,8 +161,7 @@ func (h *SearchHandler) GlobalSearch(c *gin.Context) {
 	}
 	limit = normalizeSearchLimit(limit)
 
-	user := c.MustGet("user").(model.User)
-	cacheKey := h.createCacheKey(getSearchClusterName(c), user.Key(), query, limit)
+	cacheKey := h.createCacheKey(clusterName, user.Key(), query, limit)
 
 	if cachedResults, found := h.cache.Get(cacheKey); found {
 		klog.V(4).Infof("search: query=%q cache=exact results=%d", query, len(cachedResults))
@@ -166,7 +173,7 @@ func (h *SearchHandler) GlobalSearch(c *gin.Context) {
 		return
 	}
 
-	if cachedResults, found := h.searchCachedPrefix(getSearchClusterName(c), user.Key(), query, limit); found {
+	if cachedResults, found := h.searchCachedPrefix(clusterName, user.Key(), query, limit); found {
 		klog.V(4).Infof("search: query=%q cache=prefix results=%d", query, len(cachedResults))
 		h.cache.Add(cacheKey, cachedResults)
 		response := SearchResponse{

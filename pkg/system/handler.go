@@ -7,6 +7,7 @@ import (
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
+	"github.com/zxh326/kite/pkg/rbac"
 	"github.com/zxh326/kite/pkg/utils"
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
@@ -46,9 +47,9 @@ func GetOverview(c *gin.Context) {
 
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
 	user := c.MustGet("user").(model.User)
-	if len(user.Roles) == 0 {
+	if !rbac.CanAccessCluster(user, cs.Name) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
-		return // Fix: was missing, caused 4 queries to run for unauthorized users
+		return
 	}
 
 	// Solution : Fetch and compute all 4 resource types in parallel.

@@ -9,7 +9,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/cluster"
+	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/prometheus"
+	"github.com/zxh326/kite/pkg/rbac"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 )
@@ -58,6 +60,12 @@ func (h *Handler) GetResourceUsageHistory(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
+	user := c.MustGet("user").(model.User)
+	if !rbac.CanAccessCluster(user, cs.Name) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+
 	// Get query parameter for time range
 	duration := c.DefaultQuery("duration", "1h")
 
@@ -90,6 +98,12 @@ func (h *Handler) GetResourceUsageHistory(c *gin.Context) {
 func (h *Handler) GetPodMetrics(c *gin.Context) {
 	ctx := c.Request.Context()
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
+	user := c.MustGet("user").(model.User)
+	if !rbac.CanAccessCluster(user, cs.Name) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+
 	// Get path parameters
 	namespace := c.Param("namespace")
 	podName := c.Param("podName")
