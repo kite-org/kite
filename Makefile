@@ -1,5 +1,5 @@
 # Makefile for Kite project
-.PHONY: help dev build clean test docker-build docker-run frontend backend install deps e2e-install e2e-kind-up e2e-kind-down e2e-stop-app e2e-setup-ldap e2e-setup-dex e2e-test e2e-test-headed
+.PHONY: help dev build clean test docker-build docker-run frontend backend install deps e2e-install e2e-install-browser e2e-kind-up e2e-kind-down e2e-stop-app e2e-setup-ldap e2e-setup-dex e2e-run e2e-run-headed e2e-test e2e-test-headed
 
 # Variables
 BINARY_NAME=kite
@@ -146,9 +146,12 @@ test: ## Run tests
 	go test -v ./...
 	cd $(UI_DIR) && pnpm run test
 
-e2e-install: ## Install e2e dependencies and Playwright browser
+e2e-install: ## Install e2e dependencies
 	@echo "📦 Installing e2e dependencies..."
 	cd $(E2E_DIR) && pnpm install
+
+e2e-install-browser: ## Install Playwright Chromium browser
+	@echo "🌐 Installing Playwright Chromium..."
 	cd $(E2E_DIR) && pnpm exec playwright install chromium
 
 e2e-kind-up: ## Create or reuse the local kind cluster for e2e
@@ -215,13 +218,17 @@ e2e-setup-dex: ## Start the Dex service used by external-auth e2e
 	done
 	curl -fsS "http://127.0.0.1:$(E2E_OAUTH_PORT)/.well-known/openid-configuration" >/dev/null
 
-e2e-test: e2e-install e2e-kind-up e2e-stop-app ## Run e2e tests against the local kind cluster
+e2e-run: e2e-kind-up e2e-stop-app ## Run e2e tests against the local kind cluster
 	@echo "🧪 Running e2e tests..."
 	cd $(E2E_DIR) && KUBECONFIG="$(E2E_KUBECONFIG)" KITE_E2E_CLUSTER_NAME="$(E2E_KIND_NAME)" KITE_E2E_PORT="$(E2E_PORT)" pnpm exec playwright test $(SPEC)
 
-e2e-test-headed: e2e-install e2e-kind-up e2e-stop-app ## Run e2e tests in headed mode against the local kind cluster
+e2e-run-headed: e2e-kind-up e2e-stop-app ## Run e2e tests in headed mode against the local kind cluster
 	@echo "🧪 Running headed e2e tests..."
 	cd $(E2E_DIR) && KUBECONFIG="$(E2E_KUBECONFIG)" KITE_E2E_CLUSTER_NAME="$(E2E_KIND_NAME)" KITE_E2E_PORT="$(E2E_PORT)" pnpm exec playwright test --headed $(SPEC)
+
+e2e-test: e2e-install e2e-install-browser e2e-run ## Run e2e tests against the local kind cluster
+
+e2e-test-headed: e2e-install e2e-install-browser e2e-run-headed ## Run e2e tests in headed mode against the local kind cluster
 
 docs-dev: ## Start documentation server in development mode
 	@echo "📚 Starting documentation server..."

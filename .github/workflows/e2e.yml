@@ -82,6 +82,21 @@ jobs:
       - name: Install deps
         run: make deps
 
+      - name: Install E2E deps
+        run: make e2e-install
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-chromium-${{ hashFiles('e2e/pnpm-lock.yaml') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-chromium-
+
+      - name: Install Playwright Chromium
+        timeout-minutes: 5
+        run: make e2e-install-browser
+
       - name: Install kind
         run: |
           [ "$(uname -m)" = "x86_64" ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.31.0/kind-linux-amd64
@@ -96,7 +111,7 @@ jobs:
         run: make e2e-setup-dex
 
       - name: Run E2E tests
-        run: make e2e-test
+        run: make e2e-run
 
       - name: Export kind logs
         if: always()
