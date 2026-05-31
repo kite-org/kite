@@ -30,7 +30,7 @@ export default defineConfig({
     locale: 'en-US',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: useSystemChrome ? 'off' : 'retain-on-failure',
   },
   webServer: process.env.KITE_E2E_BASE_URL
     ? undefined
