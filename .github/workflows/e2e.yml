@@ -54,6 +54,7 @@ jobs:
       E2E_PORT: "38080"
       KITE_E2E_LDAP_URL: ldap://127.0.0.1:3389
       KITE_E2E_OAUTH_ISSUER: http://127.0.0.1:5556
+      KITE_E2E_USE_SYSTEM_CHROME: "true"
 
     steps:
       - name: Checkout code
@@ -85,17 +86,8 @@ jobs:
       - name: Install E2E deps
         run: make e2e-install
 
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-chromium-${{ hashFiles('e2e/pnpm-lock.yaml') }}
-          restore-keys: |
-            playwright-${{ runner.os }}-chromium-
-
-      - name: Install Playwright Chromium
-        timeout-minutes: 5
-        run: make e2e-install-browser
+      - name: Verify Chrome
+        run: google-chrome --version
 
       - name: Install kind
         run: |
@@ -115,7 +107,12 @@ jobs:
 
       - name: Export kind logs
         if: always()
-        run: kind export logs "${KIND_LOGS_DIR}" --name "${E2E_KIND_NAME}"
+        run: |
+          if command -v kind >/dev/null 2>&1 && kind get clusters | grep -qx "${E2E_KIND_NAME}"; then
+            kind export logs "${KIND_LOGS_DIR}" --name "${E2E_KIND_NAME}"
+          else
+            echo "kind cluster ${E2E_KIND_NAME} does not exist"
+          fi
 
       - name: Collect external auth logs
         if: always()

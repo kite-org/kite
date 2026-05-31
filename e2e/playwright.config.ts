@@ -8,6 +8,7 @@ const e2eDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(e2eDir, '..')
 const port = process.env.KITE_E2E_PORT || '38080'
 const baseURL = process.env.KITE_E2E_BASE_URL || `http://127.0.0.1:${port}`
+const useSystemChrome = process.env.KITE_E2E_USE_SYSTEM_CHROME === 'true'
 
 export default defineConfig({
   testDir: '.',
@@ -25,6 +26,7 @@ export default defineConfig({
   outputDir: 'test-results',
   use: {
     baseURL,
+    ...(useSystemChrome ? { channel: 'chrome' as const } : {}),
     locale: 'en-US',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
