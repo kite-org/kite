@@ -85,9 +85,8 @@ describe('ProtectedRoute', () => {
     render(<ProtectedRoute>secret</ProtectedRoute>)
 
     expect(mockNavigate.mock.calls[0]?.[0]).toMatchObject({
-      to: '/login',
+      to: '/login?href=%2Fprivate',
       replace: true,
-      state: { from: location },
     })
     expect(screen.queryByText('secret')).not.toBeInTheDocument()
   })
