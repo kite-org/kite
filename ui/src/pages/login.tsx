@@ -41,6 +41,7 @@ export function LoginPage() {
     useState<CredentialProvider>('password')
 
   const error = searchParams.get('error')
+  const redirectHref = searchParams.get('href') || ''
   const totalProviders = credentialProviders.length + oauthProviders.length
   const loginPromptContent = loginPrompt.trim()
   const loginPromptLines = loginPromptContent
@@ -58,15 +59,24 @@ export function LoginPage() {
   }, [credentialProviders, credentialsProvider])
 
   if (user && !isLoading) {
-    return <Navigate to="/" replace />
+    const storedHref = sessionStorage.getItem('loginRedirectHref')
+    if (storedHref) {
+      sessionStorage.removeItem('loginRedirectHref')
+      return <Navigate to={storedHref} replace />
+    }
+    return <Navigate to={redirectHref || '/'} replace />
   }
 
   const handleLogin = async (provider: string) => {
     setLoginLoading(provider)
+    if (redirectHref) {
+      sessionStorage.setItem('loginRedirectHref', redirectHref)
+    }
     try {
       await login(provider)
     } catch (error) {
       console.error('Login error:', error)
+      sessionStorage.removeItem('loginRedirectHref')
       setLoginLoading(null)
     }
   }

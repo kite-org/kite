@@ -19,8 +19,14 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (!user) {
-    // Redirect to login page with return URL
-    return <Navigate to="/login" state={{ from: location }} replace />
+    const href = location.pathname + location.search + location.hash
+    return <Navigate to={`/login?href=${encodeURIComponent(href)}`} replace />
+  }
+
+  const pendingRedirect = sessionStorage.getItem('loginRedirectHref')
+  if (pendingRedirect) {
+    sessionStorage.removeItem('loginRedirectHref')
+    return <Navigate to={pendingRedirect} replace />
   }
 
   return <>{children}</>
