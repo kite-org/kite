@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"net"
 	"sync"
 	"time"
 
@@ -30,6 +31,10 @@ var credentialLoginAttempts = &credentialLoginAttemptLimiter{
 }
 
 func (l *credentialLoginAttemptLimiter) isBlocked(ip string) bool {
+	if isCredentialLoginLoopbackIP(ip) {
+		return false
+	}
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -53,6 +58,10 @@ func (l *credentialLoginAttemptLimiter) isBlocked(ip string) bool {
 }
 
 func (l *credentialLoginAttemptLimiter) recordFailure(ip string) bool {
+	if isCredentialLoginLoopbackIP(ip) {
+		return false
+	}
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -83,4 +92,9 @@ func recentCredentialLoginFailures(failures []time.Time, now time.Time) []time.T
 		}
 	}
 	return recent
+}
+
+func isCredentialLoginLoopbackIP(ip string) bool {
+	parsed := net.ParseIP(ip)
+	return parsed != nil && parsed.IsLoopback()
 }
