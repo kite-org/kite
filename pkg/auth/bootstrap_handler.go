@@ -21,6 +21,8 @@ type bootstrapAuthOptions struct {
 	CredentialProviders []string `json:"credentialProviders"`
 	OAuthProviders      []string `json:"oauthProviders"`
 	LoginPrompt         string   `json:"loginPrompt"`
+	MFAEnabled          bool     `json:"mfaEnabled"`
+	PasskeyLoginEnabled bool     `json:"passkeyLoginEnabled"`
 }
 
 type bootstrapCapabilities struct {
@@ -120,6 +122,8 @@ func (h *AuthHandler) bootstrapAuth(setting *model.GeneralSetting) bootstrapAuth
 		CredentialProviders: credentialProviders,
 		OAuthProviders:      oauthProviders,
 		LoginPrompt:         loginPrompt,
+		MFAEnabled:          setting == nil || setting.EnableMFA,
+		PasskeyLoginEnabled: setting != nil && setting.EnablePasskeyLogin,
 	}
 }
 

@@ -18,6 +18,8 @@ export interface AuthProviderCatalog {
   credentialProviders: CredentialProvider[]
   oauthProviders: string[]
   loginPrompt: string
+  mfaEnabled: boolean
+  passkeyLoginEnabled: boolean
 }
 
 export interface BootstrapResponse {

@@ -33,12 +33,15 @@ interface AuthContextType {
   credentialProviders: CredentialProvider[]
   oauthProviders: string[]
   loginPrompt: string
+  mfaEnabled: boolean
+  passkeyLoginEnabled: boolean
   capabilities: BootstrapCapabilities
   login: (provider?: string) => Promise<void>
   loginWithCredentials: (
     provider: CredentialProvider,
     username: string,
-    password: string
+    password: string,
+    mfaCode?: string
   ) => Promise<void>
   logout: () => Promise<void>
   checkAuth: () => Promise<void>
@@ -99,9 +102,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     async (
       provider: CredentialProvider,
       username: string,
-      password: string
+      password: string,
+      mfaCode?: string
     ) => {
-      await authenticateWithCredentials(provider, username, password)
+      await authenticateWithCredentials(provider, username, password, mfaCode)
       await checkAuth()
     },
     [checkAuth]
@@ -157,6 +161,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     bootstrap?.hasGlobalSidebarPreference ??
     globalSidebarPreference.trim() !== ''
   const loginPrompt = bootstrap?.auth.loginPrompt || ''
+  const mfaEnabled = bootstrap?.auth.mfaEnabled ?? true
+  const passkeyLoginEnabled = bootstrap?.auth.passkeyLoginEnabled ?? false
   const capabilities = bootstrap?.capabilities ?? defaultCapabilities
 
   const value = useMemo(() => {
@@ -171,6 +177,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       credentialProviders,
       oauthProviders,
       loginPrompt,
+      mfaEnabled,
+      passkeyLoginEnabled,
       capabilities,
       login,
       loginWithCredentials,
@@ -186,6 +194,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     bootstrap?.auth.credentialProviders,
     bootstrap?.auth.oauthProviders,
     loginPrompt,
+    mfaEnabled,
+    passkeyLoginEnabled,
     capabilities,
     login,
     loginWithCredentials,

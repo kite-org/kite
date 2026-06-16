@@ -19,6 +19,7 @@ import (
 	"github.com/zxh326/kite/pkg/rbac"
 	"github.com/zxh326/kite/pkg/resources"
 	"github.com/zxh326/kite/pkg/search"
+	"github.com/zxh326/kite/pkg/settings"
 	"github.com/zxh326/kite/pkg/system"
 	"github.com/zxh326/kite/pkg/templates"
 	"github.com/zxh326/kite/pkg/terminal"
@@ -55,6 +56,8 @@ func registerAuthRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler) {
 	authGroup.POST("/setup/create_super_user", authHandler.CreateSuperUser)
 	authGroup.POST("/login/password", authHandler.PasswordLogin)
 	authGroup.POST("/login/ldap", authHandler.LDAPLogin)
+	authGroup.POST("/passkey/login/begin", authHandler.PasskeyLoginBegin)
+	authGroup.POST("/passkey/login/finish", authHandler.PasskeyLoginFinish)
 	authGroup.GET("/login", authHandler.Login)
 	authGroup.GET("/callback", authHandler.Callback)
 	authGroup.POST("/logout", authHandler.Logout)
@@ -64,6 +67,15 @@ func registerAuthRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler) {
 
 func registerUserRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler) {
 	userGroup := r.Group("/api/users")
+	userGroup.PUT("/me", authHandler.RequireAuth(), users.UpdateCurrentUser)
+	userGroup.POST("/me/password", authHandler.RequireAuth(), users.ChangeCurrentUserPassword)
+	userGroup.POST("/me/mfa/setup", authHandler.RequireAuth(), users.SetupCurrentUserMFA)
+	userGroup.POST("/me/mfa/enable", authHandler.RequireAuth(), users.EnableCurrentUserMFA)
+	userGroup.POST("/me/mfa/disable", authHandler.RequireAuth(), users.DisableCurrentUserMFA)
+	userGroup.GET("/me/passkeys", authHandler.RequireAuth(), users.ListCurrentUserPasskeys)
+	userGroup.POST("/me/passkeys/begin", authHandler.RequireAuth(), users.BeginCurrentUserPasskeyRegistration)
+	userGroup.POST("/me/passkeys/finish", authHandler.RequireAuth(), users.FinishCurrentUserPasskeyRegistration)
+	userGroup.DELETE("/me/passkeys/:id", authHandler.RequireAuth(), users.DeleteCurrentUserPasskey)
 	userGroup.POST("/sidebar_preference", authHandler.RequireAuth(), users.UpdateSidebarPreference)
 }
 
@@ -116,8 +128,8 @@ func registerAdminRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, cm *
 	apiKeyAPI.DELETE("/:id", apikeys.DeleteAPIKey)
 
 	generalSettingAPI := adminAPI.Group("/general-setting")
-	generalSettingAPI.GET("/", ai.HandleGetGeneralSetting)
-	generalSettingAPI.PUT("/", ai.HandleUpdateGeneralSetting)
+	generalSettingAPI.GET("/", settings.HandleGetGeneralSetting)
+	generalSettingAPI.PUT("/", settings.HandleUpdateGeneralSetting)
 
 	templateAPI := adminAPI.Group("/templates")
 	templateAPI.POST("/", templates.CreateTemplate)

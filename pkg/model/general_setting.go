@@ -42,6 +42,8 @@ type GeneralSetting struct {
 	EnableAnalytics         bool         `json:"enableAnalytics" gorm:"column:enable_analytics;type:boolean;not null;default:false"`
 	EnableVersionCheck      bool         `json:"enableVersionCheck" gorm:"column:enable_version_check;type:boolean;not null;default:true"`
 	PasswordLoginDisabled   bool         `json:"passwordLoginDisabled" gorm:"column:password_login_disabled;type:boolean;not null;default:false"`
+	EnableMFA               bool         `json:"enableMFA" gorm:"column:enable_mfa;type:boolean;not null;default:true"`
+	EnablePasskeyLogin      bool         `json:"enablePasskeyLogin" gorm:"column:enable_passkey_login;type:boolean;not null;default:true"`
 	LoginPrompt             string       `json:"loginPrompt" gorm:"column:login_prompt;type:text"`
 	JWTSecret               SecretString `json:"-" gorm:"column:jwt_secret;type:text"`
 	GlobalSidebarPreference string       `json:"-" gorm:"column:global_sidebar_preference;type:text"`
@@ -124,6 +126,8 @@ func GetGeneralSetting() (*GeneralSetting, error) {
 		NodeTerminalImage:  DefaultGeneralNodeTerminalImageValue(),
 		EnableAnalytics:    common.EnableAnalytics,
 		EnableVersionCheck: common.EnableVersionCheck,
+		EnableMFA:          true,
+		EnablePasskeyLogin: true,
 	}
 	if err := ensureJWTSecret(&setting, nil); err != nil {
 		return nil, err

@@ -8,7 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/common"
+	"github.com/zxh326/kite/pkg/mfa"
 	"github.com/zxh326/kite/pkg/model"
+	"github.com/zxh326/kite/pkg/passkey"
 	"github.com/zxh326/kite/pkg/rbac"
 	"gorm.io/gorm"
 	"k8s.io/klog/v2"
@@ -100,6 +102,42 @@ func (h *AuthHandler) LDAPLogin(c *gin.Context) {
 	h.handleCredentialLogin(c, model.AuthProviderLDAP, h.authenticateAndSyncLDAPUser)
 }
 
+func (h *AuthHandler) PasskeyLoginBegin(c *gin.Context) {
+	enabled, err := passkey.Enabled()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load general setting"})
+		return
+	}
+	if !enabled {
+		c.JSON(http.StatusForbidden, gin.H{"error": "passkey login is disabled"})
+		return
+	}
+	assertion, err := passkey.BeginLogin(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to start passkey login"})
+		return
+	}
+	c.JSON(http.StatusOK, assertion)
+}
+
+func (h *AuthHandler) PasskeyLoginFinish(c *gin.Context) {
+	enabled, err := passkey.Enabled()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load general setting"})
+		return
+	}
+	if !enabled {
+		c.JSON(http.StatusForbidden, gin.H{"error": "passkey login is disabled"})
+		return
+	}
+	user, err := passkey.FinishLogin(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid passkey"})
+		return
+	}
+	h.completePasswordLikeLogin(c, user)
+}
+
 func (h *AuthHandler) handleCredentialLogin(c *gin.Context, provider string, authenticate credentialAuthenticator) {
 	var req common.PasswordLoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -112,11 +150,20 @@ func (h *AuthHandler) handleCredentialLogin(c *gin.Context, provider string, aut
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request payload"})
 		return
 	}
+	clientIP := c.ClientIP()
+	if credentialLoginAttempts.isBlocked(clientIP) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": tooManyCredentialLoginAttemptsError})
+		return
+	}
 
 	user, err := authenticate(username, req.Password)
 	if err != nil {
 		errMsg := fmt.Sprintf("%s login failed for %s: %v", strings.ToUpper(provider), username, err)
 		if isCredentialFailure(err) {
+			if shouldRecordCredentialLoginFailure(provider, err) && credentialLoginAttempts.recordFailure(clientIP) {
+				c.JSON(http.StatusTooManyRequests, gin.H{"error": tooManyCredentialLoginAttemptsError})
+				return
+			}
 			c.JSON(http.StatusUnauthorized, gin.H{"error": errMsg})
 			return
 		}
@@ -124,7 +171,33 @@ func (h *AuthHandler) handleCredentialLogin(c *gin.Context, provider string, aut
 		return
 	}
 
+	if provider == model.AuthProviderPassword && user.MFAEnabled {
+		if strings.TrimSpace(req.MFACode) == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "mfa_required"})
+			return
+		}
+		if !mfa.Verify(string(user.MFASecret), req.MFACode) {
+			if credentialLoginAttempts.recordFailure(clientIP) {
+				c.JSON(http.StatusTooManyRequests, gin.H{"error": tooManyCredentialLoginAttemptsError})
+				return
+			}
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid_mfa_code"})
+			return
+		}
+	}
+
 	h.completePasswordLikeLogin(c, user)
+}
+
+func shouldRecordCredentialLoginFailure(provider string, err error) bool {
+	switch provider {
+	case model.AuthProviderPassword:
+		return errors.Is(err, errInvalidCredentials)
+	case model.AuthProviderLDAP:
+		return errors.Is(err, ErrLDAPInvalidCredentials)
+	default:
+		return false
+	}
 }
 
 func (h *AuthHandler) completePasswordLikeLogin(c *gin.Context, user *model.User) {

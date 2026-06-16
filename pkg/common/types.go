@@ -34,6 +34,7 @@ type ResourceMetric struct {
 type PasswordLoginRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
+	MFACode  string `json:"mfa_code"`
 }
 
 type ImportClustersRequest struct {

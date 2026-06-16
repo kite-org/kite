@@ -355,6 +355,8 @@ export interface GeneralSetting {
   enableAnalytics: boolean
   enableVersionCheck: boolean
   passwordLoginDisabled: boolean
+  enableMFA: boolean
+  enablePasskeyLogin: boolean
   loginPrompt: string
 }
 
@@ -371,6 +373,8 @@ export interface GeneralSettingUpdateRequest {
   enableAnalytics?: boolean
   enableVersionCheck?: boolean
   passwordLoginDisabled?: boolean
+  enableMFA?: boolean
+  enablePasskeyLogin?: boolean
   loginPrompt?: string
 }
 

@@ -72,6 +72,8 @@ export function AuthenticationManagement() {
     createDefaultSettings
   )
   const [passwordLoginEnabled, setPasswordLoginEnabled] = useState(true)
+  const [mfaEnabled, setMFAEnabled] = useState(true)
+  const [passkeyLoginEnabled, setPasskeyLoginEnabled] = useState(true)
 
   useEffect(() => {
     setFormData(toFormData(data))
@@ -80,6 +82,8 @@ export function AuthenticationManagement() {
   useEffect(() => {
     if (generalSetting) {
       setPasswordLoginEnabled(!generalSetting.passwordLoginDisabled)
+      setMFAEnabled(generalSetting.enableMFA ?? true)
+      setPasskeyLoginEnabled(generalSetting.enablePasskeyLogin ?? true)
     }
   }, [generalSetting])
 
@@ -87,11 +91,14 @@ export function AuthenticationManagement() {
     mutationFn: (params: {
       ldap: LDAPSettingUpdateRequest
       passwordLoginDisabled: boolean
+      enableMFA: boolean
+      enablePasskeyLogin: boolean
     }) => {
       const promises: Promise<unknown>[] = [
         updateGeneralSetting({
-          ...generalSetting!,
           passwordLoginDisabled: params.passwordLoginDisabled,
+          enableMFA: params.enableMFA,
+          enablePasskeyLogin: params.enablePasskeyLogin,
         }),
         updateLDAPSetting(params.ldap),
       ]
@@ -148,6 +155,8 @@ export function AuthenticationManagement() {
     mutation.mutate({
       ldap: payload,
       passwordLoginDisabled: !passwordLoginEnabled,
+      enableMFA: mfaEnabled,
+      enablePasskeyLogin: passkeyLoginEnabled,
     })
   }
 
@@ -236,6 +245,70 @@ export function AuthenticationManagement() {
             )}
           </div>
 
+          <div className="rounded-lg border">
+            <div className="flex items-center justify-between p-3">
+              <div className="space-y-1">
+                <Label className="text-sm font-medium">
+                  {t('authenticationManagement.mfa.title', 'MFA')}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    'authenticationManagement.mfa.description',
+                    'Allow users to configure authenticator app MFA.'
+                  )}
+                </p>
+              </div>
+              <Switch
+                checked={mfaEnabled}
+                onCheckedChange={setMFAEnabled}
+                disabled={!generalSetting}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-lg border">
+            <div className="flex items-center justify-between p-3">
+              <div className="space-y-1">
+                <Label className="text-sm font-medium">
+                  {t('authenticationManagement.passkey.title', 'Passkey Login')}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    'authenticationManagement.passkey.description',
+                    'Allow users to register passkeys and sign in with a passkey.'
+                  )}
+                </p>
+              </div>
+              <Switch
+                checked={passkeyLoginEnabled}
+                onCheckedChange={setPasskeyLoginEnabled}
+                disabled={!generalSetting}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={handleSave}
+              disabled={mutation.isPending || !generalSetting}
+            >
+              {t('common.actions.save', 'Save')}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <OAuthProviderManagement />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <IconKey className="h-5 w-5" />
+            {t('authenticationManagement.ldap.title', 'LDAP')}
+          </CardTitle>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
           <div className="rounded-lg border">
             <div className="flex items-center justify-between p-3">
               <div className="space-y-1">
@@ -506,8 +579,6 @@ export function AuthenticationManagement() {
           </div>
         </CardContent>
       </Card>
-
-      <OAuthProviderManagement />
     </div>
   )
 }

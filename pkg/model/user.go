@@ -14,15 +14,17 @@ import (
 
 type User struct {
 	Model
-	Username    string      `json:"username" gorm:"type:varchar(50);uniqueIndex;not null"`
-	Password    string      `json:"-" gorm:"type:varchar(255)"`
-	Name        string      `json:"name,omitempty" gorm:"type:varchar(100);index"`
-	AvatarURL   string      `json:"avatar_url,omitempty" gorm:"type:varchar(500)"`
-	Provider    string      `json:"provider,omitempty" gorm:"type:varchar(50);default:password;index"`
-	OIDCGroups  SliceString `json:"oidc_groups,omitempty" gorm:"type:text"`
-	LastLoginAt *time.Time  `json:"lastLoginAt,omitempty" gorm:"type:timestamp;index"`
-	Enabled     bool        `json:"enabled" gorm:"type:boolean;default:true"`
-	Sub         string      `json:"sub,omitempty" gorm:"type:varchar(255);index"`
+	Username    string       `json:"username" gorm:"type:varchar(50);uniqueIndex;not null"`
+	Password    string       `json:"-" gorm:"type:varchar(255)"`
+	Name        string       `json:"name,omitempty" gorm:"type:varchar(100);index"`
+	AvatarURL   string       `json:"avatar_url,omitempty" gorm:"type:varchar(500)"`
+	Provider    string       `json:"provider,omitempty" gorm:"type:varchar(50);default:password;index"`
+	OIDCGroups  SliceString  `json:"oidc_groups,omitempty" gorm:"type:text"`
+	LastLoginAt *time.Time   `json:"lastLoginAt,omitempty" gorm:"type:timestamp;index"`
+	Enabled     bool         `json:"enabled" gorm:"type:boolean;default:true"`
+	Sub         string       `json:"sub,omitempty" gorm:"type:varchar(255);index"`
+	MFAEnabled  bool         `json:"mfa_enabled" gorm:"column:mfa_enabled;type:boolean;not null;default:false"`
+	MFASecret   SecretString `json:"-" gorm:"column:mfa_secret;type:text"`
 
 	APIKey SecretString  `json:"apiKey,omitempty" gorm:"type:text"`
 	Roles  []common.Role `json:"roles,omitempty" gorm:"-"`
@@ -241,6 +243,40 @@ func ResetPasswordByID(id uint, plainPassword string) error {
 // SetUserEnabled sets enabled flag for a user
 func SetUserEnabled(id uint, enabled bool) error {
 	err := DB.Model(&User{}).Where("id = ?", id).Update("enabled", enabled).Error
+	InvalidateUserCache(uint64(id))
+	return err
+}
+
+// UpdateUserName updates only the display name of a user.
+func UpdateUserName(id uint, name string) error {
+	err := DB.Model(&User{}).Where("id = ?", id).Update("name", name).Error
+	InvalidateUserCache(uint64(id))
+	return err
+}
+
+// StoreMFASecret persists a pending MFA secret without enabling MFA yet.
+func StoreMFASecret(id uint, secret string) error {
+	err := DB.Model(&User{}).Where("id = ?", id).Updates(map[string]any{
+		"mfa_secret":  SecretString(secret),
+		"mfa_enabled": false,
+	}).Error
+	InvalidateUserCache(uint64(id))
+	return err
+}
+
+// EnableUserMFA marks MFA as active for the given user (secret must already be stored).
+func EnableUserMFA(id uint) error {
+	err := DB.Model(&User{}).Where("id = ?", id).Update("mfa_enabled", true).Error
+	InvalidateUserCache(uint64(id))
+	return err
+}
+
+// DisableUserMFA clears MFA for the given user.
+func DisableUserMFA(id uint) error {
+	err := DB.Model(&User{}).Where("id = ?", id).Updates(map[string]any{
+		"mfa_enabled": false,
+		"mfa_secret":  "",
+	}).Error
 	InvalidateUserCache(uint64(id))
 	return err
 }

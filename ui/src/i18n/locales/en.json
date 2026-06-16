@@ -265,7 +265,7 @@
       "notReady": "Not Ready",
       "notStarted": "Not started",
       "passwordLoginDescription": "Allow users to sign in with a username and password.",
-      "passwordLoginWarningDescription": "Verify that your LDAP or OAuth provider is working before saving. Without a working alternative login method, you will be locked out and can only recover by resetting the database.",
+      "passwordLoginWarningDescription": "Verify that your LDAP、OAuth Provider、Passkey provider is working before saving. Without a working alternative login method, you will be locked out and can only recover by resetting the database.",
       "passwordLoginWarningTitle": "Warning: You may lose access!",
       "passwordReset": "Password reset",
       "somethingWentWrong": "Something went wrong",
@@ -755,6 +755,14 @@
   },
   "authenticationManagement": {
     "title": "Authentication",
+    "mfa": {
+      "title": "MFA",
+      "description": "Allow users to configure authenticator app MFA."
+    },
+    "passkey": {
+      "title": "Passkey Login",
+      "description": "Allow users to register passkeys and sign in with a passkey."
+    },
     "ldap": {
       "title": "LDAP",
       "description": "Enable LDAP username/password login and sync groups into RBAC.",

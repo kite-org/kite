@@ -265,7 +265,7 @@
       "notReady": "未就绪",
       "notStarted": "未启动",
       "passwordLoginDescription": "允许用户使用用户名和密码登录。",
-      "passwordLoginWarningDescription": "保存前请确认 LDAP 或 OAuth Provider 可用。没有可用的替代登录方式时，你将无法登录，只能通过重置数据库恢复。",
+      "passwordLoginWarningDescription": "保存前请确认 LDAP、OAuth Provider、Passkey 可用。没有可用的替代登录方式时，你将无法登录，只能通过重置数据库恢复。",
       "passwordLoginWarningTitle": "警告：你可能会失去访问权限！",
       "passwordReset": "密码已重置",
       "somethingWentWrong": "出现错误",
@@ -766,6 +766,14 @@
   },
   "authenticationManagement": {
     "title": "认证设置",
+    "mfa": {
+      "title": "MFA",
+      "description": "允许用户配置认证器 App MFA。"
+    },
+    "passkey": {
+      "title": "Passkey 登录",
+      "description": "允许用户注册 Passkey 并使用 Passkey 登录。"
+    },
     "ldap": {
       "title": "LDAP",
       "description": "启用 LDAP 登录，并同步 LDAP 组到 RBAC。",

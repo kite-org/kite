@@ -4,8 +4,13 @@ import { useAuth } from '@/contexts/auth-context'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useSearchParams } from 'react-router-dom'
 
-import type { CredentialProvider } from '@/lib/api'
+import {
+  beginPasskeyLogin,
+  finishPasskeyLogin,
+  type CredentialProvider,
+} from '@/lib/api'
 import { withSubPath } from '@/lib/subpath'
+import { getPasskeyCredential } from '@/lib/webauthn'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -27,22 +32,33 @@ export function LoginPage() {
     user,
     login,
     loginWithCredentials,
+    checkAuth,
     credentialProviders,
     oauthProviders,
     loginPrompt,
+    passkeyLoginEnabled,
     isLoading,
   } = useAuth()
   const [searchParams] = useSearchParams()
   const [loginLoading, setLoginLoading] = useState<string | null>(null)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [mfaCode, setMfaCode] = useState('')
+  const [mfaRequired, setMfaRequired] = useState(false)
   const [credentialError, setCredentialError] = useState<string | null>(null)
   const [credentialsProvider, setCredentialsProvider] =
     useState<CredentialProvider>('password')
 
   const error = searchParams.get('error')
   const redirectHref = searchParams.get('href') || ''
-  const totalProviders = credentialProviders.length + oauthProviders.length
+  const passkeySupported =
+    passkeyLoginEnabled &&
+    typeof window !== 'undefined' &&
+    Boolean(window.PublicKeyCredential)
+  const totalProviders =
+    credentialProviders.length +
+    oauthProviders.length +
+    (passkeySupported ? 1 : 0)
   const loginPromptContent = loginPrompt.trim()
   const loginPromptLines = loginPromptContent
     .split('\n')
@@ -86,9 +102,25 @@ export function LoginPage() {
     setLoginLoading(credentialsProvider)
     setCredentialError(null)
     try {
-      await loginWithCredentials(credentialsProvider, username, password)
+      await loginWithCredentials(
+        credentialsProvider,
+        username,
+        password,
+        mfaRequired ? mfaCode : undefined
+      )
     } catch (err) {
       if (err instanceof Error) {
+        if (err.message === 'mfa_required') {
+          setMfaRequired(true)
+          setCredentialError(null)
+          return
+        }
+
+        if (err.message === 'invalid_mfa_code') {
+          setMfaRequired(true)
+          setCredentialError('Invalid MFA code')
+          return
+        }
         setCredentialError(
           t(`login.errors.${err.message}`, {
             defaultValue: err.message,
@@ -97,6 +129,23 @@ export function LoginPage() {
       } else {
         setCredentialError(t('login.errors.unknownError'))
       }
+    } finally {
+      setLoginLoading(null)
+    }
+  }
+
+  const handlePasskeyLogin = async () => {
+    setLoginLoading('passkey')
+    setCredentialError(null)
+    try {
+      const options = await beginPasskeyLogin()
+      const credential = await getPasskeyCredential(options)
+      await finishPasskeyLogin(credential)
+      await checkAuth()
+    } catch (error) {
+      setCredentialError(
+        error instanceof Error ? error.message : 'Passkey sign-in failed'
+      )
     } finally {
       setLoginLoading(null)
     }
@@ -279,6 +328,8 @@ export function LoginPage() {
                             if (value === 'password' || value === 'ldap') {
                               setCredentialsProvider(value)
                               setCredentialError(null)
+                              setMfaRequired(false)
+                              setMfaCode('')
                             }
                           }}
                         >
@@ -311,7 +362,11 @@ export function LoginPage() {
                             type="text"
                             placeholder={t('login.enterUsername')}
                             value={username}
-                            onChange={(e) => setUsername(e.target.value)}
+                            onChange={(e) => {
+                              setUsername(e.target.value)
+                              setMfaRequired(false)
+                              setMfaCode('')
+                            }}
                             required
                           />
                         </div>
@@ -324,10 +379,29 @@ export function LoginPage() {
                             type="password"
                             placeholder={t('login.enterPassword')}
                             value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            onChange={(e) => {
+                              setPassword(e.target.value)
+                              setMfaRequired(false)
+                              setMfaCode('')
+                            }}
                             required
                           />
                         </div>
+                        {credentialsProvider === 'password' && mfaRequired && (
+                          <div className="space-y-2">
+                            <Label htmlFor="mfaCode">MFA Code</Label>
+                            <Input
+                              id="mfaCode"
+                              type="text"
+                              inputMode="numeric"
+                              autoComplete="one-time-code"
+                              placeholder="Enter 6-digit code"
+                              value={mfaCode}
+                              onChange={(e) => setMfaCode(e.target.value)}
+                              required
+                            />
+                          </div>
+                        )}
                         {credentialError && (
                           <Alert variant="destructive">
                             <AlertDescription>
@@ -345,6 +419,8 @@ export function LoginPage() {
                               <div className="animate-spin rounded-full h-4 w-4 border-b-2"></div>
                               <span>{t('login.signingIn')}</span>
                             </div>
+                          ) : mfaRequired ? (
+                            'Verify MFA'
                           ) : (
                             credentialSubmitLabel[credentialsProvider]
                           )}
@@ -354,7 +430,7 @@ export function LoginPage() {
                   )}
 
                   {oauthProviders.length > 0 &&
-                    credentialProviders.length > 0 && (
+                    (credentialProviders.length > 0 || passkeySupported) && (
                       <div className="relative">
                         <div className="absolute inset-0 flex items-center">
                           <span className="w-full border-t" />
@@ -393,6 +469,47 @@ export function LoginPage() {
                       )}
                     </Button>
                   ))}
+
+                  {passkeySupported && (
+                    <>
+                      {(credentialProviders.length > 0 ||
+                        oauthProviders.length > 0) && (
+                        <div className="relative">
+                          <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t" />
+                          </div>
+                          <div className="relative flex justify-center text-xs uppercase">
+                            <span className="px-2 text-muted-foreground bg-card rounded">
+                              {t('login.orContinueWith')}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex justify-center pt-2">
+                        <Button
+                          type="button"
+                          onClick={handlePasskeyLogin}
+                          disabled={loginLoading !== null}
+                          className="h-auto px-0 py-0 text-sm font-normal text-primary"
+                          variant="link"
+                        >
+                          {loginLoading === 'passkey' ? (
+                            <span className="flex items-center space-x-2">
+                              <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></span>
+                              <span>{t('login.signingIn')}</span>
+                            </span>
+                          ) : (
+                            <span>Sign in with a passkey</span>
+                          )}
+                        </Button>
+                      </div>
+                      {credentialProviders.length === 0 && credentialError && (
+                        <Alert variant="destructive">
+                          <AlertDescription>{credentialError}</AlertDescription>
+                        </Alert>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
             </CardContent>
