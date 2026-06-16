@@ -104,7 +104,11 @@ async function configureLDAPViaUI(page: Page) {
   await page.goto('/settings?tab=oauth')
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
 
-  const ldapSection = page
+  const ldapCard = page
+    .locator('[data-slot="card"]')
+    .filter({ has: page.getByText(/^LDAP$/) })
+    .first()
+  const ldapSection = ldapCard
     .locator('div.rounded-lg.border')
     .filter({ has: page.getByText(/^LDAP$/) })
     .first()
@@ -123,7 +127,7 @@ async function configureLDAPViaUI(page: Page) {
   await page.getByLabel('Group Base DN').fill('ou=groups,dc=kite,dc=test')
   await page.getByLabel('Group Filter').fill('(member=%s)')
   await page.getByLabel('Group Name Attribute').fill('cn')
-  await page.getByRole('button', { name: 'Save' }).click()
+  await ldapCard.getByRole('button', { name: 'Save' }).click()
 
   await expect(page.getByText('Authentication settings updated')).toBeVisible()
 }
