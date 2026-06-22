@@ -5,6 +5,8 @@ WORKDIR /app/ui
 COPY ui/package.json ui/pnpm-lock.yaml ./
 
 RUN npm install -g pnpm && \
+    pnpm install --frozen-lockfile || true && \
+    pnpm approve-builds --all && \ 
     pnpm install --frozen-lockfile
 
 COPY ui/ ./
