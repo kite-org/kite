@@ -31,7 +31,11 @@ import (
 
 var runtimeScheme = runtime.NewScheme()
 
-const defaultCacheSyncTimeout = 60 * time.Second
+const (
+	defaultCacheSyncTimeout = 60 * time.Second
+	defaultKubeAPIQPS       = 50
+	defaultKubeAPIBurst     = 100
+)
 
 // cacheSyncTimeout returns the configured cache sync timeout, overridable via
 // the KITE_CACHE_SYNC_TIMEOUT env var (in seconds). The initial LIST for
@@ -44,6 +48,30 @@ func cacheSyncTimeout() time.Duration {
 		}
 	}
 	return defaultCacheSyncTimeout
+}
+
+// kubeAPIQPS returns the QPS limit for the Kubernetes API client, overridable
+// via the KITE_KUBE_API_QPS env var. Defaults to 50 (client-go default is 5,
+// which is too low for large/remote clusters during the initial cache sync).
+func kubeAPIQPS() float32 {
+	if v := os.Getenv("KITE_KUBE_API_QPS"); v != "" {
+		if qps, err := strconv.ParseFloat(v, 32); err == nil && qps > 0 {
+			return float32(qps)
+		}
+	}
+	return defaultKubeAPIQPS
+}
+
+// kubeAPIBurst returns the burst limit for the Kubernetes API client,
+// overridable via the KITE_KUBE_API_BURST env var. Defaults to 100 (client-go
+// default is 10).
+func kubeAPIBurst() int {
+	if v := os.Getenv("KITE_KUBE_API_BURST"); v != "" {
+		if burst, err := strconv.Atoi(v); err == nil && burst > 0 {
+			return burst
+		}
+	}
+	return defaultKubeAPIBurst
 }
 
 func init() {
@@ -115,12 +143,14 @@ type K8sClient struct {
 // NewClient creates a K8sClient from a rest.Config
 func NewClient(config *rest.Config) (*K8sClient, error) {
 	// Tune QPS/Burst so the initial cache sync LIST on large/remote clusters is
-	// not throttled by the client-go defaults (QPS=5, Burst=10).
+	// not throttled by the client-go defaults (QPS=5, Burst=10). Values are
+	// overridable via KITE_KUBE_API_QPS and KITE_KUBE_API_BURST. A value
+	// explicitly set on the rest.Config (e.g. from kubeconfig) is preserved.
 	if config.QPS == 0 {
-		config.QPS = 50
+		config.QPS = kubeAPIQPS()
 	}
 	if config.Burst == 0 {
-		config.Burst = 100
+		config.Burst = kubeAPIBurst()
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
