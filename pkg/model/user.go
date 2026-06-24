@@ -17,7 +17,7 @@ type User struct {
 	Username    string       `json:"username" gorm:"type:varchar(50);uniqueIndex;not null"`
 	Password    string       `json:"-" gorm:"type:varchar(255)"`
 	Name        string       `json:"name,omitempty" gorm:"type:varchar(100);index"`
-	AvatarURL   string       `json:"avatar_url,omitempty" gorm:"type:varchar(500)"`
+	AvatarURL   string       `json:"avatar_url,omitempty" gorm:"type:text"`
 	Provider    string       `json:"provider,omitempty" gorm:"type:varchar(50);default:password;index"`
 	OIDCGroups  SliceString  `json:"oidc_groups,omitempty" gorm:"type:text"`
 	LastLoginAt *time.Time   `json:"lastLoginAt,omitempty" gorm:"type:timestamp;index"`
