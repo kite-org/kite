@@ -407,6 +407,12 @@ export function LogViewer({
 
   // Stop previous stream when critical parameters change
   useEffect(() => {
+    // Clear the editor BEFORE the new stream starts. We deliberately
+    // clear here (in response to a real parameter change) instead of on
+    // every WebSocket onopen, so that the historical tail buffer delivered
+    // by the server immediately after connect is preserved.
+    cleanLog()
+
     // Show reconnecting state when parameters change
     setIsReconnecting(true)
 
@@ -425,6 +431,7 @@ export function LogViewer({
     timestamps,
     previous,
     isLoading,
+    cleanLog,
   ])
 
   // Hide reconnecting state when loading completes
