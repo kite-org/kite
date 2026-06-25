@@ -300,6 +300,7 @@ export function ResourceDetailShell<T>({
               ? tab.content(shellContext)
               : tab.content,
         }))}
+        customizationKey={`resource-detail:${resourceType}`}
       />
 
       {showDelete && (
