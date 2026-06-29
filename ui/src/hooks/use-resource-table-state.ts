@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ColumnFiltersState,
   PaginationState,
@@ -49,6 +49,8 @@ export function useResourceTableState({
       ) || ''
     )
   })
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [columnVisibility, setColumnVisibility] = useState<
     Record<string, boolean>
   >(() => {
@@ -115,6 +117,16 @@ export function useResourceTableState({
 
     sessionStorage.removeItem(storageKey)
   }, [resourceName, searchQuery])
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 500)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [searchQuery])
 
   useEffect(() => {
     localStorage.setItem(
@@ -184,6 +196,7 @@ export function useResourceTableState({
     setDeleteDialogOpen,
     searchQuery,
     setSearchQuery,
+    debouncedSearchQuery,
     columnVisibility,
     setColumnVisibility,
     pagination,

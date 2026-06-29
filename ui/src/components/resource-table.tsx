@@ -79,6 +79,7 @@ function ResourceTableContent<T>({
     setDeleteDialogOpen,
     searchQuery,
     setSearchQuery,
+    debouncedSearchQuery,
     columnVisibility,
     setColumnVisibility,
     pagination,
@@ -96,6 +97,13 @@ function ResourceTableContent<T>({
     clusterScope,
     defaultHiddenColumns,
   })
+
+  // When the query looks like a label selector (contains '='), route it to the
+  // backend API instead of the client-side name filter.
+  const isLabelSelector = searchQuery.includes('=')
+  const effectiveLabelSelector = debouncedSearchQuery.includes('=')
+    ? debouncedSearchQuery
+    : undefined
   const selectedNamespaces = useMemo(() => {
     if (!selectedNamespace || selectedNamespace === '_all') return []
     return selectedNamespace.split(',').filter(Boolean)
@@ -124,6 +132,7 @@ function ResourceTableContent<T>({
     namespace: effectiveNamespace,
     useSSE,
     refreshInterval,
+    labelSelector: effectiveLabelSelector,
   })
   const displayResourceName = (() => {
     const resource = getResourceMetadata(resolvedResourceType)
@@ -267,7 +276,7 @@ function ResourceTableContent<T>({
     state: {
       sorting,
       columnFilters,
-      globalFilter: searchQuery,
+      globalFilter: isLabelSelector ? '' : searchQuery,
       pagination,
       rowSelection,
       columnVisibility,
@@ -417,7 +426,9 @@ function ResourceTableContent<T>({
           </h3>
           <p className="text-muted-foreground">
             {searchQuery
-              ? `No results match your search query: "${searchQuery}"`
+              ? isLabelSelector
+                ? `No ${displayResourceName} match labels: "${searchQuery}"`
+                : `No results match your search query: "${searchQuery}"`
               : clusterScope
                 ? `There are no ${displayResourceName} found`
                 : `There are no ${displayResourceName} in ${namespaceDescription}`}

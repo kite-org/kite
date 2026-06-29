@@ -9,6 +9,7 @@ interface UseResourceTableDataOptions {
   namespace?: string
   useSSE: boolean
   refreshInterval: number
+  labelSelector?: string
 }
 
 export function useResourceTableData<T>({
@@ -17,6 +18,7 @@ export function useResourceTableData<T>({
   namespace,
   useSSE,
   refreshInterval,
+  labelSelector,
 }: UseResourceTableDataOptions) {
   const resolvedResourceType = (resourceType ??
     (resourceName.toLowerCase() as ResourceType)) as ResourceType
@@ -25,11 +27,13 @@ export function useResourceTableData<T>({
     refreshInterval: useSSE ? 0 : refreshInterval,
     reduce: true,
     disable: useSSE,
+    labelSelector,
   })
 
   const watch = useResourcesWatch(resolvedResourceType, namespace, {
     reduce: true,
     enabled: useSSE,
+    labelSelector,
   })
 
   const data = useMemo(
