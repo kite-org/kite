@@ -530,6 +530,16 @@ func (h *PodHandler) Watch(c *gin.Context) {
 	labelSelector := c.Query("labelSelector")
 	fieldSelector := c.Query("fieldSelector")
 
+	// When watching across all namespaces, the watch stream must be filtered
+	// per-item by rbac.CanAccessNamespace: the RBAC middleware lets the
+	// request through based only on the user holding a get permission on pods
+	// (see pkg/middleware/rbac.go), so it is the handler's job to drop events
+	// for namespaces the user may not access. Without this, a namespace-scoped
+	// user would receive pod events from namespaces they are not authorized to
+	// see.
+	user := c.MustGet("user").(model.User)
+	filterByNs := namespace == common.AllNamespaces
+
 	listOpts := metav1.ListOptions{}
 	if labelSelector != "" {
 		listOpts.LabelSelector = labelSelector
@@ -568,6 +578,9 @@ func (h *PodHandler) Watch(c *gin.Context) {
 		case <-ticker.C:
 			metricsMap, _ = h.ListMetrics(c)
 			for _, metrics := range metricsMap {
+				if filterByNs && !rbac.CanAccessNamespace(user, cs.Name, metrics.Namespace) {
+					continue
+				}
 				pod, err := h.GetResource(c, metrics.Namespace, metrics.Name)
 				if err != nil {
 					klog.Warningf("Failed to get pod: %v", err)
@@ -587,6 +600,9 @@ func (h *PodHandler) Watch(c *gin.Context) {
 
 			pod, ok := event.Object.(*corev1.Pod)
 			if !ok || pod == nil {
+				continue
+			}
+			if filterByNs && !rbac.CanAccessNamespace(user, cs.Name, pod.Namespace) {
 				continue
 			}
 

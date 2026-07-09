@@ -383,3 +383,52 @@ func TestRBACMiddleware(t *testing.T) {
 		})
 	}
 }
+
+func TestIsCrossNamespaceList(t *testing.T) {
+	testCases := []struct {
+		name string
+		path string
+		want bool
+	}{
+		{name: "list no namespace segment", path: "/api/v1/pods", want: true},
+		{name: "list explicit _all", path: "/api/v1/pods/_all", want: true},
+		{name: "list deployments explicit _all", path: "/api/v1/deployments/_all", want: true},
+		{name: "single resource _all get", path: "/api/v1/pods/_all/foo", want: false},
+		{name: "single resource namespaced get", path: "/api/v1/pods/default/foo", want: false},
+		{name: "describe sub-route", path: "/api/v1/pods/_all/foo/describe", want: false},
+		{name: "history sub-route", path: "/api/v1/pods/default/foo/history", want: false},
+		{name: "watch sub-route", path: "/api/v1/pods/_all/watch", want: false},
+		{name: "specific namespace list is not cross-ns", path: "/api/v1/pods/default", want: false},
+		{name: "too short", path: "/api/v1", want: false},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isCrossNamespaceList(tc.path); got != tc.want {
+				t.Errorf("isCrossNamespaceList(%q) = %v, want %v", tc.path, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestIsCrossNamespaceWatch(t *testing.T) {
+	testCases := []struct {
+		name string
+		path string
+		want bool
+	}{
+		{name: "pods all watch", path: "/api/v1/pods/_all/watch", want: true},
+		{name: "specific namespace watch is not cross-ns", path: "/api/v1/pods/default/watch", want: false},
+		{name: "list is not watch", path: "/api/v1/pods/_all", want: false},
+		{name: "single resource get is not watch", path: "/api/v1/pods/_all/foo", want: false},
+		{name: "describe sub-route is not watch", path: "/api/v1/pods/_all/foo/describe", want: false},
+		{name: "plain list is not watch", path: "/api/v1/pods", want: false},
+		{name: "too short", path: "/api/v1", want: false},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isCrossNamespaceWatch(tc.path); got != tc.want {
+				t.Errorf("isCrossNamespaceWatch(%q) = %v, want %v", tc.path, got, tc.want)
+			}
+		})
+	}
+}

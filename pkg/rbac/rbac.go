@@ -29,6 +29,25 @@ func CanAccess(user model.User, resource, verb, cluster, namespace string) bool 
 	return false
 }
 
+// HasResourcePermission reports whether the user holds any role that grants
+// `verb` on `resource` in `cluster`, regardless of namespace. It is used by
+// the RBAC middleware to decide whether a cross-namespace LIST may pass
+// through to the handler — the list handler then filters items by
+// CanAccessNamespace so the user only sees namespaces they may access.
+// Requiring a matching role here prevents zero-permission users from
+// triggering list calls.
+func HasResourcePermission(user model.User, resource, verb, cluster string) bool {
+	roles := GetUserRoles(user)
+	for _, role := range roles {
+		if match(role.Clusters, cluster) &&
+			match(role.Resources, resource) &&
+			match(role.Verbs, verb) {
+			return true
+		}
+	}
+	return false
+}
+
 func CanAccessCluster(user model.User, name string) bool {
 	roles := GetUserRoles(user)
 	for _, role := range roles {

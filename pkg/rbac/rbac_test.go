@@ -275,3 +275,91 @@ func TestCanAccess(t *testing.T) {
 		})
 	}
 }
+
+// TestHasResourcePermission covers the namespace-agnostic gate used by the
+// RBAC middleware to decide whether a cross-namespace LIST may pass through.
+// It must be true when the user holds any role granting the verb on the
+// resource in the cluster (namespace irrelevant), and false otherwise.
+func TestHasResourcePermission(t *testing.T) {
+	// Mirrors the issue #610 scenario: two namespace-scoped roles, each
+	// granting a single namespace. Neither role carries "_all" / "*".
+	facilitiesRole := common.Role{
+		Name: "facilities", Clusters: []string{"*"},
+		Resources: []string{"deployments"}, Namespaces: []string{"charon-facilities-qd"},
+		Verbs: []string{"get"},
+	}
+	sluiceRole := common.Role{
+		Name: "sluice", Clusters: []string{"*"},
+		Resources: []string{"deployments"}, Namespaces: []string{"charon-sluice"},
+		Verbs: []string{"get"},
+	}
+	// A role that grants create/update but not get on deployments.
+	writerRole := common.Role{
+		Name: "writer", Clusters: []string{"*"},
+		Resources: []string{"deployments"}, Namespaces: []string{"team-a"},
+		Verbs: []string{"create", "update"},
+	}
+
+	tests := []struct {
+		name     string
+		roles    []common.Role
+		mappings []common.RoleMapping
+		user     string
+		resource string
+		verb     string
+		cluster  string
+		expected bool
+	}{
+		{
+			name:  "issue #610: multi-namespace user has get permission on deployments",
+			roles: []common.Role{facilitiesRole, sluiceRole},
+			mappings: []common.RoleMapping{
+				{Name: "facilities", Users: []string{"xuke"}},
+				{Name: "sluice", Users: []string{"xuke"}},
+			},
+			user: "xuke", resource: "deployments", verb: "get", cluster: "any-cluster",
+			expected: true,
+		},
+		{
+			name:     "writer without get verb has no get permission",
+			roles:    []common.Role{writerRole},
+			mappings: []common.RoleMapping{{Name: "writer", Users: []string{"dev"}}},
+			user:     "dev", resource: "deployments", verb: "get", cluster: "any-cluster",
+			expected: false,
+		},
+		{
+			name:     "writer has update permission (namespace-agnostic)",
+			roles:    []common.Role{writerRole},
+			mappings: []common.RoleMapping{{Name: "writer", Users: []string{"dev"}}},
+			user:     "dev", resource: "deployments", verb: "update", cluster: "any-cluster",
+			expected: true,
+		},
+		{
+			name:     "wrong resource: no permission",
+			roles:    []common.Role{facilitiesRole},
+			mappings: []common.RoleMapping{{Name: "facilities", Users: []string{"xuke"}}},
+			user:     "xuke", resource: "pods", verb: "get", cluster: "any-cluster",
+			expected: false,
+		},
+		{
+			name:     "no roles at all",
+			roles:    []common.Role{facilitiesRole},
+			mappings: []common.RoleMapping{{Name: "facilities", Users: []string{"xuke"}}},
+			user:     "stranger", resource: "deployments", verb: "get", cluster: "any-cluster",
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			RBACConfig = &common.RolesConfig{
+				Roles:       tc.roles,
+				RoleMapping: tc.mappings,
+			}
+			got := HasResourcePermission(model.User{Username: tc.user}, tc.resource, tc.verb, tc.cluster)
+			if got != tc.expected {
+				t.Errorf("HasResourcePermission = %v, want %v", got, tc.expected)
+			}
+		})
+	}
+}
