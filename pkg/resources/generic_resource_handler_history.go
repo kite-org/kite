@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/model"
+	"gorm.io/gorm"
 	"k8s.io/kubectl/pkg/describe"
 )
 
@@ -35,7 +36,9 @@ func (h *GenericResourceHandler[T, V]) ListHistory(c *gin.Context) {
 	}
 
 	history := []model.ResourceHistory{}
-	if err := model.DB.Preload("Operator").Where("cluster_name = ? AND resource_type = ? AND resource_name = ? AND namespace = ?", cs.Name, h.name, resourceName, namespace).Order("created_at DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&history).Error; err != nil {
+	if err := model.DB.Preload("Operator", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id", "username", "provider")
+	}).Where("cluster_name = ? AND resource_type = ? AND resource_name = ? AND namespace = ?", cs.Name, h.name, resourceName, namespace).Order("created_at DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&history).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

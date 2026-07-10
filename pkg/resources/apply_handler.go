@@ -88,6 +88,14 @@ func (h *ResourceApplyHandler) ApplyResource(c *gin.Context) {
 			return
 		}
 
+		gvk := obj.GroupVersionKind()
+		mapping, err := cs.K8sClient.RESTMapper().RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		historyResourceType := common.HistoryResourceType(mapping.Resource.Resource, mapping.Resource.Group)
+
 		existingObj := &unstructured.Unstructured{}
 		existingObj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
 		existingObj.SetName(obj.GetName())
@@ -141,7 +149,7 @@ func (h *ResourceApplyHandler) ApplyResource(c *gin.Context) {
 		}
 		model.DB.Create(&model.ResourceHistory{
 			ClusterName:   cs.Name,
-			ResourceType:  resource,
+			ResourceType:  historyResourceType,
 			ResourceName:  obj.GetName(),
 			Namespace:     obj.GetNamespace(),
 			OperationType: "apply",

@@ -7,6 +7,7 @@ import (
 
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/common"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -61,7 +62,24 @@ func resolveResourceInfoForObject(ctx context.Context, cs *cluster.ClientSet, ob
 	if info, ok := resolveResourceInfoFromDiscovery(ctx, cs, obj.GetKind(), obj.GetAPIVersion()); ok {
 		return info
 	}
-	return resolveStaticResourceInfo(obj.GetKind())
+	gvk := obj.GroupVersionKind()
+	if cs != nil && cs.K8sClient != nil {
+		if mapping, err := cs.K8sClient.RESTMapper().RESTMapping(gvk.GroupKind(), gvk.Version); err == nil {
+			return resourceInfo{
+				Kind:          gvk.Kind,
+				Resource:      mapping.Resource.Resource,
+				Group:         mapping.Resource.Group,
+				Version:       mapping.Resource.Version,
+				ClusterScoped: mapping.Scope.Name() == meta.RESTScopeNameRoot,
+			}
+		}
+	}
+	info := resolveStaticResourceInfo(obj.GetKind())
+	info.Group = gvk.Group
+	if gvk.Version != "" {
+		info.Version = gvk.Version
+	}
+	return info
 }
 
 func resolveResourceInfoFromDiscovery(ctx context.Context, cs *cluster.ClientSet, kind, apiVersion string) (resourceInfo, bool) {

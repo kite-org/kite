@@ -1,6 +1,10 @@
 package common
 
-import "strings"
+import (
+	"strings"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
 
 // ResourceType is the canonical plural name for a Kubernetes resource,
 // matching the form used in API URLs (e.g. /api/v1/pods).
@@ -241,6 +245,14 @@ func MustLookupResource(alias string) *ResourceMeta {
 		panic("resource metadata not found: " + alias)
 	}
 	return resource
+}
+
+// HistoryResourceType keeps registered resources on their existing key and qualifies custom resources by API group.
+func HistoryResourceType(resource, group string) string {
+	if meta := LookupResource(resource); meta != nil && string(meta.Plural) == resource && meta.Group == group {
+		return resource
+	}
+	return schema.GroupResource{Resource: resource, Group: group}.String()
 }
 
 // SearchAliases builds the alias→plural map used by the search subsystem.
