@@ -26,7 +26,10 @@ import {
 import { getResourceQueryKey } from '@/lib/resource-metadata'
 
 import { API_BASE_URL, apiClient } from '../api-client'
-import { appendCurrentClusterParam } from '../current-cluster'
+import {
+  appendCurrentClusterParam,
+  withCurrentClusterPath,
+} from '../current-cluster'
 import { withSubPath } from '../subpath'
 import { fetchAPI } from './shared'
 
@@ -886,7 +889,7 @@ export const podListFiles = async (
     path,
   })
   return apiClient.get<FileInfo[]>(
-    `/pods/${namespace}/${podName}/files?${params.toString()}`,
+    `${withCurrentClusterPath(`/pods/${namespace}/${podName}/files`)}?${params.toString()}`,
     options
   )
 }
@@ -902,7 +905,7 @@ export const podDownloadFile = (
     path,
   })
   const url = withSubPath(
-    `${API_BASE_URL}/pods/${namespace}/${podName}/files/download?${params.toString()}`
+    `${API_BASE_URL}${withCurrentClusterPath(`/pods/${namespace}/${podName}/files/download`)}?${params.toString()}`
   )
   window.open(url, '_blank')
 }
@@ -918,7 +921,7 @@ export const podPreviewFile = (
     path,
   })
   const url = withSubPath(
-    `${API_BASE_URL}/pods/${namespace}/${podName}/files/preview?${params.toString()}`
+    `${API_BASE_URL}${withCurrentClusterPath(`/pods/${namespace}/${podName}/files/preview`)}?${params.toString()}`
   )
   window.open(url, '_blank')
 }
@@ -938,7 +941,7 @@ export const podUploadFile = async (
   })
 
   await apiClient.put(
-    `/pods/${namespace}/${podName}/files/upload?${params.toString()}`,
+    `${withCurrentClusterPath(`/pods/${namespace}/${podName}/files/upload`)}?${params.toString()}`,
     formData
   )
 }

@@ -6,6 +6,8 @@ import { Link, useSearchParams } from 'react-router-dom'
 
 import type { RelatedResources } from '@/types/api'
 import { useRelatedResources } from '@/lib/api'
+import { API_BASE_URL } from '@/lib/api-client'
+import { withCurrentClusterPath } from '@/lib/current-cluster'
 import {
   getCRDResourcePath,
   getEventTime,
@@ -220,7 +222,7 @@ function PodPortsCard({
             >
               <a
                 href={withSubPath(
-                  `/api/v1/namespaces/${namespace}/pods/${name}:${port.containerPort}/proxy/`
+                  `${API_BASE_URL}${withCurrentClusterPath(`/namespaces/${namespace}/pods/${name}:${port.containerPort}/proxy/`)}`
                 )}
                 target="_blank"
                 rel="noopener noreferrer"

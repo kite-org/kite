@@ -142,8 +142,16 @@ func registerAdminRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, cm *
 func registerProtectedRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, cm *cluster.ClusterManager, helmChartsHandler *helm.HelmChartHandler) {
 	api := r.Group("/api/v1")
 	api.GET("/clusters", authHandler.RequireAuth(), cm.GetClusters)
-	api.Use(authHandler.RequireAuth(), middleware.ClusterMiddleware(cm))
+	defaultAPI := api.Group("")
+	defaultAPI.Use(authHandler.RequireAuth(), middleware.ClusterMiddleware(cm))
+	registerClusterProtectedRoutes(defaultAPI, helmChartsHandler)
 
+	clusterAPI := api.Group("/_clusters/:cluster")
+	clusterAPI.Use(authHandler.RequireAuth(), middleware.ClusterMiddleware(cm))
+	registerClusterProtectedRoutes(clusterAPI, helmChartsHandler)
+}
+
+func registerClusterProtectedRoutes(api *gin.RouterGroup, helmChartsHandler *helm.HelmChartHandler) {
 	api.GET("/overview", system.GetOverview)
 
 	metricsHandler := metrics.NewHandler()

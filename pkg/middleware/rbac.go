@@ -17,7 +17,7 @@ func RBACMiddleware() gin.HandlerFunc {
 		cs := c.MustGet("cluster").(*cluster.ClientSet)
 
 		verbs := method2verb(c.Request.Method)
-		ns, resource := url2namespaceresource(c.Request.URL.Path)
+		ns, resource := url2namespaceresource(c.Request.URL.EscapedPath())
 		if ns == "" || resource == "" {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid resource URL"})
 			return
@@ -64,12 +64,16 @@ func url2namespaceresource(url string) (namespace string, resource string) {
 	}
 	// Split the URL into its components
 	parts := strings.Split(url, "/")
-	if len(parts) < 4 {
+	resourceIndex := 3
+	if len(parts) > resourceIndex && parts[resourceIndex] == "_clusters" {
+		resourceIndex += 2
+	}
+	if len(parts) <= resourceIndex {
 		return
 	}
-	resource = parts[3] // The resource type is always the third part
-	if len(parts) > 4 {
-		namespace = parts[4]
+	resource = parts[resourceIndex]
+	if len(parts) > resourceIndex+1 {
+		namespace = parts[resourceIndex+1]
 	} else {
 		namespace = common.AllNamespaces // All namespaces
 	}

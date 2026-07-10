@@ -32,6 +32,15 @@ export function appendCurrentClusterHeader(headers: Record<string, string>) {
   }
 }
 
+export function withCurrentClusterPath(path: string) {
+  const currentCluster = getCurrentCluster()
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  if (!currentCluster) {
+    return normalizedPath
+  }
+  return `/_clusters/${encodeURIComponent(currentCluster)}${normalizedPath}`
+}
+
 export function getClusterScopedStorageKey(key: string) {
   const currentCluster = getCurrentCluster()
   return `${currentCluster || ''}${key}`

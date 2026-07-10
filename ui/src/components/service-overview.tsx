@@ -12,6 +12,8 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
 import { useRelatedResources } from '@/lib/api'
+import { API_BASE_URL } from '@/lib/api-client'
+import { withCurrentClusterPath } from '@/lib/current-cluster'
 import { getEventTime, getOwnerInfo, getServiceExternalIP } from '@/lib/k8s'
 import { withSubPath } from '@/lib/subpath'
 import { formatDate } from '@/lib/utils'
@@ -329,7 +331,7 @@ function ServicePorts({
         >
           <a
             href={withSubPath(
-              `/api/v1/namespaces/${namespace}/services/${name}:${port.port}/proxy/`
+              `${API_BASE_URL}${withCurrentClusterPath(`/namespaces/${namespace}/services/${name}:${port.port}/proxy/`)}`
             )}
             target="_blank"
             rel="noopener noreferrer"
