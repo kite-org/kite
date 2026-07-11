@@ -402,6 +402,20 @@ func getStorageClassRelatedResources(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+func getPersistentVolumeClaimRelatedResources(pvc *corev1.PersistentVolumeClaim) []common.RelatedResource {
+	result := make([]common.RelatedResource, 0, 2)
+	if pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "" {
+		result = append(result, common.RelatedResource{
+			Type: string(common.StorageClasses),
+			Name: *pvc.Spec.StorageClassName,
+		})
+	}
+	return append(result, common.RelatedResource{
+		Type: string(common.PersistentVolumes),
+		Name: pvc.Spec.VolumeName,
+	})
+}
+
 func GetRelatedResources(c *gin.Context) {
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
 	namespace := c.Param("namespace")
@@ -450,10 +464,8 @@ func GetRelatedResources(c *gin.Context) {
 			return
 		} else {
 			if resourceType == string(common.PersistentVolumeClaims) {
-				result = append(result, common.RelatedResource{
-					Type: string(common.PersistentVolumes),
-					Name: res.(*corev1.PersistentVolumeClaim).Spec.VolumeName,
-				})
+				pvc := res.(*corev1.PersistentVolumeClaim)
+				result = append(result, getPersistentVolumeClaimRelatedResources(pvc)...)
 			}
 			result = append(result, workloads...)
 		}
