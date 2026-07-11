@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -22,8 +23,8 @@ func RBACMiddleware() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid resource URL"})
 			return
 		}
-		if resource == string(common.Namespaces) && verbs == "get" {
-			// if user has roles, allow access to list namespaces resource
+		if resource == string(common.Namespaces) && verbs == "get" && c.Param("name") == "" && rbac.CanAccessCluster(user, cs.Name) {
+			// if user has cluster access, allow access to list namespaces resource
 			// don't worry about security here, we will filter namespaces in the list namespace handler
 			// this is just to allow users to list namespaces they have access to
 			c.Next()
@@ -58,12 +59,12 @@ func method2verb(method string) string {
 // - /api/v1/pvs/_all/some-pv => _all, some-pv
 // - /api/v1/pods/default => default, pods
 // - /api/v1/pods => "", pods
-func url2namespaceresource(url string) (namespace string, resource string) {
+func url2namespaceresource(path string) (namespace string, resource string) {
 	if common.Base != "" {
-		url = strings.TrimPrefix(url, common.Base)
+		path = strings.TrimPrefix(path, common.Base)
 	}
 	// Split the URL into its components
-	parts := strings.Split(url, "/")
+	parts := strings.Split(path, "/")
 	resourceIndex := 3
 	if len(parts) > resourceIndex && parts[resourceIndex] == "_clusters" {
 		resourceIndex += 2
@@ -71,9 +72,15 @@ func url2namespaceresource(url string) (namespace string, resource string) {
 	if len(parts) <= resourceIndex {
 		return
 	}
-	resource = parts[resourceIndex]
+	resource, err := url.PathUnescape(parts[resourceIndex])
+	if err != nil {
+		return "", ""
+	}
 	if len(parts) > resourceIndex+1 {
-		namespace = parts[resourceIndex+1]
+		namespace, err = url.PathUnescape(parts[resourceIndex+1])
+		if err != nil {
+			return "", ""
+		}
 	} else {
 		namespace = common.AllNamespaces // All namespaces
 	}

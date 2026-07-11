@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"net/url"
 
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
@@ -50,6 +51,17 @@ func initializeApp(ctx context.Context) (*cluster.ClusterManager, error) {
 func buildEngine(cm *cluster.ClusterManager) *gin.Engine {
 	r := gin.New()
 	r.UseRawPath = true
+	r.UnescapePathValues = false
+	// Decode raw parameters with path semantics so literal plus signs are preserved.
+	r.Use(func(c *gin.Context) {
+		if c.Request.URL.RawPath != "" {
+			for i := range c.Params {
+				if decoded, err := url.PathUnescape(c.Params[i].Value); err == nil {
+					c.Params[i].Value = decoded
+				}
+			}
+		}
+	})
 	configureTrustedProxies(r)
 	r.Use(middleware.Metrics())
 	if !common.DisableGZIP {
