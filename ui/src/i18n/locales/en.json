@@ -539,6 +539,22 @@
   "services": {
     "title": "Services"
   },
+  "storageClasses": {
+    "fields": {
+      "provisioner": "Provisioner",
+      "volumeBindingMode": "Volume Binding Mode",
+      "allowVolumeExpansion": "Allow Volume Expansion",
+      "default": "Default"
+    },
+    "actions": {
+      "setDefault": "Set as Default",
+      "settingDefault": "Setting..."
+    },
+    "messages": {
+      "clearDefaultsFailed": "Some previous default StorageClasses could not be cleared. Choose the desired default again to retry.",
+      "setDefaultSuccess": "{{name}} is now the default StorageClass"
+    }
+  },
   "nodes": {
     "title": "Nodes"
   },

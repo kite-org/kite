@@ -41,6 +41,7 @@ import { ServiceDetail } from './service-detail'
 import { ServiceListPage } from './service-list-page'
 import { StatefulSetDetail } from './statefulset-detail'
 import { StatefulSetListPage } from './statefulset-list-page'
+import { StorageClassListPage } from './storageclass-list-page'
 
 export type ResourceScope = 'cluster' | 'namespace'
 
@@ -151,6 +152,10 @@ function getResourceViews(resourceType: ResourceType): ResourceViewDefinition {
     case 'persistentvolumeclaims':
       return {
         listPage: () => <PVCListPage />,
+      }
+    case 'storageclasses':
+      return {
+        listPage: () => <StorageClassListPage />,
       }
     case 'horizontalpodautoscalers':
       return {
