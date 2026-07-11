@@ -10,6 +10,8 @@ import (
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/kube"
+	"github.com/zxh326/kite/pkg/model"
+	"github.com/zxh326/kite/pkg/rbac"
 	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
@@ -366,6 +368,38 @@ func appendMatchingPodDisruptionBudget(relatedPDBs []common.RelatedResource, nam
 
 func isEmptyLabelSelector(selector *metav1.LabelSelector) bool {
 	return len(selector.MatchLabels) == 0 && len(selector.MatchExpressions) == 0
+}
+
+func getStorageClassRelatedResources(c *gin.Context) {
+	cs := c.MustGet("cluster").(*cluster.ClientSet)
+	name := c.Param("name")
+	if _, err := GetResource(c, string(common.StorageClasses), common.AllNamespaces, name); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get resource: " + err.Error()})
+		return
+	}
+
+	var pvcList corev1.PersistentVolumeClaimList
+	if err := cs.K8sClient.List(c.Request.Context(), &pvcList); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to discover PVCs: " + err.Error()})
+		return
+	}
+
+	user := c.MustGet("user").(model.User)
+	result := make([]common.RelatedResource, 0)
+	for _, pvc := range pvcList.Items {
+		if pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName != name {
+			continue
+		}
+		if !rbac.CanAccess(user, string(common.PersistentVolumeClaims), string(common.VerbGet), cs.Name, pvc.Namespace) {
+			continue
+		}
+		result = append(result, common.RelatedResource{
+			Type:      string(common.PersistentVolumeClaims),
+			Name:      pvc.Name,
+			Namespace: pvc.Namespace,
+		})
+	}
+	c.JSON(http.StatusOK, result)
 }
 
 func GetRelatedResources(c *gin.Context) {

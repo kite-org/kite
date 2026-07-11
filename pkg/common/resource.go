@@ -142,7 +142,7 @@ var Registry = []ResourceMeta{
 	{Kind: "ServiceCIDR", Singular: "servicecidr", Plural: ServiceCIDRs, Group: "networking.k8s.io", Version: "v1", ClusterScoped: true},
 
 	// storage.k8s.io/v1
-	{Kind: "StorageClass", Singular: "storageclass", Plural: StorageClasses, Short: []string{"sc"}, Group: "storage.k8s.io", Version: "v1", ClusterScoped: true},
+	{Kind: "StorageClass", Singular: "storageclass", Plural: StorageClasses, Short: []string{"sc"}, Group: "storage.k8s.io", Version: "v1", ClusterScoped: true, Related: true},
 	{Kind: "VolumeAttachment", Singular: "volumeattachment", Plural: VolumeAttachments, Group: "storage.k8s.io", Version: "v1", ClusterScoped: true},
 	{Kind: "CSIDriver", Singular: "csidriver", Plural: CSIDrivers, Group: "storage.k8s.io", Version: "v1", ClusterScoped: true},
 	{Kind: "CSINode", Singular: "csinode", Plural: CSINodes, Group: "storage.k8s.io", Version: "v1", ClusterScoped: true},

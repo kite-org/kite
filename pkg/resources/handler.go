@@ -208,14 +208,24 @@ func RegisterRoutes(group *gin.RouterGroup) {
 	}
 
 	for _, resourceType := range common.RelatedResourceTypes() {
-		if handler, exists := handlers[resourceType]; exists && !handler.IsClusterScoped() {
-			g := group.Group("/" + resourceType)
-			g.GET("/:namespace/:name/related", func(c *gin.Context) {
-				// Set the resource type in the context for GetRelatedResources
-				c.Set("resource", resourceType)
-				GetRelatedResources(c)
-			})
+		handler, exists := handlers[resourceType]
+		if !exists {
+			continue
 		}
+		path := "/:namespace/:name/related"
+		if handler.IsClusterScoped() {
+			path = "/_all/:name/related"
+		}
+		relatedHandler := GetRelatedResources
+		if resourceType == string(common.StorageClasses) {
+			relatedHandler = getStorageClassRelatedResources
+		}
+		g := group.Group("/" + resourceType)
+		g.GET(path, func(c *gin.Context) {
+			// Set the resource type in the context for related resource handlers
+			c.Set("resource", resourceType)
+			relatedHandler(c)
+		})
 	}
 
 	crHandler := NewCRHandler()
