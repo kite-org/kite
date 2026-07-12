@@ -23,12 +23,19 @@ func RBACMiddleware() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid resource URL"})
 			return
 		}
-		if resource == string(common.Namespaces) && verbs == "get" && c.Param("name") == "" && rbac.CanAccessCluster(user, cs.Name) {
-			// if user has cluster access, allow access to list namespaces resource
-			// don't worry about security here, we will filter namespaces in the list namespace handler
-			// this is just to allow users to list namespaces they have access to
-			c.Next()
-			return
+		if resource == string(common.Namespaces) && verbs == "get" {
+			name := c.Param("name")
+			if name == "" && rbac.CanAccessCluster(user, cs.Name) {
+				// if user has cluster access, allow access to list namespaces resource
+				// don't worry about security here, we will filter namespaces in the list namespace handler
+				// this is just to allow users to list namespaces they have access to
+				c.Next()
+				return
+			}
+			if name != "" && rbac.CanAccessNamespace(user, cs.Name, name) {
+				c.Next()
+				return
+			}
 		}
 
 		canAccess := rbac.CanAccess(user, resource, verbs, cs.Name, ns)

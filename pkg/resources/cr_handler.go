@@ -9,6 +9,8 @@ import (
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/kube"
+	"github.com/zxh326/kite/pkg/model"
+	"github.com/zxh326/kite/pkg/rbac"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -57,6 +59,18 @@ func (h *CRHandler) getGVRFromCRD(crd *apiextensionsv1.CustomResourceDefinition)
 	}
 }
 
+func validateCRNamespace(c *gin.Context, crd *apiextensionsv1.CustomResourceDefinition) bool {
+	if crd.Spec.Scope != apiextensionsv1.ClusterScoped {
+		return true
+	}
+	namespace := c.Param("namespace")
+	if namespace == "" || namespace == common.AllNamespaces {
+		return true
+	}
+	c.JSON(http.StatusBadRequest, gin.H{"error": "cluster-scoped custom resources must use _all as namespace"})
+	return false
+}
+
 func (h *CRHandler) List(c *gin.Context) {
 	crdName := c.Param("crd")
 	if crdName == "" {
@@ -77,6 +91,9 @@ func (h *CRHandler) List(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if !validateCRNamespace(c, crd) {
+		return
+	}
 
 	// Create GVR from CRD
 	gvr := h.getGVRFromCRD(crd)
@@ -91,10 +108,12 @@ func (h *CRHandler) List(c *gin.Context) {
 
 	opts := &client.ListOptions{}
 
+	namespace := c.Param("namespace")
+	allNamespaces := namespace == "" || namespace == common.AllNamespaces
+
 	// Handle namespace parameter for namespaced resources
 	if crd.Spec.Scope == apiextensionsv1.NamespaceScoped {
-		namespace := c.Param("namespace")
-		if namespace != "" && namespace != common.AllNamespaces {
+		if !allNamespaces {
 			opts.Namespace = namespace
 		}
 	}
@@ -102,6 +121,17 @@ func (h *CRHandler) List(c *gin.Context) {
 	if err := cs.K8sClient.List(ctx, crList, opts); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	if crd.Spec.Scope == apiextensionsv1.NamespaceScoped && allNamespaces {
+		user := c.MustGet("user").(model.User)
+		items := crList.Items[:0]
+		for i := range crList.Items {
+			if rbac.CanAccess(user, crdName, string(common.VerbGet), cs.Name, crList.Items[i].GetNamespace()) {
+				items = append(items, crList.Items[i])
+			}
+		}
+		crList.Items = items
 	}
 
 	c.JSON(http.StatusOK, crList)
@@ -127,6 +157,9 @@ func (h *CRHandler) Get(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if !validateCRNamespace(c, crd) {
 		return
 	}
 
@@ -196,6 +229,9 @@ func (h *CRHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if !validateCRNamespace(c, crd) {
+		return
+	}
 
 	// Create GVR from CRD
 	gvr := h.getGVRFromCRD(crd)
@@ -256,6 +292,9 @@ func (h *CRHandler) Update(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if !validateCRNamespace(c, crd) {
 		return
 	}
 
@@ -339,6 +378,9 @@ func (h *CRHandler) Delete(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if !validateCRNamespace(c, crd) {
 		return
 	}
 
@@ -429,6 +471,9 @@ func (h *CRHandler) Describe(c *gin.Context) {
 	crd, err := h.getCRDByName(ctx, cs.K8sClient, crdName)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if !validateCRNamespace(c, crd) {
 		return
 	}
 

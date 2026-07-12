@@ -435,7 +435,7 @@ func (h *HelmReleaseHandler) list(c *gin.Context, namespace string, details bool
 
 	items := make([]helmutil.HelmRelease, 0, len(releases))
 	for _, rel := range releases {
-		if allNamespaces && !rbac.CanAccessNamespace(user, cs.Name, rel.Namespace) {
+		if allNamespaces && !rbac.CanAccess(user, string(common.HelmReleases), string(common.VerbGet), cs.Name, rel.Namespace) {
 			continue
 		}
 		items = append(items, helmutil.ToHelmRelease(rel, details))

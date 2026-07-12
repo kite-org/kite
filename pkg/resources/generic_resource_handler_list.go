@@ -29,8 +29,9 @@ func (h *GenericResourceHandler[T, V]) list(c *gin.Context) (V, error) {
 
 	var listOpts []client.ListOption
 	namespace := c.Param("namespace")
+	allNamespaces := namespace == "" || namespace == common.AllNamespaces
 	if !h.isClusterScoped {
-		if namespace != "" && namespace != common.AllNamespaces {
+		if !allNamespaces {
 			listOpts = append(listOpts, client.InNamespace(namespace))
 		}
 	}
@@ -119,7 +120,8 @@ func (h *GenericResourceHandler[T, V]) list(c *gin.Context) (V, error) {
 		if h.Name() == string(common.Namespaces) && !rbac.CanAccessNamespace(user, cs.Name, obj.GetName()) {
 			continue
 		}
-		if namespace == common.AllNamespaces && obj.GetNamespace() != "" && !rbac.CanAccessNamespace(user, cs.Name, obj.GetNamespace()) {
+		if allNamespaces && obj.GetNamespace() != "" &&
+			!rbac.CanAccess(user, h.Name(), string(common.VerbGet), cs.Name, obj.GetNamespace()) {
 			continue
 		}
 		filterItems = append(filterItems, items[i])
@@ -180,7 +182,8 @@ func (h *GenericResourceHandler[T, V]) Search(c *gin.Context, q string, limit in
 		if h.Name() == string(common.Namespaces) && !rbac.CanAccessNamespace(user, cs.Name, obj.GetName()) {
 			continue
 		}
-		if obj.GetNamespace() != "" && !rbac.CanAccessNamespace(user, cs.Name, obj.GetNamespace()) {
+		if obj.GetNamespace() != "" &&
+			!rbac.CanAccess(user, h.Name(), string(common.VerbGet), cs.Name, obj.GetNamespace()) {
 			continue
 		}
 		result := common.SearchResult{

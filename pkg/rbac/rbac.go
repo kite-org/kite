@@ -59,13 +59,13 @@ func GetUserRoles(user model.User) []common.Role {
 	defer rwlock.RUnlock()
 	for _, mapping := range RBACConfig.RoleMapping {
 		if contains(mapping.Users, "*") || contains(mapping.Users, user.Key()) {
-			if r := findRole(mapping.Name); r != nil {
+			if r := findRoleLocked(mapping.Name); r != nil {
 				rolesMap[r.Name] = *r
 			}
 		}
 		for _, group := range user.OIDCGroups {
 			if contains(mapping.OIDCGroups, group) {
-				if r := findRole(mapping.Name); r != nil {
+				if r := findRoleLocked(mapping.Name); r != nil {
 					rolesMap[r.Name] = *r
 				}
 			}
@@ -78,9 +78,7 @@ func GetUserRoles(user model.User) []common.Role {
 	return roles
 }
 
-func findRole(name string) *common.Role {
-	rwlock.RLock()
-	defer rwlock.RUnlock()
+func findRoleLocked(name string) *common.Role {
 	for _, r := range RBACConfig.Roles {
 		if r.Name == name {
 			return &r
@@ -90,26 +88,32 @@ func findRole(name string) *common.Role {
 }
 
 func match(list []string, val string) bool {
-	for _, v := range list {
-		if len(v) > 1 && strings.HasPrefix(v, "!") {
-			if v[1:] == val {
-				return false
-			}
+	for _, pattern := range list {
+		if len(pattern) > 1 && strings.HasPrefix(pattern, "!") && matchPattern(pattern[1:], val) {
+			return false
 		}
-		if v == "*" || v == val {
-			return true
-		}
-
-		re, err := regexp.Compile("^(?:" + v + ")$")
-		if err != nil {
-			klog.Error(err)
+	}
+	for _, pattern := range list {
+		if strings.HasPrefix(pattern, "!") {
 			continue
 		}
-		if re.MatchString(val) {
+		if matchPattern(pattern, val) {
 			return true
 		}
 	}
 	return false
+}
+
+func matchPattern(pattern, val string) bool {
+	if pattern == "*" || pattern == val {
+		return true
+	}
+	re, err := regexp.Compile("^(?:" + pattern + ")$")
+	if err != nil {
+		klog.Error(err)
+		return false
+	}
+	return re.MatchString(val)
 }
 
 func contains(list []string, val string) bool {
