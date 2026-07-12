@@ -39,12 +39,13 @@ func GetRelease(cfg *action.Configuration, name string) (*release.Release, error
 	return ReleaseFromReleaser(releaser)
 }
 
-func ListReleases(cfg *action.Configuration, allNamespaces bool) ([]*release.Release, error) {
+func ListReleases(cfg *action.Configuration, allNamespaces bool, labelSelector string) ([]*release.Release, error) {
 	listAction := action.NewList(cfg)
 	listAction.All = true
 	listAction.AllNamespaces = allNamespaces
 	listAction.StateMask = action.ListAll
 	listAction.Sort = action.ByDateDesc
+	listAction.Selector = labelSelector
 	releasers, err := listAction.Run()
 	if err != nil {
 		return nil, err

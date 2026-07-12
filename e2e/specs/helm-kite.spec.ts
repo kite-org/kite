@@ -404,7 +404,7 @@ test.describe('helm kite lifecycle', () => {
       await expectAppliedPodLabel(page, releaseName, 'upgraded')
 
       await deleteReleaseFromCurrentPage(page, releaseName)
-      await page.getByPlaceholder('Search Helm Release...').fill(releaseName)
+      await page.getByPlaceholder(/^Search Helm Release/).fill(releaseName)
       await expect(page.getByRole('link', { name: releaseName })).toHaveCount(0)
       releaseDeleted = true
 

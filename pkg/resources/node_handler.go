@@ -13,6 +13,7 @@ import (
 	"github.com/zxh326/kite/pkg/kube"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/drain"
@@ -277,8 +278,17 @@ func (h *NodeHandler) List(c *gin.Context) {
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
 	var nodeMetrics metricsv1.NodeMetricsList
 
+	var listOpts []client.ListOption
+	if labelSelector := c.Query("labelSelector"); labelSelector != "" {
+		selector, err := labels.Parse(labelSelector)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid labelSelector parameter: " + err.Error()})
+			return
+		}
+		listOpts = append(listOpts, client.MatchingLabelsSelector{Selector: selector})
+	}
 	var nodes corev1.NodeList
-	if err := cs.K8sClient.List(c.Request.Context(), &nodes); err != nil {
+	if err := cs.K8sClient.List(c.Request.Context(), &nodes, listOpts...); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list nodes: " + err.Error()})
 		return
 	}

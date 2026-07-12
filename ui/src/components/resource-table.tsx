@@ -98,12 +98,13 @@ function ResourceTableContent<T>({
     defaultHiddenColumns,
   })
 
-  // When the query looks like a label selector (contains '='), route it to the
-  // backend API instead of the client-side name filter.
-  const isLabelSelector = searchQuery.includes('=')
-  const effectiveLabelSelector = debouncedSearchQuery.includes('=')
-    ? debouncedSearchQuery
-    : undefined
+  // When the query looks like a label selector, route it to the backend API
+  // instead of the client-side name filter.
+  const isLabelSelector = searchQuery.includes('=') || searchQuery.includes(':')
+  const effectiveLabelSelector =
+    debouncedSearchQuery.includes('=') || debouncedSearchQuery.includes(':')
+      ? debouncedSearchQuery.replace(/:\s*/g, '=')
+      : undefined
   const selectedNamespaces = useMemo(() => {
     if (!selectedNamespace || selectedNamespace === '_all') return []
     return selectedNamespace.split(',').filter(Boolean)
@@ -238,10 +239,10 @@ function ResourceTableContent<T>({
   )
 
   useEffect(() => {
-    if (!useSSE && error) {
+    if (!useSSE && error && !effectiveLabelSelector) {
       setRefreshInterval(0)
     }
-  }, [useSSE, error, setRefreshInterval])
+  }, [useSSE, error, effectiveLabelSelector, setRefreshInterval])
 
   // Create table instance using TanStack Table
   const table = useReactTable<T>({

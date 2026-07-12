@@ -20,6 +20,7 @@ import (
 	"helm.sh/helm/v4/pkg/action"
 	release "helm.sh/helm/v4/pkg/release/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2"
 )
 
@@ -186,6 +187,11 @@ func (h *HelmReleaseHandler) registerCustomRoutes(group *gin.RouterGroup) {
 }
 
 func (h *HelmReleaseHandler) List(c *gin.Context) {
+	labelSelector := c.Query("labelSelector")
+	if _, err := labels.Parse(labelSelector); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid labelSelector parameter: " + err.Error()})
+		return
+	}
 	list, err := h.list(c, c.Param("namespace"), false)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -428,7 +434,7 @@ func (h *HelmReleaseHandler) list(c *gin.Context, namespace string, details bool
 	if err != nil {
 		return nil, err
 	}
-	releases, err := helmutil.ListReleases(cfg, allNamespaces)
+	releases, err := helmutil.ListReleases(cfg, allNamespaces, c.Query("labelSelector"))
 	if err != nil {
 		return nil, err
 	}
