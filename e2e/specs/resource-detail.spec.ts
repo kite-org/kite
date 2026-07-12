@@ -10,7 +10,7 @@ test.describe('resource detail navigation', () => {
   }) => {
     await page.goto('/services')
 
-    await page.getByPlaceholder('Search services...').fill('kubernetes')
+    await page.getByPlaceholder(/^Search services/i).fill('kubernetes')
     const serviceLink = page.getByRole('link', { name: 'kubernetes' })
     await expect(serviceLink).toBeVisible()
     await serviceLink.click()
@@ -30,7 +30,7 @@ test.describe('resource detail navigation', () => {
     await page.goto('/nodes')
 
     await page
-      .getByPlaceholder('Search nodes...')
+      .getByPlaceholder(/^Search nodes/i)
       .fill(controlPlaneNodeName)
     const nodeLink = page.getByRole('link', { name: controlPlaneNodeName })
     await expect(nodeLink).toBeVisible()
@@ -87,7 +87,7 @@ spec:
     await expect(createDialog).toBeHidden()
 
     await page.goto('/pods')
-    await page.getByPlaceholder('Search pods...').fill(podName)
+    await page.getByPlaceholder(/^Search pods/i).fill(podName)
 
     const row = page.getByRole('row').filter({ hasText: podName })
     await expect(row).toBeVisible()
