@@ -1,6 +1,10 @@
 package common
 
-import "strings"
+import (
+	"strings"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
 
 // ResourceType is the canonical plural name for a Kubernetes resource,
 // matching the form used in API URLs (e.g. /api/v1/pods).
@@ -138,7 +142,7 @@ var Registry = []ResourceMeta{
 	{Kind: "ServiceCIDR", Singular: "servicecidr", Plural: ServiceCIDRs, Group: "networking.k8s.io", Version: "v1", ClusterScoped: true},
 
 	// storage.k8s.io/v1
-	{Kind: "StorageClass", Singular: "storageclass", Plural: StorageClasses, Short: []string{"sc"}, Group: "storage.k8s.io", Version: "v1", ClusterScoped: true},
+	{Kind: "StorageClass", Singular: "storageclass", Plural: StorageClasses, Short: []string{"sc"}, Group: "storage.k8s.io", Version: "v1", ClusterScoped: true, Related: true},
 	{Kind: "VolumeAttachment", Singular: "volumeattachment", Plural: VolumeAttachments, Group: "storage.k8s.io", Version: "v1", ClusterScoped: true},
 	{Kind: "CSIDriver", Singular: "csidriver", Plural: CSIDrivers, Group: "storage.k8s.io", Version: "v1", ClusterScoped: true},
 	{Kind: "CSINode", Singular: "csinode", Plural: CSINodes, Group: "storage.k8s.io", Version: "v1", ClusterScoped: true},
@@ -241,6 +245,14 @@ func MustLookupResource(alias string) *ResourceMeta {
 		panic("resource metadata not found: " + alias)
 	}
 	return resource
+}
+
+// HistoryResourceType keeps registered resources on their existing key and qualifies custom resources by API group.
+func HistoryResourceType(resource, group string) string {
+	if meta := LookupResource(resource); meta != nil && string(meta.Plural) == resource && meta.Group == group {
+		return resource
+	}
+	return schema.GroupResource{Resource: resource, Group: group}.String()
 }
 
 // SearchAliases builds the alias→plural map used by the search subsystem.

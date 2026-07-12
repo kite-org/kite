@@ -21,7 +21,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-func recordResourceHistory(cs *cluster.ClientSet, user pkgmodel.User, kind, name, namespace, opType, resourceYAML, previousYAML string, success bool, err error) {
+func recordResourceHistory(cs *cluster.ClientSet, user pkgmodel.User, resource resourceInfo, name, namespace, opType, resourceYAML, previousYAML string, success bool, err error) {
 	errMsg := ""
 	if err != nil {
 		errMsg = err.Error()
@@ -29,7 +29,7 @@ func recordResourceHistory(cs *cluster.ClientSet, user pkgmodel.User, kind, name
 
 	history := pkgmodel.ResourceHistory{
 		ClusterName:     cs.Name,
-		ResourceType:    kind,
+		ResourceType:    common.HistoryResourceType(resource.Resource, resource.Group),
 		ResourceName:    name,
 		Namespace:       namespace,
 		OperationType:   opType,
@@ -575,7 +575,7 @@ func executeCreateResource(ctx context.Context, cs *cluster.ClientSet, user pkgm
 	resource := resolveResourceInfoForObject(ctx, cs, obj)
 	err = cs.K8sClient.Create(ctx, obj)
 
-	recordResourceHistory(cs, user, resource.Resource, obj.GetName(), obj.GetNamespace(), "create", yamlStr, "", err == nil, err)
+	recordResourceHistory(cs, user, resource, obj.GetName(), obj.GetNamespace(), "create", yamlStr, "", err == nil, err)
 
 	if err != nil {
 		return fmt.Sprintf("Error creating %s/%s: %v", obj.GetKind(), obj.GetName(), err), true
@@ -607,7 +607,7 @@ func executeUpdateResource(ctx context.Context, cs *cluster.ClientSet, user pkgm
 
 	err = cs.K8sClient.Update(ctx, obj)
 
-	recordResourceHistory(cs, user, resource.Resource, obj.GetName(), obj.GetNamespace(), "update", yamlStr, previousYAML, err == nil, err)
+	recordResourceHistory(cs, user, resource, obj.GetName(), obj.GetNamespace(), "update", yamlStr, previousYAML, err == nil, err)
 
 	if err != nil {
 		return fmt.Sprintf("Error updating %s/%s: %v", obj.GetKind(), obj.GetName(), err), true
@@ -659,7 +659,7 @@ func executePatchResource(ctx context.Context, cs *cluster.ClientSet, user pkgmo
 		currentYAML = objectToYAML(obj)
 	}
 
-	recordResourceHistory(cs, user, resource.Resource, name, normalizeNamespace(resource, namespace), "patch", currentYAML, previousYAML, err == nil, err)
+	recordResourceHistory(cs, user, resource, name, normalizeNamespace(resource, namespace), "patch", currentYAML, previousYAML, err == nil, err)
 
 	if err != nil {
 		return fmt.Sprintf("Error patching %s/%s: %v", resource.Kind, name, err), true
@@ -700,7 +700,7 @@ func executeDeleteResource(ctx context.Context, cs *cluster.ClientSet, user pkgm
 	previousYAML = objectToYAML(obj)
 	err = cs.K8sClient.Delete(ctx, obj)
 
-	recordResourceHistory(cs, user, resource.Resource, name, normalizeNamespace(resource, namespace), "delete", "", previousYAML, err == nil || apierrors.IsNotFound(err), err)
+	recordResourceHistory(cs, user, resource, name, normalizeNamespace(resource, namespace), "delete", "", previousYAML, err == nil || apierrors.IsNotFound(err), err)
 
 	if err != nil {
 		if apierrors.IsNotFound(err) {

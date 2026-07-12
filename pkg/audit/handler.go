@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/model"
+	"gorm.io/gorm"
 )
 
 func ListAuditLogs(c *gin.Context) {
@@ -78,7 +79,9 @@ func ListAuditLogs(c *gin.Context) {
 	}
 
 	history := []model.ResourceHistory{}
-	if err := query.Preload("Operator").Order("created_at DESC").Offset((page - 1) * size).Limit(size).Find(&history).Error; err != nil {
+	if err := query.Preload("Operator", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id", "username", "provider")
+	}).Order("created_at DESC").Offset((page - 1) * size).Limit(size).Find(&history).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

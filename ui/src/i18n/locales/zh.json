@@ -544,6 +544,22 @@
   "services": {
     "title": "Services"
   },
+  "storageClasses": {
+    "fields": {
+      "provisioner": "供应类型（Provisioner）",
+      "volumeBindingMode": "卷绑定模式",
+      "allowVolumeExpansion": "允许扩容",
+      "default": "默认"
+    },
+    "actions": {
+      "setDefault": "设为默认",
+      "settingDefault": "设置中..."
+    },
+    "messages": {
+      "clearDefaultsFailed": "部分旧的默认 StorageClass 未能取消，请再次选择目标默认项重试。",
+      "setDefaultSuccess": "已将 {{name}} 设为默认 StorageClass"
+    }
+  },
   "nodes": {
     "title": "Nodes"
   },
