@@ -23,6 +23,8 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar'
 
+import { PluginSidebarItems } from '@/plugins' // kite-fork: plugin registry
+
 import { ClusterSelector } from './cluster-selector'
 import { Collapsible, CollapsibleTrigger } from './ui/collapsible'
 import { VersionInfo } from './version-info'
@@ -159,6 +161,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
+
+        <PluginSidebarItems onItemClick={handleMenuItemClick} />
 
         {pinnedItems.length > 0 && (
           <SidebarGroup>

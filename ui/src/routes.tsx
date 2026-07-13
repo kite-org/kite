@@ -4,6 +4,7 @@ import App, { StandaloneAIChatApp } from './App'
 import { InitCheckRoute } from './components/init-check-route'
 import { ProtectedRoute } from './components/protected-route'
 import { getSubPath } from './lib/subpath'
+import { pluginRoutes } from './plugins' // kite-fork: plugin registry
 import { CRListPage } from './pages/cr-list-page'
 import { HelmChartDetailPage } from './pages/helm-chart-detail-page'
 import { HelmChartListPage } from './pages/helm-chart-list-page'
@@ -58,6 +59,7 @@ export const router = createBrowserRouter(
           path: 'dashboard',
           element: <Overview />,
         },
+        ...pluginRoutes, // kite-fork: plugin registry (must precede :resource)
         {
           path: 'settings',
           element: <SettingsPage />,

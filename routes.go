@@ -15,6 +15,7 @@ import (
 	"github.com/zxh326/kite/pkg/images"
 	"github.com/zxh326/kite/pkg/metrics"
 	"github.com/zxh326/kite/pkg/middleware"
+	pluginsall "github.com/zxh326/kite/pkg/plugins/all" // kite-fork: plugin registry
 	"github.com/zxh326/kite/pkg/proxy"
 	"github.com/zxh326/kite/pkg/rbac"
 	"github.com/zxh326/kite/pkg/resources"
@@ -187,6 +188,8 @@ func registerClusterProtectedRoutes(api *gin.RouterGroup, helmChartsHandler *hel
 	api.POST("/ai/chat", ai.HandleChat)
 	api.POST("/ai/execute/continue", ai.HandleExecuteContinue)
 	api.POST("/ai/input/continue", ai.HandleInputContinue)
+
+	pluginsall.RegisterRoutes(api) // kite-fork: plugin registry (handlers enforce rbac themselves)
 
 	api.Use(middleware.RBACMiddleware())
 	resources.RegisterRoutes(api)
