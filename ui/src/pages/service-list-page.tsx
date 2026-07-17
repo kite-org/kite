@@ -42,7 +42,8 @@ export function ServiceListPage() {
           </div>
         ),
       }),
-      columnHelper.accessor('spec.type', {
+      columnHelper.accessor((row) => row.spec?.type || 'ClusterIP', {
+        id: 'spec_type',
         header: t('common.fields.type'),
         enableColumnFilter: true,
         cell: ({ getValue }) => {
@@ -61,10 +62,11 @@ export function ServiceListPage() {
           )
         },
       }),
-      columnHelper.accessor('status.loadBalancer.ingress', {
+      columnHelper.accessor((row) => getServiceExternalIP(row), {
+        id: 'status_loadBalancer_ingress',
         header: t('common.fields.externalIP'),
-        cell: ({ row }) => {
-          const val = getServiceExternalIP(row.original)
+        cell: ({ getValue }) => {
+          const val = getValue()
           return (
             <span className="font-mono text-sm text-muted-foreground">
               {val}
@@ -72,27 +74,31 @@ export function ServiceListPage() {
           )
         },
       }),
-      columnHelper.accessor('spec.ports', {
-        header: t('common.fields.ports'),
-        cell: ({ getValue }) => {
-          const ports = getValue() || []
-          if (ports.length === 0) return '-'
-          const text = ports
-            .map((port) => {
-              const protocol = port.protocol || 'TCP'
-              if (port.nodePort) {
-                return `${port.port}:${port.nodePort}/${protocol}`
-              }
-              return `${port.port}/${protocol}`
-            })
-            .join(', ')
-          return (
-            <span className="font-mono text-sm text-muted-foreground">
-              {text}
-            </span>
-          )
-        },
-      }),
+      columnHelper.accessor(
+        (row) => getServicePortSearchValues(row).join(', '),
+        {
+          id: 'spec_ports',
+          header: t('common.fields.ports'),
+          cell: ({ row }) => {
+            const ports = row.original.spec?.ports || []
+            if (ports.length === 0) return '-'
+            const text = ports
+              .map((port) => {
+                const protocol = port.protocol || 'TCP'
+                if (port.nodePort) {
+                  return `${port.port}:${port.nodePort}/${protocol}`
+                }
+                return `${port.port}/${protocol}`
+              })
+              .join(', ')
+            return (
+              <span className="font-mono text-sm text-muted-foreground">
+                {text}
+              </span>
+            )
+          },
+        }
+      ),
       columnHelper.accessor('metadata.creationTimestamp', {
         header: t('common.fields.created'),
         cell: ({ getValue }) => {

@@ -5,6 +5,11 @@ import { Link } from 'react-router-dom'
 
 import { createSearchFilter } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { ResourceTable } from '@/components/resource-table'
 
 const configMapSearchFilter = createSearchFilter<ConfigMap>(
@@ -34,21 +39,27 @@ export function ConfigMapListPage() {
           </div>
         ),
       }),
-      columnHelper.accessor('data', {
+      columnHelper.accessor((row) => Object.keys(row.data || {}).join(', '), {
+        id: 'data',
         header: 'Data Keys',
-        cell: ({ getValue }) => {
-          const data = getValue() || {}
+        cell: ({ row }) => {
+          const data = row.original.data || {}
           const keys = Object.keys(data)
           if (keys.length === 0) {
             return '-'
           }
-          // Limit to first 5 keys for display
-          return keys.length > 5 ? (
-            <span className="text-muted-foreground">
-              {keys.slice(0, 5).join(', ')}...
-            </span>
-          ) : (
-            <span className="text-muted-foreground">{keys.join(', ')}</span>
+          const keyList = keys.join(', ')
+          return (
+            <Tooltip>
+              <TooltipTrigger>
+                <span className="line-clamp-2 max-w-64 break-all text-left text-muted-foreground">
+                  {keyList}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-sm break-all">{keyList}</p>
+              </TooltipContent>
+            </Tooltip>
           )
         },
       }),

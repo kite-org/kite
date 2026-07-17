@@ -38,34 +38,38 @@ export function CRDListPage() {
           <span className="text-sm font-mono">{getValue()}</span>
         ),
       }),
-      columnHelper.accessor('spec.versions', {
-        header: 'Versions',
-        cell: ({ getValue }) => {
-          const versions = getValue() || []
-          return (
-            <div className="flex flex-wrap gap-1">
-              {versions.map(
-                (
-                  version: {
-                    name: string
-                    served?: boolean
-                    storage?: boolean
-                  },
-                  index: number
-                ) => (
-                  <Badge
-                    key={index}
-                    variant={version.served ? 'default' : 'secondary'}
-                    className="text-xs font-mono"
-                  >
-                    {version.name}
-                  </Badge>
-                )
-              )}
-            </div>
-          )
-        },
-      }),
+      columnHelper.accessor(
+        (row) => row.spec?.versions?.map((version) => version.name).join(', '),
+        {
+          id: 'spec_versions',
+          header: 'Versions',
+          cell: ({ row }) => {
+            const versions = row.original.spec?.versions || []
+            return (
+              <div className="flex flex-wrap gap-1">
+                {versions.map(
+                  (
+                    version: {
+                      name: string
+                      served?: boolean
+                      storage?: boolean
+                    },
+                    index: number
+                  ) => (
+                    <Badge
+                      key={index}
+                      variant={version.served ? 'default' : 'secondary'}
+                      className="text-xs font-mono"
+                    >
+                      {version.name}
+                    </Badge>
+                  )
+                )}
+              </div>
+            )
+          },
+        }
+      ),
       columnHelper.accessor('spec.scope', {
         header: 'Scope',
         cell: ({ getValue }) => (
@@ -77,25 +81,33 @@ export function CRDListPage() {
           </Badge>
         ),
       }),
-      columnHelper.accessor('status.conditions', {
-        header: 'Status',
-        cell: ({ getValue }) => {
-          const conditions = getValue() || []
-          const establishedCondition = conditions.find(
-            (c: { type: string; status: string }) => c.type === 'Established'
+      columnHelper.accessor(
+        (row) => {
+          const establishedCondition = row.status?.conditions?.find(
+            (condition) => condition.type === 'Established'
           )
-          const isEstablished = establishedCondition?.status === 'True'
-
-          return (
-            <Badge
-              variant={isEstablished ? 'default' : 'destructive'}
-              className="text-xs"
-            >
-              {isEstablished ? 'Established' : 'Not Ready'}
-            </Badge>
-          )
+          return establishedCondition?.status === 'True'
+            ? 'Established'
+            : 'Not Ready'
         },
-      }),
+        {
+          id: 'status_conditions',
+          header: 'Status',
+          cell: ({ getValue }) => {
+            const status = getValue()
+            const isEstablished = status === 'Established'
+
+            return (
+              <Badge
+                variant={isEstablished ? 'default' : 'destructive'}
+                className="text-xs"
+              >
+                {status}
+              </Badge>
+            )
+          },
+        }
+      ),
       columnHelper.accessor('metadata.creationTimestamp', {
         header: 'Age',
         cell: ({ getValue }) => {

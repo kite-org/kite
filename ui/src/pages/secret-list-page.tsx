@@ -35,17 +35,19 @@ export function SecretListPage() {
           </div>
         ),
       }),
-      columnHelper.accessor('type', {
+      columnHelper.accessor((row) => row.type || 'Opaque', {
+        id: 'type',
         header: 'Type',
         cell: ({ getValue }) => {
           const type = getValue() || 'Opaque'
           return <Badge variant="outline">{type}</Badge>
         },
       }),
-      columnHelper.accessor('data', {
+      columnHelper.accessor((row) => Object.keys(row.data || {}).join(', '), {
+        id: 'data',
         header: 'Data Keys',
-        cell: ({ getValue }) => {
-          const data = getValue() || {}
+        cell: ({ row }) => {
+          const data = row.original.data || {}
           const keys = Object.keys(data)
           if (keys.length === 0) {
             return '-'

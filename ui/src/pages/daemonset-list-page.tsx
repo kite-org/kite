@@ -49,42 +49,52 @@ export function DaemonSetListPage() {
         header: t('common.fields.ready'),
         cell: ({ getValue }) => getValue() || 0,
       }),
-      columnHelper.accessor('status.numberAvailable', {
+      columnHelper.accessor((row) => row.status?.numberAvailable || 0, {
+        id: 'status_numberAvailable',
         header: t('common.fields.available'),
         cell: ({ getValue }) => getValue() || 0,
       }),
-      columnHelper.accessor('status.conditions', {
-        header: t('common.fields.status'),
-        cell: ({ row }) => {
-          const readyReplicas = row.original.status?.numberReady || 0
-          const replicas = row.original.status?.desiredNumberScheduled || 0
-          const isAvailable = readyReplicas === replicas
-          const status = isAvailable
+      columnHelper.accessor(
+        (row) => {
+          const readyReplicas = row.status?.numberReady || 0
+          const replicas = row.status?.desiredNumberScheduled || 0
+          if (replicas === 0) return 'Pending'
+          return readyReplicas === replicas
             ? t('common.fields.available')
             : t('common.messages.loading')
-          if (replicas === 0) {
+        },
+        {
+          id: 'status_conditions',
+          header: t('common.fields.status'),
+          cell: ({ row, getValue }) => {
+            const readyReplicas = row.original.status?.numberReady || 0
+            const replicas = row.original.status?.desiredNumberScheduled || 0
+            const isAvailable = readyReplicas === replicas
+            const status = getValue()
+            if (replicas === 0) {
+              return (
+                <Badge
+                  variant="secondary"
+                  className="text-muted-foreground px-1.5"
+                >
+                  Pending
+                </Badge>
+              )
+            }
+
             return (
-              <Badge
-                variant="secondary"
-                className="text-muted-foreground px-1.5"
-              >
-                Pending
+              <Badge variant="outline" className="text-muted-foreground px-1.5">
+                {isAvailable ? (
+                  <IconCircleCheckFilled className="fill-green-500 dark:fill-green-400" />
+                ) : (
+                  <IconLoader className="animate-spin" />
+                )}
+                {status}
               </Badge>
             )
-          }
-
-          return (
-            <Badge variant="outline" className="text-muted-foreground px-1.5">
-              {isAvailable ? (
-                <IconCircleCheckFilled className="fill-green-500 dark:fill-green-400" />
-              ) : (
-                <IconLoader className="animate-spin" />
-              )}
-              {status}
-            </Badge>
-          )
-        },
-      }),
+          },
+        }
+      ),
       columnHelper.accessor('metadata.creationTimestamp', {
         header: t('common.fields.created'),
         cell: ({ getValue }) => {

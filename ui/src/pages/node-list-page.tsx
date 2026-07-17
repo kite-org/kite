@@ -152,11 +152,11 @@ export function NodeListPage() {
           )
         },
       }),
-      columnHelper.accessor((row) => getNodeRoles(row), {
+      columnHelper.accessor((row) => getNodeRoles(row).join(', '), {
         id: 'roles',
         header: 'Roles',
-        cell: ({ getValue }) => {
-          const roles = getValue()
+        cell: ({ row }) => {
+          const roles = getNodeRoles(row.original)
           return (
             <div>
               {roles.map((role) => (
@@ -172,7 +172,7 @@ export function NodeListPage() {
           )
         },
       }),
-      columnHelper.accessor((row) => row.metrics, {
+      columnHelper.accessor((row) => row.metrics?.pods || 0, {
         id: 'pods',
         header: 'Pods',
         cell: ({ row }) => (

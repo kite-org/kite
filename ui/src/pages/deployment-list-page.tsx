@@ -54,10 +54,11 @@ export function DeploymentListPage() {
           )
         },
       }),
-      columnHelper.accessor('status.conditions', {
+      columnHelper.accessor((row) => getDeploymentStatus(row), {
+        id: 'status_conditions',
         header: t('common.fields.status'),
-        cell: ({ row }) => {
-          const status = getDeploymentStatus(row.original)
+        cell: ({ getValue }) => {
+          const status = getValue()
           return (
             <Badge variant="outline" className="text-muted-foreground px-1.5">
               <DeploymentStatusIcon status={status} />

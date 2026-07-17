@@ -104,15 +104,18 @@ export function StorageClassListPage() {
         header: t('storageClasses.fields.provisioner'),
         enableColumnFilter: true,
       }),
-      columnHelper.accessor('reclaimPolicy', {
+      columnHelper.accessor((row) => row.reclaimPolicy || 'Delete', {
+        id: 'reclaimPolicy',
         header: t('common.fields.reclaimPolicy'),
         cell: ({ getValue }) => getValue() || 'Delete',
       }),
-      columnHelper.accessor('volumeBindingMode', {
+      columnHelper.accessor((row) => row.volumeBindingMode || 'Immediate', {
+        id: 'volumeBindingMode',
         header: t('storageClasses.fields.volumeBindingMode'),
         cell: ({ getValue }) => getValue() || 'Immediate',
       }),
-      columnHelper.accessor('allowVolumeExpansion', {
+      columnHelper.accessor((row) => row.allowVolumeExpansion ?? false, {
+        id: 'allowVolumeExpansion',
         header: t('storageClasses.fields.allowVolumeExpansion'),
         cell: ({ getValue }) =>
           getValue() === true ? t('common.values.yes') : t('common.values.no'),

@@ -80,12 +80,10 @@ export function PVListPage() {
           cell: ({ row }) => row.original.spec?.capacity?.storage || '-',
         }
       ),
-      columnHelper.accessor('spec.accessModes', {
+      columnHelper.accessor((row) => row.spec?.accessModes?.join(', ') || '', {
+        id: 'spec_accessModes',
         header: t('common.fields.accessModes'),
-        cell: ({ getValue }) => {
-          const modes = getValue() || []
-          return modes.join(', ') || '-'
-        },
+        cell: ({ getValue }) => getValue() || '-',
       }),
       columnHelper.accessor('spec.persistentVolumeReclaimPolicy', {
         header: t('common.fields.reclaimPolicy'),
@@ -94,24 +92,33 @@ export function PVListPage() {
           return policy || '-'
         },
       }),
-      columnHelper.accessor('spec.claimRef', {
-        header: t('common.fields.claim'),
-        cell: ({ getValue }) => {
-          const claimRef = getValue()
-          if (claimRef && claimRef.name && claimRef.namespace) {
-            return (
-              <div className="font-medium app-link">
-                <Link
-                  to={`/persistentvolumeclaims/${claimRef.namespace}/${claimRef.name}`}
-                >
-                  {claimRef.namespace}/{claimRef.name}
-                </Link>
-              </div>
-            )
-          }
-          return '-'
+      columnHelper.accessor(
+        (row) => {
+          const claimRef = row.spec?.claimRef
+          return claimRef?.name && claimRef.namespace
+            ? `${claimRef.namespace}/${claimRef.name}`
+            : ''
         },
-      }),
+        {
+          id: 'spec_claimRef',
+          header: t('common.fields.claim'),
+          cell: ({ row }) => {
+            const claimRef = row.original.spec?.claimRef
+            if (claimRef && claimRef.name && claimRef.namespace) {
+              return (
+                <div className="font-medium app-link">
+                  <Link
+                    to={`/persistentvolumeclaims/${claimRef.namespace}/${claimRef.name}`}
+                  >
+                    {claimRef.namespace}/{claimRef.name}
+                  </Link>
+                </div>
+              )
+            }
+            return '-'
+          },
+        }
+      ),
       columnHelper.accessor('metadata.creationTimestamp', {
         header: t('common.fields.created'),
         cell: ({ getValue }) => {

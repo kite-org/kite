@@ -91,7 +91,7 @@ export function EventListPage() {
           </div>
         ),
       }),
-      columnHelper.accessor((row) => row.count, {
+      columnHelper.accessor((row) => row.count ?? 1, {
         id: 'count',
         header: t('common.fields.count'),
         cell: ({ getValue }) => {

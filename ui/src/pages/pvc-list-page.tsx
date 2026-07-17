@@ -99,12 +99,10 @@ export function PVCListPage() {
             row.original.spec?.resources?.requests?.storage || '-',
         }
       ),
-      columnHelper.accessor('spec.accessModes', {
+      columnHelper.accessor((row) => row.spec?.accessModes?.join(', ') || '', {
+        id: 'spec_accessModes',
         header: t('common.fields.accessModes'),
-        cell: ({ getValue }) => {
-          const modes = getValue() || []
-          return modes.join(', ') || '-'
-        },
+        cell: ({ getValue }) => getValue() || '-',
       }),
       columnHelper.accessor('metadata.creationTimestamp', {
         header: t('common.fields.created'),

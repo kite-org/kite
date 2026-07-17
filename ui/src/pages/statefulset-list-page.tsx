@@ -52,38 +52,47 @@ export function StatefulSetListPage() {
           )
         },
       }),
-      columnHelper.accessor('status.conditions', {
-        header: t('common.fields.status'),
-        cell: ({ row }) => {
-          const readyReplicas = row.original.status?.readyReplicas || 0
-          const replicas = row.original.status?.replicas || 0
-          const isAvailable = readyReplicas === replicas
-          const status = isAvailable
+      columnHelper.accessor(
+        (row) => {
+          const readyReplicas = row.status?.readyReplicas || 0
+          const replicas = row.status?.replicas || 0
+          if (replicas === 0) return '-'
+          return readyReplicas === replicas
             ? t('common.fields.available')
             : t('common.messages.loading')
-          if (replicas === 0) {
+        },
+        {
+          id: 'status_conditions',
+          header: t('common.fields.status'),
+          cell: ({ row, getValue }) => {
+            const readyReplicas = row.original.status?.readyReplicas || 0
+            const replicas = row.original.status?.replicas || 0
+            const isAvailable = readyReplicas === replicas
+            const status = getValue()
+            if (replicas === 0) {
+              return (
+                <Badge
+                  variant="secondary"
+                  className="text-muted-foreground px-1.5"
+                >
+                  -
+                </Badge>
+              )
+            }
+
             return (
-              <Badge
-                variant="secondary"
-                className="text-muted-foreground px-1.5"
-              >
-                -
+              <Badge variant="outline" className="text-muted-foreground px-1.5">
+                {isAvailable ? (
+                  <IconCircleCheckFilled className="fill-green-500 dark:fill-green-400" />
+                ) : (
+                  <IconLoader className="animate-spin" />
+                )}
+                {status}
               </Badge>
             )
-          }
-
-          return (
-            <Badge variant="outline" className="text-muted-foreground px-1.5">
-              {isAvailable ? (
-                <IconCircleCheckFilled className="fill-green-500 dark:fill-green-400" />
-              ) : (
-                <IconLoader className="animate-spin" />
-              )}
-              {status}
-            </Badge>
-          )
-        },
-      }),
+          },
+        }
+      ),
       columnHelper.accessor('spec.serviceName', {
         header: t('common.fields.serviceName'),
         cell: ({ getValue }) => getValue() || '-',

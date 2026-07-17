@@ -45,7 +45,7 @@ export function PodListPage() {
           </div>
         ),
       }),
-      columnHelper.accessor((row) => row.status?.containerStatuses, {
+      columnHelper.accessor((row) => getPodStatus(row).readyContainers, {
         id: 'containers',
         header: t('common.fields.ready'),
         cell: ({ row }) => {
@@ -70,7 +70,7 @@ export function PodListPage() {
           )
         },
       }),
-      columnHelper.accessor((row) => row.status, {
+      columnHelper.accessor((row) => getPodStatus(row).restarts, {
         id: 'restarts',
         header: t('common.fields.restarts'),
         cell: ({ row }) => {

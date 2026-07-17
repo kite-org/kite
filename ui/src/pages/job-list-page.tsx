@@ -33,30 +33,44 @@ export function JobListPage() {
           </div>
         ),
       }),
-      columnHelper.accessor('status.conditions', {
-        header: 'Status',
-        cell: ({ row }) => {
-          const conditions = row.original.status?.conditions || []
-          const completedCondition = conditions.find(
-            (c) => c.type === 'Complete'
-          )
-          const failedCondition = conditions.find((c) => c.type === 'Failed')
-
-          let status = 'Running'
-          let variant: 'default' | 'destructive' | 'secondary' = 'secondary'
-
-          if (completedCondition?.status === 'True') {
-            status = 'Complete'
-            variant = 'default'
-          } else if (failedCondition?.status === 'True') {
-            status = 'Failed'
-            variant = 'destructive'
+      columnHelper.accessor(
+        (row) => {
+          const conditions = row.status?.conditions || []
+          if (
+            conditions.some(
+              (condition) =>
+                condition.type === 'Complete' && condition.status === 'True'
+            )
+          ) {
+            return 'Complete'
           }
-
-          return <Badge variant={variant}>{status}</Badge>
+          if (
+            conditions.some(
+              (condition) =>
+                condition.type === 'Failed' && condition.status === 'True'
+            )
+          ) {
+            return 'Failed'
+          }
+          return 'Running'
         },
-      }),
-      columnHelper.accessor((row) => row.status, {
+        {
+          id: 'status_conditions',
+          header: 'Status',
+          cell: ({ getValue }) => {
+            const status = getValue()
+            const variant =
+              status === 'Complete'
+                ? 'default'
+                : status === 'Failed'
+                  ? 'destructive'
+                  : 'secondary'
+
+            return <Badge variant={variant}>{status}</Badge>
+          },
+        }
+      ),
+      columnHelper.accessor((row) => row.status?.succeeded || 0, {
         id: 'completions',
         header: 'Completions',
         cell: ({ row }) => {

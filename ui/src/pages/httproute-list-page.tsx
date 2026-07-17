@@ -26,9 +26,10 @@ export function HTTPRouteListPage() {
           </div>
         ),
       }),
-      columnHelper.accessor('spec.hostnames', {
+      columnHelper.accessor((row) => row.spec?.hostnames?.join(', ') || '', {
+        id: 'spec_hostnames',
         header: 'Hostnames',
-        cell: ({ row }) => row.original.spec?.hostnames?.join(', ') || 'N/A',
+        cell: ({ getValue }) => getValue() || 'N/A',
       }),
       columnHelper.accessor('metadata.creationTimestamp', {
         header: 'Created',
