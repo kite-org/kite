@@ -182,12 +182,10 @@ function getResourceViews(resourceType: ResourceType): ResourceViewDefinition {
 }
 
 export const resourceDefinitions: readonly ResourceDefinition[] =
-  resourceCatalog.map(
-    (entry): ResourceDefinition => ({
-      ...entry,
-      ...getResourceViews(entry.type),
-    })
-  )
+  resourceCatalog.map((entry): ResourceDefinition => ({
+    ...entry,
+    ...getResourceViews(entry.type),
+  }))
 
 export function getResourceDefinition(resourceType: string) {
   return resourceDefinitions.find(

@@ -197,6 +197,10 @@ func newSearchContextWithRequest(t *testing.T) *gin.Context {
 }
 
 func performGlobalSearch(t *testing.T, handler *SearchHandler, clusterName, target string) SearchResponse {
+	return performGlobalSearchForUser(t, handler, clusterName, target, model.AnonymousUser)
+}
+
+func performGlobalSearchForUser(t *testing.T, handler *SearchHandler, clusterName, target string, user model.User) SearchResponse {
 	t.Helper()
 
 	rec := httptest.NewRecorder()
@@ -205,7 +209,7 @@ func performGlobalSearch(t *testing.T, handler *SearchHandler, clusterName, targ
 	if clusterName != "" {
 		ctx.Set(middleware.ClusterNameKey, clusterName)
 	}
-	ctx.Set("user", model.AnonymousUser)
+	ctx.Set("user", user)
 
 	handler.GlobalSearch(ctx)
 
@@ -218,6 +222,61 @@ func performGlobalSearch(t *testing.T, handler *SearchHandler, clusterName, targ
 		t.Fatalf("failed to decode response: %v", err)
 	}
 	return resp
+}
+
+func TestGlobalSearchCacheRechecksRBAC(t *testing.T) {
+	var calls atomic.Int32
+	handler := NewSearchHandler(map[string]resources.SearchFunc{
+		string(common.Nodes): func(_ *gin.Context, _ string, _ int64) ([]common.SearchResult, error) {
+			calls.Add(1)
+			return []common.SearchResult{{Name: "worker-node", ResourceType: string(common.Nodes)}}, nil
+		},
+	})
+	allowedUser := model.User{Username: "alice", Roles: []common.Role{{
+		Name:       "node-reader",
+		Clusters:   []string{"cluster-a"},
+		Namespaces: []string{common.AllNamespaces},
+		Resources:  []string{string(common.Nodes)},
+		Verbs:      []string{string(common.VerbGet)},
+	}}}
+	response := performGlobalSearchForUser(t, handler, "cluster-a", "/search?q=worker&limit=50", allowedUser)
+	if response.Total != 1 {
+		t.Fatalf("initial search returned %#v, want one node", response.Results)
+	}
+
+	revokedUser := model.User{Username: "alice", Roles: []common.Role{{
+		Name:       "pod-reader",
+		Clusters:   []string{"cluster-a"},
+		Namespaces: []string{"default"},
+		Resources:  []string{string(common.Pods)},
+		Verbs:      []string{string(common.VerbGet)},
+	}}}
+	response = performGlobalSearchForUser(t, handler, "cluster-a", "/search?q=worker&limit=50", revokedUser)
+	if response.Total != 0 {
+		t.Fatalf("cached search after role revocation returned %#v", response.Results)
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("search function called %d times, want cache hit", calls.Load())
+	}
+}
+
+func TestGlobalSearchFiltersUnauthorizedResults(t *testing.T) {
+	handler := NewSearchHandler(map[string]resources.SearchFunc{
+		string(common.Nodes): func(_ *gin.Context, _ string, _ int64) ([]common.SearchResult, error) {
+			return []common.SearchResult{{Name: "worker-node", ResourceType: string(common.Nodes)}}, nil
+		},
+	})
+	user := model.User{Username: "alice", Roles: []common.Role{{
+		Name:       "pod-reader",
+		Clusters:   []string{"cluster-a"},
+		Namespaces: []string{"default"},
+		Resources:  []string{string(common.Pods)},
+		Verbs:      []string{string(common.VerbGet)},
+	}}}
+	response := performGlobalSearchForUser(t, handler, "cluster-a", "/search?q=worker&limit=50", user)
+	if response.Total != 0 {
+		t.Fatalf("unauthorized search returned %#v", response.Results)
+	}
 }
 
 // TestSearchParallelExecution verifies that multiple resource searches run concurrently.

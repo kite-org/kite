@@ -1,11 +1,6 @@
 // Log theme definitions
 export type LogTheme =
-  | 'classic'
-  | 'matrix'
-  | 'cyberpunk'
-  | 'solarized'
-  | 'monokai'
-  | 'github'
+  'classic' | 'matrix' | 'cyberpunk' | 'solarized' | 'monokai' | 'github'
 
 export const LOG_THEMES: Record<
   LogTheme,
@@ -70,12 +65,7 @@ export const LOG_THEMES: Record<
 
 // Terminal theme definitions
 export type TerminalTheme =
-  | 'classic'
-  | 'matrix'
-  | 'cyberpunk'
-  | 'solarized'
-  | 'monokai'
-  | 'github'
+  'classic' | 'matrix' | 'cyberpunk' | 'solarized' | 'monokai' | 'github'
 
 export const TERMINAL_THEMES: Record<
   TerminalTheme,

@@ -146,6 +146,14 @@ func (h *CRHandler) List(c *gin.Context) {
 	if !validateCRNamespace(c, crd) {
 		return
 	}
+	namespace := c.Param("namespace")
+	allNamespaces := namespace == "" || namespace == common.AllNamespaces
+	user := c.MustGet("user").(model.User)
+	if crd.Spec.Scope == apiextensionsv1.ClusterScoped && allNamespaces &&
+		!rbac.CanAccess(user, crdName, string(common.VerbGet), cs.Name, common.AllNamespaces) {
+		c.JSON(http.StatusForbidden, gin.H{"error": rbac.NoAccess(user.Key(), string(common.VerbGet), crdName, common.AllNamespaces, cs.Name)})
+		return
+	}
 
 	// Create GVR from CRD
 	gvr := h.getGVRFromCRD(crd)
@@ -159,9 +167,6 @@ func (h *CRHandler) List(c *gin.Context) {
 	})
 
 	opts := &client.ListOptions{}
-
-	namespace := c.Param("namespace")
-	allNamespaces := namespace == "" || namespace == common.AllNamespaces
 
 	// Handle namespace parameter for namespaced resources
 	if crd.Spec.Scope == apiextensionsv1.NamespaceScoped {
@@ -184,7 +189,6 @@ func (h *CRHandler) List(c *gin.Context) {
 	}
 
 	if crd.Spec.Scope == apiextensionsv1.NamespaceScoped && allNamespaces {
-		user := c.MustGet("user").(model.User)
 		items := crList.Items[:0]
 		for i := range crList.Items {
 			if rbac.CanAccess(user, crdName, string(common.VerbGet), cs.Name, crList.Items[i].GetNamespace()) {

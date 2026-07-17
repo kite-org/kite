@@ -787,7 +787,7 @@ func TestCRRBACAllNamespaces(t *testing.T) {
 			},
 		})
 
-		response := performCRAPIRequest(t, fixture, http.MethodGet, "/api/v1/widgets.example.com/_all", "", nil)
+		response := performCRAPIRequest(t, fixture, http.MethodGet, "/api/v1/_clusters/cluster-a/widgets.example.com/_all", "", nil)
 		if response.Code != http.StatusOK {
 			t.Fatalf("all namespace list returned %d, want %d; body=%s", response.Code, http.StatusOK, response.Body.String())
 		}
@@ -816,7 +816,7 @@ func TestCRRBACAllNamespaces(t *testing.T) {
 			},
 		})
 
-		response := performCRAPIRequest(t, fixture, http.MethodGet, "/api/v1/widgets.example.com/_all", "", nil)
+		response := performCRAPIRequest(t, fixture, http.MethodGet, "/api/v1/_clusters/cluster-a/widgets.example.com/_all", "", nil)
 		if response.Code != http.StatusOK {
 			t.Fatalf("all namespace list returned %d, want %d; body=%s", response.Code, http.StatusOK, response.Body.String())
 		}
@@ -829,14 +829,50 @@ func TestCRRBACAllNamespaces(t *testing.T) {
 	for _, path := range []string{
 		"/api/v1/widgets.example.com",
 		"/api/v1/widgets.example.com/_all",
+		"/api/v1/_clusters/cluster-a/widgets.example.com",
+		"/api/v1/_clusters/cluster-a/widgets.example.com/_all",
 	} {
-		t.Run("exact namespace cannot enter "+path, func(t *testing.T) {
+		t.Run("exact namespace only sees authorized objects "+path, func(t *testing.T) {
 			fixture := newCRAPITestFixture(t, crAPITestConfig{
 				user: newWidgetUser(
 					[]string{"cluster-a"},
 					[]string{"default"},
 					[]string{string(common.VerbGet)},
 				),
+				clusterAObjects: []client.Object{
+					newWidgetCRD(apiextensionsv1.NamespaceScoped),
+					newWidget("allowed", "default", nil),
+					newWidget("denied", "team-a", nil),
+				},
+			})
+			response := performCRAPIRequest(t, fixture, http.MethodGet, path, "", nil)
+			if response.Code != http.StatusOK {
+				t.Fatalf("GET %s returned %d, want %d; body=%s", path, response.Code, http.StatusOK, response.Body.String())
+			}
+			list := decodeCRAPIResponse[unstructured.UnstructuredList](t, response)
+			if len(list.Items) != 1 || list.Items[0].GetNamespace() != "default" || list.Items[0].GetName() != "allowed" {
+				t.Fatalf("GET %s returned %#v, want default/allowed", path, list.Items)
+			}
+		})
+	}
+
+	for _, path := range []string{
+		"/api/v1/widgets.example.com",
+		"/api/v1/widgets.example.com/_all",
+		"/api/v1/_clusters/cluster-a/widgets.example.com",
+		"/api/v1/_clusters/cluster-a/widgets.example.com/_all",
+	} {
+		t.Run("cluster scoped resource requires all namespace permission "+path, func(t *testing.T) {
+			fixture := newCRAPITestFixture(t, crAPITestConfig{
+				user: newWidgetUser(
+					[]string{"cluster-a"},
+					[]string{"default"},
+					[]string{string(common.VerbGet)},
+				),
+				clusterAObjects: []client.Object{
+					newWidgetCRD(apiextensionsv1.ClusterScoped),
+					newWidget("global", "", nil),
+				},
 			})
 			response := performCRAPIRequest(t, fixture, http.MethodGet, path, "", nil)
 			if response.Code != http.StatusForbidden {

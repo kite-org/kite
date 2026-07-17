@@ -119,6 +119,9 @@ func (h *SearchHandler) Search(c *gin.Context, query string, limit int) ([]commo
 	for _, slice := range resultSlices {
 		allResults = append(allResults, slice...)
 	}
+	user := c.MustGet("user").(model.User)
+	clusterName := getSearchClusterName(c)
+	allResults = filterSearchResultsByAccess(user, clusterName, allResults)
 
 	queryLower := strings.ToLower(q)
 	sortResults(allResults, queryLower)
@@ -131,8 +134,7 @@ func (h *SearchHandler) Search(c *gin.Context, query string, limit int) ([]commo
 	// Only cache results when no failure (panic or error) occurred — avoids
 	// caching incomplete results that would be served as valid 200 OK for the TTL.
 	if !hadFailure.Load() {
-		user := c.MustGet("user").(model.User)
-		h.cache.Add(h.createCacheKey(getSearchClusterName(c), user.Key(), query, limit), allResults)
+		h.cache.Add(h.createCacheKey(clusterName, user.Key(), query, limit), allResults)
 	}
 	klog.V(4).Infof("search: query=%q resources=%d results=%d cacheable=%t elapsed=%s", query, len(entries), len(allResults), !hadFailure.Load(), time.Since(start))
 	return allResults, nil
@@ -164,6 +166,7 @@ func (h *SearchHandler) GlobalSearch(c *gin.Context) {
 	cacheKey := h.createCacheKey(clusterName, user.Key(), query, limit)
 
 	if cachedResults, found := h.cache.Get(cacheKey); found {
+		cachedResults = filterSearchResultsByAccess(user, clusterName, cachedResults)
 		klog.V(4).Infof("search: query=%q cache=exact results=%d", query, len(cachedResults))
 		response := SearchResponse{
 			Results: cachedResults,
@@ -174,6 +177,7 @@ func (h *SearchHandler) GlobalSearch(c *gin.Context) {
 	}
 
 	if cachedResults, found := h.searchCachedPrefix(clusterName, user.Key(), query, limit); found {
+		cachedResults = filterSearchResultsByAccess(user, clusterName, cachedResults)
 		klog.V(4).Infof("search: query=%q cache=prefix results=%d", query, len(cachedResults))
 		h.cache.Add(cacheKey, cachedResults)
 		response := SearchResponse{
@@ -196,6 +200,27 @@ func (h *SearchHandler) GlobalSearch(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func filterSearchResultsByAccess(user model.User, clusterName string, results []common.SearchResult) []common.SearchResult {
+	filtered := make([]common.SearchResult, 0, len(results))
+	for _, result := range results {
+		if result.ResourceType == string(common.Namespaces) {
+			if !rbac.CanAccessNamespace(user, clusterName, result.Name) {
+				continue
+			}
+		} else {
+			namespace := result.Namespace
+			if namespace == "" {
+				namespace = common.AllNamespaces
+			}
+			if !rbac.CanAccess(user, result.ResourceType, string(common.VerbGet), clusterName, namespace) {
+				continue
+			}
+		}
+		filtered = append(filtered, result)
+	}
+	return filtered
 }
 
 func (h *SearchHandler) searchCachedPrefix(clusterName, userKey, query string, limit int) ([]common.SearchResult, bool) {

@@ -31,11 +31,7 @@ import {
 
 type TranslationFn = ReturnType<typeof useTranslation>['t']
 type DaemonSetStatus =
-  | 'Available'
-  | 'Progressing'
-  | 'Pending'
-  | 'Terminating'
-  | 'Unknown'
+  'Available' | 'Progressing' | 'Pending' | 'Terminating' | 'Unknown'
 
 export function DaemonSetOverview({
   daemonset,

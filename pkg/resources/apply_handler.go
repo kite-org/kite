@@ -13,6 +13,7 @@ import (
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/rbac"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	serializeryaml "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -76,25 +77,28 @@ func (h *ResourceApplyHandler) ApplyResource(c *gin.Context) {
 			return
 		}
 
-		resource := strings.ToLower(obj.GetKind()) + "s"
-		canCreate := rbac.CanAccess(user, resource, string(common.VerbCreate), cs.Name, obj.GetNamespace())
-		canUpdate := false
-		if !canCreate {
-			canUpdate = rbac.CanAccess(user, resource, string(common.VerbUpdate), cs.Name, obj.GetNamespace())
-		}
-		if !canCreate && !canUpdate {
-			c.JSON(http.StatusForbidden, gin.H{
-				"error": rbac.NoAccess(user.Key(), string(common.VerbCreate), resource, obj.GetNamespace(), cs.Name)})
-			return
-		}
-
 		gvk := obj.GroupVersionKind()
 		mapping, err := cs.K8sClient.RESTMapper().RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		historyResourceType := common.HistoryResourceType(mapping.Resource.Resource, mapping.Resource.Group)
+		authorizationNamespace := obj.GetNamespace()
+		if mapping.Scope.Name() == meta.RESTScopeNameRoot {
+			authorizationNamespace = common.AllNamespaces
+			obj.SetNamespace("")
+		}
+		resource := common.HistoryResourceType(mapping.Resource.Resource, mapping.Resource.Group)
+		canCreate := rbac.CanAccess(user, resource, string(common.VerbCreate), cs.Name, authorizationNamespace)
+		canUpdate := false
+		if !canCreate {
+			canUpdate = rbac.CanAccess(user, resource, string(common.VerbUpdate), cs.Name, authorizationNamespace)
+		}
+		if !canCreate && !canUpdate {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": rbac.NoAccess(user.Key(), string(common.VerbCreate), resource, authorizationNamespace, cs.Name)})
+			return
+		}
 
 		existingObj := &unstructured.Unstructured{}
 		existingObj.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
@@ -112,7 +116,7 @@ func (h *ResourceApplyHandler) ApplyResource(c *gin.Context) {
 			operation = "create"
 			if !canCreate {
 				c.JSON(http.StatusForbidden, gin.H{
-					"error": rbac.NoAccess(user.Key(), string(common.VerbCreate), resource, obj.GetNamespace(), cs.Name)})
+					"error": rbac.NoAccess(user.Key(), string(common.VerbCreate), resource, authorizationNamespace, cs.Name)})
 				return
 			}
 			err = cs.K8sClient.Create(ctx, obj)
@@ -122,11 +126,11 @@ func (h *ResourceApplyHandler) ApplyResource(c *gin.Context) {
 		case err == nil:
 			operation = "update"
 			if !canUpdate {
-				canUpdate = rbac.CanAccess(user, resource, string(common.VerbUpdate), cs.Name, obj.GetNamespace())
+				canUpdate = rbac.CanAccess(user, resource, string(common.VerbUpdate), cs.Name, authorizationNamespace)
 			}
 			if !canUpdate {
 				c.JSON(http.StatusForbidden, gin.H{
-					"error": rbac.NoAccess(user.Key(), string(common.VerbUpdate), resource, obj.GetNamespace(), cs.Name)})
+					"error": rbac.NoAccess(user.Key(), string(common.VerbUpdate), resource, authorizationNamespace, cs.Name)})
 				return
 			}
 			obj.SetResourceVersion(existingObj.GetResourceVersion())
@@ -149,7 +153,7 @@ func (h *ResourceApplyHandler) ApplyResource(c *gin.Context) {
 		}
 		model.DB.Create(&model.ResourceHistory{
 			ClusterName:   cs.Name,
-			ResourceType:  historyResourceType,
+			ResourceType:  resource,
 			ResourceName:  obj.GetName(),
 			Namespace:     obj.GetNamespace(),
 			OperationType: "apply",

@@ -416,7 +416,7 @@ func getPersistentVolumeClaimRelatedResources(pvc *corev1.PersistentVolumeClaim)
 	})
 }
 
-func GetRelatedResources(c *gin.Context) {
+func GetRelatedResources(c *gin.Context) { //nolint:gocyclo // resource-specific discovery is intentionally centralized
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
 	namespace := c.Param("namespace")
 	name := c.Param("name")
@@ -527,9 +527,10 @@ func GetRelatedResources(c *gin.Context) {
 				if len(rs.OwnerReferences) > 0 {
 					for _, rsOwner := range rs.OwnerReferences {
 						result = append(result, common.RelatedResource{
-							Type:      strings.ToLower(rsOwner.Kind) + "s",
-							Name:      rsOwner.Name,
-							Namespace: v.GetNamespace(),
+							Type:       strings.ToLower(rsOwner.Kind) + "s",
+							Name:       rsOwner.Name,
+							Namespace:  v.GetNamespace(),
+							APIVersion: rsOwner.APIVersion,
 						})
 					}
 				}
@@ -543,7 +544,23 @@ func GetRelatedResources(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, result)
+	user := c.MustGet("user").(model.User)
+	filtered := result[:0]
+	for _, related := range result {
+		namespace := related.Namespace
+		if namespace == "" {
+			namespace = common.AllNamespaces
+		}
+		group := ""
+		if separator := strings.IndexByte(related.APIVersion, '/'); separator >= 0 {
+			group = related.APIVersion[:separator]
+		}
+		resourceType := common.HistoryResourceType(related.Type, group)
+		if rbac.CanAccess(user, resourceType, string(common.VerbGet), cs.Name, namespace) {
+			filtered = append(filtered, related)
+		}
+	}
+	c.JSON(http.StatusOK, filtered)
 }
 
 func getHTTPRouteRelatedResouces(res *gatewayapiv1.HTTPRoute, namespace string) []common.RelatedResource {
@@ -556,28 +573,28 @@ func getHTTPRouteRelatedResouces(res *gatewayapiv1.HTTPRoute, namespace string) 
 			parentResourceType = string(common.Gateways)
 		}
 		result = append(result, common.RelatedResource{
-			Type: parentResourceType,
-			Name: string(parentRef.Name),
+			Type:       parentResourceType,
+			Name:       string(parentRef.Name),
+			APIVersion: gatewayReferenceAPIVersion(parentRef.Group, gatewayapiv1.GroupVersion.String()),
 			Namespace: func() string {
 				if parentRef.Namespace != nil && *parentRef.Namespace != "" {
 					return string(*parentRef.Namespace)
 				}
 				return namespace
 			}(),
-			APIVersion: gatewayapiv1.GroupVersion.String(),
 		})
 	}
 
 	for _, rule := range res.Spec.Rules {
 		for _, backend := range rule.BackendRefs {
-			var backendType, apiVersion string
+			var backendType, defaultAPIVersion string
 			if backend.Kind != nil && *backend.Kind != "" {
 				backendType = strings.ToLower(string(*backend.Kind)) + "s"
 			} else {
 				backendType = string(common.Services)
 			}
 			if backendType == string(common.Services) {
-				apiVersion = corev1.SchemeGroupVersion.String()
+				defaultAPIVersion = corev1.SchemeGroupVersion.String()
 			}
 			result = append(result, common.RelatedResource{
 				Type: backendType,
@@ -588,11 +605,25 @@ func getHTTPRouteRelatedResouces(res *gatewayapiv1.HTTPRoute, namespace string) 
 					}
 					return namespace
 				}(),
-				APIVersion: apiVersion,
+				APIVersion: gatewayReferenceAPIVersion(backend.Group, defaultAPIVersion),
 			})
 		}
 	}
 	return result
+}
+
+func gatewayReferenceAPIVersion(group *gatewayapiv1.Group, defaultAPIVersion string) string {
+	if group == nil {
+		return defaultAPIVersion
+	}
+	groupName := string(*group)
+	if groupName == "" {
+		return corev1.SchemeGroupVersion.String()
+	}
+	if groupName == gatewayapiv1.GroupVersion.Group {
+		return gatewayapiv1.GroupVersion.String()
+	}
+	return groupName + "/" + gatewayapiv1.GroupVersion.Version
 }
 
 func getAutoScalingRelatedResources(res *autoscalingv2.HorizontalPodAutoscaler, namespace string) []common.RelatedResource {

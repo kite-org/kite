@@ -179,12 +179,18 @@ func (h *GenericResourceHandler[T, V]) Search(c *gin.Context, q string, limit in
 		if !isLabelSearch && !strings.Contains(strings.ToLower(obj.GetName()), strings.ToLower(q)) {
 			continue
 		}
-		if h.Name() == string(common.Namespaces) && !rbac.CanAccessNamespace(user, cs.Name, obj.GetName()) {
-			continue
-		}
-		if obj.GetNamespace() != "" &&
-			!rbac.CanAccess(user, h.Name(), string(common.VerbGet), cs.Name, obj.GetNamespace()) {
-			continue
+		if h.Name() == string(common.Namespaces) {
+			if !rbac.CanAccessNamespace(user, cs.Name, obj.GetName()) {
+				continue
+			}
+		} else {
+			namespace := obj.GetNamespace()
+			if namespace == "" {
+				namespace = common.AllNamespaces
+			}
+			if !rbac.CanAccess(user, h.Name(), string(common.VerbGet), cs.Name, namespace) {
+				continue
+			}
 		}
 		result := common.SearchResult{
 			ID:           string(obj.GetUID()),

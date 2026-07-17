@@ -26,10 +26,7 @@ export interface YamlFileTreeItem {
 }
 
 export type YamlDiffTreeItemStatus =
-  | 'added'
-  | 'deleted'
-  | 'changed'
-  | 'unchanged'
+  'added' | 'deleted' | 'changed' | 'unchanged'
 
 export interface YamlDiffTreeItem {
   path: string

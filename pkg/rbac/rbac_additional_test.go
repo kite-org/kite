@@ -13,6 +13,11 @@ func TestGetUserRoles(t *testing.T) {
 		RBACConfig = originalConfig
 	})
 
+	RBACConfig = nil
+	if roles := GetUserRoles(model.User{Username: "alice"}); len(roles) != 0 {
+		t.Fatalf("expected no roles with nil RBAC config, got %#v", roles)
+	}
+
 	RBACConfig = &common.RolesConfig{
 		Roles: []common.Role{
 			{Name: "admin"},
@@ -44,12 +49,38 @@ func TestGetUserRoles(t *testing.T) {
 	}
 }
 
+func TestCanAccessCurrent(t *testing.T) {
+	originalConfig := RBACConfig
+	t.Cleanup(func() {
+		RBACConfig = originalConfig
+	})
+
+	allow := common.Role{
+		Name:       "pod-reader",
+		Clusters:   []string{"prod"},
+		Namespaces: []string{"default"},
+		Resources:  []string{"pods"},
+		Verbs:      []string{"get"},
+	}
+	RBACConfig = &common.RolesConfig{}
+	if CanAccessCurrent(model.User{Username: "alice", Roles: []common.Role{allow}}, "pods", "get", "prod", "default") {
+		t.Fatal("expected current authorization to ignore the authenticated role snapshot")
+	}
+	if !CanAccessCurrent(model.AnonymousUser, "pods", "get", "prod", "default") {
+		t.Fatal("expected anonymous authorization to keep the built-in role")
+	}
+}
+
 func TestNoAccess(t *testing.T) {
 	if got := NoAccess("alice", "get", "pods", "", "dev"); got != "user alice does not have permission to get pods on cluster dev" {
 		t.Fatalf("unexpected message: %q", got)
 	}
 
 	if got := NoAccess("alice", "get", "pods", "_all", "dev"); got != "user alice does not have permission to get pods in namespace All on cluster dev" {
+		t.Fatalf("unexpected message: %q", got)
+	}
+
+	if got := NoAccess("alice", "get", "pods", "default", "dev"); got != "user alice does not have permission to get pods in namespace default on cluster dev" {
 		t.Fatalf("unexpected message: %q", got)
 	}
 }
@@ -80,6 +111,18 @@ func TestMatch(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "asd",
+			list: []string{"widgets.example.com"},
+			val:  "widgets.example.com",
+			want: true,
+		},
+		{
+			name: "dots in literal resource do not match arbitrary characters",
+			list: []string{"widgets.example.com"},
+			val:  "widgets.examplexcom",
+			want: false,
+		},
+		{
 			name: "negated value blocks access",
 			list: []string{"!kube-system", "*"},
 			val:  "kube-system",
@@ -89,6 +132,18 @@ func TestMatch(t *testing.T) {
 			name: "invalid regexp is ignored",
 			list: []string{"["},
 			val:  "dev",
+			want: false,
+		},
+		{
+			name: "empty list does not match",
+			list: nil,
+			val:  "dev",
+			want: false,
+		},
+		{
+			name: "negated regexp overrides wildcard",
+			list: []string{"*", "!kube-.*"},
+			val:  "kube-system",
 			want: false,
 		},
 	}
@@ -124,6 +179,16 @@ func TestCanAccessClusterAndNamespace(t *testing.T) {
 	}
 	if CanAccessNamespace(user, "prod-1", "team-a") {
 		t.Fatal("expected namespace access to be denied")
+	}
+
+	splitRoleUser := model.User{
+		Roles: []common.Role{
+			{Name: "prod-other", Clusters: []string{"prod"}, Namespaces: []string{"other"}},
+			{Name: "dev-default", Clusters: []string{"dev"}, Namespaces: []string{"default"}},
+		},
+	}
+	if CanAccessNamespace(splitRoleUser, "prod", "default") {
+		t.Fatal("expected cluster and namespace permissions from different roles not to be combined")
 	}
 }
 

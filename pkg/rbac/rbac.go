@@ -19,21 +19,33 @@ func CanAccess(user model.User, resource, verb, cluster, namespace string) bool 
 			match(role.Namespaces, namespace) &&
 			match(role.Resources, resource) &&
 			match(role.Verbs, verb) {
-			klog.V(1).Infof("RBAC Check - User: %s, OIDC Groups: %v, Resource: %s, Verb: %s, Cluster: %s, Namespace: %s, Hit Role: %v",
+			klog.V(2).Infof("RBAC Check - User: %s, OIDC Groups: %v, Resource: %s, Verb: %s, Cluster: %s, Namespace: %s, Hit Role: %v",
 				user.Key(), user.OIDCGroups, resource, verb, cluster, namespace, role.Name)
 			return true
 		}
 	}
-	klog.V(1).Infof("RBAC Check - User: %s, OIDC Groups: %v, Resource: %s, Verb: %s, Cluster: %s, Namespace: %s, No Access",
+	klog.V(2).Infof("RBAC Check - User: %s, OIDC Groups: %v, Resource: %s, Verb: %s, Cluster: %s, Namespace: %s, No Access",
 		user.Key(), user.OIDCGroups, resource, verb, cluster, namespace)
 	return false
+}
+
+// CanAccessCurrent checks the latest role configuration instead of the role
+// snapshot attached during authentication. Anonymous access keeps using its
+// built-in role.
+func CanAccessCurrent(user model.User, resource, verb, cluster, namespace string) bool {
+	if user.Username == model.AnonymousUser.Username && user.Provider == model.AnonymousUser.Provider {
+		user.Roles = model.AnonymousUser.Roles
+	} else {
+		user.Roles = nil
+	}
+	return CanAccess(user, resource, verb, cluster, namespace)
 }
 
 // HasResourcePermission reports whether the user holds any role that grants
 // `verb` on `resource` in `cluster`, regardless of namespace. It is used by
 // the RBAC middleware to decide whether a cross-namespace LIST may pass
-// through to the handler — the list handler then filters items by
-// CanAccessNamespace so the user only sees namespaces they may access.
+// through to the handler — the handler then filters items with the full
+// resource permission so the user only sees objects they may access.
 // Requiring a matching role here prevents zero-permission users from
 // triggering list calls.
 func HasResourcePermission(user model.User, resource, verb, cluster string) bool {
@@ -76,6 +88,9 @@ func GetUserRoles(user model.User) []common.Role {
 	rolesMap := make(map[string]common.Role)
 	rwlock.RLock()
 	defer rwlock.RUnlock()
+	if RBACConfig == nil {
+		return nil
+	}
 	for _, mapping := range RBACConfig.RoleMapping {
 		if contains(mapping.Users, "*") || contains(mapping.Users, user.Key()) {
 			if r := findRoleLocked(mapping.Name); r != nil {
@@ -126,6 +141,10 @@ func match(list []string, val string) bool {
 func matchPattern(pattern, val string) bool {
 	if pattern == "*" || pattern == val {
 		return true
+	}
+	// Plain values are literals; dots are common in Kubernetes API group names.
+	if !strings.ContainsAny(pattern, `\^$*+?()[]{}|`) {
+		return false
 	}
 	re, err := regexp.Compile("^(?:" + pattern + ")$")
 	if err != nil {

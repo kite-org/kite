@@ -8,6 +8,11 @@ import (
 )
 
 func TestCanAccess(t *testing.T) {
+	originalConfig := RBACConfig
+	t.Cleanup(func() {
+		RBACConfig = originalConfig
+	})
+
 	// Define test roles
 	adminRole := common.Role{
 		Name:        "admin",
@@ -204,6 +209,35 @@ func TestCanAccess(t *testing.T) {
 			expected:   true,
 		},
 		{
+			name: "permission dimensions are not combined across roles",
+			roles: []common.Role{
+				{
+					Name:       "wrong-resource",
+					Clusters:   []string{"prod-cluster"},
+					Resources:  []string{"deployments"},
+					Namespaces: []string{"prod"},
+					Verbs:      []string{"get"},
+				},
+				{
+					Name:       "wrong-scope",
+					Clusters:   []string{"dev-cluster"},
+					Resources:  []string{"pods"},
+					Namespaces: []string{"dev"},
+					Verbs:      []string{"update"},
+				},
+			},
+			mappings: []common.RoleMapping{
+				{Name: "wrong-resource", Users: []string{"split-role-user"}},
+				{Name: "wrong-scope", Users: []string{"split-role-user"}},
+			},
+			user:      "split-role-user",
+			resource:  "pods",
+			verb:      "get",
+			cluster:   "prod-cluster",
+			namespace: "prod",
+			expected:  false,
+		},
+		{
 			name:  "user with OIDC group permissions",
 			roles: []common.Role{viewerRole},
 			mappings: []common.RoleMapping{
@@ -281,6 +315,11 @@ func TestCanAccess(t *testing.T) {
 // It must be true when the user holds any role granting the verb on the
 // resource in the cluster (namespace irrelevant), and false otherwise.
 func TestHasResourcePermission(t *testing.T) {
+	originalConfig := RBACConfig
+	t.Cleanup(func() {
+		RBACConfig = originalConfig
+	})
+
 	// Mirrors the issue #610 scenario: two namespace-scoped roles, each
 	// granting a single namespace. Neither role carries "_all" / "*".
 	facilitiesRole := common.Role{
@@ -339,6 +378,26 @@ func TestHasResourcePermission(t *testing.T) {
 			roles:    []common.Role{facilitiesRole},
 			mappings: []common.RoleMapping{{Name: "facilities", Users: []string{"xuke"}}},
 			user:     "xuke", resource: "pods", verb: "get", cluster: "any-cluster",
+			expected: false,
+		},
+		{
+			name:     "wrong cluster: no permission",
+			roles:    []common.Role{{Name: "prod-reader", Clusters: []string{"prod"}, Resources: []string{"deployments"}, Verbs: []string{"get"}}},
+			mappings: []common.RoleMapping{{Name: "prod-reader", Users: []string{"dev"}}},
+			user:     "dev", resource: "deployments", verb: "get", cluster: "dev",
+			expected: false,
+		},
+		{
+			name: "permission dimensions are not combined across roles",
+			roles: []common.Role{
+				{Name: "prod-deployment-reader", Clusters: []string{"prod"}, Resources: []string{"deployments"}, Verbs: []string{"get"}},
+				{Name: "dev-pod-reader", Clusters: []string{"dev"}, Resources: []string{"pods"}, Verbs: []string{"get"}},
+			},
+			mappings: []common.RoleMapping{
+				{Name: "prod-deployment-reader", Users: []string{"dev"}},
+				{Name: "dev-pod-reader", Users: []string{"dev"}},
+			},
+			user: "dev", resource: "pods", verb: "get", cluster: "prod",
 			expected: false,
 		},
 		{

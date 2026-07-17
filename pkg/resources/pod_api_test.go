@@ -19,6 +19,7 @@ import (
 	"github.com/zxh326/kite/pkg/kube"
 	"github.com/zxh326/kite/pkg/middleware"
 	"github.com/zxh326/kite/pkg/model"
+	"github.com/zxh326/kite/pkg/rbac"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +28,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	metricsv1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -40,6 +43,8 @@ type podAPITestConfig struct {
 	clusterBObjects      []client.Object
 	clusterAInterceptors interceptor.Funcs
 	clusterBInterceptors interceptor.Funcs
+	clusterAClientSet    *kubernetes.Clientset
+	clusterAConfig       *rest.Config
 	registerRoutes       func(*gin.RouterGroup)
 }
 
@@ -123,7 +128,9 @@ func newPodAPITestFixture(t *testing.T, config podAPITestConfig) *podAPITestFixt
 		"cluster-a": {
 			Name: "cluster-a",
 			K8sClient: &kube.K8sClient{
-				Client: clusterAClient,
+				Client:        clusterAClient,
+				ClientSet:     config.clusterAClientSet,
+				Configuration: config.clusterAConfig,
 			},
 		},
 		"cluster-b": {
@@ -236,6 +243,91 @@ func TestPodRBACAllNamespacesDoesNotJoinPermissionsAcrossRoles(t *testing.T) {
 	want := []string{"default/p-default"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("GET /api/v1/pods/_all returned pods %v, want %v", got, want)
+	}
+}
+
+func TestPodWatchRBACDoesNotJoinPermissionsAcrossRoles(t *testing.T) {
+	originalConfig := rbac.RBACConfig
+	t.Cleanup(func() {
+		rbac.RBACConfig = originalConfig
+	})
+
+	watchServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/pods" || r.URL.Query().Get("watch") != "true" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintln(w, `{"type":"ADDED","object":{"apiVersion":"v1","kind":"Pod","metadata":{"name":"allowed","namespace":"default"}}}`)
+		_, _ = fmt.Fprintln(w, `{"type":"ADDED","object":{"apiVersion":"v1","kind":"Pod","metadata":{"name":"denied","namespace":"team-a"}}}`)
+	}))
+	t.Cleanup(watchServer.Close)
+
+	clientSet, err := kubernetes.NewForConfig(&rest.Config{Host: watchServer.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	roles := []common.Role{
+		{
+			Name:       "pod-default-reader",
+			Clusters:   []string{"cluster-a"},
+			Namespaces: []string{"default"},
+			Resources:  []string{string(common.Pods)},
+			Verbs:      []string{string(common.VerbGet)},
+		},
+		{
+			Name:       "deployment-team-reader",
+			Clusters:   []string{"cluster-a"},
+			Namespaces: []string{"team-a"},
+			Resources:  []string{string(common.Deployments)},
+			Verbs:      []string{string(common.VerbGet)},
+		},
+	}
+	rbac.RBACConfig = &common.RolesConfig{
+		Roles: roles,
+		RoleMapping: []common.RoleMapping{
+			{Name: "pod-default-reader", Users: []string{"alice"}},
+			{Name: "deployment-team-reader", Users: []string{"alice"}},
+		},
+	}
+	fixture := newPodAPITestFixture(t, podAPITestConfig{
+		user:              model.User{Username: "alice", Roles: roles},
+		clusterAClientSet: clientSet,
+	})
+
+	for _, path := range []string{
+		"/api/v1/pods/_all/watch",
+		"/api/v1/_clusters/cluster-a/pods/_all/watch",
+	} {
+		t.Run(path, func(t *testing.T) {
+			response := performPodAPIRequest(t, fixture, http.MethodGet, path, "", nil)
+			if response.Code != http.StatusOK {
+				t.Fatalf("GET %s returned %d, want %d; body=%s", path, response.Code, http.StatusOK, response.Body.String())
+			}
+			if !bytes.Contains(response.Body.Bytes(), []byte(`"name":"allowed"`)) {
+				t.Fatalf("GET %s omitted authorized pod; body=%s", path, response.Body.String())
+			}
+			if bytes.Contains(response.Body.Bytes(), []byte(`"name":"denied"`)) {
+				t.Fatalf("GET %s leaked unauthorized pod; body=%s", path, response.Body.String())
+			}
+		})
+	}
+
+	rbac.RBACConfig = &common.RolesConfig{}
+	for _, path := range []string{
+		"/api/v1/pods/_all/watch",
+		"/api/v1/_clusters/cluster-a/pods/_all/watch",
+	} {
+		t.Run("revoked "+path, func(t *testing.T) {
+			response := performPodAPIRequest(t, fixture, http.MethodGet, path, "", nil)
+			if response.Code != http.StatusOK {
+				t.Fatalf("GET %s returned %d, want %d; body=%s", path, response.Code, http.StatusOK, response.Body.String())
+			}
+			if bytes.Contains(response.Body.Bytes(), []byte(`"name":"allowed"`)) ||
+				bytes.Contains(response.Body.Bytes(), []byte(`"name":"denied"`)) {
+				t.Fatalf("GET %s returned pod events after current RBAC revocation; body=%s", path, response.Body.String())
+			}
+		})
 	}
 }
 
@@ -1168,7 +1260,12 @@ func TestPodRBACDimensions(t *testing.T) {
 		})
 	}
 
-	for _, path := range []string{"/api/v1/pods", "/api/v1/pods/_all"} {
+	for _, path := range []string{
+		"/api/v1/pods",
+		"/api/v1/pods/_all",
+		"/api/v1/_clusters/cluster-a/pods",
+		"/api/v1/_clusters/cluster-a/pods/_all",
+	} {
 		t.Run("all namespace entry "+path, func(t *testing.T) {
 			fixture := newPodAPITestFixture(t, podAPITestConfig{
 				user: model.User{
@@ -1181,10 +1278,18 @@ func TestPodRBACDimensions(t *testing.T) {
 						Verbs:      []string{string(common.VerbGet)},
 					}},
 				},
+				clusterAObjects: []client.Object{
+					&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "allowed", Namespace: "default"}},
+					&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "denied", Namespace: "team-a"}},
+				},
 			})
 			response := performPodAPIRequest(t, fixture, http.MethodGet, path, "", nil)
-			if response.Code != http.StatusForbidden {
-				t.Fatalf("GET %s returned %d, want %d; body=%s", path, response.Code, http.StatusForbidden, response.Body.String())
+			if response.Code != http.StatusOK {
+				t.Fatalf("GET %s returned %d, want %d; body=%s", path, response.Code, http.StatusOK, response.Body.String())
+			}
+			pods := decodePodAPIResponse[PodListWithMetrics](t, response)
+			if len(pods.Items) != 1 || pods.Items[0].Name != "allowed" || pods.Items[0].Namespace != "default" {
+				t.Fatalf("GET %s returned %#v, want only default/allowed", path, pods.Items)
 			}
 		})
 	}

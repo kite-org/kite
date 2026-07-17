@@ -37,6 +37,27 @@ func TestRBACMiddleware(t *testing.T) {
 			Namespaces: []string{"default"},
 			Verbs:      []string{"create", "update", "delete"},
 		},
+		"slash-cluster-pod-reader": {
+			Name:       "slash-cluster-pod-reader",
+			Clusters:   []string{"prod/east"},
+			Resources:  []string{"pods"},
+			Namespaces: []string{"default"},
+			Verbs:      []string{"get"},
+		},
+		"service-reader": {
+			Name:       "service-reader",
+			Clusters:   []string{"prod"},
+			Resources:  []string{"services"},
+			Namespaces: []string{"default"},
+			Verbs:      []string{"get"},
+		},
+		"widget-reader": {
+			Name:       "widget-reader",
+			Clusters:   []string{"prod"},
+			Resources:  []string{"widgets.example.com"},
+			Namespaces: []string{"default"},
+			Verbs:      []string{"get"},
+		},
 		"all-namespace-reader": {
 			Name:       "all-namespace-reader",
 			Clusters:   []string{"prod"},
@@ -79,6 +100,34 @@ func TestRBACMiddleware(t *testing.T) {
 			Namespaces: []string{common.AllNamespaces},
 			Verbs:      []string{"get"},
 		},
+		"namespaced-node-reader": {
+			Name:       "namespaced-node-reader",
+			Clusters:   []string{"prod"},
+			Resources:  []string{"nodes"},
+			Namespaces: []string{"default"},
+			Verbs:      []string{"get"},
+		},
+		"namespaced-node-metrics-reader": {
+			Name:       "namespaced-node-metrics-reader",
+			Clusters:   []string{"prod"},
+			Resources:  []string{"nodemetrics"},
+			Namespaces: []string{"default"},
+			Verbs:      []string{"get"},
+		},
+		"events-default-reader": {
+			Name:       "events-default-reader",
+			Clusters:   []string{"prod"},
+			Resources:  []string{"events"},
+			Namespaces: []string{"default"},
+			Verbs:      []string{"get"},
+		},
+		"events-all-reader": {
+			Name:       "events-all-reader",
+			Clusters:   []string{"prod"},
+			Resources:  []string{"events"},
+			Namespaces: []string{common.AllNamespaces},
+			Verbs:      []string{"get"},
+		},
 	}
 
 	tests := []struct {
@@ -86,6 +135,7 @@ func TestRBACMiddleware(t *testing.T) {
 		method     string
 		url        string
 		route      string
+		base       string
 		cluster    string
 		username   string
 		oidcGroups []string
@@ -235,14 +285,116 @@ func TestRBACMiddleware(t *testing.T) {
 			wantStatus: http.StatusForbidden,
 		},
 		{
-			name:       "all namespace list denied by namespaced role",
+			name:       "all namespace list allowed for namespaced role",
 			method:     http.MethodGet,
 			url:        "/api/v1/pods",
 			cluster:    "prod",
 			username:   "alice",
 			roles:      []string{"pod-reader"},
 			roleMap:    []common.RoleMapping{{Name: "pod-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:       "legacy all namespace pod watch allowed for namespaced role",
+			method:     http.MethodGet,
+			url:        "/api/v1/pods/_all/watch",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"pod-reader"},
+			roleMap:    []common.RoleMapping{{Name: "pod-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:       "cluster all namespace pod watch allowed for namespaced role",
+			method:     http.MethodGet,
+			url:        "/api/v1/_clusters/prod/pods/_all/watch",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"pod-reader"},
+			roleMap:    []common.RoleMapping{{Name: "pod-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:       "legacy non pod all namespace watch denied",
+			method:     http.MethodGet,
+			url:        "/api/v1/services/_all/watch",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"service-reader"},
+			roleMap:    []common.RoleMapping{{Name: "service-reader", Users: []string{"alice"}}},
 			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "cluster non pod all namespace watch denied",
+			method:     http.MethodGet,
+			url:        "/api/v1/_clusters/prod/services/_all/watch",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"service-reader"},
+			roleMap:    []common.RoleMapping{{Name: "service-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "legacy dynamic CR all namespace list allowed",
+			method:     http.MethodGet,
+			url:        "/api/v1/widgets.example.com",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"widget-reader"},
+			roleMap:    []common.RoleMapping{{Name: "widget-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:       "cluster dynamic CR all namespace list allowed",
+			method:     http.MethodGet,
+			url:        "/api/v1/_clusters/prod/widgets.example.com/_all",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"widget-reader"},
+			roleMap:    []common.RoleMapping{{Name: "widget-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:       "POST all namespace denied for namespaced role",
+			method:     http.MethodPost,
+			url:        "/api/v1/pods/_all",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"pod-editor"},
+			roleMap:    []common.RoleMapping{{Name: "pod-editor", Users: []string{"alice"}}},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "base path all namespace list allowed",
+			method:     http.MethodGet,
+			url:        "/kite/api/v1/pods/_all",
+			base:       "/kite",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"pod-reader"},
+			roleMap:    []common.RoleMapping{{Name: "pod-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:       "base path cluster pod watch allowed",
+			method:     http.MethodGet,
+			url:        "/kite/api/v1/_clusters/prod/pods/_all/watch",
+			base:       "/kite",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"pod-reader"},
+			roleMap:    []common.RoleMapping{{Name: "pod-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:       "encoded cluster all namespace list allowed",
+			method:     http.MethodGet,
+			url:        "/api/v1/_clusters/prod%2Feast/pods/_all",
+			cluster:    "prod/east",
+			username:   "alice",
+			roles:      []string{"slash-cluster-pod-reader"},
+			roleMap:    []common.RoleMapping{{Name: "slash-cluster-pod-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusNoContent,
 		},
 		{
 			name:       "all namespace list with wildcard namespace",
@@ -286,6 +438,58 @@ func TestRBACMiddleware(t *testing.T) {
 			roles:      []string{"node-reader"},
 			roleMap:    []common.RoleMapping{{Name: "node-reader", Users: []string{"alice"}}},
 			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:       "legacy cluster scoped list denied for namespaced grant",
+			method:     http.MethodGet,
+			url:        "/api/v1/nodes",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"namespaced-node-reader"},
+			roleMap:    []common.RoleMapping{{Name: "namespaced-node-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "cluster scoped list denied for namespaced grant",
+			method:     http.MethodGet,
+			url:        "/api/v1/_clusters/prod/nodes/_all",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"namespaced-node-reader"},
+			roleMap:    []common.RoleMapping{{Name: "namespaced-node-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "node metrics list denied for namespaced grant",
+			method:     http.MethodGet,
+			url:        "/api/v1/_clusters/prod/nodemetrics/_all",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"namespaced-node-metrics-reader"},
+			roleMap:    []common.RoleMapping{{Name: "namespaced-node-metrics-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "cluster scoped event target normalizes query namespace",
+			method:     http.MethodGet,
+			url:        "/api/v1/events/resources?resource=nodes&name=worker&namespace=default",
+			route:      "/api/v1/events/resources",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"events-all-reader"},
+			roleMap:    []common.RoleMapping{{Name: "events-all-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:       "cluster scoped event target rejects namespaced event grant",
+			method:     http.MethodGet,
+			url:        "/api/v1/events/resources?resource=nodes&name=worker&namespace=default",
+			route:      "/api/v1/events/resources",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"events-default-reader"},
+			roleMap:    []common.RoleMapping{{Name: "events-default-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusForbidden,
 		},
 		{
 			name:       "cluster scoped resource",
@@ -343,12 +547,15 @@ func TestRBACMiddleware(t *testing.T) {
 	}
 
 	originalConfig := rbac.RBACConfig
+	originalBase := common.Base
 	t.Cleanup(func() {
 		rbac.RBACConfig = originalConfig
+		common.Base = originalBase
 	})
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			common.Base = tc.base
 			roles := make([]common.Role, 0, len(tc.roles))
 			for _, name := range tc.roles {
 				roles = append(roles, rolesMap[name])
@@ -393,12 +600,16 @@ func TestIsCrossNamespaceList(t *testing.T) {
 		{name: "list no namespace segment", path: "/api/v1/pods", want: true},
 		{name: "list explicit _all", path: "/api/v1/pods/_all", want: true},
 		{name: "list deployments explicit _all", path: "/api/v1/deployments/_all", want: true},
+		{name: "cluster list no namespace segment", path: "/api/v1/_clusters/prod/pods", want: true},
+		{name: "cluster list explicit _all", path: "/api/v1/_clusters/prod/pods/_all", want: true},
 		{name: "single resource _all get", path: "/api/v1/pods/_all/foo", want: false},
 		{name: "single resource namespaced get", path: "/api/v1/pods/default/foo", want: false},
+		{name: "cluster single resource _all get", path: "/api/v1/_clusters/prod/pods/_all/foo", want: false},
 		{name: "describe sub-route", path: "/api/v1/pods/_all/foo/describe", want: false},
 		{name: "history sub-route", path: "/api/v1/pods/default/foo/history", want: false},
 		{name: "watch sub-route", path: "/api/v1/pods/_all/watch", want: false},
 		{name: "specific namespace list is not cross-ns", path: "/api/v1/pods/default", want: false},
+		{name: "cluster specific namespace list is not cross-ns", path: "/api/v1/_clusters/prod/pods/default", want: false},
 		{name: "too short", path: "/api/v1", want: false},
 	}
 	for _, tc := range testCases {
@@ -417,7 +628,9 @@ func TestIsCrossNamespaceWatch(t *testing.T) {
 		want bool
 	}{
 		{name: "pods all watch", path: "/api/v1/pods/_all/watch", want: true},
+		{name: "cluster pods all watch", path: "/api/v1/_clusters/prod/pods/_all/watch", want: true},
 		{name: "specific namespace watch is not cross-ns", path: "/api/v1/pods/default/watch", want: false},
+		{name: "cluster specific namespace watch is not cross-ns", path: "/api/v1/_clusters/prod/pods/default/watch", want: false},
 		{name: "list is not watch", path: "/api/v1/pods/_all", want: false},
 		{name: "single resource get is not watch", path: "/api/v1/pods/_all/foo", want: false},
 		{name: "describe sub-route is not watch", path: "/api/v1/pods/_all/foo/describe", want: false},

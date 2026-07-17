@@ -2,17 +2,20 @@ package resources
 
 import (
 	"context"
+	"net/http"
 	"reflect"
 	"testing"
 
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/kube"
+	"github.com/zxh326/kite/pkg/model"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -47,6 +50,113 @@ func TestDiscoverIngressServices(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("discoverIngressServices() = %#v, want %#v", got, want)
+	}
+}
+
+func TestRelatedResourcesRBACFiltering(t *testing.T) {
+	fixture := newPodAPITestFixture(t, podAPITestConfig{
+		user: model.User{
+			Username: "alice",
+			Roles: []common.Role{
+				{
+					Name:       "pod-reader",
+					Clusters:   []string{"cluster-a"},
+					Namespaces: []string{"default"},
+					Resources:  []string{string(common.Pods)},
+					Verbs:      []string{string(common.VerbGet)},
+				},
+				{
+					Name:       "configmap-reader",
+					Clusters:   []string{"cluster-a"},
+					Namespaces: []string{"default"},
+					Resources:  []string{string(common.ConfigMaps)},
+					Verbs:      []string{string(common.VerbGet)},
+				},
+			},
+		},
+		clusterAObjects: []client.Object{
+			&corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "source", Namespace: "default", Labels: map[string]string{"app": "source"}},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{
+					Name: "app",
+					EnvFrom: []corev1.EnvFromSource{
+						{ConfigMapRef: &corev1.ConfigMapEnvSource{LocalObjectReference: corev1.LocalObjectReference{Name: "visible"}}},
+						{SecretRef: &corev1.SecretEnvSource{LocalObjectReference: corev1.LocalObjectReference{Name: "hidden"}}},
+					},
+				}}},
+			},
+		},
+	})
+
+	response := performPodAPIRequest(t, fixture, http.MethodGet, "/api/v1/pods/default/source/related", "", nil)
+	if response.Code != http.StatusOK {
+		t.Fatalf("related resources returned %d, want %d; body=%s", response.Code, http.StatusOK, response.Body.String())
+	}
+	items := decodePodAPIResponse[[]common.RelatedResource](t, response)
+	if len(items) != 1 || items[0].Type != string(common.ConfigMaps) || items[0].Name != "visible" || items[0].Namespace != "default" {
+		t.Fatalf("related resources = %#v, want only configmaps default/visible", items)
+	}
+}
+
+func TestRelatedResourcesCustomOwnerRBAC(t *testing.T) {
+	tests := []struct {
+		name        string
+		customRole  bool
+		wantVisible bool
+	}{
+		{name: "builtin permission cannot access custom owner"},
+		{name: "qualified custom permission can access owner", customRole: true, wantVisible: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			roles := []common.Role{{
+				Name:       "source-pod-reader",
+				Clusters:   []string{"cluster-a"},
+				Namespaces: []string{"default"},
+				Resources:  []string{string(common.Pods)},
+				Verbs:      []string{string(common.VerbGet)},
+			}}
+			if tt.customRole {
+				roles = append(roles, common.Role{
+					Name:       "custom-pod-reader",
+					Clusters:   []string{"cluster-a"},
+					Namespaces: []string{"default"},
+					Resources:  []string{"pods.example.com"},
+					Verbs:      []string{string(common.VerbGet)},
+				})
+			}
+			fixture := newPodAPITestFixture(t, podAPITestConfig{
+				user: model.User{Username: "alice", Roles: roles},
+				clusterAObjects: []client.Object{&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "source",
+						Namespace: "default",
+						OwnerReferences: []metav1.OwnerReference{{
+							APIVersion: "example.com/v1",
+							Kind:       "Pod",
+							Name:       "custom-owner",
+						}},
+					},
+				}},
+			})
+
+			response := performPodAPIRequest(t, fixture, http.MethodGet, "/api/v1/pods/default/source/related", "", nil)
+			if response.Code != http.StatusOK {
+				t.Fatalf("related resources returned %d, want %d; body=%s", response.Code, http.StatusOK, response.Body.String())
+			}
+			items := decodePodAPIResponse[[]common.RelatedResource](t, response)
+			if !tt.wantVisible {
+				if len(items) != 0 {
+					t.Fatalf("related resources = %#v, want no custom owner", items)
+				}
+				return
+			}
+			want := []common.RelatedResource{{Type: "pods", APIVersion: "example.com/v1", Name: "custom-owner", Namespace: "default"}}
+			if !reflect.DeepEqual(items, want) {
+				t.Fatalf("related resources = %#v, want %#v", items, want)
+			}
+		})
 	}
 }
 
@@ -147,6 +257,8 @@ func TestCheckInUsedConfigs(t *testing.T) {
 func TestGetHTTPRouteRelatedResources(t *testing.T) {
 	parentKind := gatewayapiv1.Kind("Gateway")
 	backendKind := gatewayapiv1.Kind("ConfigMap")
+	customKind := gatewayapiv1.Kind("Pod")
+	customGroup := gatewayapiv1.Group("example.com")
 	parentNamespace := gatewayapiv1.Namespace("edge")
 	backendNamespace := gatewayapiv1.Namespace("apps")
 
@@ -156,6 +268,7 @@ func TestGetHTTPRouteRelatedResources(t *testing.T) {
 				ParentRefs: []gatewayapiv1.ParentReference{
 					{Name: gatewayapiv1.ObjectName("gw-a")},
 					{Name: gatewayapiv1.ObjectName("gw-b"), Kind: &parentKind, Namespace: &parentNamespace},
+					{Name: gatewayapiv1.ObjectName("custom-parent"), Group: &customGroup, Kind: &customKind},
 				},
 			},
 			Rules: []gatewayapiv1.HTTPRouteRule{
@@ -165,6 +278,15 @@ func TestGetHTTPRouteRelatedResources(t *testing.T) {
 							BackendRef: gatewayapiv1.BackendRef{
 								BackendObjectReference: gatewayapiv1.BackendObjectReference{
 									Name: gatewayapiv1.ObjectName("svc-a"),
+								},
+							},
+						},
+						{
+							BackendRef: gatewayapiv1.BackendRef{
+								BackendObjectReference: gatewayapiv1.BackendObjectReference{
+									Name:  gatewayapiv1.ObjectName("custom-backend"),
+									Group: &customGroup,
+									Kind:  &customKind,
 								},
 							},
 						},
@@ -187,7 +309,9 @@ func TestGetHTTPRouteRelatedResources(t *testing.T) {
 	want := []common.RelatedResource{
 		{Type: "gateways", Name: "gw-a", Namespace: "default", APIVersion: gatewayapiv1.GroupVersion.String()},
 		{Type: "gateways", Name: "gw-b", Namespace: "edge", APIVersion: gatewayapiv1.GroupVersion.String()},
+		{Type: "pods", Name: "custom-parent", Namespace: "default", APIVersion: "example.com/v1"},
 		{Type: "services", Name: "svc-a", Namespace: "default", APIVersion: corev1.SchemeGroupVersion.String()},
+		{Type: "pods", Name: "custom-backend", Namespace: "default", APIVersion: "example.com/v1"},
 		{Type: "configmaps", Name: "cfg", Namespace: "apps"},
 	}
 	if !reflect.DeepEqual(got, want) {

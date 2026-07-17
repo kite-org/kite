@@ -677,9 +677,7 @@ export function DeploymentCreateDialog({
                         onValueChange={(value) =>
                           updateContainer(containerIndex, {
                             pullPolicy: value as
-                              | 'Always'
-                              | 'IfNotPresent'
-                              | 'Never',
+                              'Always' | 'IfNotPresent' | 'Never',
                           })
                         }
                       >

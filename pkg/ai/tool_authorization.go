@@ -39,7 +39,7 @@ func requiredToolPermissions(ctx context.Context, cs *cluster.ClientSet, toolNam
 		namespace, _ := args["namespace"].(string)
 		resource := resolveResourceInfo(ctx, cs, kind)
 		return []toolPermission{{
-			Resource:  resource.Resource,
+			Resource:  common.HistoryResourceType(resource.Resource, resource.Group),
 			Verb:      string(common.VerbGet),
 			Namespace: permissionNamespace(resource, namespace),
 		}}, nil
@@ -51,7 +51,7 @@ func requiredToolPermissions(ctx context.Context, cs *cluster.ClientSet, toolNam
 		namespace, _ := args["namespace"].(string)
 		resource := resolveResourceInfo(ctx, cs, kind)
 		return []toolPermission{{
-			Resource:  resource.Resource,
+			Resource:  common.HistoryResourceType(resource.Resource, resource.Group),
 			Verb:      string(common.VerbGet),
 			Namespace: permissionNamespace(resource, namespace),
 		}}, nil
@@ -82,7 +82,7 @@ func requiredToolPermissions(ctx context.Context, cs *cluster.ClientSet, toolNam
 		}
 		resource := resolveResourceInfoForObject(ctx, cs, obj)
 		return []toolPermission{{
-			Resource:  resource.Resource,
+			Resource:  common.HistoryResourceType(resource.Resource, resource.Group),
 			Verb:      string(common.VerbCreate),
 			Namespace: permissionNamespace(resource, obj.GetNamespace()),
 		}}, nil
@@ -93,7 +93,7 @@ func requiredToolPermissions(ctx context.Context, cs *cluster.ClientSet, toolNam
 		}
 		resource := resolveResourceInfoForObject(ctx, cs, obj)
 		return []toolPermission{{
-			Resource:  resource.Resource,
+			Resource:  common.HistoryResourceType(resource.Resource, resource.Group),
 			Verb:      string(common.VerbUpdate),
 			Namespace: permissionNamespace(resource, obj.GetNamespace()),
 		}}, nil
@@ -108,7 +108,7 @@ func requiredToolPermissions(ctx context.Context, cs *cluster.ClientSet, toolNam
 		namespace, _ := args["namespace"].(string)
 		resource := resolveResourceInfo(ctx, cs, kind)
 		return []toolPermission{{
-			Resource:  resource.Resource,
+			Resource:  common.HistoryResourceType(resource.Resource, resource.Group),
 			Verb:      string(common.VerbUpdate),
 			Namespace: permissionNamespace(resource, namespace),
 		}}, nil
@@ -123,7 +123,7 @@ func requiredToolPermissions(ctx context.Context, cs *cluster.ClientSet, toolNam
 		namespace, _ := args["namespace"].(string)
 		resource := resolveResourceInfo(ctx, cs, kind)
 		return []toolPermission{{
-			Resource:  resource.Resource,
+			Resource:  common.HistoryResourceType(resource.Resource, resource.Group),
 			Verb:      string(common.VerbDelete),
 			Namespace: permissionNamespace(resource, namespace),
 		}}, nil

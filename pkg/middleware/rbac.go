@@ -18,9 +18,33 @@ func RBACMiddleware() gin.HandlerFunc {
 		cs := c.MustGet("cluster").(*cluster.ClientSet)
 
 		verbs := method2verb(c.Request.Method)
-		ns, resource := url2namespaceresource(c.Request.URL.EscapedPath())
+		path := c.Request.URL.EscapedPath()
+		ns, resource := url2namespaceresource(path)
 		if ns == "" || resource == "" {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid resource URL"})
+			return
+		}
+		if verbs == string(common.VerbGet) && resource == string(common.Events) &&
+			strings.HasSuffix(c.FullPath(), "/events/resources") {
+			ns = c.Query("namespace")
+			if ns == "" {
+				ns = common.AllNamespaces
+			}
+			targetResource := c.Query("resource")
+			targetMeta := common.LookupResource(targetResource)
+			if targetMeta != nil && targetMeta.ClusterScoped {
+				ns = common.AllNamespaces
+			}
+			if targetMeta == nil && rbac.HasResourcePermission(user, resource, verbs, cs.Name) {
+				c.Next()
+				return
+			}
+			if rbac.CanAccess(user, resource, verbs, cs.Name, ns) {
+				c.Next()
+				return
+			}
+			c.AbortWithStatusJSON(http.StatusForbidden,
+				gin.H{"error": rbac.NoAccess(user.Key(), verbs, resource, ns, cs.Name)})
 			return
 		}
 		if resource == string(common.Namespaces) && verbs == "get" {
@@ -50,18 +74,20 @@ func RBACMiddleware() gin.HandlerFunc {
 		// individual namespace.
 		//
 		// The list handlers and the pod watch handler filter every returned /
-		// streamed item through rbac.CanAccessNamespace, so it is safe to let
-		// the request reach the handler as long as:
+		// streamed item, so it is safe to let the request reach the handler as
+		// long as:
 		//   - it is a genuine LIST or the pods /_all/watch SSE sub-route (any
 		//     other sub-route such as /:name, /describe, /history, /logs,
 		//     /files, /related still requires an explicit _all/* grant);
-		//   - the resource is namespace-scoped (cluster-scoped resources keep
-		//     requiring an _all/* namespace grant, matching prior behavior);
+		//   - known resources are namespace-scoped; dynamic CR LIST requests
+		//     defer the scope check to the CR handler (known cluster-scoped
+		//     resources keep requiring an _all/* namespace grant);
 		//   - the user holds at least one role granting `verb` on this resource
 		//     in this cluster (zero-permission users are still rejected).
-		if verbs == "get" && ns == common.AllNamespaces &&
-			(isCrossNamespaceList(c.Request.URL.Path) || isCrossNamespaceWatch(c.Request.URL.Path)) {
-			if meta := common.LookupResource(resource); meta != nil && !meta.ClusterScoped {
+		if verbs == "get" && ns == common.AllNamespaces {
+			isList := isCrossNamespaceList(path)
+			isWatch := resource == string(common.Pods) && isCrossNamespaceWatch(path)
+			if meta := common.LookupResource(resource); (isList || isWatch) && (meta == nil || !meta.ClusterScoped) {
 				if rbac.HasResourcePermission(user, resource, verbs, cs.Name) {
 					c.Next()
 					return
@@ -132,8 +158,10 @@ func url2namespaceresource(path string) (namespace string, resource string) {
 //
 // Accepted forms (after common.Base is stripped):
 //
-//	/<group>/<ver>/<res>        len 4  (ns defaults to _all)
-//	/<group>/<ver>/<res>/_all   len 5, parts[4] == "_all"
+//	/<group>/<ver>/<res>
+//	/<group>/<ver>/<res>/_all
+//	/<group>/<ver>/_clusters/<cluster>/<res>
+//	/<group>/<ver>/_clusters/<cluster>/<res>/_all
 //
 // Anything longer is a single-resource GET or a sub-route (other than /watch,
 // which is handled by isCrossNamespaceWatch) and is NOT a list.
@@ -142,31 +170,40 @@ func isCrossNamespaceList(path string) bool {
 		path = strings.TrimPrefix(path, common.Base)
 	}
 	parts := strings.Split(path, "/")
-	if len(parts) == 4 {
+	resourceIndex := 3
+	if len(parts) > resourceIndex && parts[resourceIndex] == "_clusters" {
+		resourceIndex += 2
+	}
+	if len(parts) == resourceIndex+1 {
 		return true
 	}
-	return len(parts) == 5 && parts[4] == common.AllNamespaces
+	return len(parts) == resourceIndex+2 && parts[resourceIndex+1] == common.AllNamespaces
 }
 
 // isCrossNamespaceWatch reports whether the URL denotes the cross-namespace
 // SSE watch sub-route. Only the pods resource currently registers a watch
-// handler (see PodHandler.registerCustomRoutes); for other resources the
-// request simply falls through to a 404, same as before.
+// handler (see PodHandler.registerCustomRoutes); callers must restrict the
+// passthrough to that resource.
 //
 // Accepted form (after common.Base is stripped):
 //
-//	/<group>/<ver>/<res>/_all/watch   len 6, parts[4] == "_all", parts[5] == "watch"
+//	/<group>/<ver>/<res>/_all/watch
+//	/<group>/<ver>/_clusters/<cluster>/<res>/_all/watch
 //
 // IMPORTANT: any watch handler matched by this route MUST filter every streamed
-// event through rbac.CanAccessNamespace when ns == _all. The middleware only
-// checks that the user holds a get permission on the resource; per-namespace
+// event through the full rbac.CanAccess check when ns == _all. The middleware
+// only checks that the user holds a get permission on the resource; per-object
 // filtering is the handler's responsibility (see PodHandler.Watch).
 func isCrossNamespaceWatch(path string) bool {
 	if common.Base != "" {
 		path = strings.TrimPrefix(path, common.Base)
 	}
 	parts := strings.Split(path, "/")
-	return len(parts) == 6 &&
-		parts[4] == common.AllNamespaces &&
-		parts[5] == "watch"
+	resourceIndex := 3
+	if len(parts) > resourceIndex && parts[resourceIndex] == "_clusters" {
+		resourceIndex += 2
+	}
+	return len(parts) == resourceIndex+3 &&
+		parts[resourceIndex+1] == common.AllNamespaces &&
+		parts[resourceIndex+2] == "watch"
 }

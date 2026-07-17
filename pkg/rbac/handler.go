@@ -105,6 +105,10 @@ func UpdateRole(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "role not found"})
 		return
 	}
+	if role.IsSystem {
+		c.JSON(http.StatusForbidden, gin.H{"error": "system roles cannot be modified"})
+		return
+	}
 	roleData := req.toRole()
 	if roleData.Name == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "role name is required"})
@@ -139,7 +143,16 @@ func DeleteRole(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role id"})
 		return
 	}
-	if err := model.DB.Delete(&model.Role{}, uint(dbID)).Error; err != nil {
+	var role model.Role
+	if err := model.DB.First(&role, uint(dbID)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "role not found"})
+		return
+	}
+	if role.IsSystem {
+		c.JSON(http.StatusForbidden, gin.H{"error": "system roles cannot be deleted"})
+		return
+	}
+	if err := model.DB.Delete(&role).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete role: " + err.Error()})
 		return
 	}

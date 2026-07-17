@@ -47,8 +47,7 @@ interface ResourceDetailShellProps<T> {
   headerActions?: ReactNode
   titleIcon?: ReactNode
   yamlToolbar?:
-    | ReactNode
-    | ((context: ResourceDetailShellContext<T>) => ReactNode)
+    ReactNode | ((context: ResourceDetailShellContext<T>) => ReactNode)
   loadingMessage?: string
   yamlTabLabel?: ReactNode
   showDescribe?: boolean
