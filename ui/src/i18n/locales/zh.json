@@ -7,6 +7,7 @@
       "assignRoles": "分配角色",
       "cancel": "取消",
       "close": "关闭",
+      "clone": "克隆",
       "confirm": "确认",
       "copy": "复制",
       "collapse": "收起",
@@ -1223,6 +1224,16 @@
     "placeholders": {
       "search": "搜索 Chart..."
     }
+  },
+  "cloneResource": {
+    "title": "克隆 {{resource}}",
+    "description": "请检查从 {{resource}} {{name}} 复制的 YAML，然后创建新资源。",
+    "create": "创建副本",
+    "creating": "正在创建...",
+    "invalidYaml": "YAML 必须包含一个 Kubernetes 资源。",
+    "nameRequired": "metadata.name 为必填项。",
+    "namespaceRequired": "metadata.namespace 为必填项。",
+    "targetMustChange": "创建副本前，请修改 metadata.name 或 metadata.namespace。"
   },
   "helm": {
     "actions": {

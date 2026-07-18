@@ -7,6 +7,7 @@
       "assignRoles": "Assign Roles",
       "cancel": "Cancel",
       "close": "Close",
+      "clone": "Clone",
       "confirm": "Confirm",
       "copy": "Copy",
       "collapse": "Collapse",
@@ -1136,6 +1137,16 @@
     "placeholders": {
       "search": "Search charts..."
     }
+  },
+  "cloneResource": {
+    "title": "Clone {{resource}}",
+    "description": "Review the YAML copied from {{resource}} {{name}} before creating a new resource.",
+    "create": "Create clone",
+    "creating": "Creating...",
+    "invalidYaml": "YAML must contain one Kubernetes resource.",
+    "nameRequired": "metadata.name is required.",
+    "namespaceRequired": "metadata.namespace is required.",
+    "targetMustChange": "Change metadata.name or metadata.namespace before creating the clone."
   },
   "helm": {
     "actions": {

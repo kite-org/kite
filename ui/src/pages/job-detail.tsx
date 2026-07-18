@@ -255,6 +255,7 @@ export function JobDetail(props: { namespace: string; name: string }) {
       error={isError ? jobError : null}
       onRefresh={handleRefresh}
       onSaveYaml={handleSaveYaml}
+      showClone
       overview={
         job ? (
           <JobOverview

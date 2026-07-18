@@ -1,5 +1,10 @@
 import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
-import { IconLoader, IconRefresh, IconTrash } from '@tabler/icons-react'
+import {
+  IconCopy,
+  IconLoader,
+  IconRefresh,
+  IconTrash,
+} from '@tabler/icons-react'
 import * as yaml from 'js-yaml'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
@@ -11,6 +16,7 @@ import { usePageTitle } from '@/hooks/use-page-title'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ResponsiveTabs } from '@/components/ui/responsive-tabs'
+import { CloneResourceDialog } from '@/components/clone-resource-dialog'
 import { DescribeDialog } from '@/components/describe-dialog'
 import { ErrorMessage } from '@/components/error-message'
 import { ResourceDeleteConfirmationDialog } from '@/components/resource-delete-confirmation-dialog'
@@ -52,6 +58,7 @@ interface ResourceDetailShellProps<T> {
   yamlTabLabel?: ReactNode
   showDescribe?: boolean
   showDelete?: boolean
+  showClone?: boolean
 }
 
 export function ResourceDetailShell<T>({
@@ -74,6 +81,7 @@ export function ResourceDetailShell<T>({
   yamlTabLabel,
   showDescribe = true,
   showDelete = true,
+  showClone = false,
 }: ResourceDetailShellProps<T>) {
   const { t } = useTranslation()
   const [yamlContent, setYamlContent] = useState('')
@@ -81,6 +89,7 @@ export function ResourceDetailShell<T>({
   const [refreshKey, setRefreshKey] = useState(0)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isCloneDialogOpen, setIsCloneDialogOpen] = useState(false)
   const [searchParams] = useSearchParams()
   const isIframe = searchParams.get('iframe') === 'true'
 
@@ -271,6 +280,16 @@ export function ResourceDetailShell<T>({
                   name={name}
                 />
               ) : null}
+              {showClone ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsCloneDialogOpen(true)}
+                >
+                  <IconCopy className="size-4" />
+                  {t('common.actions.clone')}
+                </Button>
+              ) : null}
               {headerActions}
               {showDelete && (
                 <Button
@@ -311,6 +330,18 @@ export function ResourceDetailShell<T>({
           namespace={namespace}
         />
       )}
+
+      {showClone ? (
+        <CloneResourceDialog
+          open={isCloneDialogOpen}
+          onOpenChange={setIsCloneDialogOpen}
+          resourceType={resourceType}
+          resourceLabel={resourceLabel}
+          sourceName={name}
+          namespace={namespace}
+          resource={data}
+        />
+      ) : null}
     </div>
   )
 }
