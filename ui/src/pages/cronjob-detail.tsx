@@ -388,7 +388,6 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
       error={isError ? cronJobError : null}
       onRefresh={handleRefresh}
       onSaveYaml={handleSaveYaml}
-      showClone
       overview={
         cronjob ? (
           <CronJobOverview

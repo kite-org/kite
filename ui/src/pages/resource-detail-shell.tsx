@@ -81,7 +81,7 @@ export function ResourceDetailShell<T>({
   yamlTabLabel,
   showDescribe = true,
   showDelete = true,
-  showClone = false,
+  showClone = true,
 }: ResourceDetailShellProps<T>) {
   const { t } = useTranslation()
   const [yamlContent, setYamlContent] = useState('')

@@ -1233,6 +1233,7 @@
     "invalidYaml": "YAML 必须包含一个 Kubernetes 资源。",
     "nameRequired": "metadata.name 为必填项。",
     "namespaceRequired": "metadata.namespace 为必填项。",
+    "targetExists": "目标 Namespace 中已存在同名资源。",
     "targetMustChange": "创建副本前，请修改 metadata.name 或 metadata.namespace。"
   },
   "helm": {

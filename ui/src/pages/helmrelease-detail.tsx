@@ -1630,6 +1630,7 @@ export function HelmReleaseDetail(props: { namespace: string; name: string }) {
       isLoading={isLoading}
       error={error}
       onRefresh={refetch}
+      showClone={false}
       titleIcon={
         data ? (
           <HelmChartIcon

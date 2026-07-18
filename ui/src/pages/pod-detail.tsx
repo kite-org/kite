@@ -279,7 +279,6 @@ export function PodDetail(props: { namespace: string; name: string }) {
         error={isError ? podError : null}
         onRefresh={refetch}
         onSaveYaml={handleSaveYaml}
-        showClone
         overview={
           pod ? (
             <PodOverview

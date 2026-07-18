@@ -5,8 +5,11 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { ResourceType, ResourceTypeMap } from '@/types/api'
-import { createResource } from '@/lib/api'
-import { getResourceDetailPath } from '@/lib/resource-metadata'
+import { applyResource, createResource, fetchResource } from '@/lib/api'
+import {
+  getResourceCatalogEntry,
+  getResourceDetailPath,
+} from '@/lib/resource-catalog'
 import { translateError } from '@/lib/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -109,6 +112,36 @@ function removeInjectedServiceAccountVolumes(spec: Record<string, unknown>) {
   }
 }
 
+function cleanService(resource: MutableResource) {
+  const spec = asRecord(resource.spec)
+  if (!spec) return
+
+  delete spec.clusterIP
+  delete spec.clusterIPs
+  delete spec.healthCheckNodePort
+
+  if (Array.isArray(spec.ports)) {
+    for (const port of spec.ports) {
+      const item = asRecord(port)
+      if (item) delete item.nodePort
+    }
+  }
+}
+
+function cleanVolumeClaim(resource: MutableResource) {
+  const spec = asRecord(resource.spec)
+  if (spec) delete spec.volumeName
+
+  const annotations = asRecord(resource.metadata?.annotations)
+  if (!annotations) return
+
+  delete annotations['pv.kubernetes.io/bind-completed']
+  delete annotations['pv.kubernetes.io/bound-by-controller']
+  delete annotations['volume.kubernetes.io/selected-node']
+  delete annotations['volume.kubernetes.io/storage-provisioner']
+  delete annotations['volume.beta.kubernetes.io/storage-provisioner']
+}
+
 function prepareCloneResource(
   resource: unknown,
   resourceType: ResourceType,
@@ -151,6 +184,33 @@ function prepareCloneResource(
       removeInjectedServiceAccountVolumes(spec)
     }
     removeControllerLabels(metadata)
+  }
+
+  if (resourceType === 'services') {
+    cleanService(cloned)
+  }
+
+  if (resourceType === 'persistentvolumeclaims') {
+    cleanVolumeClaim(cloned)
+  }
+
+  if (resourceType === 'persistentvolumes') {
+    const spec = asRecord(cloned.spec)
+    if (spec) delete spec.claimRef
+  }
+
+  if (resourceType === 'serviceaccounts') {
+    delete cloned.secrets
+  }
+
+  if (resourceType === 'namespaces') {
+    const spec = asRecord(cloned.spec)
+    if (spec) delete spec.finalizers
+  }
+
+  if (resourceType === 'storageclasses' && annotations) {
+    delete annotations['storageclass.kubernetes.io/is-default-class']
+    delete annotations['storageclass.beta.kubernetes.io/is-default-class']
   }
 
   return cloned
@@ -224,7 +284,10 @@ function CloneResourceDialogContent({
       setError(t('cloneResource.nameRequired'))
       return
     }
-    if (typeof targetNamespace !== 'string' || !targetNamespace.trim()) {
+    if (
+      namespace &&
+      (typeof targetNamespace !== 'string' || !targetNamespace.trim())
+    ) {
       setError(t('cloneResource.namespaceRequired'))
       return
     }
@@ -235,13 +298,46 @@ function CloneResourceDialogContent({
 
     setIsCreating(true)
     try {
-      await createResource(
-        resourceType,
-        targetNamespace,
-        manifest as ResourceTypeMap[ResourceType]
-      )
+      const resolvedNamespace =
+        typeof targetNamespace === 'string' && targetNamespace.trim()
+          ? targetNamespace
+          : undefined
+      const catalogEntry = getResourceCatalogEntry(resourceType)
+
+      if (catalogEntry) {
+        await createResource(
+          resourceType,
+          catalogEntry.clusterScope ? undefined : resolvedNamespace,
+          manifest as ResourceTypeMap[ResourceType]
+        )
+      } else {
+        try {
+          await fetchResource(
+            resourceType,
+            targetName,
+            resolvedNamespace || '_all'
+          )
+          setError(t('cloneResource.targetExists'))
+          return
+        } catch (fetchError) {
+          if (
+            !(fetchError instanceof Error) ||
+            !/not found/i.test(fetchError.message)
+          ) {
+            throw fetchError
+          }
+        }
+        await applyResource(yaml.dump(manifest, { indent: 2, noRefs: true }))
+      }
+
       onOpenChange(false)
-      navigate(getResourceDetailPath(resourceType, targetName, targetNamespace))
+      navigate(
+        catalogEntry
+          ? getResourceDetailPath(resourceType, targetName, resolvedNamespace)
+          : resolvedNamespace
+            ? `/crds/${resourceType}/${resolvedNamespace}/${targetName}`
+            : `/crds/${resourceType}/${targetName}`
+      )
     } catch (createError) {
       setError(translateError(createError, t))
     } finally {

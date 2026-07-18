@@ -1146,6 +1146,7 @@
     "invalidYaml": "YAML must contain one Kubernetes resource.",
     "nameRequired": "metadata.name is required.",
     "namespaceRequired": "metadata.namespace is required.",
+    "targetExists": "A resource with this name already exists in the target namespace.",
     "targetMustChange": "Change metadata.name or metadata.namespace before creating the clone."
   },
   "helm": {

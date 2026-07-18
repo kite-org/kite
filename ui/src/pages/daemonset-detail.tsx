@@ -322,7 +322,6 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
       error={isError ? error : null}
       onRefresh={refetch}
       onSaveYaml={handleSaveYaml}
-      showClone
       overview={
         daemonset ? (
           <DaemonSetOverview
