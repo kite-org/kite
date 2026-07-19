@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { OverviewData, PodMetrics, ResourceUsageHistory } from '@/types/api'
+import { useCluster } from '@/hooks/use-cluster'
 
 import { API_BASE_URL } from '../api-client'
 import { appendCurrentClusterParam } from '../current-cluster'
@@ -457,6 +458,9 @@ export const useLogsWebSocket = (
     onClear?: () => void
   }
 ) => {
+  const { currentCluster } = useCluster()
+  const onClear = options?.onClear
+
   // Build WebSocket URL
   const buildWebSocketUrl = useCallback(() => {
     if (!options?.enabled || !namespace || !podName) return ''
@@ -482,7 +486,7 @@ export const useLogsWebSocket = (
       params.append('labelSelector', options.labelSelector)
     }
 
-    appendCurrentClusterParam(params)
+    appendCurrentClusterParam(params, currentCluster)
 
     const wsPath = `/api/v1/logs/${namespace}/${podName}/ws?${params.toString()}`
     return getWebSocketUrl(wsPath)
@@ -496,6 +500,7 @@ export const useLogsWebSocket = (
     options?.sinceSeconds,
     options?.enabled,
     options?.labelSelector,
+    currentCluster,
   ])
 
   // WebSocket event handlers
@@ -552,6 +557,10 @@ export const useLogsWebSocket = (
       reconnectInterval: 5000,
     }
   )
+
+  useEffect(() => {
+    onClear?.()
+  }, [currentCluster, onClear])
 
   const refetch = useCallback(() => {
     wsActions.reconnect()

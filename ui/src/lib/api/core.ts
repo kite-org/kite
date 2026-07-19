@@ -24,6 +24,7 @@ import {
   ResourceTypeMap,
 } from '@/types/api'
 import { getResourceQueryKey } from '@/lib/resource-metadata'
+import { useCluster } from '@/hooks/use-cluster'
 
 import { API_BASE_URL, apiClient } from '../api-client'
 import {
@@ -818,12 +819,13 @@ export function useResourcesWatch<T extends ResourceType>(
 export const fetchResource = <T>(
   resource: string,
   name: string,
-  namespace?: string
+  namespace?: string,
+  cluster?: string | null
 ): Promise<T> => {
-  const endpoint = namespace
+  const resourcePath = namespace
     ? `/${resource}/${namespace}/${name}`
     : `/${resource}/${name}`
-  return fetchAPI<T>(endpoint)
+  return fetchAPI<T>(withCurrentClusterPath(resourcePath, cluster))
 }
 export const useResource = <T extends keyof ResourceTypeMap>(
   resource: T,
@@ -831,15 +833,20 @@ export const useResource = <T extends keyof ResourceTypeMap>(
   namespace?: string,
   options?: { staleTime?: number; refreshInterval?: number }
 ) => {
+  const { currentCluster } = useCluster()
   const ns = namespace || '_all'
   return useQuery({
-    queryKey: getResourceQueryKey(resource, ns, name),
+    queryKey: getResourceQueryKey(resource, ns, name, currentCluster),
     queryFn: () => {
-      return fetchResource<ResourceTypeMap[T]>(resource, name, ns)
+      return fetchResource<ResourceTypeMap[T]>(
+        resource,
+        name,
+        ns,
+        currentCluster
+      )
     },
     refetchOnWindowFocus: 'always',
     refetchInterval: options?.refreshInterval || 0, // Default to no auto-refresh
-    placeholderData: (prevData) => prevData,
     staleTime: options?.staleTime || 1000,
   })
 }

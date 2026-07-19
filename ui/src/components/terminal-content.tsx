@@ -22,6 +22,7 @@ import { appendCurrentClusterParam } from '@/lib/current-cluster'
 import { toSimpleContainer } from '@/lib/k8s'
 import { getWebSocketUrl } from '@/lib/subpath'
 import { translateError } from '@/lib/utils'
+import { useCluster } from '@/hooks/use-cluster'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -103,6 +104,7 @@ export function Terminal({
   })
   const speedUpdateTimerRef = useRef<NodeJS.Timeout | null>(null)
   const { t } = useTranslation()
+  const { currentCluster } = useCluster()
 
   // Keep user selection unless the current pod is no longer available.
   useEffect(() => {
@@ -326,7 +328,7 @@ export function Terminal({
     // WebSocket connection
     setIsConnected(false)
     const clusterParams = new URLSearchParams()
-    appendCurrentClusterParam(clusterParams)
+    appendCurrentClusterParam(clusterParams, currentCluster)
     const podParams = new URLSearchParams(clusterParams)
     podParams.set('container', selectedContainer)
     const wsPath =
@@ -493,7 +495,9 @@ export function Terminal({
     selectedPod,
     selectedContainer,
     namespace,
+    nodeName,
     type,
+    currentCluster,
     updateNetworkStats,
     reconnectFlag,
   ])

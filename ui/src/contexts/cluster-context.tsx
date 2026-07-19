@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { Cluster } from '@/types/api'
-import { useCurrentClusterList } from '@/lib/api'
+import { useCurrentClusterList } from '@/lib/api/cluster'
 import {
   clearCurrentCluster,
   getCurrentCluster,

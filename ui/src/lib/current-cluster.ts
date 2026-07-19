@@ -18,8 +18,10 @@ export function clearCurrentCluster() {
   localStorage.removeItem(CURRENT_CLUSTER_STORAGE_KEY)
 }
 
-export function appendCurrentClusterParam(params: URLSearchParams) {
-  const currentCluster = getCurrentCluster()
+export function appendCurrentClusterParam(
+  params: URLSearchParams,
+  currentCluster = getCurrentCluster()
+) {
   if (currentCluster) {
     params.append(CURRENT_CLUSTER_HEADER_KEY, currentCluster)
   }
@@ -32,8 +34,10 @@ export function appendCurrentClusterHeader(headers: Record<string, string>) {
   }
 }
 
-export function withCurrentClusterPath(path: string) {
-  const currentCluster = getCurrentCluster()
+export function withCurrentClusterPath(
+  path: string,
+  currentCluster: string | null = getCurrentCluster()
+) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
   if (!currentCluster) {
     return normalizedPath

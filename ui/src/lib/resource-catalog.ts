@@ -1087,9 +1087,10 @@ export function getResourceDetailPath(
 export function getResourceQueryKey(
   resource: string,
   namespace?: string,
-  name?: string
+  name?: string,
+  cluster?: string | null
 ) {
-  return [resource, namespace || '_all', name || '_all']
+  return [resource, namespace || '_all', name || '_all', cluster || '']
 }
 
 export const clusterScopedResourceTypes = resourceMetadataList
