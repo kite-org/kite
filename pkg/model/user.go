@@ -206,13 +206,24 @@ func ListUsers(limit int, offset int, search string, sortBy string, sortOrder st
 func LoginUser(u *User) error {
 	now := time.Now()
 	u.LastLoginAt = &now
-	return DB.Save(u).Error
+	err := DB.Model(&User{}).Where("id = ? AND enabled = ?", u.ID, true).Update("last_login_at", now).Error
+	InvalidateUserCache(uint64(u.ID))
+	return err
 }
 
 // DeleteUserByID removes a user by ID
 func DeleteUserByID(id uint) error {
 	_ = DB.Where("operator_id = ?", id).Delete(&ResourceHistory{}).Error
-	err := DB.Delete(&User{}, id).Error
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		var user User
+		if err := tx.Select("username").First(&user, id).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("subject_type = ? AND subject = ?", SubjectTypeUser, user.Username).Delete(&RoleAssignment{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&User{}, id).Error
+	})
 	InvalidateUserCache(uint64(id))
 	return err
 }
