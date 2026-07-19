@@ -11,6 +11,8 @@ import (
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/kube"
+	"github.com/zxh326/kite/pkg/model"
+	"github.com/zxh326/kite/pkg/rbac"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -36,6 +38,7 @@ func (h *NodeHandler) DrainNode(c *gin.Context) {
 	nodeName := c.Param("name")
 	ctx := c.Request.Context()
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
+	user := c.MustGet("user").(model.User)
 	// Parse the request body for drain options
 	var drainRequest struct {
 		Force            bool `json:"force" binding:"required"`
@@ -71,11 +74,6 @@ func (h *NodeHandler) DrainNode(c *gin.Context) {
 		ErrOut:              io.Discard,
 	}
 
-	if err := drain.RunCordonOrUncordon(drainer, &node, false); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cordon node: " + err.Error()})
-		return
-	}
-
 	podDeleteList, errs := drainer.GetPodsForDeletion(nodeName)
 	if len(errs) > 0 {
 		errMsg := ""
@@ -89,7 +87,24 @@ func (h *NodeHandler) DrainNode(c *gin.Context) {
 		return
 	}
 
-	if err := drainer.DeleteOrEvictPods(podDeleteList.Pods()); err != nil {
+	pods := podDeleteList.Pods()
+	for _, pod := range pods {
+		if !rbac.CanAccess(user, string(common.Pods), string(common.VerbUpdate), cs.Name, pod.Namespace) {
+			c.JSON(http.StatusForbidden, gin.H{"error": rbac.NoAccess(user.Key(), string(common.VerbUpdate), string(common.Pods), pod.Namespace, cs.Name)})
+			return
+		}
+		if !rbac.CanAccess(user, string(common.Pods), string(common.VerbDelete), cs.Name, pod.Namespace) {
+			c.JSON(http.StatusForbidden, gin.H{"error": rbac.NoAccess(user.Key(), string(common.VerbDelete), string(common.Pods), pod.Namespace, cs.Name)})
+			return
+		}
+	}
+
+	if err := drain.RunCordonOrUncordon(drainer, &node, false); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cordon node: " + err.Error()})
+		return
+	}
+
+	if err := drainer.DeleteOrEvictPods(pods); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to drain node: " + err.Error()})
 		return
 	}
@@ -97,7 +112,7 @@ func (h *NodeHandler) DrainNode(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message":  fmt.Sprintf("Node %s drained successfully", nodeName),
 		"node":     node.Name,
-		"pods":     len(podDeleteList.Pods()),
+		"pods":     len(pods),
 		"warnings": podDeleteList.Warnings(),
 	})
 }
@@ -337,11 +352,11 @@ func (h *NodeHandler) List(c *gin.Context) {
 }
 
 func (h *NodeHandler) registerCustomRoutes(group *gin.RouterGroup) {
-	group.POST("/_all/:name/drain", h.DrainNode)
-	group.POST("/_all/:name/cordon", h.CordonNode)
-	group.POST("/_all/:name/uncordon", h.UncordonNode)
-	group.POST("/_all/:name/taint", h.TaintNode)
-	group.POST("/_all/:name/untaint", h.UntaintNode)
+	group.PUT("/_all/:name/drain", h.DrainNode)
+	group.PUT("/_all/:name/cordon", h.CordonNode)
+	group.PUT("/_all/:name/uncordon", h.UncordonNode)
+	group.PUT("/_all/:name/taint", h.TaintNode)
+	group.PUT("/_all/:name/untaint", h.UntaintNode)
 }
 
 func buildNodeMetricsMap(nodeMetrics []metricsv1.NodeMetrics) map[string]metricsv1.NodeMetrics {

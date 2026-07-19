@@ -455,7 +455,7 @@ export const drainNode = async (
   warnings?: string | string[]
 }> => {
   const endpoint = `/nodes/_all/${nodeName}/drain`
-  const response = await apiClient.post<{
+  const response = await apiClient.put<{
     message: string
     node: string
     pods: number
@@ -469,7 +469,7 @@ export const cordonNode = async (
   nodeName: string
 ): Promise<{ message: string; node: string; unschedulable: boolean }> => {
   const endpoint = `/nodes/_all/${nodeName}/cordon`
-  const response = await apiClient.post<{
+  const response = await apiClient.put<{
     message: string
     node: string
     unschedulable: boolean
@@ -482,7 +482,7 @@ export const uncordonNode = async (
   nodeName: string
 ): Promise<{ message: string; node: string; unschedulable: boolean }> => {
   const endpoint = `/nodes/_all/${nodeName}/uncordon`
-  const response = await apiClient.post<{
+  const response = await apiClient.put<{
     message: string
     node: string
     unschedulable: boolean
@@ -500,7 +500,7 @@ export const taintNode = async (
   }
 ): Promise<{ message: string; node: string; taint: unknown }> => {
   const endpoint = `/nodes/_all/${nodeName}/taint`
-  const response = await apiClient.post<{
+  const response = await apiClient.put<{
     message: string
     node: string
     taint: unknown
@@ -514,7 +514,7 @@ export const untaintNode = async (
   key: string
 ): Promise<{ message: string; node: string; removedTaintKey: string }> => {
   const endpoint = `/nodes/_all/${nodeName}/untaint`
-  const response = await apiClient.post<{
+  const response = await apiClient.put<{
     message: string
     node: string
     removedTaintKey: string
