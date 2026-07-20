@@ -152,7 +152,9 @@ func NewClient(config *rest.Config) (*K8sClient, error) {
 	if config.Burst == 0 {
 		config.Burst = kubeAPIBurst()
 	}
-
+	// Use Protobuf for better performance and less bandwidth on large clusters
+	config.AcceptContentTypes = "application/vnd.kubernetes.protobuf,application/json"
+	config.ContentType = "application/vnd.kubernetes.protobuf"
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
