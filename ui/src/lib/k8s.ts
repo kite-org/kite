@@ -15,6 +15,7 @@ import { DeploymentStatusType, PodStatus, SimpleContainer } from '@/types/k8s'
 import {
   getResourceDetailPath,
   isClusterScopedResource,
+  resourceMetadataList,
 } from './resource-metadata'
 import { getAge } from './utils'
 
@@ -411,41 +412,14 @@ export function getDeploymentStatus(
 }
 
 export function isStandardK8sResource(kind: string): boolean {
-  const standardK8sResources = [
-    'pods',
-    'deployments',
-    'statefulsets',
-    'daemonsets',
-    'replicasets',
-    'jobs',
-    'cronjobs',
-    'services',
-    'gateways',
-    'httproutes',
-    'configmaps',
-    'secrets',
-    'serviceaccounts',
-    'persistentvolumeclaims',
-    'persistentvolumes',
-    'ingresses',
-    'networkpolicies',
-    'namespaces',
-    'crds',
-    'nodes',
-    'events',
-    'storageclasses',
-    'poddisruptionbudgets',
-    'roles',
-    'rolebindings',
-    'clusterroles',
-    'clusterrolebindings',
-    'horizontalpodautoscalers',
-    'podmetrics',
-  ]
-  const resourcePath = kind.toLowerCase() + 's'
-  return (
-    standardK8sResources.includes(kind) ||
-    standardK8sResources.includes(resourcePath)
+  const normalizedKind = kind.toLowerCase()
+  return resourceMetadataList.some(
+    (resource) =>
+      resource.type === normalizedKind ||
+      resource.singular === normalizedKind ||
+      resource.singularLabel.toLowerCase() === normalizedKind ||
+      resource.pluralLabel.toLowerCase() === normalizedKind ||
+      resource.shortLabel?.toLowerCase() === normalizedKind
   )
 }
 
