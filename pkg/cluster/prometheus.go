@@ -40,7 +40,7 @@ func discoveryPrometheusURL(kc *kube.K8sClient) string {
 					continue
 				}
 				for _, port := range svc.Spec.Ports {
-					if port.Port != 9090 && port.Port != 8429 {
+					if port.Port != 9090 && port.Port != 8428 && port.Port != 8429 {
 						continue
 					}
 					return fmt.Sprintf("http://%s.%s.svc.cluster.local:%d", svc.Name, svc.Namespace, port.Port)

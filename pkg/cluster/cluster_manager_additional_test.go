@@ -141,34 +141,98 @@ func TestK8sProxyTransportRoundTrip(t *testing.T) {
 }
 
 func TestDiscoveryPrometheusURL(t *testing.T) {
-	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "prometheus",
-			Namespace: "monitoring",
-			Labels: map[string]string{
-				"app.kubernetes.io/name": "prometheus",
+	t.Run("discovers prometheus port 9090", func(t *testing.T) {
+		svc := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "prometheus",
+				Namespace: "monitoring",
+				Labels: map[string]string{
+					"app.kubernetes.io/name": "prometheus",
+				},
 			},
-		},
-		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
-			Ports: []corev1.ServicePort{
-				{Port: 9090},
+			Spec: corev1.ServiceSpec{
+				Type: corev1.ServiceTypeClusterIP,
+				Ports: []corev1.ServicePort{
+					{Port: 9090},
+				},
 			},
-		},
-	}
+		}
 
-	kc := &kube.K8sClient{
-		Client: fake.NewClientBuilder().
-			WithScheme(kube.GetScheme()).
-			WithObjects(svc).
-			Build(),
-	}
+		kc := &kube.K8sClient{
+			Client: fake.NewClientBuilder().
+				WithScheme(kube.GetScheme()).
+				WithObjects(svc).
+				Build(),
+		}
 
-	got := discoveryPrometheusURL(kc)
-	want := "http://prometheus.monitoring.svc.cluster.local:9090"
-	if got != want {
-		t.Fatalf("discoveryPrometheusURL() = %q, want %q", got, want)
-	}
+		got := discoveryPrometheusURL(kc)
+		want := "http://prometheus.monitoring.svc.cluster.local:9090"
+		if got != want {
+			t.Fatalf("discoveryPrometheusURL() = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("discovers vmsingle port 8428", func(t *testing.T) {
+		svc := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "vmsingle",
+				Namespace: "monitoring",
+				Labels: map[string]string{
+					"app.kubernetes.io/name": "vmsingle",
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				Type: corev1.ServiceTypeClusterIP,
+				Ports: []corev1.ServicePort{
+					{Port: 8428},
+				},
+			},
+		}
+
+		kc := &kube.K8sClient{
+			Client: fake.NewClientBuilder().
+				WithScheme(kube.GetScheme()).
+				WithObjects(svc).
+				Build(),
+		}
+
+		got := discoveryPrometheusURL(kc)
+		want := "http://vmsingle.monitoring.svc.cluster.local:8428"
+		if got != want {
+			t.Fatalf("discoveryPrometheusURL() = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("discovers legacy vmsingle port 8429", func(t *testing.T) {
+		svc := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "vmsingle",
+				Namespace: "monitoring",
+				Labels: map[string]string{
+					"app.kubernetes.io/name": "vmsingle",
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				Type: corev1.ServiceTypeClusterIP,
+				Ports: []corev1.ServicePort{
+					{Port: 8429},
+				},
+			},
+		}
+
+		kc := &kube.K8sClient{
+			Client: fake.NewClientBuilder().
+				WithScheme(kube.GetScheme()).
+				WithObjects(svc).
+				Build(),
+		}
+
+		got := discoveryPrometheusURL(kc)
+		want := "http://vmsingle.monitoring.svc.cluster.local:8429"
+		if got != want {
+			t.Fatalf("discoveryPrometheusURL() = %q, want %q", got, want)
+		}
+	})
 }
 
 func TestGetClientSet(t *testing.T) {
