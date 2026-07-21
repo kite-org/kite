@@ -16,6 +16,21 @@ import {
 
 const sidebarIconMap = resourceIconMap
 type CatalogResource = (typeof resourceCatalog)[number]
+type StoredSidebarItem = {
+  id: string
+  titleKey: string
+  url?: string
+  icon: string
+  visible: boolean
+  pinned: boolean
+  order: number
+  type?: SidebarItem['type']
+  apiGroup?: string
+  crdGroup?: string
+}
+type StoredSidebarConfig = Omit<SidebarConfig, 'groups'> & {
+  groups: Array<Omit<SidebarGroup, 'items'> & { items: StoredSidebarItem[] }>
+}
 type SidebarResource = CatalogResource & {
   sidebar: {
     groupKey: (typeof sidebarGroupOrder)[number]
@@ -56,7 +71,7 @@ defaultMenus['sidebar.groups.application'].push({
   icon: getResourceIconComponent('IconPackage'),
 })
 
-export const SIDEBAR_CONFIG_VERSION = 3
+export const SIDEBAR_CONFIG_VERSION = 4
 
 function getIconName(iconComponent: ComponentType<{ className?: string }>) {
   const entry = Object.entries(sidebarIconMap).find(
@@ -90,6 +105,7 @@ export function buildDefaultSidebarConfig(): SidebarConfig {
       }
       return {
         id,
+        type: 'link',
         titleKey: item.titleKey,
         url: item.url,
         icon: getIconName(item.icon),
@@ -116,5 +132,46 @@ export function buildDefaultSidebarConfig(): SidebarConfig {
     pinnedItems: [],
     groupOrder: groups.map((g) => g.id),
     lastUpdated: Date.now(),
+  }
+}
+
+export function migrateSidebarConfig(
+  storedConfig: StoredSidebarConfig
+): SidebarConfig {
+  return {
+    ...storedConfig,
+    version: SIDEBAR_CONFIG_VERSION,
+    groups: storedConfig.groups.map((group) => ({
+      ...group,
+      items: group.items.map((item): SidebarItem => {
+        const apiGroup = item.apiGroup || item.crdGroup
+        const baseItem = {
+          id: item.id,
+          titleKey: item.titleKey,
+          icon: item.icon,
+          visible: item.visible,
+          pinned: item.pinned,
+          order: item.order,
+        }
+
+        if (apiGroup) {
+          return {
+            ...baseItem,
+            type: 'apiGroup',
+            apiGroup,
+          }
+        }
+
+        return {
+          ...baseItem,
+          type:
+            item.type === 'customResource' ||
+            (!item.type && item.url?.startsWith('/crds/'))
+              ? 'customResource'
+              : 'link',
+          url: item.url!,
+        }
+      }),
+    })),
   }
 }

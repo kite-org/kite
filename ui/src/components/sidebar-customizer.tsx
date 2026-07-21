@@ -36,6 +36,11 @@ import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { CRDSelector } from '@/components/selector/crd-selector'
 
 const normalizeSidebarPreference = (value: string): string => {
@@ -87,8 +92,9 @@ export function SidebarCustomizer({
     toggleGroupVisibility,
     createCustomGroup,
     addCRDToGroup,
+    addAPIGroupToGroup,
     removeCustomGroup,
-    removeCRDToGroup,
+    removeItemFromGroup,
     moveGroup,
     moveItemToGroup,
   } = useSidebarConfig()
@@ -242,6 +248,8 @@ export function SidebarCustomizer({
   const isCurrentConfigGlobal =
     hasPublishedGlobalSidebarPreference &&
     normalizedCurrentConfig === normalizedGlobalSidebarPreference
+  const isSetAsGlobalDisabled =
+    isPublishingGlobal || isClearingGlobal || isCurrentConfigGlobal
 
   useEffect(() => {
     setPublishedGlobalSidebarPreference(globalSidebarPreference)
@@ -315,7 +323,7 @@ export function SidebarCustomizer({
             {t('common.actions.customizeSidebar', 'Customize Sidebar')}
           </span>
           {hasUpdate && (
-            <span className="ml-auto h-2 w-2 rounded-full bg-red-500" />
+            <span className="ml-auto size-2 rounded-full bg-red-500" />
           )}
         </DropdownMenuItem>
       </DialogTrigger>
@@ -483,7 +491,9 @@ export function SidebarCustomizer({
                       const IconComponent = getIconComponent(item.icon)
                       const isHidden = config.hiddenItems.includes(item.id)
                       const isPinned = config.pinnedItems.includes(item.id)
-                      const isCRDItem = item.url.startsWith('/crds/')
+                      const isRemovable =
+                        item.type === 'apiGroup' ||
+                        item.type === 'customResource'
                       const title = item.titleKey
                         ? t(item.titleKey, { defaultValue: item.titleKey })
                         : ''
@@ -522,6 +532,11 @@ export function SidebarCustomizer({
                             </Button>
                             <IconComponent className="h-4 w-4 text-sidebar-primary" />
                             <span className="text-sm">{title}</span>
+                            {item.type === 'apiGroup' && (
+                              <Badge variant="outline" className="text-xs">
+                                {t('sidebar.apiGroup', 'API Group')}
+                              </Badge>
+                            )}
                             {isPinned && (
                               <Badge variant="secondary" className="text-xs">
                                 <Pin className="h-3 w-3 mr-1" />
@@ -545,12 +560,12 @@ export function SidebarCustomizer({
                                 <Pin className="h-3.5 w-3.5" />
                               )}
                             </Button>
-                            {group.isCustom && isCRDItem ? (
+                            {isRemovable ? (
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() =>
-                                  removeCRDToGroup(group.id, item.id)
+                                  removeItemFromGroup(group.id, item.id)
                                 }
                                 className="h-8 w-8 p-0"
                                 title="Remove from group"
@@ -591,6 +606,12 @@ export function SidebarCustomizer({
                               kind: kind,
                             })
                           }
+                          onAPIGroupAdd={(groupName) =>
+                            addAPIGroupToGroup(group.id, groupName)
+                          }
+                          addedAPIGroups={group.items.flatMap((item) =>
+                            item.type === 'apiGroup' ? [item.apiGroup] : []
+                          )}
                           placeholder="Select CRD to add..."
                         />
                         <Button
@@ -664,17 +685,33 @@ export function SidebarCustomizer({
               </Button>
             )}
             {user?.isAdmin() && (
-              <Button
-                variant="outline"
-                onClick={handleSetAsGlobalSidebar}
-                disabled={
-                  isPublishingGlobal ||
-                  isClearingGlobal ||
-                  isCurrentConfigGlobal
-                }
-              >
-                {t('sidebar.setAsGlobal', 'Set as global sidebar')}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="inline-flex"
+                    tabIndex={isSetAsGlobalDisabled ? 0 : undefined}
+                  >
+                    <Button
+                      variant="outline"
+                      onClick={handleSetAsGlobalSidebar}
+                      disabled={isSetAsGlobalDisabled}
+                      aria-describedby="set-global-sidebar-description"
+                    >
+                      {t('sidebar.setAsGlobal', 'Set as global sidebar')}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent
+                  id="set-global-sidebar-description"
+                  side="top"
+                  className="max-w-xs text-pretty"
+                >
+                  {t(
+                    'sidebar.setAsGlobalDescription',
+                    'Apply the current layout to all non-admin users and admins without a personal sidebar configuration. Admins with a personal configuration keep their own layout.'
+                  )}
+                </TooltipContent>
+              </Tooltip>
             )}
             <Button
               onClick={() => {

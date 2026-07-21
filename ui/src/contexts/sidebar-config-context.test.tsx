@@ -20,7 +20,7 @@ const trafficGroupId = 'sidebar-groups-traffic'
 const workloadsPodsItemId = 'sidebar-groups-workloads--pods'
 const otherGroupId = 'sidebar-groups-other'
 const customGroupId = 'custom-my-group'
-const customGroupItemId = 'custom-my-group-widgets-example-com'
+const customGroupItemId = 'custom-my-group--custom-resource:widgets.example.com'
 
 function SidebarConfigConsumer() {
   const {
@@ -32,7 +32,7 @@ function SidebarConfigConsumer() {
     toggleGroupCollapse,
     createCustomGroup,
     addCRDToGroup,
-    removeCRDToGroup,
+    removeItemFromGroup,
     removeCustomGroup,
     moveGroup,
   } = useSidebarConfig()
@@ -126,7 +126,7 @@ function SidebarConfigConsumer() {
       </button>
       <button
         type="button"
-        onClick={() => removeCRDToGroup(customGroupId, customGroupItemId)}
+        onClick={() => removeItemFromGroup(customGroupId, customGroupItemId)}
       >
         remove custom item
       </button>

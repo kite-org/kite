@@ -231,6 +231,9 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
         .slice()
         .sort((a, b) => a.order - b.order)
         .forEach((item) => {
+          if (item.type === 'apiGroup') {
+            return
+          }
           const title = item.titleKey
             ? t(item.titleKey, { defaultValue: item.titleKey })
             : item.id

@@ -16,6 +16,7 @@ import { useAuth } from './auth-context'
 import {
   buildDefaultSidebarConfig,
   getSidebarIconComponent,
+  migrateSidebarConfig,
   SIDEBAR_CONFIG_VERSION,
 } from './sidebar-config-defaults'
 
@@ -53,7 +54,8 @@ interface SidebarConfigContextType {
     | React.ElementType
   createCustomGroup: (groupName: string) => void
   addCRDToGroup: (groupId: string, crdName: string, kind: string) => void
-  removeCRDToGroup: (groupId: string, crdName: string) => void
+  addAPIGroupToGroup: (groupId: string, groupName: string) => void
+  removeItemFromGroup: (groupId: string, itemId: string) => void
   removeCustomGroup: (groupId: string) => void
   moveGroup: (groupId: string, direction: 'up' | 'down') => void
   moveItemToGroup: (
@@ -91,15 +93,13 @@ export const SidebarConfigProvider: React.FC<SidebarConfigProviderProps> = ({
 
   const loadConfig = useCallback(async () => {
     if (user && user.sidebar_preference && user.sidebar_preference != '') {
-      const userConfig = JSON.parse(user.sidebar_preference)
+      const storedConfig = JSON.parse(user.sidebar_preference)
+      setHasUpdate((storedConfig.version || 0) < SIDEBAR_CONFIG_VERSION)
+      const userConfig = migrateSidebarConfig(storedConfig)
       setConfig(userConfig)
-
-      const currentVersion = userConfig.version || 0
-      if (currentVersion < SIDEBAR_CONFIG_VERSION) {
-        setHasUpdate(true)
-      }
       return
     }
+    setHasUpdate(false)
     setConfig(buildDefaultSidebarConfig())
   }, [user])
 
@@ -253,17 +253,22 @@ export const SidebarConfigProvider: React.FC<SidebarConfigProviderProps> = ({
 
       const groups = config.groups.map((group) => {
         if (group.id === groupId) {
-          const itemId = `${groupId}-${crdName.replace(/[^a-zA-Z0-9]/g, '-')}`
+          const url = `/crds/${crdName}`
 
           // Check if CRD already exists in this group
-          if (group.items.find((item) => item.id === itemId)) {
+          if (
+            group.items.some(
+              (item) => item.type === 'customResource' && item.url === url
+            )
+          ) {
             return group
           }
 
           const newItem: SidebarItem = {
-            id: itemId,
+            id: `${groupId}--custom-resource:${encodeURIComponent(crdName)}`,
+            type: 'customResource',
             titleKey: kind,
-            url: `/crds/${crdName}`,
+            url,
             icon: 'IconCode',
             visible: true,
             pinned: false,
@@ -276,6 +281,43 @@ export const SidebarConfigProvider: React.FC<SidebarConfigProviderProps> = ({
           }
         }
         return group
+      })
+
+      updateConfig({ groups })
+    },
+    [config, updateConfig]
+  )
+
+  const addAPIGroupToGroup = useCallback(
+    (targetGroupId: string, groupName: string) => {
+      if (!config) return
+
+      const groups = config.groups.map((group) => {
+        if (group.id !== targetGroupId) return group
+        if (
+          group.items.some(
+            (item) => item.type === 'apiGroup' && item.apiGroup === groupName
+          )
+        ) {
+          return group
+        }
+
+        const itemId = `${targetGroupId}--api-group:${encodeURIComponent(groupName)}`
+        const newItem: SidebarItem = {
+          id: itemId,
+          type: 'apiGroup',
+          titleKey: groupName,
+          icon: 'IconCode',
+          visible: true,
+          pinned: false,
+          order: group.items.length,
+          apiGroup: groupName,
+        }
+
+        return {
+          ...group,
+          items: [...group.items, newItem],
+        }
       })
 
       updateConfig({ groups })
@@ -342,12 +384,14 @@ export const SidebarConfigProvider: React.FC<SidebarConfigProviderProps> = ({
     [config, updateConfig]
   )
 
-  const removeCRDToGroup = useCallback(
+  const removeItemFromGroup = useCallback(
     (groupId: string, itemID: string) => {
       if (!config) return
       const groups = config.groups.map((group) => {
         if (group.id === groupId) {
-          const newItems = group.items.filter((item) => item.id !== itemID)
+          const newItems = group.items
+            .filter((item) => item.id !== itemID)
+            .map((item, index) => ({ ...item, order: index }))
           return {
             ...group,
             items: newItems,
@@ -423,7 +467,8 @@ export const SidebarConfigProvider: React.FC<SidebarConfigProviderProps> = ({
     getIconComponent: getSidebarIconComponent,
     createCustomGroup,
     addCRDToGroup,
-    removeCRDToGroup,
+    addAPIGroupToGroup,
+    removeItemFromGroup,
     removeCustomGroup,
     moveGroup,
     moveItemToGroup,
