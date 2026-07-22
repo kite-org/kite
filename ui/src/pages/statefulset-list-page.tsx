@@ -1,14 +1,24 @@
-import { useMemo } from 'react'
-import { IconCircleCheckFilled, IconLoader } from '@tabler/icons-react'
+import { useMemo, useState } from 'react'
+import {
+  IconCircleCheckFilled,
+  IconLoader,
+  IconReload,
+} from '@tabler/icons-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { createColumnHelper } from '@tanstack/react-table'
 import { StatefulSet } from 'kubernetes-types/apps/v1'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
+import { restartWorkload } from '@/lib/api'
 import { createSearchFilter } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
-import { ResourceTable } from '@/components/resource-table'
+import { ResourceBatchActionDialog } from '@/components/resource-batch-action-dialog'
+import {
+  ResourceTable,
+  type ResourceTableBatchAction,
+} from '@/components/resource-table'
 
 const statefulSetSearchFilter = createSearchFilter<StatefulSet>(
   (s) => s.metadata?.name,
@@ -20,6 +30,24 @@ const columnHelper = createColumnHelper<StatefulSet>()
 
 export function StatefulSetListPage() {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [isRestartDialogOpen, setIsRestartDialogOpen] = useState(false)
+  const [batchStatefulSets, setBatchStatefulSets] = useState<StatefulSet[]>([])
+
+  const batchActions = useMemo<ResourceTableBatchAction<StatefulSet>[]>(
+    () => [
+      {
+        id: 'restart',
+        label: t('common.actions.restart'),
+        icon: <IconReload className="size-4" />,
+        onSelect: (statefulSets) => {
+          setBatchStatefulSets(statefulSets)
+          setIsRestartDialogOpen(true)
+        },
+      },
+    ],
+    [t]
+  )
 
   // Define columns for the statefulset table
   const columns = useMemo(
@@ -112,11 +140,40 @@ export function StatefulSetListPage() {
   )
 
   return (
-    <ResourceTable
-      resourceName={'StatefulSets'}
-      resourceType="statefulsets"
-      columns={columns}
-      searchQueryFilter={statefulSetSearchFilter}
-    />
+    <>
+      <ResourceTable
+        resourceName={'StatefulSets'}
+        resourceType="statefulsets"
+        columns={columns}
+        searchQueryFilter={statefulSetSearchFilter}
+        batchActions={batchActions}
+      />
+
+      <ResourceBatchActionDialog
+        open={isRestartDialogOpen}
+        onOpenChange={setIsRestartDialogOpen}
+        resources={batchStatefulSets}
+        title={t('resourceTable.batchActions.restartResourcesTitle', {
+          count: batchStatefulSets.length,
+          resource: t('nav.statefulsets'),
+        })}
+        description={t(
+          'resourceTable.batchActions.restartResourcesDescription',
+          { resource: t('nav.statefulsets') }
+        )}
+        actionLabel={t('common.actions.restart')}
+        onExecute={(statefulSet) =>
+          restartWorkload(
+            'statefulsets',
+            statefulSet.metadata!.name!,
+            statefulSet.metadata!.namespace!
+          )
+        }
+        onComplete={() =>
+          queryClient.invalidateQueries({ queryKey: ['statefulsets'] })
+        }
+        destructive={true}
+      />
+    </>
   )
 }

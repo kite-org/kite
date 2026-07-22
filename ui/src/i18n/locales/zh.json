@@ -11,7 +11,7 @@
       "confirm": "确认",
       "copy": "复制",
       "collapse": "收起",
-      "cordon": "Cordon",
+      "cordon": "停止调度",
       "createGroup": "创建新分组",
       "create": "创建",
       "customizeSidebar": "自定义侧边栏",
@@ -271,6 +271,7 @@
       "passwordLoginWarningDescription": "保存前请确认 LDAP、OAuth Provider、Passkey 可用。没有可用的替代登录方式时，你将无法登录，只能通过重置数据库恢复。",
       "passwordLoginWarningTitle": "警告：你可能会失去访问权限！",
       "passwordReset": "密码已重置",
+      "resourceNotFound": "未找到{{resource}}",
       "somethingWentWrong": "出现错误",
       "startedAgo": "{{time}} 前启动",
       "startedShort": "已启动",
@@ -616,6 +617,15 @@
     "networkUsage": "网络使用量",
     "diskUsage": "磁盘使用率",
     "resourceUtilization": "资源利用率",
+    "usage": "使用率",
+    "incoming": "流入",
+    "outgoing": "流出",
+    "selectTimeRange": "选择时间范围",
+    "last30Minutes": "最近 30 分钟",
+    "lastHour": "最近 1 小时",
+    "last24Hours": "最近 24 小时",
+    "noResourceUtilizationData": "暂无资源利用率数据",
+    "noNetworkUsageData": "暂无网络使用量数据",
     "requests": "Requests",
     "limits": "Limits",
     "total": "总计"
@@ -690,6 +700,23 @@
     "deletingProgress": "删除中... ({{done}}/{{total}})",
     "deleteSuccess": "已删除 {{name}}",
     "deleteFailed": "删除 {{name}} 失败：{{error}}",
+    "bulkActions": "批量操作",
+    "selectedCount": "已选择 {{count}} 项",
+    "processingProgress": "处理中... ({{done}}/{{total}})",
+    "batchActionSuccess": "已对 {{count}} 个资源完成{{action}}",
+    "batchActionFailed": "{{count}} 个资源操作失败",
+    "batchActionPartialResult": "已完成 {{succeeded}}/{{total}} 个资源。",
+    "failedResources": "{{count}} 个失败资源",
+    "batchActions": {
+      "cordonNodesTitle": "停止所选 {{count}} 个节点的调度？",
+      "cordonNodesDescription": "所选节点将停止接受新的 Pod，现有 Pod 会继续运行。",
+      "uncordonNodesTitle": "恢复已选择的 {{count}} 个节点的调度？",
+      "uncordonNodesDescription": "所选节点将恢复为可调度状态，并可以接受新的 Pod。",
+      "drainNodesTitle": "驱逐已选择的 {{count}} 个节点？",
+      "drainNodesDescription": "所选节点将逐个停止调度并执行驱逐。Pod 驱逐可能影响业务，且无法自动回滚。",
+      "restartResourcesTitle": "重启已选择的 {{count}} 个 {{resource}}？",
+      "restartResourcesDescription": "此操作会更新每个 {{resource}} 的 Pod 模板并触发滚动更新。Paused 或 OnDelete 策略可能不会立即重启，且不会等待滚动更新健康完成。"
+    },
     "watch": "监听",
     "namespace": "Namespace"
   },
@@ -1130,10 +1157,11 @@
       "deleted": "{{resource}} 已删除",
       "taintKeyRequired": "污点 Key 不能为空",
       "taintRemoved": "已移除 {{resource}} 的污点",
-      "nodeDrained": "节点 {{name}} 驱逐完成",
-      "nodeCordoned": "节点 {{name}} 已封锁",
+      "nodeDrained": "节点 {{name}} 驱逐完成（{{pods}} 个 Pod）",
+      "nodeCordoned": "节点 {{name}} 已停止调度",
       "nodeUncordoned": "节点 {{name}} 已恢复调度",
-      "nodeTainted": "节点 {{name}} 污点已添加"
+      "nodeTainted": "节点 {{name}} 污点已添加",
+      "nodeTaintRemoved": "节点 {{name}} 的污点已移除"
     },
     "dialogs": {
       "drainNode": {
@@ -1141,14 +1169,14 @@
         "description": "安全驱逐此节点上的所有 Pod。",
         "forceDrain": "强制驱逐",
         "deleteLocalData": "删除本地数据",
-        "ignoreDaemonSets": "忽略 DaemonSets",
-        "gracePeriod": "Grace Period（秒）",
+        "ignoreDaemonSets": "忽略 DaemonSet",
+        "gracePeriod": "优雅终止时间（秒）",
         "drainButton": "驱逐"
       },
       "cordonNode": {
-        "title": "Cordon Node",
+        "title": "停止节点调度",
         "description": "标记此 Node 为不可调度。",
-        "cordonButton": "Cordon"
+        "cordonButton": "停止调度"
       },
       "taintNode": {
         "title": "添加污点",
@@ -1182,7 +1210,9 @@
       "conditions": "状况"
     },
     "fields": {
-      "schedulingDisabled": "（已禁止调度）"
+      "schedulingDisabled": "已停止调度",
+      "podCapacity": "Pod 容量",
+      "noMessage": "无消息"
     }
   },
   "log": {

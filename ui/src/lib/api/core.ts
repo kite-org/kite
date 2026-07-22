@@ -558,6 +558,25 @@ export const patchResource = async <T extends ResourceType>(
   await apiClient.patch(`${endpoint}`, body)
 }
 
+export const restartWorkload = async (
+  resource: 'deployments' | 'statefulsets',
+  name: string,
+  namespace: string
+): Promise<void> => {
+  const endpoint = `/${resource}/${namespace}/${name}`
+  await apiClient.patch(endpoint, {
+    spec: {
+      template: {
+        metadata: {
+          annotations: {
+            'kite.kubernetes.io/restartedAt': new Date().toISOString(),
+          },
+        },
+      },
+    },
+  })
+}
+
 export const createResource = async <T extends ResourceType>(
   resource: T,
   namespace: string | undefined,

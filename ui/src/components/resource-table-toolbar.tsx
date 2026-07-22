@@ -1,6 +1,7 @@
 import React from 'react'
 import { ColumnDef, Table } from '@tanstack/react-table'
 import {
+  ChevronDown,
   Plus,
   RefreshCw,
   Search,
@@ -17,6 +18,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -32,6 +34,13 @@ import {
 import { Toggle } from '@/components/ui/toggle'
 
 import { NamespaceSelector } from './selector/namespace-selector'
+
+export interface ResourceTableBatchAction<T> {
+  id: string
+  label: string
+  icon?: React.ReactNode
+  onSelect: (rows: T[]) => void
+}
 
 interface ResourceTableToolbarProps<T> {
   table: Table<T>
@@ -52,6 +61,7 @@ interface ResourceTableToolbarProps<T> {
   onRefreshIntervalChange: (value: number) => void
   selectedRowCount: number
   onOpenDeleteDialog: () => void
+  batchActions: ResourceTableBatchAction<T>[]
 }
 
 export function ResourceTableToolbar<T>({
@@ -73,6 +83,7 @@ export function ResourceTableToolbar<T>({
   onRefreshIntervalChange,
   selectedRowCount,
   onOpenDeleteDialog,
+  batchActions,
 }: ResourceTableToolbarProps<T>) {
   const { t } = useTranslation()
 
@@ -82,6 +93,10 @@ export function ResourceTableToolbar<T>({
     }
     return columnDef.enableColumnFilter && column.getCanFilter()
   })
+
+  const getSelectedRows = () =>
+    table.getSelectedRowModel().rows.map((row) => row.original)
+  const showBatchActionsInline = batchActions.length + 1 <= 2
 
   return (
     <div className="flex flex-col gap-3">
@@ -207,17 +222,65 @@ export function ResourceTableToolbar<T>({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            {selectedRowCount > 0 && (
-              <Button
-                variant="destructive"
-                onClick={onOpenDeleteDialog}
-                className="gap-2"
-              >
-                <Trash2 className="h-4 w-4" />
-                {t('resourceTable.deleteSelected', {
-                  count: selectedRowCount,
-                })}
-              </Button>
+            {selectedRowCount > 0 && showBatchActionsInline && (
+              <>
+                {batchActions.map((action) => (
+                  <Button
+                    key={action.id}
+                    variant="outline"
+                    onClick={() => action.onSelect(getSelectedRows())}
+                    className="gap-2 tabular-nums"
+                  >
+                    {action.icon}
+                    {action.label} ({selectedRowCount})
+                  </Button>
+                ))}
+                <Button
+                  variant="destructive"
+                  onClick={onOpenDeleteDialog}
+                  className="gap-2 tabular-nums"
+                >
+                  <Trash2 className="size-4" />
+                  {t('resourceTable.deleteSelected', {
+                    count: selectedRowCount,
+                  })}
+                </Button>
+              </>
+            )}
+            {selectedRowCount > 0 && !showBatchActionsInline && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    {t('resourceTable.bulkActions')}
+                    <ChevronDown className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>
+                    {t('resourceTable.selectedCount', {
+                      count: selectedRowCount,
+                    })}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {batchActions.map((action) => (
+                    <DropdownMenuItem
+                      key={action.id}
+                      onSelect={() => action.onSelect(getSelectedRows())}
+                    >
+                      {action.icon}
+                      {action.label}
+                    </DropdownMenuItem>
+                  ))}
+                  {batchActions.length > 0 && <DropdownMenuSeparator />}
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={onOpenDeleteDialog}
+                  >
+                    <Trash2 className="size-4" />
+                    {t('common.actions.delete')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             {showCreateButton && onCreateClick && (
               <Button onClick={onCreateClick} className="gap-1">

@@ -206,7 +206,7 @@ export function ResourceDetailShell<T>({
               <IconLoader className="animate-spin" />
               <span>
                 {loadingMessage ||
-                  `Loading ${resourceLabel.toLowerCase()} details...`}
+                  t('detail.status.loading', { resource: resourceLabel })}
               </span>
             </div>
           </CardContent>
@@ -222,7 +222,9 @@ export function ResourceDetailShell<T>({
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                {resourceLabel} not found
+                {t('common.messages.resourceNotFound', {
+                  resource: resourceLabel,
+                })}
               </div>
             </CardContent>
           </Card>

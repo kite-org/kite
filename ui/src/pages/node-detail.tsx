@@ -107,7 +107,7 @@ export function NodeDetail(props: { name: string }) {
 
   const handleSaveYaml = async (content: Node) => {
     await updateResource('nodes', name, undefined, content)
-    toast.success('YAML saved successfully')
+    toast.success(t('common.messages.yamlSaved'))
   }
 
   const handleRefresh = async () => {
@@ -119,7 +119,10 @@ export function NodeDetail(props: { name: string }) {
     try {
       const result = await drainNode(name, drainOptions)
       toast.success(
-        `Node ${name} drained successfully (${result.pods} pod${result.pods === 1 ? '' : 's'})`
+        t('detail.status.nodeDrained', {
+          name,
+          pods: result.pods,
+        })
       )
       if (result.warnings) toast.warning(result.warnings)
       setIsDrainPopoverOpen(false)
@@ -133,7 +136,7 @@ export function NodeDetail(props: { name: string }) {
   const handleCordon = async () => {
     try {
       await cordonNode(name)
-      toast.success(`Node ${name} cordoned successfully`)
+      toast.success(t('detail.status.nodeCordoned', { name }))
       setIsCordonPopoverOpen(false)
       refetch()
     } catch (err) {
@@ -144,7 +147,7 @@ export function NodeDetail(props: { name: string }) {
   const handleUncordon = async () => {
     try {
       await uncordonNode(name)
-      toast.success(`Node ${name} uncordoned successfully`)
+      toast.success(t('detail.status.nodeUncordoned', { name }))
       setIsCordonPopoverOpen(false)
       refetch()
     } catch (err) {
@@ -154,12 +157,12 @@ export function NodeDetail(props: { name: string }) {
 
   const handleTaint = async () => {
     if (!taintData.key.trim()) {
-      toast.error('Taint key is required')
+      toast.error(t('detail.status.taintKeyRequired'))
       return
     }
     try {
       await taintNode(name, taintData)
-      toast.success(`Node ${name} tainted successfully`)
+      toast.success(t('detail.status.nodeTainted', { name }))
       setIsTaintPopoverOpen(false)
       setTaintData({ key: '', value: '', effect: 'NoSchedule' })
       refetch()
@@ -171,12 +174,12 @@ export function NodeDetail(props: { name: string }) {
   const handleUntaint = async (key?: string) => {
     const taintKey = key || untaintKey
     if (!taintKey.trim()) {
-      toast.error('Taint key is required')
+      toast.error(t('detail.status.taintKeyRequired'))
       return
     }
     try {
       await untaintNode(name, taintKey)
-      toast.success(`Taint removed from node ${name} successfully`)
+      toast.success(t('detail.status.nodeTaintRemoved', { name }))
       if (!key) setUntaintKey('')
       refetch()
     } catch (err) {
@@ -191,7 +194,8 @@ export function NodeDetail(props: { name: string }) {
             value: 'pods',
             label: (
               <>
-                Pods <Badge variant="secondary">{relatedPods.length}</Badge>
+                {t('common.tabs.pods')}{' '}
+                <Badge variant="secondary">{relatedPods.length}</Badge>
               </>
             ),
             content: (
@@ -206,17 +210,17 @@ export function NodeDetail(props: { name: string }) {
       : []),
     {
       value: 'monitor',
-      label: 'Monitor',
+      label: t('common.tabs.monitor'),
       content: <NodeMonitoring name={name} />,
     },
     {
       value: 'terminal',
-      label: 'Terminal',
+      label: t('common.tabs.terminal'),
       content: <Terminal type="node" nodeName={name} />,
     },
     {
       value: 'events',
-      label: 'Events',
+      label: t('common.tabs.events'),
       content: (
         <EventTable resource="nodes" namespace={undefined} name={name} />
       ),
@@ -226,7 +230,7 @@ export function NodeDetail(props: { name: string }) {
   return (
     <ResourceDetailShell
       resourceType="nodes"
-      resourceLabel="Node"
+      resourceLabel={t('common.fields.node')}
       name={name}
       data={data}
       isLoading={isLoading}
@@ -252,15 +256,17 @@ export function NodeDetail(props: { name: string }) {
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">
                 <IconDroplet className="w-4 h-4" />
-                Drain
+                {t('common.actions.drain')}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80">
               <div className="space-y-4">
                 <div>
-                  <h4 className="font-medium">Drain Node</h4>
+                  <h4 className="font-medium">
+                    {t('detail.dialogs.drainNode.title')}
+                  </h4>
                   <p className="text-sm text-muted-foreground">
-                    Safely evict all pods from this node.
+                    {t('detail.dialogs.drainNode.description')}
                   </p>
                 </div>
                 <div className="space-y-3">
@@ -277,7 +283,7 @@ export function NodeDetail(props: { name: string }) {
                       }
                     />
                     <Label htmlFor="force" className="text-sm">
-                      Force drain
+                      {t('detail.dialogs.drainNode.forceDrain')}
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -293,7 +299,7 @@ export function NodeDetail(props: { name: string }) {
                       }
                     />
                     <Label htmlFor="deleteLocalData" className="text-sm">
-                      Delete local data
+                      {t('detail.dialogs.drainNode.deleteLocalData')}
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -309,12 +315,12 @@ export function NodeDetail(props: { name: string }) {
                       }
                     />
                     <Label htmlFor="ignoreDaemonsets" className="text-sm">
-                      Ignore DaemonSets
+                      {t('detail.dialogs.drainNode.ignoreDaemonSets')}
                     </Label>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="gracePeriod" className="text-sm">
-                      Grace Period (seconds)
+                      {t('detail.dialogs.drainNode.gracePeriod')}
                     </Label>
                     <Input
                       id="gracePeriod"
@@ -332,14 +338,14 @@ export function NodeDetail(props: { name: string }) {
                 </div>
                 <div className="flex gap-2">
                   <Button onClick={handleDrain} size="sm" variant="destructive">
-                    Drain Node
+                    {t('detail.dialogs.drainNode.drainButton')}
                   </Button>
                   <Button
                     onClick={() => setIsDrainPopoverOpen(false)}
                     size="sm"
                     variant="outline"
                   >
-                    Cancel
+                    {t('common.actions.cancel')}
                   </Button>
                 </div>
               </div>
@@ -349,7 +355,7 @@ export function NodeDetail(props: { name: string }) {
           {data?.spec?.unschedulable ? (
             <Button onClick={handleUncordon} variant="outline" size="sm">
               <IconReload className="w-4 h-4" />
-              Uncordon
+              {t('common.actions.uncordon')}
             </Button>
           ) : (
             <Popover
@@ -359,15 +365,17 @@ export function NodeDetail(props: { name: string }) {
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm">
                   <IconBan className="w-4 h-4" />
-                  Cordon
+                  {t('common.actions.cordon')}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-64">
                 <div className="space-y-4">
                   <div>
-                    <h4 className="font-medium">Cordon Node</h4>
+                    <h4 className="font-medium">
+                      {t('detail.dialogs.cordonNode.title')}
+                    </h4>
                     <p className="text-sm text-muted-foreground">
-                      Mark this node as unschedulable.
+                      {t('detail.dialogs.cordonNode.description')}
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -376,14 +384,14 @@ export function NodeDetail(props: { name: string }) {
                       size="sm"
                       variant="destructive"
                     >
-                      Cordon Node
+                      {t('detail.dialogs.cordonNode.cordonButton')}
                     </Button>
                     <Button
                       onClick={() => setIsCordonPopoverOpen(false)}
                       size="sm"
                       variant="outline"
                     >
-                      Cancel
+                      {t('common.actions.cancel')}
                     </Button>
                   </div>
                 </div>
@@ -398,21 +406,23 @@ export function NodeDetail(props: { name: string }) {
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">
                 <IconLock className="w-4 h-4" />
-                Taint
+                {t('common.actions.taint')}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80">
               <div className="space-y-4">
                 <div>
-                  <h4 className="font-medium">Taint Node</h4>
+                  <h4 className="font-medium">
+                    {t('detail.dialogs.taintNode.title')}
+                  </h4>
                   <p className="text-sm text-muted-foreground">
-                    Add a taint to prevent pods from being scheduled.
+                    {t('detail.dialogs.taintNode.description')}
                   </p>
                 </div>
                 <div className="space-y-3">
                   <div className="space-y-2">
                     <Label htmlFor="taintKey" className="text-sm">
-                      Key *
+                      {t('detail.dialogs.taintNode.key')}
                     </Label>
                     <Input
                       id="taintKey"
@@ -420,12 +430,12 @@ export function NodeDetail(props: { name: string }) {
                       onChange={(e) =>
                         setTaintData({ ...taintData, key: e.target.value })
                       }
-                      placeholder="e.g., node.kubernetes.io/maintenance"
+                      placeholder={t('detail.dialogs.taintNode.keyPlaceholder')}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="taintValue" className="text-sm">
-                      Value
+                      {t('detail.dialogs.taintNode.value')}
                     </Label>
                     <Input
                       id="taintValue"
@@ -433,12 +443,14 @@ export function NodeDetail(props: { name: string }) {
                       onChange={(e) =>
                         setTaintData({ ...taintData, value: e.target.value })
                       }
-                      placeholder="Optional value"
+                      placeholder={t(
+                        'detail.dialogs.taintNode.valuePlaceholder'
+                      )}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="taintEffect" className="text-sm">
-                      Effect
+                      {t('detail.dialogs.taintNode.effect')}
                     </Label>
                     <Select
                       value={taintData.effect}
@@ -461,14 +473,14 @@ export function NodeDetail(props: { name: string }) {
                 </div>
                 <div className="flex gap-2">
                   <Button onClick={handleTaint} size="sm" variant="destructive">
-                    Add Taint
+                    {t('detail.dialogs.taintNode.addTaintButton')}
                   </Button>
                   <Button
                     onClick={() => setIsTaintPopoverOpen(false)}
                     size="sm"
                     variant="outline"
                   >
-                    Cancel
+                    {t('common.actions.cancel')}
                   </Button>
                 </div>
               </div>
@@ -547,21 +559,31 @@ function NodeOverview({
                 <IconExclamationCircle className="size-4 shrink-0 fill-red-500" />
               )}
               <span className="truncate">
-                {isReady ? 'Ready' : 'Not Ready'}
+                {isReady
+                  ? t('common.fields.ready')
+                  : t('common.messages.notReady')}
               </span>
             </span>
           }
-          detail={node.spec?.unschedulable ? 'SchedulingDisabled' : undefined}
+          detail={
+            node.spec?.unschedulable
+              ? t('detail.fields.schedulingDisabled')
+              : undefined
+          }
         />
-        <WorkloadSummaryCard label="Role" value={role} />
-        <WorkloadSummaryCard label="Internal IP" value={internalIP} mono />
+        <WorkloadSummaryCard label={t('common.fields.role')} value={role} />
         <WorkloadSummaryCard
-          label="Pods"
+          label={t('common.fields.internalIP')}
+          value={internalIP}
+          mono
+        />
+        <WorkloadSummaryCard
+          label={t('common.fields.pods')}
           value={`${podCount} / ${podAllocatable}`}
-          detail="Assigned / Allocatable"
+          detail={`${t('common.messages.assigned')} / ${t('common.fields.allocatable')}`}
         />
         <WorkloadSummaryCard
-          label="CPU"
+          label={t('common.fields.cpu')}
           value={
             node.status?.allocatable?.cpu
               ? formatCPU(node.status.allocatable.cpu)
@@ -569,12 +591,12 @@ function NodeOverview({
           }
           detail={
             node.status?.capacity?.cpu
-              ? `Capacity ${formatCPU(node.status.capacity.cpu)}`
+              ? `${t('common.fields.capacity')} ${formatCPU(node.status.capacity.cpu)}`
               : undefined
           }
         />
         <WorkloadSummaryCard
-          label="Memory"
+          label={t('common.fields.memory')}
           value={
             node.status?.allocatable?.memory
               ? formatMemory(node.status.allocatable.memory)
@@ -582,7 +604,7 @@ function NodeOverview({
           }
           detail={
             node.status?.capacity?.memory
-              ? `Capacity ${formatMemory(node.status.capacity.memory)}`
+              ? `${t('common.fields.capacity')} ${formatMemory(node.status.capacity.memory)}`
               : undefined
           }
         />
@@ -604,40 +626,46 @@ function NodeOverview({
                       ? formatDate(node.metadata.creationTimestamp)
                       : '-'}
                   </WorkloadInfoBlock>
-                  <WorkloadInfoBlock label="Hostname" mono>
+                  <WorkloadInfoBlock label={t('common.fields.hostname')} mono>
                     {hostname}
                   </WorkloadInfoBlock>
                 </div>
 
                 <div className="grid gap-x-8 gap-y-2 border-t border-border/60 pt-3 md:grid-cols-2">
-                  <WorkloadInfoRow label="External IP" mono>
+                  <WorkloadInfoRow label={t('common.fields.externalIP')} mono>
                     {externalIP}
                   </WorkloadInfoRow>
-                  <WorkloadInfoRow label="Pod CIDR" mono>
+                  <WorkloadInfoRow label={t('common.fields.podCIDR')} mono>
                     {node.spec?.podCIDR || '-'}
                   </WorkloadInfoRow>
-                  <WorkloadInfoRow label="Kubelet Version" mono>
+                  <WorkloadInfoRow
+                    label={t('common.fields.kubeletVersion')}
+                    mono
+                  >
                     {node.status?.nodeInfo?.kubeletVersion || '-'}
                   </WorkloadInfoRow>
-                  <WorkloadInfoRow label="Kube Proxy Version">
+                  <WorkloadInfoRow label={t('common.fields.kubeProxyVersion')}>
                     {node.status?.nodeInfo?.kubeProxyVersion || '-'}
                   </WorkloadInfoRow>
-                  <WorkloadInfoRow label="OS Image" truncate={false}>
+                  <WorkloadInfoRow
+                    label={t('common.fields.osImage')}
+                    truncate={false}
+                  >
                     {node.status?.nodeInfo?.osImage || '-'}
                   </WorkloadInfoRow>
-                  <WorkloadInfoRow label="Kernel Version">
+                  <WorkloadInfoRow label={t('common.fields.kernelVersion')}>
                     {node.status?.nodeInfo?.kernelVersion || '-'}
                   </WorkloadInfoRow>
-                  <WorkloadInfoRow label="Architecture">
+                  <WorkloadInfoRow label={t('common.fields.architecture')}>
                     {node.status?.nodeInfo?.architecture || '-'}
                   </WorkloadInfoRow>
-                  <WorkloadInfoRow label="Container Runtime">
+                  <WorkloadInfoRow label={t('common.fields.containerRuntime')}>
                     {node.status?.nodeInfo?.containerRuntimeVersion || '-'}
                   </WorkloadInfoRow>
-                  <WorkloadInfoRow label="Pod Capacity">
+                  <WorkloadInfoRow label={t('detail.fields.podCapacity')}>
                     {podAllocatable} / {podCapacity}
                   </WorkloadInfoRow>
-                  <WorkloadInfoRow label="Storage">
+                  <WorkloadInfoRow label={t('common.fields.storage')}>
                     {node.status?.allocatable?.['ephemeral-storage']
                       ? formatMemory(
                           node.status.allocatable['ephemeral-storage']
@@ -651,7 +679,12 @@ function NodeOverview({
                 </div>
 
                 <div className="border-t border-border/60 pt-2">
-                  <WorkloadInfoRow label="UID" mono truncate={false} compact>
+                  <WorkloadInfoRow
+                    label={t('common.fields.uid')}
+                    mono
+                    truncate={false}
+                    compact
+                  >
                     <span className="break-all">
                       {node.metadata?.uid || '-'}
                     </span>
@@ -665,7 +698,7 @@ function NodeOverview({
             <Card className="gap-0 overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
               <CardHeader className="px-3 py-2.5 !pb-2.5">
                 <CardTitle className="text-balance text-sm">
-                  Node Taints ({node.spec.taints.length})
+                  {t('detail.sections.nodeTaints')} ({node.spec.taints.length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="divide-y divide-border/70 p-0">
@@ -695,7 +728,7 @@ function NodeOverview({
                       size="sm"
                       onClick={() => onUntaint(taint.key)}
                     >
-                      Remove
+                      {t('common.actions.remove')}
                     </Button>
                   </div>
                 ))}
@@ -707,7 +740,7 @@ function NodeOverview({
             <Card className="gap-0 overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
               <CardHeader className="px-3 py-2.5 !pb-2.5">
                 <CardTitle className="text-balance text-sm">
-                  Node Conditions ({conditions.length})
+                  {t('detail.sections.nodeConditions')} ({conditions.length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="divide-y divide-border/70 p-0">
@@ -732,7 +765,9 @@ function NodeOverview({
                       </span>
                     </span>
                     <span className="truncate text-muted-foreground">
-                      {condition.message || condition.reason || 'No message'}
+                      {condition.message ||
+                        condition.reason ||
+                        t('detail.fields.noMessage')}
                     </span>
                     <span className="text-right text-muted-foreground">
                       {condition.status}

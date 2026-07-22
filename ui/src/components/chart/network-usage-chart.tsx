@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Area,
   AreaChart,
@@ -36,19 +37,19 @@ interface NetworkUsageChartProps {
   syncId?: string
 }
 
-const chartConfig = {
-  networkIn: {
-    label: 'Incoming',
-    color: 'oklch(0.55 0.20 145)',
-  },
-  networkOut: {
-    label: 'Outgoing',
-    color: 'oklch(0.55 0.22 235)',
-  },
-} satisfies ChartConfig
-
 const NetworkUsageChart = React.memo((prop: NetworkUsageChartProps) => {
+  const { t } = useTranslation()
   const { networkIn, networkOut, isLoading, error, syncId } = prop
+  const chartConfig = {
+    networkIn: {
+      label: t('monitoring.incoming'),
+      color: 'oklch(0.55 0.20 145)',
+    },
+    networkOut: {
+      label: t('monitoring.outgoing'),
+      color: 'oklch(0.55 0.22 235)',
+    },
+  } satisfies ChartConfig
 
   const chartData = React.useMemo(() => {
     const outbound = networkOut.map((point) => ({
@@ -61,7 +62,7 @@ const NetworkUsageChart = React.memo((prop: NetworkUsageChartProps) => {
 
   return (
     <ChartStateWrapper
-      title="Network Usage"
+      title={t('monitoring.networkUsage')}
       isLoading={isLoading}
       error={error}
       isEmpty={
@@ -70,6 +71,7 @@ const NetworkUsageChart = React.memo((prop: NetworkUsageChartProps) => {
         (networkIn.length === 0 && networkOut.length === 0)
       }
       contentClassName="px-2 sm:px-6"
+      emptyMessage={t('monitoring.noNetworkUsageData')}
     >
       <ChartContainer
         config={chartConfig}

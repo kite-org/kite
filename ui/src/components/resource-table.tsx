@@ -32,8 +32,13 @@ import {
 } from '@/components/ui/dialog'
 
 import { ErrorMessage } from './error-message'
-import { ResourceTableToolbar } from './resource-table-toolbar'
+import {
+  ResourceTableToolbar,
+  type ResourceTableBatchAction,
+} from './resource-table-toolbar'
 import { ResourceTableView } from './resource-table-view'
+
+export type { ResourceTableBatchAction } from './resource-table-toolbar'
 
 export interface ResourceTableProps<T> {
   resourceName: string
@@ -45,6 +50,7 @@ export interface ResourceTableProps<T> {
   showCreateButton?: boolean // If true, show create button
   onCreateClick?: () => void // Callback for create button click
   extraToolbars?: React.ReactNode[] // Additional toolbar components
+  batchActions?: ResourceTableBatchAction<T>[]
   defaultHiddenColumns?: string[] // Columns to hide by default
 }
 
@@ -65,6 +71,7 @@ function ResourceTableContent<T>({
   showCreateButton = false,
   onCreateClick,
   extraToolbars = [],
+  batchActions = [],
   defaultHiddenColumns = [],
 }: ResourceTableProps<T>) {
   const { t } = useTranslation()
@@ -473,6 +480,7 @@ function ResourceTableContent<T>({
         onRefreshIntervalChange={handleRefreshIntervalChange}
         selectedRowCount={table.getSelectedRowModel().rows.length}
         onOpenDeleteDialog={() => setDeleteDialogOpen(true)}
+        batchActions={batchActions}
       />
 
       <ResourceTableView

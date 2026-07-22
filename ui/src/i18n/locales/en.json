@@ -271,6 +271,7 @@
       "passwordLoginWarningDescription": "Verify that your LDAP、OAuth Provider、Passkey provider is working before saving. Without a working alternative login method, you will be locked out and can only recover by resetting the database.",
       "passwordLoginWarningTitle": "Warning: You may lose access!",
       "passwordReset": "Password reset",
+      "resourceNotFound": "{{resource}} not found",
       "somethingWentWrong": "Something went wrong",
       "startedAgo": "started {{time}} ago",
       "startedShort": "started",
@@ -611,6 +612,15 @@
     "networkUsage": "Network Usage",
     "diskUsage": "Disk Usage",
     "resourceUtilization": "Resource Utilization",
+    "usage": "Usage",
+    "incoming": "Incoming",
+    "outgoing": "Outgoing",
+    "selectTimeRange": "Select time range",
+    "last30Minutes": "Last 30 minutes",
+    "lastHour": "Last hour",
+    "last24Hours": "Last 24 hours",
+    "noResourceUtilizationData": "No resource utilization data available",
+    "noNetworkUsageData": "No network usage data available",
     "requests": "Requests",
     "limits": "Limits",
     "total": "Total"
@@ -685,6 +695,23 @@
     "deletingProgress": "Deleting... ({{done}}/{{total}})",
     "deleteSuccess": "Deleted {{name}} successfully",
     "deleteFailed": "Failed to delete {{name}}: {{error}}",
+    "bulkActions": "Bulk actions",
+    "selectedCount": "{{count}} selected",
+    "processingProgress": "Processing... ({{done}}/{{total}})",
+    "batchActionSuccess": "{{action}} completed for {{count}} resources",
+    "batchActionFailed": "{{count}} resources failed",
+    "batchActionPartialResult": "Completed {{succeeded}} of {{total}} resources.",
+    "failedResources": "{{count}} failed resources",
+    "batchActions": {
+      "cordonNodesTitle": "Cordon {{count}} selected nodes?",
+      "cordonNodesDescription": "Selected nodes will stop accepting new Pods. Existing Pods will keep running.",
+      "uncordonNodesTitle": "Uncordon {{count}} selected nodes?",
+      "uncordonNodesDescription": "Selected nodes will be marked as schedulable and can accept new Pods.",
+      "drainNodesTitle": "Drain {{count}} selected nodes?",
+      "drainNodesDescription": "Selected nodes will be cordoned and drained one at a time. Pod eviction can be disruptive and cannot be automatically rolled back.",
+      "restartResourcesTitle": "Restart {{count}} selected {{resource}}?",
+      "restartResourcesDescription": "This updates each {{resource}} Pod template and triggers a rollout. Paused or OnDelete strategies may not restart immediately, and rollout health is not monitored."
+    },
     "watch": "Watch",
     "namespace": "Namespace"
   },
@@ -984,10 +1011,11 @@
       "deleted": "{{resource}} deleted successfully",
       "taintKeyRequired": "Taint key is required",
       "taintRemoved": "Taint removed from {{resource}} successfully",
-      "nodeDrained": "Node {{name}} drained successfully",
+      "nodeDrained": "Node {{name}} drained successfully ({{pods}} pods)",
       "nodeCordoned": "Node {{name}} cordoned successfully",
       "nodeUncordoned": "Node {{name}} uncordoned successfully",
-      "nodeTainted": "Node {{name}} tainted successfully"
+      "nodeTainted": "Node {{name}} tainted successfully",
+      "nodeTaintRemoved": "Taint removed from node {{name}} successfully"
     },
     "dialogs": {
       "drainNode": {
@@ -1036,7 +1064,9 @@
       "conditions": "Conditions"
     },
     "fields": {
-      "schedulingDisabled": "(SchedulingDisabled)"
+      "schedulingDisabled": "Scheduling disabled",
+      "podCapacity": "Pod Capacity",
+      "noMessage": "No message"
     }
   },
   "aiChat": {

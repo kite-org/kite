@@ -41,7 +41,7 @@ func (h *NodeHandler) DrainNode(c *gin.Context) {
 	user := c.MustGet("user").(model.User)
 	// Parse the request body for drain options
 	var drainRequest struct {
-		Force            bool `json:"force" binding:"required"`
+		Force            bool `json:"force"`
 		GracePeriod      int  `json:"gracePeriod" binding:"min=0"`
 		DeleteLocal      bool `json:"deleteLocalData"`
 		IgnoreDaemonsets bool `json:"ignoreDaemonsets"`

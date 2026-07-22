@@ -82,6 +82,7 @@ interface ChartStateWrapperProps {
   isEmpty?: boolean
   cardClassName?: string
   contentClassName?: string
+  emptyMessage?: string
   children: React.ReactNode
 }
 
@@ -92,6 +93,7 @@ export function ChartStateWrapper({
   isEmpty,
   cardClassName = '@container/card',
   contentClassName,
+  emptyMessage,
   children,
 }: ChartStateWrapperProps) {
   if (isLoading) {
@@ -136,7 +138,7 @@ export function ChartStateWrapper({
         </CardHeader>
         <CardContent className={contentClassName}>
           <div className="flex h-[250px] w-full items-center justify-center text-muted-foreground">
-            <p>No {title.toLowerCase()} data available</p>
+            <p>{emptyMessage || `No ${title.toLowerCase()} data available`}</p>
           </div>
         </CardContent>
       </Card>
