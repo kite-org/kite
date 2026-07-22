@@ -3,20 +3,20 @@ module github.com/zxh326/kite
 go 1.26.0
 
 require (
-	github.com/anthropics/anthropic-sdk-go v1.57.0
+	github.com/anthropics/anthropic-sdk-go v1.58.1
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bytedance/mockey v1.4.6
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-contrib/gzip v1.2.6
 	github.com/gin-gonic/gin v1.12.0
 	github.com/glebarez/sqlite v1.11.0
-	github.com/go-ldap/ldap/v3 v3.4.13
-	github.com/go-logr/logr v1.4.3
+	github.com/go-ldap/ldap/v3 v3.4.14
+	github.com/go-logr/logr v1.4.4
 	github.com/go-webauthn/webauthn v0.17.4
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/openai/openai-go v1.12.0
-	github.com/prometheus/client_golang v1.23.2
+	github.com/prometheus/client_golang v1.24.0
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.70.0
 	github.com/samber/lo v1.53.0
@@ -37,7 +37,7 @@ require (
 	k8s.io/kubectl v0.36.2
 	k8s.io/metrics v0.36.2
 	sigs.k8s.io/controller-runtime v0.24.1
-	sigs.k8s.io/gateway-api v1.6.0
+	sigs.k8s.io/gateway-api v1.6.1
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -60,7 +60,7 @@ require (
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/tinylib/msgp v1.6.4 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
-	golang.org/x/net v0.56.0 // indirect
+	golang.org/x/net v0.57.0 // indirect
 )
 
 require (
@@ -102,7 +102,7 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.13 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
 	github.com/glebarez/go-sqlite v1.21.2 // indirect
-	github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667 // indirect
+	github.com/go-asn1-ber/asn1-ber v1.5.8 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/go-openapi/jsonpointer v0.23.1 // indirect
@@ -158,7 +158,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/prometheus/procfs v0.21.0 // indirect
+	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.59.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
