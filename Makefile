@@ -1,5 +1,5 @@
 # Makefile for Kite project
-.PHONY: help dev build clean test docker-build docker-run frontend backend install deps e2e-install e2e-install-browser e2e-kind-up e2e-kind-down e2e-stop-app e2e-setup-ldap e2e-setup-dex e2e-run e2e-run-headed e2e-test e2e-test-headed
+.PHONY: help dev build clean test coverage-unit coverage-backend coverage-report docker-build docker-run frontend backend install deps e2e-install e2e-install-browser e2e-kind-up e2e-kind-down e2e-stop-app e2e-setup-ldap e2e-setup-dex e2e-run e2e-run-headed e2e-test e2e-test-headed
 
 # Variables
 BINARY_NAME=kite
@@ -16,6 +16,9 @@ E2E_LDAP_PORT ?= 3389
 E2E_DEX_CONTAINER ?= kite-e2e-dex
 E2E_OAUTH_PORT ?= 5556
 SPEC ?=
+COVERAGE_DIR ?= $(CURDIR)/coverage
+COVERAGE_PACKAGE_LIST = $(shell go list ./...)
+COVERAGE_PACKAGES = $(shell go list ./... | paste -sd, -)
 
 # Version information
 VERSION=$(shell scripts/get-version.sh)
@@ -146,6 +149,21 @@ test: ## Run tests
 	@echo "🧪 Running tests..."
 	go test -v ./...
 	cd $(UI_DIR) && pnpm run test
+
+coverage-unit: ## Collect Go unit test coverage
+	mkdir -p "$(COVERAGE_DIR)/unit-raw"
+	go test -trimpath -count=1 -cover -covermode=atomic -coverpkg="$(COVERAGE_PACKAGES)" $(COVERAGE_PACKAGE_LIST) -args -test.gocoverdir="$(COVERAGE_DIR)/unit-raw"
+	go tool covdata textfmt -i="$(COVERAGE_DIR)/unit-raw" -o="$(COVERAGE_DIR)/unit.out"
+
+coverage-backend: frontend ## Build the backend with coverage instrumentation
+	@echo "🏗️ Building coverage-instrumented backend..."
+	CGO_ENABLED=0 go build -trimpath -cover -covermode=atomic -coverpkg="$(COVERAGE_PACKAGES)" $(LDFLAGS) -o $(BINARY_NAME) .
+
+coverage-report: ## Merge unit and e2e coverage reports
+	go tool covdata textfmt -i="$(COVERAGE_DIR)/e2e-raw" -o="$(COVERAGE_DIR)/e2e.out"
+	go tool covdata textfmt -i="$(COVERAGE_DIR)/unit-raw,$(COVERAGE_DIR)/e2e-raw" -o="$(COVERAGE_DIR)/cover.out"
+	go tool cover -html="$(COVERAGE_DIR)/cover.out" -o "$(COVERAGE_DIR)/cover.html"
+	go tool cover -func="$(COVERAGE_DIR)/cover.out" | tail -n 1
 
 e2e-install: ## Install e2e dependencies
 	@echo "📦 Installing e2e dependencies..."

@@ -2,6 +2,7 @@ name: E2E
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,6 +13,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/e2e.yml"
+      - "codecov.yml"
       - "Makefile"
       - "go.mod"
       - "go.sum"
@@ -26,6 +28,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/e2e.yml"
+      - "codecov.yml"
       - "Makefile"
       - "go.mod"
       - "go.sum"
@@ -86,6 +89,9 @@ jobs:
       - name: Install E2E deps
         run: make e2e-install
 
+      - name: Run unit tests with coverage
+        run: make coverage-unit
+
       - name: Verify Chrome
         run: google-chrome --version
 
@@ -103,7 +109,32 @@ jobs:
         run: make e2e-setup-dex
 
       - name: Run E2E tests
+        env:
+          GOCOVERDIR: ${{ github.workspace }}/coverage/e2e-raw
         run: make e2e-run
+
+      - name: Generate combined coverage report
+        run: make coverage-report
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v6
+        with:
+          files: ./coverage/cover.out
+          disable_search: true
+          fail_ci_if_error: false
+          use_oidc: true
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v5
+        with:
+          name: coverage-report
+          path: |
+            coverage/cover.out
+            coverage/cover.html
+            coverage/unit.out
+            coverage/e2e.out
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Export kind logs
         if: always()

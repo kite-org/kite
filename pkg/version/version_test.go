@@ -3,13 +3,23 @@ package version
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/common"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
 
 func TestParseSemver(t *testing.T) {
 	tests := []struct {
@@ -159,5 +169,107 @@ func TestCheckForUpdateSkipsBlankAndDevVersions(t *testing.T) {
 	}
 	if got := checkForUpdate(context.Background(), "dev"); got != (updateCheckResult{}) {
 		t.Fatalf("dev version result = %#v, want zero value", got)
+	}
+}
+
+func TestCheckForUpdateFromGitHub(t *testing.T) {
+	origClient := http.DefaultClient
+	origCachedUpdateResult := cachedUpdateResult
+	origLastUpdateFetch := lastUpdateFetch
+	t.Cleanup(func() {
+		http.DefaultClient = origClient
+		cachedUpdateResult = origCachedUpdateResult
+		lastUpdateFetch = origLastUpdateFetch
+	})
+
+	tests := []struct {
+		name           string
+		currentVersion string
+		statusCode     int
+		body           string
+		requestErr     error
+		want           updateCheckResult
+		wantCached     bool
+	}{
+		{
+			name:           "new release",
+			currentVersion: "1.2.3",
+			statusCode:     http.StatusOK,
+			body:           `{"tag_name":"v1.3.0","html_url":"https://example.com/releases/v1.3.0"}`,
+			want: updateCheckResult{
+				hasNew:     true,
+				releaseURL: "https://example.com/releases/v1.3.0",
+			},
+			wantCached: true,
+		},
+		{
+			name:           "current release",
+			currentVersion: "1.3.0",
+			statusCode:     http.StatusOK,
+			body:           `{"tag_name":"v1.3.0","html_url":"https://example.com/releases/v1.3.0"}`,
+			wantCached:     true,
+		},
+		{
+			name:           "unexpected status",
+			currentVersion: "1.2.3",
+			statusCode:     http.StatusServiceUnavailable,
+		},
+		{
+			name:           "malformed response",
+			currentVersion: "1.2.3",
+			statusCode:     http.StatusOK,
+			body:           `{`,
+		},
+		{
+			name:           "invalid latest version",
+			currentVersion: "1.2.3",
+			statusCode:     http.StatusOK,
+			body:           `{"tag_name":"latest"}`,
+		},
+		{
+			name:           "invalid current version",
+			currentVersion: "stable",
+			statusCode:     http.StatusOK,
+			body:           `{"tag_name":"v1.3.0"}`,
+		},
+		{
+			name:           "request failure",
+			currentVersion: "1.2.3",
+			requestErr:     errors.New("network unavailable"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cachedUpdateResult = updateCheckResult{}
+			lastUpdateFetch = time.Time{}
+
+			http.DefaultClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				if tt.requestErr != nil {
+					return nil, tt.requestErr
+				}
+				if req.Method != http.MethodGet || req.URL.String() != githubLatestReleaseAPI {
+					t.Fatalf("unexpected request: %s %s", req.Method, req.URL)
+				}
+				if got := req.Header.Get("User-Agent"); got != "kite-version-checker/"+tt.currentVersion {
+					t.Fatalf("unexpected user agent: %q", got)
+				}
+				return &http.Response{
+					StatusCode: tt.statusCode,
+					Status:     http.StatusText(tt.statusCode),
+					Body:       io.NopCloser(strings.NewReader(tt.body)),
+					Header:     make(http.Header),
+					Request:    req,
+				}, nil
+			})}
+
+			got := checkForUpdate(context.Background(), tt.currentVersion)
+			if got != tt.want {
+				t.Fatalf("checkForUpdate() = %#v, want %#v", got, tt.want)
+			}
+			if tt.wantCached != !lastUpdateFetch.IsZero() {
+				t.Fatalf("cache state = %v, want cached %v", !lastUpdateFetch.IsZero(), tt.wantCached)
+			}
+		})
 	}
 }
