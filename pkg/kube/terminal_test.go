@@ -20,16 +20,25 @@ func TestTerminalSessionTransportsInputOutputAndResize(t *testing.T) {
 
 			buffer := make([]byte, 64)
 			n, err := session.Read(buffer)
-			if err != nil || string(buffer[:n]) != "echo hello\n" {
-				serverResults <- fmt.Errorf("stdin read = %q, %v", buffer[:n], err)
+			if err != nil {
+				serverResults <- fmt.Errorf("stdin read: %w", err)
+				return
+			}
+			if string(buffer[:n]) != "echo hello\n" {
+				serverResults <- fmt.Errorf("stdin read = %q", buffer[:n])
 				return
 			}
 			if _, err := session.Write([]byte("hello\n")); err != nil {
 				serverResults <- fmt.Errorf("stdout write: %w", err)
 				return
 			}
-			if n, err := session.Read(buffer); err != nil || n != 0 {
-				serverResults <- fmt.Errorf("resize read = %d, %v", n, err)
+			n, err = session.Read(buffer)
+			if err != nil {
+				serverResults <- fmt.Errorf("resize read: %w", err)
+				return
+			}
+			if n != 0 {
+				serverResults <- fmt.Errorf("resize read = %d", n)
 				return
 			}
 			size := session.Next()
@@ -43,7 +52,12 @@ func TestTerminalSessionTransportsInputOutputAndResize(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	url := "ws" + strings.TrimPrefix(server.URL, "http")
-	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	conn, response, err := websocket.DefaultDialer.Dial(url, nil)
+	if response != nil {
+		defer func() {
+			_ = response.Body.Close()
+		}()
+	}
 	if err != nil {
 		t.Fatalf("dialing WebSocket: %v", err)
 	}
@@ -76,8 +90,12 @@ func TestTerminalSessionRejectsUnknownMessageType(t *testing.T) {
 			defer session.Close()
 			buffer := make([]byte, 8)
 			n, err := session.Read(buffer)
-			if err == nil || string(buffer[:n]) != EndOfTransmission {
-				serverResults <- fmt.Errorf("unknown message read = %q, %v", buffer[:n], err)
+			if err == nil {
+				serverResults <- fmt.Errorf("unknown message read = %q, want error", buffer[:n])
+				return
+			}
+			if string(buffer[:n]) != EndOfTransmission {
+				serverResults <- fmt.Errorf("unknown message read = %q: %w", buffer[:n], err)
 				return
 			}
 			serverResults <- nil
@@ -86,7 +104,12 @@ func TestTerminalSessionRejectsUnknownMessageType(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	url := "ws" + strings.TrimPrefix(server.URL, "http")
-	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	conn, response, err := websocket.DefaultDialer.Dial(url, nil)
+	if response != nil {
+		defer func() {
+			_ = response.Body.Close()
+		}()
+	}
 	if err != nil {
 		t.Fatalf("dialing WebSocket: %v", err)
 	}

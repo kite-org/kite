@@ -13,12 +13,7 @@ cd "${ROOT_DIR}"
 
 rm -f "${DB_PATH}"
 
-if [ -n "${GOCOVERDIR:-}" ]; then
-  mkdir -p "${GOCOVERDIR}"
-  make coverage-backend
-else
-  make build
-fi
+make build
 
 export DB_TYPE=sqlite
 export DB_DSN="${DB_PATH}"

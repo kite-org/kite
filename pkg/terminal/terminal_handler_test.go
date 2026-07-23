@@ -56,6 +56,11 @@ func TestTerminalWebSocketsRejectUnauthorizedUsersBeforeClusterAccess(t *testing
 		t.Run(tt.path, func(t *testing.T) {
 			url := "ws" + strings.TrimPrefix(server.URL, "http") + tt.path
 			conn, response, err := websocket.DefaultDialer.Dial(url, nil)
+			if response != nil {
+				defer func() {
+					_ = response.Body.Close()
+				}()
+			}
 			if err != nil {
 				if response != nil {
 					t.Fatalf("dialing WebSocket: %v, status=%d", err, response.StatusCode)
@@ -76,7 +81,7 @@ func TestTerminalWebSocketsRejectUnauthorizedUsersBeforeClusterAccess(t *testing
 	}
 }
 
-func TestTerminalAgentsUseExpectedSecurityConfigurationAndCleanupScope(t *testing.T) {
+func TestTerminalAgentsUseExpectedSecurityConfigurationAndCleanupScope(t *testing.T) { //nolint:gocyclo // security configuration test covers both terminal agent types
 	originalNamespace := common.AgentPodNamespace
 	common.AgentPodNamespace = "kite-system"
 	t.Cleanup(func() {

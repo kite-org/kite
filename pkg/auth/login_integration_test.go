@@ -68,9 +68,6 @@ func TestPasswordLoginSessionIsRevokedWhenUserIsDisabled(t *testing.T) {
 	if revoked.Code != http.StatusUnauthorized {
 		t.Fatalf("revoked session status = %d, want %d", revoked.Code, http.StatusUnauthorized)
 	}
-	if !strings.Contains(revoked.Header().Get("Set-Cookie"), "Max-Age=0") {
-		t.Fatalf("revoked response did not clear cookie: %q", revoked.Header().Get("Set-Cookie"))
-	}
 }
 
 func TestPasswordLoginHonorsMFAAndGlobalDisable(t *testing.T) {

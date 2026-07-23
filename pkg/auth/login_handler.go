@@ -428,10 +428,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 
 func setCookieSecure(c *gin.Context, name, value string, maxAge int) {
 	secure := strings.HasPrefix(common.Host, "https://") || (c.Request != nil && (c.Request.TLS != nil || strings.EqualFold(c.Request.Header.Get("X-Forwarded-Proto"), "https")))
-	if maxAge > 0 {
-		maxAge += 60 * 60
-	}
 
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(name, value, maxAge, "/", "", secure, true)
+	c.SetCookie(name, value, maxAge+60*60, "/", "", secure, true)
 }

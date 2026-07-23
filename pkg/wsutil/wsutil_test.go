@@ -32,7 +32,12 @@ func TestServeSerializesConcurrentMessages(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	websocketURL := "ws" + strings.TrimPrefix(server.URL, "http")
-	conn, _, err := websocket.DefaultDialer.Dial(websocketURL, nil)
+	conn, response, err := websocket.DefaultDialer.Dial(websocketURL, nil)
+	if response != nil {
+		defer func() {
+			_ = response.Body.Close()
+		}()
+	}
 	if err != nil {
 		t.Fatalf("dialing WebSocket: %v", err)
 	}
@@ -70,7 +75,12 @@ func TestSendErrorUsesErrorMessageType(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	websocketURL := "ws" + strings.TrimPrefix(server.URL, "http")
-	conn, _, err := websocket.DefaultDialer.Dial(websocketURL, nil)
+	conn, response, err := websocket.DefaultDialer.Dial(websocketURL, nil)
+	if response != nil {
+		defer func() {
+			_ = response.Body.Close()
+		}()
+	}
 	if err != nil {
 		t.Fatalf("dialing WebSocket: %v", err)
 	}

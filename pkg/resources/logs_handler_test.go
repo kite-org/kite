@@ -50,6 +50,11 @@ func TestLogsWebSocketEnforcesRBACAndValidatesOptions(t *testing.T) {
 		t.Run(tt.path, func(t *testing.T) {
 			url := "ws" + strings.TrimPrefix(server.URL, "http") + tt.path
 			conn, response, err := websocket.DefaultDialer.Dial(url, nil)
+			if response != nil {
+				defer func() {
+					_ = response.Body.Close()
+				}()
+			}
 			if err != nil {
 				if response != nil {
 					t.Fatalf("dialing WebSocket: %v, status=%d", err, response.StatusCode)
