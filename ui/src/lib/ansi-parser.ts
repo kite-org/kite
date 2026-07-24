@@ -115,7 +115,52 @@ export function parseAnsi(
     })
   }
 
-  return { segments, finalState: currentState }
+  if (!text.includes('\b') && !text.includes('\r')) {
+    return { segments, finalState: currentState }
+  }
+
+  const cells: ParsedSegment[] = []
+  let cursor = 0
+
+  for (const segment of segments) {
+    for (const character of segment.text) {
+      if (character === '\b') {
+        cursor = Math.max(0, cursor - 1)
+        continue
+      }
+      if (character === '\r') {
+        cursor = 0
+        continue
+      }
+
+      const cell = { text: character, styles: segment.styles }
+      if (cursor < cells.length) {
+        cells[cursor] = cell
+      } else {
+        cells.push(cell)
+      }
+      cursor++
+    }
+  }
+
+  const normalizedSegments: ParsedSegment[] = []
+  for (const cell of cells) {
+    const previous = normalizedSegments[normalizedSegments.length - 1]
+    if (
+      previous &&
+      previous.styles.color === cell.styles.color &&
+      previous.styles.backgroundColor === cell.styles.backgroundColor &&
+      previous.styles.bold === cell.styles.bold &&
+      previous.styles.italic === cell.styles.italic &&
+      previous.styles.underline === cell.styles.underline
+    ) {
+      previous.text += cell.text
+    } else {
+      normalizedSegments.push({ text: cell.text, styles: cell.styles })
+    }
+  }
+
+  return { segments: normalizedSegments, finalState: currentState }
 }
 
 /**

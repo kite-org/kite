@@ -180,11 +180,13 @@ function PodSummaryGrid({
       />
       <PodSummaryCard
         label={t('common.fields.node')}
+        truncateValue={false}
         value={
           pod.spec?.nodeName ? (
             <Link
               to={`/nodes/${pod.spec.nodeName}`}
-              className="app-link inline-block max-w-full truncate"
+              className="app-link line-clamp-2 max-w-full break-all leading-snug"
+              title={pod.spec.nodeName}
             >
               {pod.spec.nodeName}
             </Link>
@@ -333,11 +335,13 @@ function PodSummaryCard({
   value,
   detail,
   mono,
+  truncateValue = true,
 }: {
   label: string
   value: ReactNode
   detail?: ReactNode
   mono?: boolean
+  truncateValue?: boolean
 }) {
   return (
     <Card className="gap-0 rounded-lg border-border/70 py-0 shadow-none">
@@ -345,7 +349,8 @@ function PodSummaryCard({
         <div className="text-xs text-muted-foreground">{label}</div>
         <div
           className={cn(
-            'mt-2 min-w-0 truncate text-lg font-semibold tabular-nums',
+            'mt-2 min-w-0 text-lg font-semibold tabular-nums',
+            truncateValue && 'truncate',
             mono && 'font-mono'
           )}
           title={typeof value === 'string' ? value : undefined}
