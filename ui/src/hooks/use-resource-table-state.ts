@@ -70,7 +70,7 @@ export function useResourceTableState({
     return initialVisibility
   })
   const [pagination, setPagination] = useState<PaginationState>(() => {
-    const savedPageSize = sessionStorage.getItem(
+    const savedPageSize = localStorage.getItem(
       getClusterScopedStorageKey(`-${resourceName}-pageSize`)
     )
     return {
@@ -136,7 +136,7 @@ export function useResourceTableState({
   }, [columnVisibility, resourceName])
 
   useEffect(() => {
-    sessionStorage.setItem(
+    localStorage.setItem(
       getClusterScopedStorageKey(`-${resourceName}-pageSize`),
       pagination.pageSize.toString()
     )
