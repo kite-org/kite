@@ -1,5 +1,11 @@
 import { useCallback, useMemo, useState } from 'react'
-import { IconEdit, IconPlus, IconServer, IconTrash } from '@tabler/icons-react'
+import {
+  IconEdit,
+  IconPlus,
+  IconServer,
+  IconTrash,
+  IconUpload,
+} from '@tabler/icons-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
@@ -11,6 +17,7 @@ import {
   ClusterUpdateRequest,
   createCluster,
   deleteCluster,
+  importClusters,
   updateCluster,
   useClusterList,
 } from '@/lib/api'
@@ -26,6 +33,7 @@ import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialo
 
 import { Action, ActionTable } from '../action-table'
 import { ClusterDialog } from './cluster-dialog'
+import { ClusterImportDialog } from './cluster-import-dialog'
 
 export function ClusterManagement() {
   const { t } = useTranslation()
@@ -34,6 +42,7 @@ export function ClusterManagement() {
   const { data: clusters = [], isLoading, error } = useClusterList()
 
   const [showClusterDialog, setShowClusterDialog] = useState(false)
+  const [showImportDialog, setShowImportDialog] = useState(false)
   const [editingCluster, setEditingCluster] = useState<Cluster | null>(null)
   const [deletingCluster, setDeletingCluster] = useState<Cluster | null>(null)
 
@@ -192,6 +201,22 @@ export function ClusterManagement() {
     },
   })
 
+  const importMutation = useMutation({
+    mutationFn: (config: string) => importClusters({ config }),
+    onSuccess: ({ importedCount }) => {
+      queryClient.invalidateQueries({ queryKey: ['cluster-list'] })
+      queryClient.invalidateQueries({ queryKey: ['clusters'] })
+      toast.success(
+        t(
+          'clusterManagement.messages.imported',
+          'Imported or updated {{count}} clusters successfully',
+          { count: importedCount }
+        )
+      )
+      setShowImportDialog(false)
+    },
+  })
+
   // Update cluster mutation
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: ClusterUpdateRequest }) =>
@@ -285,16 +310,29 @@ export function ClusterManagement() {
                 {t('clusterManagement.title', 'Cluster Management')}
               </CardTitle>
             </div>
-            <Button
-              onClick={() => {
-                setEditingCluster(null)
-                setShowClusterDialog(true)
-              }}
-              className="gap-2"
-            >
-              <IconPlus className="h-4 w-4" />
-              {t('clusterManagement.actions.add', 'Add Cluster')}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  importMutation.reset()
+                  setShowImportDialog(true)
+                }}
+                className="gap-2"
+              >
+                <IconUpload className="size-4" />
+                {t('clusterManagement.actions.import', 'Import Clusters')}
+              </Button>
+              <Button
+                onClick={() => {
+                  setEditingCluster(null)
+                  setShowClusterDialog(true)
+                }}
+                className="gap-2"
+              >
+                <IconPlus className="h-4 w-4" />
+                {t('clusterManagement.actions.add', 'Add Cluster')}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -327,6 +365,17 @@ export function ClusterManagement() {
         }}
         cluster={editingCluster}
         onSubmit={handleSubmitCluster}
+      />
+
+      <ClusterImportDialog
+        open={showImportDialog}
+        onOpenChange={(open) => {
+          setShowImportDialog(open)
+          if (!open) importMutation.reset()
+        }}
+        onSubmit={(config) => importMutation.mutate(config)}
+        isSubmitting={importMutation.isPending}
+        error={importMutation.error?.message}
       />
 
       {/* Delete Confirmation Dialog */}

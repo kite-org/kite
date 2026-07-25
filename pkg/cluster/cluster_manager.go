@@ -195,7 +195,7 @@ func (cm *ClusterManager) GetClientSet(clusterName string) (*ClientSet, error) {
 	return nil, fmt.Errorf("cluster not found: %s", clusterName)
 }
 
-func ImportClustersFromKubeconfig(kubeconfig *clientcmdapi.Config) int64 {
+func ImportClustersFromKubeconfig(kubeconfig *clientcmdapi.Config, setDefault bool) int64 {
 	if len(kubeconfig.Contexts) == 0 {
 		return 0
 	}
@@ -220,9 +220,10 @@ func ImportClustersFromKubeconfig(kubeconfig *clientcmdapi.Config) int64 {
 		cluster := model.Cluster{
 			Name:      contextName,
 			Config:    model.SecretString(configStr),
-			IsDefault: contextName == kubeconfig.CurrentContext,
+			IsDefault: setDefault && contextName == kubeconfig.CurrentContext,
 		}
-		if _, err := model.GetClusterByName(contextName); err != nil {
+		existingCluster, err := model.GetClusterByName(contextName)
+		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				if err := model.AddCluster(&cluster); err != nil {
 					continue
@@ -232,6 +233,13 @@ func ImportClustersFromKubeconfig(kubeconfig *clientcmdapi.Config) int64 {
 			}
 			continue
 		}
+		if err := model.UpdateCluster(existingCluster, map[string]interface{}{
+			"config": model.SecretString(configStr),
+		}); err != nil {
+			continue
+		}
+		importedCount++
+		klog.Infof("Updated cluster config success: %s", contextName)
 	}
 	return int64(importedCount)
 }

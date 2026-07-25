@@ -270,8 +270,8 @@ func (cm *ClusterManager) ImportClustersFromKubeconfig(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	if cc > 0 {
-		c.JSON(http.StatusForbidden, gin.H{"error": "import not allowed when clusters exist"})
+	if clusterReq.InCluster && cc > 0 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "in-cluster import not allowed when clusters exist"})
 		return
 	}
 
@@ -291,7 +291,10 @@ func (cm *ClusterManager) ImportClustersFromKubeconfig(c *gin.Context) {
 		TriggerClusterSync()
 		// wait for sync to complete
 		time.Sleep(1 * time.Second)
-		c.JSON(http.StatusCreated, gin.H{"message": fmt.Sprintf("imported %d clusters successfully", 1)})
+		c.JSON(http.StatusCreated, gin.H{
+			"message":       fmt.Sprintf("imported %d clusters successfully", 1),
+			"importedCount": 1,
+		})
 		return
 	}
 
@@ -301,9 +304,12 @@ func (cm *ClusterManager) ImportClustersFromKubeconfig(c *gin.Context) {
 		return
 	}
 
-	importedCount := ImportClustersFromKubeconfig(kubeconfig)
+	importedCount := ImportClustersFromKubeconfig(kubeconfig, cc == 0)
 	TriggerClusterSync()
 	// wait for sync to complete
 	time.Sleep(1 * time.Second)
-	c.JSON(http.StatusCreated, gin.H{"message": fmt.Sprintf("imported %d clusters successfully", importedCount)})
+	c.JSON(http.StatusCreated, gin.H{
+		"message":       fmt.Sprintf("imported %d clusters successfully", importedCount),
+		"importedCount": importedCount,
+	})
 }

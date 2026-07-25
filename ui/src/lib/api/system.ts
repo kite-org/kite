@@ -66,6 +66,6 @@ export interface ImportClustersRequest {
 
 export const importClusters = async (
   request: ImportClustersRequest
-): Promise<void> => {
-  await apiClient.post('/admin/clusters/import', request)
+): Promise<{ message: string; importedCount: number }> => {
+  return await apiClient.post('/admin/clusters/import', request)
 }

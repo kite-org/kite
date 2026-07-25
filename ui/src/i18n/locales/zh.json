@@ -875,7 +875,9 @@
   "clusterManagement": {
     "title": "集群管理",
     "actions": {
-      "add": "添加集群"
+      "add": "添加集群",
+      "import": "导入集群",
+      "importing": "导入中..."
     },
     "table": {
       "prometheus": "Prometheus"
@@ -892,9 +894,11 @@
       "created": "集群创建成功",
       "updated": "集群更新成功",
       "deleted": "集群删除成功",
+      "imported": "成功导入或更新 {{count}} 个集群",
       "createError": "创建集群失败",
       "updateError": "更新集群失败",
-      "deleteError": "删除集群失败"
+      "deleteError": "删除集群失败",
+      "fileReadError": "无法读取 kubeconfig 文件"
     },
     "errors": {
       "loadFailed": "加载集群失败"
@@ -903,6 +907,10 @@
     "dialog": {
       "createTitle": "添加集群",
       "editTitle": "编辑集群",
+      "importTitle": "导入集群",
+      "importDescription": "从 kubeconfig 文件导入集群列表，同名集群将被更新。",
+      "importFile": "Kubeconfig 文件",
+      "importFileHint": "选择 kubeconfig 文件，或在下方粘贴文件内容。",
       "name": "名称",
       "namePlaceholder": "输入集群名称",
       "description": "描述",

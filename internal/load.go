@@ -64,7 +64,7 @@ func loadClusters() error {
 	}
 
 	klog.Infof("Importing clusters from kubeconfig: %s", kubeconfigpath)
-	cluster.ImportClustersFromKubeconfig(kubeconfig)
+	cluster.ImportClustersFromKubeconfig(kubeconfig, true)
 	return nil
 }
 

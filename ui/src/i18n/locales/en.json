@@ -864,7 +864,9 @@
   "clusterManagement": {
     "title": "Cluster Management",
     "actions": {
-      "add": "Add Cluster"
+      "add": "Add Cluster",
+      "import": "Import Clusters",
+      "importing": "Importing..."
     },
     "table": {
       "prometheus": "Prometheus"
@@ -881,9 +883,11 @@
       "created": "Cluster created successfully",
       "updated": "Cluster updated successfully",
       "deleted": "Cluster deleted successfully",
+      "imported": "Imported or updated {{count}} clusters successfully",
       "createError": "Failed to create cluster",
       "updateError": "Failed to update cluster",
-      "deleteError": "Failed to delete cluster"
+      "deleteError": "Failed to delete cluster",
+      "fileReadError": "Failed to read kubeconfig file"
     },
     "errors": {
       "loadFailed": "Failed to load clusters"
@@ -892,6 +896,10 @@
     "dialog": {
       "createTitle": "Add Cluster",
       "editTitle": "Edit Cluster",
+      "importTitle": "Import Clusters",
+      "importDescription": "Import the cluster list from a kubeconfig file. Clusters with the same name will be updated.",
+      "importFile": "Kubeconfig File",
+      "importFileHint": "Choose a kubeconfig file, or paste its content below.",
       "name": "Name",
       "namePlaceholder": "Enter cluster name",
       "description": "Description",
