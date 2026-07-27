@@ -745,6 +745,20 @@ export interface ResourceHistoryResponse {
   }
 }
 
+export interface DeploymentRevisionItem {
+  revision: number
+  replicaSet: string
+  changeCause?: string
+  images: string[]
+  replicas: number
+  createdAt: string
+  current: boolean
+}
+
+export interface DeploymentRevisionsResponse {
+  items: DeploymentRevisionItem[]
+}
+
 export interface AuditLogResponse {
   data: ResourceHistory[]
   total: number

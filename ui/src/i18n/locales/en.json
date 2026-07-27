@@ -292,6 +292,7 @@
       "overview": "Overview",
       "pods": "Pods",
       "related": "Related",
+      "revisions": "Revisions",
       "terminal": "Terminal",
       "volumes": "Volumes",
       "yaml": "YAML"
@@ -500,7 +501,20 @@
     "servicePort": "Service Port",
     "targetPort": "Target Port",
     "exposeInvalidPort": "Port must be between 1 and 65535",
-    "exposeNoSelector": "No Deployment selector labels found to expose"
+    "exposeNoSelector": "No Deployment selector labels found to expose",
+    "actions": {
+      "rollback": "Rollback"
+    },
+    "fields": {
+      "replicaSet": "ReplicaSet",
+      "changeCause": "Change Cause"
+    },
+    "messages": {
+      "noRevisions": "No revision history found",
+      "rollbackStarted": "Rollback requested",
+      "rollbackConfirmTitle": "Rollback deployment?",
+      "rollbackConfirmDescription": "Rollback {{namespace}}/{{name}} to revision {{revision}}."
+    }
   },
   "daemonsets": {
     "title": "DaemonSets"

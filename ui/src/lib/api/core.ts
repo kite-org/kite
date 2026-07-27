@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Pod } from 'kubernetes-types/core/v1'
 
 import {
+  DeploymentRevisionsResponse,
   HelmChartContent,
   HelmChartContentType,
   HelmChartDetail,
@@ -1051,6 +1052,39 @@ export const fetchResourceHistory = (
 ): Promise<ResourceHistoryResponse> => {
   const endpoint = `/${resourceType}/${namespace}/${name}/history?page=${page}&pageSize=${pageSize}`
   return fetchAPI<ResourceHistoryResponse>(endpoint)
+}
+
+export const fetchDeploymentRevisions = (
+  namespace: string,
+  name: string
+): Promise<DeploymentRevisionsResponse> => {
+  return fetchAPI<DeploymentRevisionsResponse>(
+    `/deployments/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/revisions`
+  )
+}
+
+export const useDeploymentRevisions = (
+  namespace: string,
+  name: string,
+  options?: { enabled?: boolean; staleTime?: number }
+) => {
+  return useQuery({
+    queryKey: ['deployment-revisions', namespace, name],
+    queryFn: () => fetchDeploymentRevisions(namespace, name),
+    enabled: options?.enabled ?? true,
+    staleTime: options?.staleTime || 30000,
+  })
+}
+
+export const rollbackDeployment = async (
+  namespace: string,
+  name: string,
+  revision?: number
+): Promise<{ message?: string }> => {
+  return apiClient.put<{ message?: string }>(
+    `/deployments/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/rollback`,
+    revision ? { revision } : {}
+  )
 }
 
 export const useResourceHistory = (
