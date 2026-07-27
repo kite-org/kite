@@ -84,20 +84,30 @@ func (h *DeploymentHandler) Revisions(c *gin.Context) {
 		return
 	}
 
+	currentRevision := int64(0)
+	if deployment.Annotations != nil {
+		if v, err := strconv.ParseInt(deployment.Annotations[deploymentRevisionAnnotation], 10, 64); err == nil {
+			currentRevision = v
+		}
+	}
+
 	items := make([]deploymentRevisionItem, 0, len(replicaSets))
 	for i, rs := range replicaSets {
 		images := make([]string, 0, len(rs.Spec.Template.Spec.Containers))
 		for _, container := range rs.Spec.Template.Spec.Containers {
 			images = append(images, container.Image)
 		}
+		rsRevision := deploymentRevisionOf(rs)
+		isCurrent := rsRevision == currentRevision || (currentRevision == 0 && i == 0)
+
 		items = append(items, deploymentRevisionItem{
-			Revision:    deploymentRevisionOf(rs),
+			Revision:    rsRevision,
 			ReplicaSet:  rs.Name,
 			ChangeCause: rs.Annotations[deploymentChangeCauseAnnotation],
 			Images:      images,
 			Replicas:    rs.Status.Replicas,
 			CreatedAt:   rs.CreationTimestamp,
-			Current:     i == 0,
+			Current:     isCurrent,
 		})
 	}
 	c.JSON(http.StatusOK, gin.H{"items": items})
