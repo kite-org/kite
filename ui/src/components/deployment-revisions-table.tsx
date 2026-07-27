@@ -168,6 +168,14 @@ export function DeploymentRevisionsTable({
               align: 'left',
             },
             {
+              header: t('common.fields.replicas'),
+              accessor: (item) => item.replicas,
+              cell: (value) => (
+                <span className="tabular-nums">{value as number}</span>
+              ),
+              align: 'left',
+            },
+            {
               header: t('common.fields.created'),
               accessor: (item) => item.createdAt,
               cell: (value) => (
