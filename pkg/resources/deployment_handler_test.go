@@ -290,6 +290,61 @@ func TestDeploymentHandlerRollback_ExplicitRevision(t *testing.T) {
 	}
 }
 
+func TestDeploymentHandlerRollback_NotFound(t *testing.T) {
+	setupDeploymentHandlerTestDB(t)
+
+	cs := newDeploymentHandlerTestClientSet(t)
+	router := newDeploymentHandlerTestRouter(t, cs)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/deployments/default/missing/rollback", strings.NewReader("{}"))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestDeploymentHandlerRollback_DefaultUsesRevisionBeforeCurrentAnnotation covers
+// the case where the Deployment's own revision annotation does not point at the
+// highest-numbered ReplicaSet (e.g. it lags behind due to eventual consistency, or
+// a stale RS was left with a higher revision number). The default rollback target
+// must be the revision immediately before the Deployment's *actual* current
+// revision, not just replicaSets[1] in sorted order.
+func TestDeploymentHandlerRollback_DefaultUsesRevisionBeforeCurrentAnnotation(t *testing.T) {
+	setupDeploymentHandlerTestDB(t)
+
+	// Deployment says its current revision is 2, but a ReplicaSet with the
+	// numerically higher revision 3 also exists (e.g. stale/orphaned).
+	deployment := makeTestDeployment("2")
+	rs1 := makeTestReplicaSet("demo-app-1", 1, "initial deploy", "nginx:1.25")
+	rs2 := makeTestReplicaSet("demo-app-2", 2, "bump to 1.26", "nginx:1.26")
+	rs3 := makeTestReplicaSet("demo-app-3", 3, "bump to 1.27", "nginx:1.27")
+
+	cs := newDeploymentHandlerTestClientSet(t, deployment, rs1, rs2, rs3)
+	router := newDeploymentHandlerTestRouter(t, cs)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/deployments/default/demo-app/rollback", strings.NewReader("{}"))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var updated appsv1.Deployment
+	if err := cs.K8sClient.Get(t.Context(), types.NamespacedName{Namespace: "default", Name: "demo-app"}, &updated); err != nil {
+		t.Fatalf("get updated deployment: %v", err)
+	}
+	// The revision before the *current* revision (2) is 1, not the RS after
+	// index 1 in the sorted list (which would have picked revision 2 itself).
+	if got := updated.Spec.Template.Spec.Containers[0].Image; got != "nginx:1.25" {
+		t.Fatalf("expected rollback to revision 1's image nginx:1.25, got %s", got)
+	}
+}
+
 func TestDeploymentHandlerRollback_RevisionNotFound(t *testing.T) {
 	setupDeploymentHandlerTestDB(t)
 

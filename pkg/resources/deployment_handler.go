@@ -84,12 +84,7 @@ func (h *DeploymentHandler) Revisions(c *gin.Context) {
 		return
 	}
 
-	currentRevision := int64(0)
-	if deployment.Annotations != nil {
-		if v, err := strconv.ParseInt(deployment.Annotations[deploymentRevisionAnnotation], 10, 64); err == nil {
-			currentRevision = v
-		}
-	}
+	_, currentIndex := deploymentCurrentRevision(&deployment, replicaSets)
 
 	items := make([]deploymentRevisionItem, 0, len(replicaSets))
 	for i, rs := range replicaSets {
@@ -97,17 +92,15 @@ func (h *DeploymentHandler) Revisions(c *gin.Context) {
 		for _, container := range rs.Spec.Template.Spec.Containers {
 			images = append(images, container.Image)
 		}
-		rsRevision := deploymentRevisionOf(rs)
-		isCurrent := rsRevision == currentRevision || (currentRevision == 0 && i == 0)
 
 		items = append(items, deploymentRevisionItem{
-			Revision:    rsRevision,
+			Revision:    deploymentRevisionOf(rs),
 			ReplicaSet:  rs.Name,
 			ChangeCause: rs.Annotations[deploymentChangeCauseAnnotation],
 			Images:      images,
 			Replicas:    rs.Status.Replicas,
 			CreatedAt:   rs.CreationTimestamp,
-			Current:     isCurrent,
+			Current:     i == currentIndex,
 		})
 	}
 	c.JSON(http.StatusOK, gin.H{"items": items})
@@ -131,6 +124,10 @@ func (h *DeploymentHandler) Rollback(c *gin.Context) {
 
 	var deployment appsv1.Deployment
 	if err := cs.K8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, &deployment); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -148,11 +145,12 @@ func (h *DeploymentHandler) Rollback(c *gin.Context) {
 
 	targetRevision := req.Revision
 	if targetRevision == 0 {
-		if len(replicaSets) < 2 {
+		_, currentIndex := deploymentCurrentRevision(&deployment, replicaSets)
+		if currentIndex < 0 || currentIndex+1 >= len(replicaSets) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "no previous revision found"})
 			return
 		}
-		targetRevision = deploymentRevisionOf(replicaSets[1])
+		targetRevision = deploymentRevisionOf(replicaSets[currentIndex+1])
 	}
 
 	var target *appsv1.ReplicaSet
@@ -227,4 +225,27 @@ func listDeploymentReplicaSets(ctx context.Context, cs *cluster.ClientSet, deplo
 func deploymentRevisionOf(rs *appsv1.ReplicaSet) int64 {
 	v, _ := strconv.ParseInt(rs.Annotations[deploymentRevisionAnnotation], 10, 64)
 	return v
+}
+
+// deploymentCurrentRevision resolves which entry in replicaSets (sorted by
+// descending revision) is the Deployment's current revision, using the
+// Deployment's own deployment.kubernetes.io/revision annotation as the
+// source of truth. It falls back to the highest revision (index 0) when the
+// annotation is missing or doesn't match any ReplicaSet in the list.
+func deploymentCurrentRevision(deployment *appsv1.Deployment, replicaSets []*appsv1.ReplicaSet) (revision int64, index int) {
+	index = -1
+	if deployment.Annotations != nil {
+		if v, err := strconv.ParseInt(deployment.Annotations[deploymentRevisionAnnotation], 10, 64); err == nil {
+			for i, rs := range replicaSets {
+				if deploymentRevisionOf(rs) == v {
+					revision, index = v, i
+					break
+				}
+			}
+		}
+	}
+	if index == -1 && len(replicaSets) > 0 {
+		revision, index = deploymentRevisionOf(replicaSets[0]), 0
+	}
+	return revision, index
 }
