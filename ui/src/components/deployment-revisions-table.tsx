@@ -168,7 +168,7 @@ export function DeploymentRevisionsTable({
               align: 'left',
             },
             {
-              header: t('common.fields.updated'),
+              header: t('common.fields.created'),
               accessor: (item) => item.createdAt,
               cell: (value) => (
                 <span className="text-sm text-muted-foreground">

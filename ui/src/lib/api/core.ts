@@ -1072,7 +1072,7 @@ export const useDeploymentRevisions = (
     queryKey: ['deployment-revisions', namespace, name],
     queryFn: () => fetchDeploymentRevisions(namespace, name),
     enabled: options?.enabled ?? true,
-    staleTime: options?.staleTime || 30000,
+    staleTime: options?.staleTime ?? 30000,
   })
 }
 
@@ -1083,7 +1083,7 @@ export const rollbackDeployment = async (
 ): Promise<{ message?: string }> => {
   return apiClient.put<{ message?: string }>(
     `/deployments/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/rollback`,
-    revision ? { revision } : {}
+    revision !== undefined ? { revision } : {}
   )
 }
 
