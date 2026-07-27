@@ -36,12 +36,8 @@ function DeploymentRollbackButton({
   const [open, setOpen] = useState(false)
 
   const handleConfirm = async () => {
-    try {
-      await onRollback(item.revision)
-      setOpen(false)
-    } catch (error) {
-      // onRollback is responsible for surfacing errors
-    }
+    await onRollback(item.revision)
+    setOpen(false)
   }
 
   return (
