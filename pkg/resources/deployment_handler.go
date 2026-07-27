@@ -211,7 +211,11 @@ func listDeploymentReplicaSets(ctx context.Context, cs *cluster.ClientSet, deplo
 		if owner == nil || owner.UID != deployment.UID {
 			continue
 		}
-		if _, ok := rs.Annotations[deploymentRevisionAnnotation]; !ok {
+		revStr, ok := rs.Annotations[deploymentRevisionAnnotation]
+		if !ok {
+			continue
+		}
+		if _, err := strconv.ParseInt(revStr, 10, 64); err != nil {
 			continue
 		}
 		owned = append(owned, rs)
@@ -223,7 +227,13 @@ func listDeploymentReplicaSets(ctx context.Context, cs *cluster.ClientSet, deplo
 }
 
 func deploymentRevisionOf(rs *appsv1.ReplicaSet) int64 {
-	v, _ := strconv.ParseInt(rs.Annotations[deploymentRevisionAnnotation], 10, 64)
+	if rs.Annotations == nil {
+		return 0
+	}
+	v, err := strconv.ParseInt(rs.Annotations[deploymentRevisionAnnotation], 10, 64)
+	if err != nil {
+		return 0
+	}
 	return v
 }
 

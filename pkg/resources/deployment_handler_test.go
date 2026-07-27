@@ -214,6 +214,38 @@ func TestDeploymentHandlerRevisions_FallsBackToHighestWhenAnnotationMissing(t *t
 	}
 }
 
+func TestDeploymentHandlerRevisions_SkipsMalformedRevisionAnnotation(t *testing.T) {
+	setupDeploymentHandlerTestDB(t)
+
+	deployment := makeTestDeployment("2")
+	rs1 := makeTestReplicaSet("demo-app-1", 1, "initial deploy", "nginx:1.25")
+	rs2 := makeTestReplicaSet("demo-app-2", 2, "bump to 1.26", "nginx:1.26")
+	// A ReplicaSet with a non-numeric revision annotation must be excluded
+	// entirely, not silently sorted/matched as revision 0.
+	rsMalformed := makeTestReplicaSet("demo-app-bad", 0, "", "nginx:broken")
+	rsMalformed.Annotations[deploymentRevisionAnnotation] = "not-a-number"
+
+	cs := newDeploymentHandlerTestClientSet(t, deployment, rs1, rs2, rsMalformed)
+	router := newDeploymentHandlerTestRouter(t, cs)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/deployments/default/demo-app/revisions", nil)
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	items := decodeRevisionsResponse(t, rec)
+	if len(items) != 2 {
+		t.Fatalf("expected 2 items (malformed RS excluded), got %d: %+v", len(items), items)
+	}
+	for _, item := range items {
+		if item.ReplicaSet == "demo-app-bad" {
+			t.Fatalf("malformed ReplicaSet should not appear in revisions: %+v", items)
+		}
+	}
+}
+
 func TestDeploymentHandlerRevisions_NotFound(t *testing.T) {
 	setupDeploymentHandlerTestDB(t)
 
