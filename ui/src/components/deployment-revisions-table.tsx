@@ -36,8 +36,12 @@ function DeploymentRollbackButton({
   const [open, setOpen] = useState(false)
 
   const handleConfirm = async () => {
-    await onRollback(item.revision)
-    setOpen(false)
+    try {
+      await onRollback(item.revision)
+      setOpen(false)
+    } catch (error) {
+      toast.error(translateError(error, t))
+    }
   }
 
   return (
