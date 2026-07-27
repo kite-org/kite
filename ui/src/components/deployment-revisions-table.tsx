@@ -40,7 +40,7 @@ function DeploymentRollbackButton({
       await onRollback(item.revision)
       setOpen(false)
     } catch (error) {
-      toast.error(translateError(error, t))
+      // onRollback is responsible for surfacing errors
     }
   }
 
