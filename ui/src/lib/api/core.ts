@@ -1080,8 +1080,8 @@ export const rollbackDeployment = async (
   namespace: string,
   name: string,
   revision?: number
-): Promise<{ message?: string }> => {
-  return apiClient.put<{ message?: string }>(
+): Promise<{ message?: string; revision?: number }> => {
+  return apiClient.put<{ message?: string; revision?: number }>(
     `/deployments/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/rollback`,
     revision !== undefined ? { revision } : {}
   )
