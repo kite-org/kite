@@ -85,6 +85,7 @@ const defaultPagination: PaginationState = {
   pageIndex: 0,
   pageSize: 20,
 }
+const artifactHubPageSizeOptions = [10, 20, 50]
 
 function readHelmChartListSessionState(): HelmChartListSessionState {
   const value = sessionStorage.getItem(helmChartListSessionStorageKey)
@@ -117,7 +118,9 @@ function readHelmChartListSessionState(): HelmChartListSessionState {
         Number.isInteger(pagination.pageIndex) &&
         pagination.pageIndex >= 0 &&
         Number.isInteger(pagination.pageSize) &&
-        pagination.pageSize > 0
+        pagination.pageSize > 0 &&
+        (state.chartSource === repositoriesSource ||
+          artifactHubPageSizeOptions.includes(pagination.pageSize))
           ? pagination
           : undefined,
     }
@@ -466,7 +469,15 @@ export function HelmChartListPage() {
       return
     }
     setChartSource(value as ChartSource)
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+    setPagination((prev) => ({
+      ...prev,
+      pageIndex: 0,
+      pageSize:
+        value === artifactHubSource &&
+        !artifactHubPageSizeOptions.includes(prev.pageSize)
+          ? defaultPagination.pageSize
+          : prev.pageSize,
+    }))
   }
 
   const updateSearchQuery = (value: string) => {
@@ -721,6 +732,9 @@ export function HelmChartListPage() {
           setPagination={setPagination}
           shrinkFirstColumn={false}
           showAllPageSize={!isArtifactHubSource}
+          pageSizeOptions={
+            isArtifactHubSource ? artifactHubPageSizeOptions : undefined
+          }
         />
       </div>
 

@@ -41,6 +41,7 @@ interface ResourceTableViewProps<T> {
   setPagination: React.Dispatch<React.SetStateAction<PaginationState>>
   shrinkFirstColumn?: boolean
   showAllPageSize?: boolean
+  pageSizeOptions?: number[]
 }
 
 export function ResourceTableView<T>({
@@ -61,6 +62,7 @@ export function ResourceTableView<T>({
   setPagination,
   shrinkFirstColumn = true,
   showAllPageSize = true,
+  pageSizeOptions = [10, 20, 50, 100],
 }: ResourceTableViewProps<T>) {
   const renderRows = () => {
     const rows = table.getRowModel().rows
@@ -260,7 +262,7 @@ export function ResourceTableView<T>({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {[10, 20, 50, 100].map((pageSize) => (
+                  {pageSizeOptions.map((pageSize) => (
                     <SelectItem key={pageSize} value={`${pageSize}`}>
                       {pageSize}
                     </SelectItem>

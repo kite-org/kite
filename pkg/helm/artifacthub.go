@@ -28,8 +28,8 @@ func (h *HelmChartHandler) ListArtifactHubCharts(c *gin.Context) {
 	if err != nil || limit < 1 {
 		limit = 20
 	}
-	if limit > 100 {
-		limit = 100
+	if limit > 60 {
+		limit = 60
 	}
 	offset, err := strconv.Atoi(c.DefaultQuery("offset", "0"))
 	if err != nil || offset < 0 {
