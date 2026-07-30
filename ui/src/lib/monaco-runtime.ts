@@ -22,6 +22,10 @@ async function loadMonaco(): Promise<ReactMonacoModule> {
     getWorker: () => new workerModule.default(),
   }
 
+  // Expose the API like the AMD build does (window.monaco) so e2e tests can
+  // drive editors via monaco.editor.getEditors()/getDiffEditors().
+  ;(self as { monaco?: unknown }).monaco = monacoApi
+
   reactMonaco.loader.config({
     monaco:
       monacoApi as typeof import('monaco-editor/esm/vs/editor/editor.api.js'),
