@@ -120,6 +120,7 @@
       "kernelVersion": "Kernel Version",
       "key": "Key",
       "keys": "Keys",
+      "kind": "Kind",
       "kubeProxyVersion": "Kube Proxy Version",
       "kubeletVersion": "Kubelet Version",
       "labels": "Labels",
@@ -380,6 +381,12 @@
     "unsetGlobalError": "Failed to disable global sidebar",
     "updateAvailable": "A newer Kite version is available"
   },
+  "policies": {
+    "searchPlaceholder": "Search policies...",
+    "allKinds": "All kinds",
+    "empty": "No policies found",
+    "partialError": "Some policy types failed to load; the list may be incomplete."
+  },
   "nav": {
     "overview": "Overview",
     "pods": "Pods",
@@ -440,6 +447,7 @@
     "podgroups": "PodGroups",
     "flowschemas": "FlowSchemas",
     "prioritylevelconfigurations": "PriorityLevelConfigurations",
+    "policies": "Policies",
     "validatingadmissionpolicies": "ValidatingAdmissionPolicies",
     "validatingadmissionpolicybindings": "ValidatingAdmissionPolicyBindings",
     "validatingwebhookconfigurations": "ValidatingWebhookConfigurations",

@@ -118,6 +118,7 @@
       "kernelVersion": "内核版本",
       "key": "键",
       "keys": "键",
+      "kind": "类型",
       "kubeProxyVersion": "Kube-Proxy 版本",
       "kubeletVersion": "Kubelet 版本",
       "labels": "标签",
@@ -384,6 +385,12 @@
     "collapse": "收起",
     "updateAvailable": "有新的 Kite 版本可用"
   },
+  "policies": {
+    "searchPlaceholder": "搜索策略...",
+    "allKinds": "所有类型",
+    "empty": "未找到策略",
+    "partialError": "部分策略类型加载失败，列表可能不完整。"
+  },
   "nav": {
     "overview": "概览",
     "workloads": "工作负载",
@@ -445,6 +452,7 @@
     "podgroups": "PodGroups",
     "flowschemas": "FlowSchemas",
     "prioritylevelconfigurations": "PriorityLevelConfigurations",
+    "policies": "策略",
     "validatingadmissionpolicies": "ValidatingAdmissionPolicies",
     "validatingadmissionpolicybindings": "ValidatingAdmissionPolicyBindings",
     "validatingwebhookconfigurations": "ValidatingWebhookConfigurations",

@@ -72,6 +72,7 @@ interface ResourceCatalogEntryBase {
   pluralLabel: string
   shortLabel?: string
   clusterScope: boolean
+  synthetic?: boolean
   titleKey?: string
   icon?: ResourceIconName
   sidebar?: {
@@ -245,7 +246,7 @@ export const resourceCatalog = [
     clusterScope: true,
     titleKey: 'nav.crds',
     icon: 'IconCode',
-    sidebar: { groupKey: 'sidebar.groups.other', order: 3 },
+    sidebar: { groupKey: 'sidebar.groups.other', order: 4 },
   },
   {
     type: 'crs',
@@ -637,6 +638,17 @@ export const resourceCatalog = [
     },
   },
   {
+    type: 'policies',
+    singular: 'policy',
+    singularLabel: 'Policy',
+    pluralLabel: 'Policies',
+    clusterScope: true,
+    synthetic: true,
+    titleKey: 'nav.policies',
+    icon: 'IconShieldCheck',
+    sidebar: { groupKey: 'sidebar.groups.other', order: 3 },
+  },
+  {
     type: 'validatingadmissionpolicies',
     singular: 'validatingadmissionpolicy',
     singularLabel: 'ValidatingAdmissionPolicy',
@@ -644,11 +656,6 @@ export const resourceCatalog = [
     clusterScope: true,
     titleKey: 'nav.validatingadmissionpolicies',
     icon: 'IconShieldCheck',
-    sidebar: {
-      groupKey: 'sidebar.groups.other',
-      order: 37,
-      defaultHidden: true,
-    },
   },
   {
     type: 'validatingadmissionpolicybindings',
@@ -658,11 +665,6 @@ export const resourceCatalog = [
     clusterScope: true,
     titleKey: 'nav.validatingadmissionpolicybindings',
     icon: 'IconShieldCheck',
-    sidebar: {
-      groupKey: 'sidebar.groups.other',
-      order: 38,
-      defaultHidden: true,
-    },
   },
   {
     type: 'validatingwebhookconfigurations',
@@ -672,11 +674,6 @@ export const resourceCatalog = [
     clusterScope: true,
     titleKey: 'nav.validatingwebhookconfigurations',
     icon: 'IconShieldCheck',
-    sidebar: {
-      groupKey: 'sidebar.groups.other',
-      order: 39,
-      defaultHidden: true,
-    },
   },
   {
     type: 'mutatingwebhookconfigurations',
@@ -686,11 +683,6 @@ export const resourceCatalog = [
     clusterScope: true,
     titleKey: 'nav.mutatingwebhookconfigurations',
     icon: 'IconShield',
-    sidebar: {
-      groupKey: 'sidebar.groups.other',
-      order: 40,
-      defaultHidden: true,
-    },
   },
   {
     type: 'mutatingadmissionpolicies',
@@ -700,11 +692,6 @@ export const resourceCatalog = [
     clusterScope: true,
     titleKey: 'nav.mutatingadmissionpolicies',
     icon: 'IconShield',
-    sidebar: {
-      groupKey: 'sidebar.groups.other',
-      order: 41,
-      defaultHidden: true,
-    },
   },
   {
     type: 'mutatingadmissionpolicybindings',
@@ -714,11 +701,6 @@ export const resourceCatalog = [
     clusterScope: true,
     titleKey: 'nav.mutatingadmissionpolicybindings',
     icon: 'IconShield',
-    sidebar: {
-      groupKey: 'sidebar.groups.other',
-      order: 42,
-      defaultHidden: true,
-    },
   },
   {
     type: 'resourceslices',
@@ -1007,8 +989,9 @@ export type ResourceMetadata = Omit<ResourceCatalogEntryBase, 'type'> & {
   type: ResourceType
 }
 
-export const resourceMetadataList: readonly ResourceMetadata[] =
-  resourceCatalog.map((item) => ({
+export const resourceMetadataList: readonly ResourceMetadata[] = resourceCatalog
+  .filter((item) => !('synthetic' in item && item.synthetic))
+  .map((item) => ({
     type: item.type,
     singular: item.singular,
     singularLabel: item.singularLabel,
