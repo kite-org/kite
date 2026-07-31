@@ -137,10 +137,10 @@ func newDeploymentHandlerTestClientSet(t *testing.T, objs ...client.Object) *clu
 	}
 }
 
-func decodeRevisionsResponse(t *testing.T, rec *httptest.ResponseRecorder) []deploymentRevisionItem {
+func decodeRevisionsResponse(t *testing.T, rec *httptest.ResponseRecorder) []WorkloadRevisionItem {
 	t.Helper()
 	var body struct {
-		Items []deploymentRevisionItem `json:"items"`
+		Items []WorkloadRevisionItem `json:"items"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response: %v; body=%s", err, rec.Body.String())
@@ -240,7 +240,7 @@ func TestDeploymentHandlerRevisions_SkipsMalformedRevisionAnnotation(t *testing.
 		t.Fatalf("expected 2 items (malformed RS excluded), got %d: %+v", len(items), items)
 	}
 	for _, item := range items {
-		if item.ReplicaSet == "demo-app-bad" {
+		if item.RevisionObject == "demo-app-bad" {
 			t.Fatalf("malformed ReplicaSet should not appear in revisions: %+v", items)
 		}
 	}

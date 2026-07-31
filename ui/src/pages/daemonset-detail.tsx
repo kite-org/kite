@@ -26,9 +26,9 @@ import { LogViewer } from '@/components/log-viewer'
 import { PodMonitoring } from '@/components/pod-monitoring'
 import { PodTable } from '@/components/pod-table'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
-import { ResourceHistoryTable } from '@/components/resource-history-table'
 import { Terminal } from '@/components/terminal'
 import { VolumeTable } from '@/components/volume-table'
+import { WorkloadHistoryTabs } from '@/components/workload-history-tabs'
 
 import {
   ResourceDetailShell,
@@ -267,11 +267,12 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
         value: 'history',
         label: t('common.tabs.history', { defaultValue: 'History' }),
         content: daemonset ? (
-          <ResourceHistoryTable
+          <WorkloadHistoryTabs
             resourceType="daemonsets"
-            name={name}
             namespace={namespace}
-            currentResource={daemonset}
+            name={name}
+            resource={daemonset}
+            onRollbackComplete={refetch}
           />
         ) : null,
       },
@@ -307,6 +308,7 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
     labelSelector,
     name,
     namespace,
+    refetch,
     relatedPods,
     t,
   ])

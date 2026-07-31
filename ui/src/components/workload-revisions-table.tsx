@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { DeploymentRevisionItem } from '@/types/api'
-import { rollbackDeployment, useDeploymentRevisions } from '@/lib/api'
+import { WorkloadRevisionItem, WorkloadRevisionResourceType } from '@/types/api'
+import { rollbackWorkload, useWorkloadRevisions } from '@/lib/api'
 import { formatDate, translateError } from '@/lib/utils'
 
 import { SimpleTable } from './simple-table'
 import { Button } from './ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
+import { Card, CardContent } from './ui/card'
 import {
   Dialog,
   DialogContent,
@@ -19,14 +19,20 @@ import {
   DialogTrigger,
 } from './ui/dialog'
 
-function DeploymentRollbackButton({
+const revisionObjectLabelKey: Record<WorkloadRevisionResourceType, string> = {
+  deployments: 'workloads.fields.replicaSet',
+  statefulsets: 'workloads.fields.controllerRevision',
+  daemonsets: 'workloads.fields.controllerRevision',
+}
+
+function WorkloadRollbackButton({
   item,
   namespace,
   name,
   disabled,
   onRollback,
 }: {
-  item: DeploymentRevisionItem
+  item: WorkloadRevisionItem
   namespace: string
   name: string
   disabled: boolean
@@ -49,16 +55,16 @@ function DeploymentRollbackButton({
           className="w-24"
           disabled={disabled}
         >
-          {t('deployments.actions.rollback')}
+          {t('workloads.actions.rollback')}
         </Button>
       </DialogTrigger>
       <DialogContent className="!max-w-md sm:!max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {t('deployments.messages.rollbackConfirmTitle')}
+            {t('workloads.messages.rollbackConfirmTitle')}
           </DialogTitle>
           <DialogDescription>
-            {t('deployments.messages.rollbackConfirmDescription', {
+            {t('workloads.messages.rollbackConfirmDescription', {
               namespace,
               name,
               revision: item.revision,
@@ -80,7 +86,7 @@ function DeploymentRollbackButton({
             onClick={() => void handleConfirm()}
             disabled={disabled}
           >
-            {t('deployments.actions.rollback')}
+            {t('workloads.actions.rollback')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -88,32 +94,34 @@ function DeploymentRollbackButton({
   )
 }
 
-export function DeploymentRevisionsTable({
+export function WorkloadRevisionsTable({
+  resourceType,
   namespace,
   name,
   onRollbackComplete,
 }: {
+  resourceType: WorkloadRevisionResourceType
   namespace: string
   name: string
   onRollbackComplete: () => Promise<unknown>
 }) {
   const { t } = useTranslation()
-  const [rollingBackRevision, setRollingBackRevision] = useState<number | null>(
-    null
-  )
+  const [rollingBackRevision, setRollingBackRevision] = useState<
+    number | null
+  >(null)
   const {
     data,
     isLoading,
     isError,
     error,
     refetch: refetchRevisions,
-  } = useDeploymentRevisions(namespace, name)
+  } = useWorkloadRevisions(resourceType, namespace, name)
 
   const handleRollback = async (revision: number) => {
     setRollingBackRevision(revision)
     try {
-      await rollbackDeployment(namespace, name, revision)
-      toast.success(t('deployments.messages.rollbackStarted'))
+      await rollbackWorkload(resourceType, namespace, name, revision)
+      toast.success(t('workloads.messages.rollbackStarted'))
       await Promise.all([refetchRevisions(), onRollbackComplete()])
     } catch (err) {
       toast.error(translateError(err, t))
@@ -144,13 +152,10 @@ export function DeploymentRevisionsTable({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{t('common.tabs.revisions')}</CardTitle>
-      </CardHeader>
       <CardContent>
         <SimpleTable
           data={data?.items || []}
-          emptyMessage={t('deployments.messages.noRevisions')}
+          emptyMessage={t('workloads.messages.noRevisions')}
           columns={[
             {
               header: t('common.fields.revision'),
@@ -162,8 +167,8 @@ export function DeploymentRevisionsTable({
               ),
             },
             {
-              header: t('deployments.fields.replicaSet'),
-              accessor: (item) => item.replicaSet,
+              header: t(revisionObjectLabelKey[resourceType]),
+              accessor: (item) => item.revisionObject,
               cell: (value) => value as string,
               align: 'left',
             },
@@ -171,7 +176,9 @@ export function DeploymentRevisionsTable({
               header: t('common.fields.replicas'),
               accessor: (item) => item.replicas,
               cell: (value) => (
-                <span className="tabular-nums">{value as number}</span>
+                <span className="tabular-nums">
+                  {value === undefined ? '-' : (value as number)}
+                </span>
               ),
               align: 'left',
             },
@@ -196,7 +203,7 @@ export function DeploymentRevisionsTable({
               align: 'left',
             },
             {
-              header: t('deployments.fields.changeCause'),
+              header: t('workloads.fields.changeCause'),
               accessor: (item) => item.changeCause || '-',
               cell: (value) => (
                 <span className="text-sm text-muted-foreground">
@@ -209,7 +216,7 @@ export function DeploymentRevisionsTable({
               header: t('common.fields.actions'),
               accessor: (item) => item,
               cell: (value) => {
-                const item = value as DeploymentRevisionItem
+                const item = value as WorkloadRevisionItem
                 return (
                   <div className="ml-auto w-max">
                     {item.current ? (
@@ -222,7 +229,7 @@ export function DeploymentRevisionsTable({
                         {t('common.fields.current')}
                       </Button>
                     ) : (
-                      <DeploymentRollbackButton
+                      <WorkloadRollbackButton
                         item={item}
                         namespace={namespace}
                         name={name}

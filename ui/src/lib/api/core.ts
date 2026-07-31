@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Pod } from 'kubernetes-types/core/v1'
 
 import {
-  DeploymentRevisionsResponse,
   HelmChartContent,
   HelmChartContentType,
   HelmChartDetail,
@@ -23,6 +22,8 @@ import {
   ResourceTemplate,
   ResourceType,
   ResourceTypeMap,
+  WorkloadRevisionResourceType,
+  WorkloadRevisionsResponse,
 } from '@/types/api'
 import { getResourceQueryKey } from '@/lib/resource-metadata'
 import { useCluster } from '@/hooks/use-cluster'
@@ -1054,35 +1055,38 @@ export const fetchResourceHistory = (
   return fetchAPI<ResourceHistoryResponse>(endpoint)
 }
 
-export const fetchDeploymentRevisions = (
+export const fetchWorkloadRevisions = (
+  resourceType: WorkloadRevisionResourceType,
   namespace: string,
   name: string
-): Promise<DeploymentRevisionsResponse> => {
-  return fetchAPI<DeploymentRevisionsResponse>(
-    `/deployments/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/revisions`
+): Promise<WorkloadRevisionsResponse> => {
+  return fetchAPI<WorkloadRevisionsResponse>(
+    `/${resourceType}/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/revisions`
   )
 }
 
-export const useDeploymentRevisions = (
+export const useWorkloadRevisions = (
+  resourceType: WorkloadRevisionResourceType,
   namespace: string,
   name: string,
   options?: { enabled?: boolean; staleTime?: number }
 ) => {
   return useQuery({
-    queryKey: ['deployment-revisions', namespace, name],
-    queryFn: () => fetchDeploymentRevisions(namespace, name),
+    queryKey: ['workload-revisions', resourceType, namespace, name],
+    queryFn: () => fetchWorkloadRevisions(resourceType, namespace, name),
     enabled: options?.enabled ?? true,
     staleTime: options?.staleTime ?? 30000,
   })
 }
 
-export const rollbackDeployment = async (
+export const rollbackWorkload = async (
+  resourceType: WorkloadRevisionResourceType,
   namespace: string,
   name: string,
   revision?: number
 ): Promise<{ message?: string; revision?: number }> => {
   return apiClient.put<{ message?: string; revision?: number }>(
-    `/deployments/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/rollback`,
+    `/${resourceType}/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/rollback`,
     revision !== undefined ? { revision } : {}
   )
 }

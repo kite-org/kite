@@ -292,7 +292,6 @@
       "overview": "Overview",
       "pods": "Pods",
       "related": "Related",
-      "revisions": "Revisions",
       "terminal": "Terminal",
       "volumes": "Volumes",
       "yaml": "YAML"
@@ -501,19 +500,26 @@
     "servicePort": "Service Port",
     "targetPort": "Target Port",
     "exposeInvalidPort": "Port must be between 1 and 65535",
-    "exposeNoSelector": "No Deployment selector labels found to expose",
+    "exposeNoSelector": "No Deployment selector labels found to expose"
+  },
+  "workloads": {
     "actions": {
       "rollback": "Rollback"
     },
     "fields": {
       "replicaSet": "ReplicaSet",
+      "controllerRevision": "ControllerRevision",
       "changeCause": "Change Cause"
     },
     "messages": {
       "noRevisions": "No revision history found",
       "rollbackStarted": "Rollback requested",
-      "rollbackConfirmTitle": "Rollback deployment?",
+      "rollbackConfirmTitle": "Rollback?",
       "rollbackConfirmDescription": "Rollback {{namespace}}/{{name}} to revision {{revision}}."
+    },
+    "tabs": {
+      "rolloutRevisions": "Rollout Revisions",
+      "kiteAudit": "Kite Audit"
     }
   },
   "daemonsets": {

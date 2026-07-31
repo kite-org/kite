@@ -27,10 +27,10 @@ import { LogViewer } from '@/components/log-viewer'
 import { PodMonitoring } from '@/components/pod-monitoring'
 import { PodTable } from '@/components/pod-table'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
-import { ResourceHistoryTable } from '@/components/resource-history-table'
 import { StatefulSetOverview } from '@/components/statefulset-overview'
 import { Terminal } from '@/components/terminal'
 import { VolumeTable } from '@/components/volume-table'
+import { WorkloadHistoryTabs } from '@/components/workload-history-tabs'
 
 import {
   ResourceDetailShell,
@@ -308,11 +308,12 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
         value: 'history',
         label: t('common.tabs.history', { defaultValue: 'History' }),
         content: statefulset ? (
-          <ResourceHistoryTable
+          <WorkloadHistoryTabs
             resourceType="statefulsets"
-            name={name}
             namespace={namespace}
-            currentResource={statefulset}
+            name={name}
+            resource={statefulset}
+            onRollbackComplete={refetch}
           />
         ) : null,
       },
@@ -349,6 +350,7 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
     labelSelector,
     name,
     namespace,
+    refetch,
     relatedPods,
     statefulset,
     t,

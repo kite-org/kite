@@ -292,7 +292,6 @@
       "overview": "概览",
       "pods": "Pods",
       "related": "相关资源",
-      "revisions": "版本历史",
       "terminal": "终端",
       "volumes": "卷",
       "yaml": "YAML"
@@ -506,19 +505,26 @@
     "servicePort": "Service 端口",
     "targetPort": "目标端口",
     "exposeInvalidPort": "端口必须在 1 到 65535 之间",
-    "exposeNoSelector": "Deployment 没有可用于暴露的 selector 标签",
+    "exposeNoSelector": "Deployment 没有可用于暴露的 selector 标签"
+  },
+  "workloads": {
     "actions": {
       "rollback": "回滚"
     },
     "fields": {
       "replicaSet": "ReplicaSet",
+      "controllerRevision": "ControllerRevision",
       "changeCause": "变更原因"
     },
     "messages": {
       "noRevisions": "未找到版本历史",
       "rollbackStarted": "已发起回滚",
-      "rollbackConfirmTitle": "回滚 Deployment？",
+      "rollbackConfirmTitle": "回滚？",
       "rollbackConfirmDescription": "将 {{namespace}}/{{name}} 回滚到版本 {{revision}}。"
+    },
+    "tabs": {
+      "rolloutRevisions": "发布版本历史",
+      "kiteAudit": "Kite 审计记录"
     }
   },
   "daemonsets": {

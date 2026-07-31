@@ -53,16 +53,6 @@ func (h *DeploymentHandler) registerCustomRoutes(group *gin.RouterGroup) {
 	group.PUT("/:namespace/:name/rollback", h.Rollback)
 }
 
-type deploymentRevisionItem struct {
-	Revision    int64       `json:"revision"`
-	ReplicaSet  string      `json:"replicaSet"`
-	ChangeCause string      `json:"changeCause,omitempty"`
-	Images      []string    `json:"images"`
-	Replicas    int32       `json:"replicas"`
-	CreatedAt   metav1.Time `json:"createdAt"`
-	Current     bool        `json:"current"`
-}
-
 func (h *DeploymentHandler) Revisions(c *gin.Context) {
 	namespace, name := c.Param("namespace"), c.Param("name")
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
@@ -86,29 +76,25 @@ func (h *DeploymentHandler) Revisions(c *gin.Context) {
 
 	_, currentIndex := deploymentCurrentRevision(&deployment, replicaSets)
 
-	items := make([]deploymentRevisionItem, 0, len(replicaSets))
+	items := make([]WorkloadRevisionItem, 0, len(replicaSets))
 	for i, rs := range replicaSets {
 		images := make([]string, 0, len(rs.Spec.Template.Spec.Containers))
 		for _, container := range rs.Spec.Template.Spec.Containers {
 			images = append(images, container.Image)
 		}
+		replicas := rs.Status.Replicas
 
-		items = append(items, deploymentRevisionItem{
-			Revision:    deploymentRevisionOf(rs),
-			ReplicaSet:  rs.Name,
-			ChangeCause: rs.Annotations[deploymentChangeCauseAnnotation],
-			Images:      images,
-			Replicas:    rs.Status.Replicas,
-			CreatedAt:   rs.CreationTimestamp,
-			Current:     i == currentIndex,
+		items = append(items, WorkloadRevisionItem{
+			Revision:       deploymentRevisionOf(rs),
+			RevisionObject: rs.Name,
+			ChangeCause:    rs.Annotations[deploymentChangeCauseAnnotation],
+			Images:         images,
+			Replicas:       &replicas,
+			CreatedAt:      rs.CreationTimestamp,
+			Current:        i == currentIndex,
 		})
 	}
 	c.JSON(http.StatusOK, gin.H{"items": items})
-}
-
-type deploymentRollbackRequest struct {
-	Revision    int64  `json:"revision"`
-	ChangeCause string `json:"changeCause"`
 }
 
 func (h *DeploymentHandler) Rollback(c *gin.Context) {
@@ -116,7 +102,7 @@ func (h *DeploymentHandler) Rollback(c *gin.Context) {
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
 	ctx := c.Request.Context()
 
-	var req deploymentRollbackRequest
+	var req workloadRollbackRequest
 	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

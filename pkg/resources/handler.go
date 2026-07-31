@@ -101,8 +101,8 @@ func newResourceHandlers() map[string]resourceHandler {
 		string(common.Deployments):            NewDeploymentHandler(),
 		string(common.ReplicaSets):            NewGenericResourceHandler[*appsv1.ReplicaSet, *appsv1.ReplicaSetList](common.ReplicaSets),
 		string(common.ControllerRevisions):    NewGenericResourceHandler[*appsv1.ControllerRevision, *appsv1.ControllerRevisionList](common.ControllerRevisions),
-		string(common.StatefulSets):           NewGenericResourceHandler[*appsv1.StatefulSet, *appsv1.StatefulSetList](common.StatefulSets),
-		string(common.DaemonSets):             NewGenericResourceHandler[*appsv1.DaemonSet, *appsv1.DaemonSetList](common.DaemonSets),
+		string(common.StatefulSets):           NewStatefulSetHandler(),
+		string(common.DaemonSets):             NewDaemonSetHandler(),
 		string(common.PodDisruptionBudgets): newVersionedResourceHandler(
 			newResourceVersionCandidate("policy/v1", string(common.PodDisruptionBudgets), NewGenericResourceHandler[*policyv1.PodDisruptionBudget, *policyv1.PodDisruptionBudgetList](common.PodDisruptionBudgets)),
 			newResourceVersionCandidate("policy/v1beta1", string(common.PodDisruptionBudgets), NewGenericResourceHandler[*policyv1beta1.PodDisruptionBudget, *policyv1beta1.PodDisruptionBudgetList](common.PodDisruptionBudgets)),
