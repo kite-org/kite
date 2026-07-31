@@ -19,7 +19,7 @@ When using the Artifact Hub source, Kite may request Artifact Hub to fetch chart
 Kite only displays chart information and is not responsible for the chart content. Review chart details, templates, and values carefully before installing or upgrading.
 :::
 
-Users with the **admin** role can add or remove Helm repositories. Removing a repository only removes it from Kite and does not uninstall existing releases.
+Users with the **admin** role can add or remove Helm repositories. Both classic (`https://`) and OCI (`oci://`) repositories are supported; an OCI URL must point at a single chart path without a tag or digest (for example `oci://registry.example.com/charts/app`), and its semver registry tags become the chart's versions. Removing a repository only removes it from Kite and does not uninstall existing releases.
 
 Open a chart to view its README, values, templates, and versions. If the chart package is available, you can install it directly from Kite.
 

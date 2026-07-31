@@ -231,6 +231,7 @@ function AddRepositoryDialog({
                 type="url"
                 value={url}
                 onChange={(event) => setURL(event.target.value)}
+                placeholder={t('helmCharts.placeholders.repositoryUrl')}
                 required
               />
             </div>

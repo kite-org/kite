@@ -1162,7 +1162,7 @@
       "verifiedPublisher": "Verified publisher"
     },
     "messages": {
-      "addRepositoryDescription": "Add a Helm repository to make its charts available.",
+      "addRepositoryDescription": "Add a Helm repository to make its charts available. Supports classic (https://) and OCI (oci://) repositories; an OCI URL must point at a single chart.",
       "repositoryAdded": "Repository added",
       "repositoryDeleted": "Repository deleted",
       "deleteRepositoryDescription": "This only removes the managed chart source from Kite. It does not delete remote charts or installed Helm releases.",
@@ -1177,7 +1177,8 @@
       "installed": "Helm release installed"
     },
     "placeholders": {
-      "search": "Search charts..."
+      "search": "Search charts...",
+      "repositoryUrl": "https://charts.example.com or oci://registry.example.com/charts/app"
     }
   },
   "cloneResource": {

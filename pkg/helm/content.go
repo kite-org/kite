@@ -12,6 +12,7 @@ import (
 	"github.com/zxh326/kite/pkg/model"
 	"helm.sh/helm/v4/pkg/chart/common"
 	chart "helm.sh/helm/v4/pkg/chart/v2"
+	"helm.sh/helm/v4/pkg/registry"
 	repo "helm.sh/helm/v4/pkg/repo/v1"
 	"sigs.k8s.io/yaml"
 )
@@ -70,7 +71,7 @@ func (h *HelmChartHandler) GetChart(c *gin.Context) {
 		return
 	}
 
-	entry, err := indexFile.Get(chartName, version)
+	entry, err := getChartEntry(indexFile, chartName, version)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
@@ -80,6 +81,18 @@ func (h *HelmChartHandler) GetChart(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	if content.Metadata != nil && registry.IsOCI(repository.URL) {
+		// Synthesized OCI entries carry only name/version for most tags, so
+		// the archive's Chart.yaml fills in their display metadata. Classic
+		// repositories keep their index.yaml entries authoritative, matching
+		// ListCharts.
+		metadata := *content.Metadata
+		metadata.Name = entry.Name
+		metadata.Version = entry.Version
+		clone := *entry
+		clone.Metadata = &metadata
+		entry = &clone
 	}
 
 	versions := []helmChartVersion{}
@@ -122,7 +135,7 @@ func (h *HelmChartHandler) GetChartContent(c *gin.Context) {
 		return
 	}
 
-	entry, err := indexFile.Get(chartName, version)
+	entry, err := getChartEntry(indexFile, chartName, version)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
@@ -139,6 +152,19 @@ func (h *HelmChartHandler) GetChartContent(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, helmChartContentResponse{Templates: content.Templates})
+}
+
+// getChartEntry falls back to the newest entry when no version is requested
+// and IndexFile.Get finds no match: its "*" constraint skips prereleases, so a
+// prerelease-only chart would list in ListCharts yet 404 on detail lookups.
+func getChartEntry(indexFile *repo.IndexFile, chartName, version string) (*repo.ChartVersion, error) {
+	entry, err := indexFile.Get(chartName, version)
+	if err != nil && version == "" {
+		if versions := indexFile.Entries[chartName]; len(versions) > 0 {
+			return versions[0], nil
+		}
+	}
+	return entry, err
 }
 
 func toHelmChart(repository model.HelmRepository, generated time.Time, entry *repo.ChartVersion) helmChart {

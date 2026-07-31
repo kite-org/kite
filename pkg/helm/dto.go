@@ -71,6 +71,7 @@ type helmChartContent struct {
 	Readme    string
 	Values    string
 	Templates []chartTemplate
+	Metadata  *chart.Metadata
 }
 
 type artifactHubSearchResponse struct {
