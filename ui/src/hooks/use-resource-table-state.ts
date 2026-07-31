@@ -82,10 +82,18 @@ export function useResourceTableState({
   const [selectedNamespace, setSelectedNamespace] = useState<
     string | undefined
   >(() => {
-    const storedNamespace = localStorage.getItem(
+    // Prefer tab-scoped sessionStorage to isolate namespace selection across tabs
+    const tabNamespace = sessionStorage.getItem(
       getClusterScopedStorageKey('selectedNamespace')
     )
-    return clusterScope ? undefined : storedNamespace || 'default'
+    if (tabNamespace) {
+      return clusterScope ? undefined : tabNamespace
+    }
+    // Fall back to localStorage for global preference (new tabs inherit last choice)
+    const globalNamespace = localStorage.getItem(
+      getClusterScopedStorageKey('selectedNamespace')
+    )
+    return clusterScope ? undefined : globalNamespace || 'default'
   })
   const [useSSE, setUseSSE] = useState(false)
 
@@ -100,9 +108,12 @@ export function useResourceTableState({
       return
     }
 
-    const storedNamespace = localStorage.getItem(
+    const tabNamespace = sessionStorage.getItem(
       getClusterScopedStorageKey('selectedNamespace')
     )
+    const storedNamespace =
+      tabNamespace ||
+      localStorage.getItem(getClusterScopedStorageKey('selectedNamespace'))
     setSelectedNamespace(storedNamespace || 'default')
   }, [clusterScope, selectedNamespace])
 
@@ -159,6 +170,12 @@ export function useResourceTableState({
   }, [columnFilters, searchQuery])
 
   const handleNamespaceChange = useCallback((value: string) => {
+    // Persist to sessionStorage for tab-level isolation
+    sessionStorage.setItem(
+      getClusterScopedStorageKey('selectedNamespace'),
+      value
+    )
+    // Also update localStorage as global preference for new tabs
     localStorage.setItem(getClusterScopedStorageKey('selectedNamespace'), value)
     setSelectedNamespace(value)
     setPagination((prev) => ({ ...prev, pageIndex: 0 }))
