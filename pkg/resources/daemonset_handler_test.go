@@ -96,65 +96,59 @@ func TestDaemonSetHandlerRevisions_NotFound(t *testing.T) {
 	}
 }
 
-func TestDaemonSetHandlerRollback_DefaultsToPreviousRevision(t *testing.T) {
-	setupDeploymentHandlerTestDB(t)
-
-	ds := makeTestDaemonSet()
-	cr1 := makeTestControllerRevision(t, "demo-ds-cr1", 1, "initial deploy", "fluentd:1.14", daemonSetTestUID, "DaemonSet")
-	cr2 := makeTestControllerRevision(t, "demo-ds-cr2", 2, "bump to 1.15", "fluentd:1.15", daemonSetTestUID, "DaemonSet")
-
-	cs := newDeploymentHandlerTestClientSet(t, ds, cr1, cr2)
-	router := newDaemonSetHandlerTestRouter(t, cs)
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, "/daemonsets/default/demo-ds/rollback", strings.NewReader("{}"))
-	req.Header.Set("Content-Type", "application/json")
-	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+// TestDaemonSetHandlerRollback_Revision covers both the default (no
+// explicit revision, "{}") and explicit-revision rollback request shapes,
+// which share identical scaffolding and only differ in the request body and
+// the resulting change-cause annotation.
+func TestDaemonSetHandlerRollback_Revision(t *testing.T) {
+	tests := []struct {
+		name            string
+		body            string
+		wantChangeCause string
+	}{
+		{
+			name:            "defaults to the previous revision",
+			body:            "{}",
+			wantChangeCause: "Rolled back to revision 1 via Kite",
+		},
+		{
+			name:            "explicit revision with custom change cause",
+			body:            `{"revision":1,"changeCause":"manual rollback"}`,
+			wantChangeCause: "manual rollback",
+		},
 	}
 
-	var updated appsv1.DaemonSet
-	if err := cs.K8sClient.Get(t.Context(), types.NamespacedName{Namespace: "default", Name: "demo-ds"}, &updated); err != nil {
-		t.Fatalf("get updated daemonset: %v", err)
-	}
-	if got := updated.Spec.Template.Spec.Containers[0].Image; got != "fluentd:1.14" {
-		t.Fatalf("expected rollback to revision 1's image fluentd:1.14, got %s", got)
-	}
-	if got := updated.Annotations[deploymentChangeCauseAnnotation]; got != "Rolled back to revision 1 via Kite" {
-		t.Fatalf("unexpected change-cause annotation: %s", got)
-	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setupDeploymentHandlerTestDB(t)
 
-func TestDaemonSetHandlerRollback_ExplicitRevision(t *testing.T) {
-	setupDeploymentHandlerTestDB(t)
+			ds := makeTestDaemonSet()
+			cr1 := makeTestControllerRevision(t, "demo-ds-cr1", 1, "initial deploy", "fluentd:1.14", daemonSetTestUID, "DaemonSet")
+			cr2 := makeTestControllerRevision(t, "demo-ds-cr2", 2, "bump to 1.15", "fluentd:1.15", daemonSetTestUID, "DaemonSet")
 
-	ds := makeTestDaemonSet()
-	cr1 := makeTestControllerRevision(t, "demo-ds-cr1", 1, "initial deploy", "fluentd:1.14", daemonSetTestUID, "DaemonSet")
-	cr2 := makeTestControllerRevision(t, "demo-ds-cr2", 2, "bump to 1.15", "fluentd:1.15", daemonSetTestUID, "DaemonSet")
+			cs := newDeploymentHandlerTestClientSet(t, ds, cr1, cr2)
+			router := newDaemonSetHandlerTestRouter(t, cs)
 
-	cs := newDeploymentHandlerTestClientSet(t, ds, cr1, cr2)
-	router := newDaemonSetHandlerTestRouter(t, cs)
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPut, "/daemonsets/default/demo-ds/rollback", strings.NewReader(tt.body))
+			req.Header.Set("Content-Type", "application/json")
+			router.ServeHTTP(rec, req)
 
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, "/daemonsets/default/demo-ds/rollback", strings.NewReader(`{"revision":1,"changeCause":"manual rollback"}`))
-	req.Header.Set("Content-Type", "application/json")
-	router.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+			}
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var updated appsv1.DaemonSet
-	if err := cs.K8sClient.Get(t.Context(), types.NamespacedName{Namespace: "default", Name: "demo-ds"}, &updated); err != nil {
-		t.Fatalf("get updated daemonset: %v", err)
-	}
-	if got := updated.Spec.Template.Spec.Containers[0].Image; got != "fluentd:1.14" {
-		t.Fatalf("expected rollback to revision 1's image fluentd:1.14, got %s", got)
-	}
-	if got := updated.Annotations[deploymentChangeCauseAnnotation]; got != "manual rollback" {
-		t.Fatalf("expected custom change-cause to be preserved, got %s", got)
+			var updated appsv1.DaemonSet
+			if err := cs.K8sClient.Get(t.Context(), types.NamespacedName{Namespace: "default", Name: "demo-ds"}, &updated); err != nil {
+				t.Fatalf("get updated daemonset: %v", err)
+			}
+			if got := updated.Spec.Template.Spec.Containers[0].Image; got != "fluentd:1.14" {
+				t.Fatalf("expected rollback to revision 1's image fluentd:1.14, got %s", got)
+			}
+			if got := updated.Annotations[deploymentChangeCauseAnnotation]; got != tt.wantChangeCause {
+				t.Fatalf("expected change-cause %q, got %q", tt.wantChangeCause, got)
+			}
+		})
 	}
 }
 

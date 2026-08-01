@@ -74,7 +74,7 @@ func (h *DeploymentHandler) Revisions(c *gin.Context) {
 		return
 	}
 
-	_, currentIndex := deploymentCurrentRevision(&deployment, replicaSets)
+	currentIndex := deploymentCurrentRevisionIndex(&deployment, replicaSets)
 
 	items := make([]WorkloadRevisionItem, 0, len(replicaSets))
 	for i, rs := range replicaSets {
@@ -131,7 +131,7 @@ func (h *DeploymentHandler) Rollback(c *gin.Context) {
 
 	targetRevision := req.Revision
 	if targetRevision == 0 {
-		_, currentIndex := deploymentCurrentRevision(&deployment, replicaSets)
+		currentIndex := deploymentCurrentRevisionIndex(&deployment, replicaSets)
 		if currentIndex < 0 || currentIndex+1 >= len(replicaSets) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "no previous revision found"})
 			return
@@ -223,25 +223,23 @@ func deploymentRevisionOf(rs *appsv1.ReplicaSet) int64 {
 	return v
 }
 
-// deploymentCurrentRevision resolves which entry in replicaSets (sorted by
-// descending revision) is the Deployment's current revision, using the
+// deploymentCurrentRevisionIndex resolves which entry in replicaSets (sorted
+// by descending revision) is the Deployment's current revision, using the
 // Deployment's own deployment.kubernetes.io/revision annotation as the
 // source of truth. It falls back to the highest revision (index 0) when the
 // annotation is missing or doesn't match any ReplicaSet in the list.
-func deploymentCurrentRevision(deployment *appsv1.Deployment, replicaSets []*appsv1.ReplicaSet) (revision int64, index int) {
-	index = -1
+func deploymentCurrentRevisionIndex(deployment *appsv1.Deployment, replicaSets []*appsv1.ReplicaSet) int {
 	if deployment.Annotations != nil {
 		if v, err := strconv.ParseInt(deployment.Annotations[deploymentRevisionAnnotation], 10, 64); err == nil {
 			for i, rs := range replicaSets {
 				if deploymentRevisionOf(rs) == v {
-					revision, index = v, i
-					break
+					return i
 				}
 			}
 		}
 	}
-	if index == -1 && len(replicaSets) > 0 {
-		revision, index = deploymentRevisionOf(replicaSets[0]), 0
+	if len(replicaSets) > 0 {
+		return 0
 	}
-	return revision, index
+	return -1
 }
