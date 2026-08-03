@@ -3,8 +3,21 @@ package resources
 import (
 	"encoding/json"
 
+	"github.com/zxh326/kite/pkg/cluster"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	cmdutil "k8s.io/kubectl/pkg/cmd/util"
+	"k8s.io/kubectl/pkg/polymorphichelpers"
+)
+
+// GroupKinds for the workload kinds that support kubectl-style rollout
+// history and rollback, used to look up the matching kubectl Rollbacker.
+var (
+	deploymentGroupKind  = schema.GroupKind{Group: "apps", Kind: "Deployment"}
+	statefulSetGroupKind = schema.GroupKind{Group: "apps", Kind: "StatefulSet"}
+	daemonSetGroupKind   = schema.GroupKind{Group: "apps", Kind: "DaemonSet"}
 )
 
 // WorkloadRevisionItem is the common shape returned by the revisions endpoint
@@ -53,25 +66,18 @@ func controllerRevisionImages(data []byte) []string {
 	return images
 }
 
-// withChangeCauseAnnotation merges a kubernetes.io/change-cause annotation
-// into a ControllerRevision's raw strategic-merge-patch document, so the
-// rollout's template change and its change-cause can be applied to the live
-// object in a single PATCH call instead of two separate writes.
-func withChangeCauseAnnotation(rawPatch []byte, changeCause string) ([]byte, error) {
-	var doc map[string]interface{}
-	if err := json.Unmarshal(rawPatch, &doc); err != nil {
-		return nil, err
+// rollbackWorkload applies revision targetRevision to obj by delegating to
+// kubectl's own Rollbacker for groupKind - the same code path `kubectl
+// rollout undo` uses - instead of Kite reimplementing the per-kind template
+// swap (Deployment/ReplicaSet) or strategic-merge-patch application
+// (StatefulSet/DaemonSet ControllerRevision) itself. obj only needs its
+// Namespace/Name set; the Rollbacker re-fetches the live object by name via
+// the typed clientset.
+func rollbackWorkload(cs *cluster.ClientSet, groupKind schema.GroupKind, obj runtime.Object, targetRevision int64) error {
+	rollbacker, err := polymorphichelpers.RollbackerFor(groupKind, cs.K8sClient.ClientSet)
+	if err != nil {
+		return err
 	}
-	metadata, _ := doc["metadata"].(map[string]interface{})
-	if metadata == nil {
-		metadata = map[string]interface{}{}
-	}
-	annotations, _ := metadata["annotations"].(map[string]interface{})
-	if annotations == nil {
-		annotations = map[string]interface{}{}
-	}
-	annotations[deploymentChangeCauseAnnotation] = changeCause
-	metadata["annotations"] = annotations
-	doc["metadata"] = metadata
-	return json.Marshal(doc)
+	_, err = rollbacker.Rollback(obj, nil, targetRevision, cmdutil.DryRunNone)
+	return err
 }

@@ -132,7 +132,7 @@ func (l controllerRuntimeLogSink) WithCallDepth(depth int) logr.LogSink {
 // K8sClient holds the Kubernetes client instances
 type K8sClient struct {
 	client.Client
-	ClientSet     *kubernetes.Clientset
+	ClientSet     kubernetes.Interface
 	Configuration *rest.Config
 	MetricsClient *metricsclient.Clientset
 	CacheEnabled  bool // true when using controller-runtime informer cache

@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	clientgofake "k8s.io/client-go/kubernetes/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -69,6 +70,7 @@ func makeTestDeployment(revisionAnnotation string) *appsv1.Deployment {
 
 func makeTestReplicaSet(name string, revision int64, changeCause, image string) *appsv1.ReplicaSet {
 	isController := true
+	replicas := int32(1)
 	rs := &appsv1.ReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -88,6 +90,10 @@ func makeTestReplicaSet(name string, revision int64, changeCause, image string) 
 			},
 		},
 		Spec: appsv1.ReplicaSetSpec{
+			// kubectl's own rollback logic (k8s.io/kubectl/pkg/util/deployment)
+			// dereferences Spec.Replicas directly, which the real API server
+			// always defaults to non-nil; our raw fixture must too.
+			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "demo-app"}},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "demo-app"}},
@@ -121,6 +127,12 @@ func newDeploymentHandlerTestRouter(t *testing.T, cs *cluster.ClientSet) *gin.En
 	return router
 }
 
+// newDeploymentHandlerTestClientSet builds a cluster.ClientSet backed by two
+// fakes seeded with the same objects: the controller-runtime fake client
+// (used by Kite's own List/Get calls) and a client-go typed fake Clientset
+// (used internally by kubectl's polymorphichelpers Rollbacker, which the
+// Rollback handlers delegate to and which bypasses controller-runtime
+// entirely).
 func newDeploymentHandlerTestClientSet(t *testing.T, objs ...client.Object) *cluster.ClientSet {
 	t.Helper()
 	scheme := runtime.NewScheme()
@@ -131,9 +143,18 @@ func newDeploymentHandlerTestClientSet(t *testing.T, objs ...client.Object) *clu
 		t.Fatal(err)
 	}
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
+
+	runtimeObjs := make([]runtime.Object, 0, len(objs))
+	for _, obj := range objs {
+		runtimeObjs = append(runtimeObjs, obj)
+	}
+
 	return &cluster.ClientSet{
-		Name:      "test",
-		K8sClient: &kube.K8sClient{Client: fakeClient},
+		Name: "test",
+		K8sClient: &kube.K8sClient{
+			Client:    fakeClient,
+			ClientSet: clientgofake.NewSimpleClientset(runtimeObjs...),
+		},
 	}
 }
 
@@ -281,8 +302,11 @@ func TestDeploymentHandlerRollback_ExplicitRevision(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var updated appsv1.Deployment
-	if err := cs.K8sClient.Get(t.Context(), types.NamespacedName{Namespace: "default", Name: "demo-app"}, &updated); err != nil {
+	// Read back through the typed clientset, not controller-runtime's client:
+	// kubectl's Rollbacker (and our own change-cause annotate step) both
+	// write through cs.K8sClient.ClientSet.
+	updated, err := cs.K8sClient.ClientSet.AppsV1().Deployments("default").Get(t.Context(), "demo-app", metav1.GetOptions{})
+	if err != nil {
 		t.Fatalf("get updated deployment: %v", err)
 	}
 	if got := updated.Spec.Template.Spec.Containers[0].Image; got != "nginx:1.25" {
@@ -360,8 +384,8 @@ func TestDeploymentHandlerRollback_DefaultRevision(t *testing.T) {
 				t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 			}
 
-			var updated appsv1.Deployment
-			if err := cs.K8sClient.Get(t.Context(), types.NamespacedName{Namespace: "default", Name: "demo-app"}, &updated); err != nil {
+			updated, err := cs.K8sClient.ClientSet.AppsV1().Deployments("default").Get(t.Context(), "demo-app", metav1.GetOptions{})
+			if err != nil {
 				t.Fatalf("get updated deployment: %v", err)
 			}
 			if got := updated.Spec.Template.Spec.Containers[0].Image; got != tt.wantImage {

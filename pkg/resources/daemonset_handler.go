@@ -11,6 +11,7 @@ import (
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/common"
 	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -114,14 +115,14 @@ func (h *DaemonSetHandler) Rollback(c *gin.Context) {
 		targetRevision = revisions[1].Revision
 	}
 
-	var target *appsv1.ControllerRevision
+	found := false
 	for _, rev := range revisions {
 		if rev.Revision == targetRevision {
-			target = rev
+			found = true
 			break
 		}
 	}
-	if target == nil {
+	if !found {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("revision %d not found", targetRevision)})
 		return
 	}
@@ -132,22 +133,37 @@ func (h *DaemonSetHandler) Rollback(c *gin.Context) {
 		h.recordHistory(c, "rollback", oldDs, &ds, success, errMsg)
 	}()
 
-	changeCause := strings.TrimSpace(req.ChangeCause)
-	if changeCause == "" {
-		changeCause = fmt.Sprintf("Rolled back to revision %d via Kite", targetRevision)
-	}
-	patch, err := withChangeCauseAnnotation(target.Data.Raw, changeCause)
-	if err != nil {
+	if err := rollbackWorkload(cs, daemonSetGroupKind, &ds, targetRevision); err != nil {
 		errMsg = err.Error()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := cs.K8sClient.Patch(ctx, &ds, client.RawPatch(types.StrategicMergePatchType, patch)); err != nil {
+	// Re-fetch and annotate through the same typed clientset kubectl's
+	// Rollbacker just wrote through (rather than controller-runtime's
+	// client), so this read is guaranteed to see the rollback it just
+	// applied.
+	updated, err := cs.K8sClient.ClientSet.AppsV1().DaemonSets(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
 		errMsg = err.Error()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if updated.Annotations == nil {
+		updated.Annotations = make(map[string]string)
+	}
+	changeCause := strings.TrimSpace(req.ChangeCause)
+	if changeCause == "" {
+		changeCause = fmt.Sprintf("Rolled back to revision %d via Kite", targetRevision)
+	}
+	updated.Annotations[deploymentChangeCauseAnnotation] = changeCause
+	updated, err = cs.K8sClient.ClientSet.AppsV1().DaemonSets(namespace).Update(ctx, updated, metav1.UpdateOptions{})
+	if err != nil {
+		errMsg = err.Error()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ds = *updated
 
 	success = true
 	c.JSON(http.StatusOK, gin.H{"message": "daemonset rolled back", "revision": targetRevision})

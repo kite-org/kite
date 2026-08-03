@@ -208,8 +208,8 @@ func TestStatefulSetHandlerRollback_DefaultUsesRevisionBeforeCurrent(t *testing.
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var updated appsv1.StatefulSet
-	if err := cs.K8sClient.Get(t.Context(), types.NamespacedName{Namespace: "default", Name: "demo-sts"}, &updated); err != nil {
+	updated, err := cs.K8sClient.ClientSet.AppsV1().StatefulSets("default").Get(t.Context(), "demo-sts", metav1.GetOptions{})
+	if err != nil {
 		t.Fatalf("get updated statefulset: %v", err)
 	}
 	// Current is revision 2, so the default rollback target must be
@@ -242,8 +242,8 @@ func TestStatefulSetHandlerRollback_ExplicitRevision(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var updated appsv1.StatefulSet
-	if err := cs.K8sClient.Get(t.Context(), types.NamespacedName{Namespace: "default", Name: "demo-sts"}, &updated); err != nil {
+	updated, err := cs.K8sClient.ClientSet.AppsV1().StatefulSets("default").Get(t.Context(), "demo-sts", metav1.GetOptions{})
+	if err != nil {
 		t.Fatalf("get updated statefulset: %v", err)
 	}
 	if got := updated.Spec.Template.Spec.Containers[0].Image; got != "nginx:1.25" {

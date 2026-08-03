@@ -139,14 +139,14 @@ func (h *DeploymentHandler) Rollback(c *gin.Context) {
 		targetRevision = deploymentRevisionOf(replicaSets[currentIndex+1])
 	}
 
-	var target *appsv1.ReplicaSet
+	found := false
 	for _, rs := range replicaSets {
 		if deploymentRevisionOf(rs) == targetRevision {
-			target = rs
+			found = true
 			break
 		}
 	}
-	if target == nil {
+	if !found {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("revision %d not found", targetRevision)})
 		return
 	}
@@ -157,24 +157,38 @@ func (h *DeploymentHandler) Rollback(c *gin.Context) {
 		h.recordHistory(c, "rollback", oldDeployment, &deployment, success, errMsg)
 	}()
 
-	template := target.Spec.Template.DeepCopy()
-	delete(template.Labels, appsv1.DefaultDeploymentUniqueLabelKey)
-	deployment.Spec.Template = *template
+	if err := rollbackWorkload(cs, deploymentGroupKind, &deployment, targetRevision); err != nil {
+		errMsg = err.Error()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-	if deployment.Annotations == nil {
-		deployment.Annotations = make(map[string]string)
+	// Re-fetch and annotate through the same typed clientset kubectl's
+	// Rollbacker just wrote through (rather than controller-runtime's
+	// client), so this read is guaranteed to see the rollback it just
+	// applied.
+	updated, err := cs.K8sClient.ClientSet.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		errMsg = err.Error()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if updated.Annotations == nil {
+		updated.Annotations = make(map[string]string)
 	}
 	changeCause := strings.TrimSpace(req.ChangeCause)
 	if changeCause == "" {
 		changeCause = fmt.Sprintf("Rolled back to revision %d via Kite", targetRevision)
 	}
-	deployment.Annotations[deploymentChangeCauseAnnotation] = changeCause
-
-	if err := cs.K8sClient.Update(ctx, &deployment); err != nil {
+	updated.Annotations[deploymentChangeCauseAnnotation] = changeCause
+	updated, err = cs.K8sClient.ClientSet.AppsV1().Deployments(namespace).Update(ctx, updated, metav1.UpdateOptions{})
+	if err != nil {
 		errMsg = err.Error()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	deployment = *updated
+
 	success = true
 	c.JSON(http.StatusOK, gin.H{"message": "deployment rolled back", "revision": targetRevision})
 }

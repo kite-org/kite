@@ -138,8 +138,8 @@ func TestDaemonSetHandlerRollback_Revision(t *testing.T) {
 				t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 			}
 
-			var updated appsv1.DaemonSet
-			if err := cs.K8sClient.Get(t.Context(), types.NamespacedName{Namespace: "default", Name: "demo-ds"}, &updated); err != nil {
+			updated, err := cs.K8sClient.ClientSet.AppsV1().DaemonSets("default").Get(t.Context(), "demo-ds", metav1.GetOptions{})
+			if err != nil {
 				t.Fatalf("get updated daemonset: %v", err)
 			}
 			if got := updated.Spec.Template.Spec.Containers[0].Image; got != "fluentd:1.14" {
