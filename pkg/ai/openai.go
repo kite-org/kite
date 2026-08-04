@@ -104,9 +104,8 @@ func (a *Agent) runOpenAIConversation(
 			return
 		}
 
+		messages = append(messages, streamedToolCallsToAssistantMessage(streamedToolCalls, messageContent, thinkingContent))
 		for _, tc := range streamedToolCalls {
-			messages = append(messages, streamedToolCallsToAssistantMessage([]streamedToolCall{tc}))
-
 			toolName := tc.Name
 			args, err := parseToolCallArguments(tc.Arguments)
 			if err != nil {
@@ -325,7 +324,7 @@ func extractThinkingFromRaw(raw string) string {
 	return raw
 }
 
-func streamedToolCallsToAssistantMessage(toolCalls []streamedToolCall) openai.ChatCompletionMessageParamUnion {
+func streamedToolCallsToAssistantMessage(toolCalls []streamedToolCall, content, reasoningContent string) openai.ChatCompletionMessageParamUnion {
 	params := make([]openai.ChatCompletionMessageToolCallParam, 0, len(toolCalls))
 	for _, tc := range toolCalls {
 		params = append(params, openai.ChatCompletionMessageToolCallParam{
@@ -337,8 +336,11 @@ func streamedToolCallsToAssistantMessage(toolCalls []streamedToolCall) openai.Ch
 		})
 	}
 
-	assistant := openai.ChatCompletionAssistantMessageParam{
-		ToolCalls: params,
+	message := openai.AssistantMessage(content)
+	assistant := message.OfAssistant
+	assistant.ToolCalls = params
+	if reasoningContent != "" {
+		assistant.SetExtraFields(map[string]any{"reasoning_content": reasoningContent})
 	}
-	return openai.ChatCompletionMessageParamUnion{OfAssistant: &assistant}
+	return message
 }

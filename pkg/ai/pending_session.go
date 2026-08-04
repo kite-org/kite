@@ -3,11 +3,13 @@ package ai
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	anthropic "github.com/anthropics/anthropic-sdk-go"
 	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/packages/param"
 	"github.com/zxh326/kite/pkg/model"
 	"k8s.io/klog/v2"
 )
@@ -113,8 +115,13 @@ func pendingSessionFromModel(dbSession *model.PendingSession) (pendingSession, e
 	var err error
 
 	// Unmarshal messages and args directly in the AI package
-	if err = dbSession.OpenAIMessages.Unmarshal(&session.OpenAIMessages); err != nil {
+	var rawOpenAIMessages []json.RawMessage
+	if err = dbSession.OpenAIMessages.Unmarshal(&rawOpenAIMessages); err != nil {
 		return pendingSession{}, fmt.Errorf("failed to unmarshal OpenAI messages: %w", err)
+	}
+	session.OpenAIMessages = make([]openai.ChatCompletionMessageParamUnion, 0, len(rawOpenAIMessages))
+	for _, rawMessage := range rawOpenAIMessages {
+		session.OpenAIMessages = append(session.OpenAIMessages, param.Override[openai.ChatCompletionMessageParamUnion](rawMessage))
 	}
 	if err = dbSession.AnthropicMessages.Unmarshal(&session.AnthropicMessages); err != nil {
 		return pendingSession{}, fmt.Errorf("failed to unmarshal Anthropic messages: %w", err)
