@@ -20,6 +20,7 @@ import (
 
 func Run(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("kite connector", flag.ContinueOnError)
+	klog.InitFlags(flags)
 	server := flags.String("server", "", "Kite server URL")
 	token := flags.String("token", "", "Kite connector token")
 	kubeconfig := flags.String("kubeconfig", "", "Path to kubeconfig file")
@@ -126,7 +127,7 @@ func Run(ctx context.Context, args []string) error {
 		retryCount++
 		klog.Warningf("Kite connector connection lost (retry %d): %v", retryCount, err)
 		if retryCount >= 10 {
-			klog.Fatalf("Kite connector failed to connect after %d retries: %v", retryCount, err)
+			return fmt.Errorf("kite connector failed to connect after %d retries: %w", retryCount, err)
 		}
 		select {
 		case <-ctx.Done():

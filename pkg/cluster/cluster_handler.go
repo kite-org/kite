@@ -227,6 +227,7 @@ func (cm *ClusterManager) UpdateCluster(c *gin.Context) {
 	}
 	if cluster.Connector {
 		req.InCluster = false
+		req.Config = ""
 		req.PrometheusURL = ""
 	}
 

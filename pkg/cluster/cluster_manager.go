@@ -235,6 +235,9 @@ func ImportClustersFromKubeconfig(kubeconfig *clientcmdapi.Config, setDefault bo
 			}
 			continue
 		}
+		if existingCluster.Connector {
+			continue
+		}
 		if err := model.UpdateCluster(existingCluster, map[string]interface{}{
 			"config": model.SecretString(configStr),
 		}); err != nil {
