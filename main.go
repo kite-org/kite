@@ -13,12 +13,22 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/zxh326/kite/pkg/common"
+	"github.com/zxh326/kite/pkg/connector"
 	"github.com/zxh326/kite/pkg/version"
 	"k8s.io/klog/v2"
 )
 
 func main() {
 	klog.InitFlags(nil)
+	if len(os.Args) > 1 && os.Args[1] == "connector" {
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		err := connector.Run(ctx, os.Args[2:])
+		stop()
+		if err != nil {
+			log.Fatalf("Failed to run connector: %v", err)
+		}
+		return
+	}
 	flag.Parse()
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))

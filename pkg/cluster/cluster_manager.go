@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zxh326/kite/pkg/connector"
 	"github.com/zxh326/kite/pkg/kube"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/prometheus"
@@ -32,11 +33,12 @@ type ClientSet struct {
 }
 
 type ClusterManager struct {
-	mu             sync.RWMutex
-	syncMu         sync.Mutex
-	clusters       map[string]*ClientSet
-	errors         map[string]string
-	defaultContext string
+	mu               sync.RWMutex
+	syncMu           sync.Mutex
+	clusters         map[string]*ClientSet
+	errors           map[string]string
+	defaultContext   string
+	connectorManager *connector.Manager
 }
 
 const clusterStartupSyncTimeout = 10 * time.Second
@@ -288,6 +290,22 @@ func syncClusters(cm *ClusterManager, readyCh chan<- struct{}) error {
 		cm.mu.RLock()
 		current, currentExist := cm.clusters[cluster.Name]
 		cm.mu.RUnlock()
+		if cluster.Connector && !cm.connectorManager.Connected(cluster.ID) {
+			if currentExist {
+				cm.mu.Lock()
+				delete(cm.clusters, cluster.Name)
+				cm.mu.Unlock()
+				current.K8sClient.Stop(cluster.Name)
+			}
+			cm.mu.Lock()
+			if cluster.Enable {
+				cm.errors[cluster.Name] = "waiting for connector connection"
+			} else {
+				delete(cm.errors, cluster.Name)
+			}
+			cm.mu.Unlock()
+			continue
+		}
 		if shouldUpdateCluster(current, cluster) {
 			if currentExist {
 				cm.mu.Lock()
@@ -310,7 +328,7 @@ func syncClusters(cm *ClusterManager, readyCh chan<- struct{}) error {
 		wg.Add(1)
 		go func(cluster *model.Cluster) {
 			defer wg.Done()
-			clientSet, err := buildClientSet(cluster)
+			clientSet, err := cm.buildClientSet(cluster)
 			results <- buildResult{
 				cluster:   cluster,
 				clientSet: clientSet,
@@ -401,6 +419,17 @@ func buildClientSet(cluster *model.Cluster) (*ClientSet, error) {
 	return createClientSetFromConfig(cluster.Name, string(cluster.Config), cluster.PrometheusURL)
 }
 
+func (cm *ClusterManager) buildClientSet(cluster *model.Cluster) (*ClientSet, error) {
+	if !cluster.Connector {
+		return buildClientSet(cluster)
+	}
+	address, err := cm.connectorManager.Listen(cluster.ID)
+	if err != nil {
+		return nil, err
+	}
+	return newClientSet(cluster.Name, &rest.Config{Host: "http://" + address}, cluster.PrometheusURL)
+}
+
 func (cm *ClusterManager) syncClusters() error {
 	cm.syncMu.Lock()
 	defer cm.syncMu.Unlock()
@@ -432,6 +461,7 @@ func NewClusterManager() (*ClusterManager, error) {
 	cm := new(ClusterManager)
 	cm.clusters = make(map[string]*ClientSet)
 	cm.errors = make(map[string]string)
+	cm.connectorManager = connector.NewManager(TriggerClusterSync)
 
 	initialReady := make(chan struct{}, 1)
 	go func() {

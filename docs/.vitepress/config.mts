@@ -171,6 +171,7 @@ export default defineConfig({
             { text: "Helm 管理", link: "/zh/guide/helm-management" },
             { text: "AI 助手", link: "/zh/guide/ai-assistant" },
             { text: "Web 终端", link: "/zh/guide/web-terminal" },
+            { text: "Kite Connector", link: "/zh/guide/kite-connector" },
             { text: "资源历史", link: "/zh/guide/resource-history" },
             { text: "自定义侧边栏", link: "/zh/guide/custom-sidebar" },
             { text: "Kube Proxy", link: "/zh/guide/kube-proxy" },

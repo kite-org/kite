@@ -873,7 +873,21 @@
     },
     "type": {
       "inCluster": "In-Cluster",
-      "external": "External"
+      "external": "External",
+      "connector": "Kite Connector"
+    },
+    "status": {
+      "waiting": "Waiting for Connector",
+      "connected": "Connected"
+    },
+    "connector": {
+      "title": "Connect Kite Connector",
+      "description": "Choose a command or Kubernetes YAML to run inside the target cluster. This connection information is shown only once.",
+      "command": "Command",
+      "yaml": "Kubernetes YAML",
+      "copyCommand": "Copy command",
+      "copyYaml": "Copy YAML",
+      "copyError": "Failed to copy. Copy the content manually."
     },
     "empty": {
       "title": "No clusters configured",
@@ -909,6 +923,7 @@
       "configPlaceholder": "Paste kubeconfig content here...",
       "prometheusUrl": "Prometheus URL",
       "prometheusUrlPlaceholder": "https://prometheus.example.com",
+      "connectorDescription": "Create the cluster first, then run the generated command inside the target cluster.",
       "enabled": "Enabled",
       "isDefault": "Set as Default"
     }

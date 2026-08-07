@@ -884,7 +884,21 @@
     },
     "type": {
       "inCluster": "集群内",
-      "external": "外部"
+      "external": "外部",
+      "connector": "Kite Connector"
+    },
+    "status": {
+      "waiting": "等待 Connector",
+      "connected": "已连接"
+    },
+    "connector": {
+      "title": "连接 Kite Connector",
+      "description": "选择命令行或 Kubernetes YAML 在目标集群中运行。此连接信息仅显示一次。",
+      "command": "命令行",
+      "yaml": "Kubernetes YAML",
+      "copyCommand": "复制命令行",
+      "copyYaml": "复制 YAML",
+      "copyError": "复制失败，请手动复制内容。"
     },
     "empty": {
       "title": "暂无集群",
@@ -920,6 +934,7 @@
       "configPlaceholder": "粘贴 kubeconfig 内容...",
       "prometheusUrl": "Prometheus URL",
       "prometheusUrlPlaceholder": "https://prometheus.example.com",
+      "connectorDescription": "先创建集群，然后在目标集群内运行生成的命令。",
       "enabled": "启用",
       "isDefault": "设为默认"
     }

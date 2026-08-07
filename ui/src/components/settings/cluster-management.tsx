@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import {
+  IconCopy,
   IconEdit,
   IconPlus,
   IconServer,
@@ -25,6 +26,17 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -39,15 +51,36 @@ export function ClusterManagement() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
 
-  const { data: clusters = [], isLoading, error } = useClusterList()
+  const {
+    data: clusters = [],
+    isLoading,
+    error,
+  } = useClusterList({
+    refetchInterval: 5000,
+  })
 
   const [showClusterDialog, setShowClusterDialog] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [editingCluster, setEditingCluster] = useState<Cluster | null>(null)
   const [deletingCluster, setDeletingCluster] = useState<Cluster | null>(null)
+  const [connectorCommand, setConnectorCommand] = useState('')
+  const [connectorYaml, setConnectorYaml] = useState('')
+  const [connectorCopyError, setConnectorCopyError] = useState<
+    'command' | 'yaml' | null
+  >(null)
 
   const getClusterTypeBadge = useCallback(
     (cluster: Cluster) => {
+      if (cluster.connector) {
+        return (
+          <Badge
+            variant="outline"
+            className="bg-violet-50 text-violet-700 border-violet-200"
+          >
+            {t('clusterManagement.type.connector', 'Kite Connector')}
+          </Badge>
+        )
+      }
       if (cluster.inCluster) {
         return (
           <Badge
@@ -75,6 +108,20 @@ export function ClusterManagement() {
       if (!cluster.enabled) {
         return (
           <Badge variant="secondary">{t('status.disabled', 'Disabled')}</Badge>
+        )
+      }
+      if (cluster.connector && !cluster.connected) {
+        return (
+          <Badge variant="outline">
+            {t('clusterManagement.status.waiting', 'Waiting for Connector')}
+          </Badge>
+        )
+      }
+      if (cluster.connector) {
+        return (
+          <Badge variant="default">
+            {t('clusterManagement.status.connected', 'Connected')}
+          </Badge>
         )
       }
       return <Badge variant="default">{t('status.enabled', 'Enabled')}</Badge>
@@ -105,6 +152,9 @@ export function ClusterManagement() {
         id: 'version',
         header: t('common.fields.version', 'Version'),
         cell: ({ row: { original: cluster } }) => {
+          if (cluster.connector && !cluster.connected) {
+            return <span className="text-muted-foreground">-</span>
+          }
           if (cluster.error) {
             return (
               <Tooltip>
@@ -183,12 +233,79 @@ export function ClusterManagement() {
 
   const createMutation = useMutation({
     mutationFn: createCluster,
-    onSuccess: () => {
+    onSuccess: ({ connectorServer, connectorToken }) => {
       queryClient.invalidateQueries({ queryKey: ['cluster-list'] })
       toast.success(
         t('clusterManagement.messages.created', 'Cluster created successfully')
       )
       setShowClusterDialog(false)
+      if (connectorServer && connectorToken) {
+        setConnectorCopyError(null)
+        setConnectorCommand(
+          `kite connector --server='${connectorServer}' --token='${connectorToken}'`
+        )
+        setConnectorYaml(`apiVersion: v1
+kind: Secret
+metadata:
+  name: kite-connector-token
+  namespace: kube-system
+type: Opaque
+stringData:
+  token: ${JSON.stringify(connectorToken)}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kite-connector
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kite-connector
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: kite-connector
+    namespace: kube-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kite-connector
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kite-connector
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kite-connector
+    spec:
+      serviceAccountName: kite-connector
+      containers:
+        - name: connector
+          image: ghcr.io/kite-org/kite:latest
+          command:
+            - /app/kite
+          args:
+            - connector
+            - --server=$(KITE_SERVER)
+            - --token=$(CONNECTOR_TOKEN)
+          env:
+            - name: KITE_SERVER
+              value: ${JSON.stringify(connectorServer)}
+            - name: CONNECTOR_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: kite-connector-token
+                  key: token`)
+      }
     },
     onError: (error: Error) => {
       toast.error(
@@ -377,6 +494,133 @@ export function ClusterManagement() {
         isSubmitting={importMutation.isPending}
         error={importMutation.error?.message}
       />
+
+      <Dialog
+        open={!!connectorCommand}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConnectorCommand('')
+            setConnectorYaml('')
+            setConnectorCopyError(null)
+          }
+        }}
+      >
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-balance">
+              {t('clusterManagement.connector.title', 'Connect Kite Connector')}
+            </DialogTitle>
+            <DialogDescription className="text-pretty">
+              {t(
+                'clusterManagement.connector.description',
+                'Choose a command or Kubernetes YAML to run inside the target cluster. This connection information is shown only once.'
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <Tabs defaultValue="command">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="command">
+                {t('clusterManagement.connector.command', 'Command')}
+              </TabsTrigger>
+              <TabsTrigger value="yaml">
+                {t('clusterManagement.connector.yaml', 'Kubernetes YAML')}
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="command" className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  readOnly
+                  className="font-mono"
+                  aria-label={t(
+                    'clusterManagement.connector.command',
+                    'Command'
+                  )}
+                  value={connectorCommand}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label={t(
+                    'clusterManagement.connector.copyCommand',
+                    'Copy command'
+                  )}
+                  onClick={async () => {
+                    if (!connectorCommand) return
+                    try {
+                      await navigator.clipboard.writeText(connectorCommand)
+                      setConnectorCopyError(null)
+                      toast.success(t('common.messages.copied', 'Copied'))
+                    } catch {
+                      setConnectorCopyError('command')
+                    }
+                  }}
+                >
+                  <IconCopy className="size-4" />
+                </Button>
+              </div>
+              {connectorCopyError === 'command' && (
+                <p role="alert" className="text-sm text-destructive">
+                  {t(
+                    'clusterManagement.connector.copyError',
+                    'Failed to copy. Copy the content manually.'
+                  )}
+                </p>
+              )}
+            </TabsContent>
+            <TabsContent value="yaml" className="space-y-2">
+              <Textarea
+                readOnly
+                className="h-96 resize-none font-mono text-xs"
+                aria-label={t(
+                  'clusterManagement.connector.yaml',
+                  'Kubernetes YAML'
+                )}
+                value={connectorYaml}
+              />
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    if (!connectorYaml) return
+                    try {
+                      await navigator.clipboard.writeText(connectorYaml)
+                      setConnectorCopyError(null)
+                      toast.success(t('common.messages.copied', 'Copied'))
+                    } catch {
+                      setConnectorCopyError('yaml')
+                    }
+                  }}
+                >
+                  <IconCopy className="size-4" />
+                  {t('clusterManagement.connector.copyYaml', 'Copy YAML')}
+                </Button>
+              </div>
+              {connectorCopyError === 'yaml' && (
+                <p role="alert" className="text-sm text-destructive">
+                  {t(
+                    'clusterManagement.connector.copyError',
+                    'Failed to copy. Copy the content manually.'
+                  )}
+                </p>
+              )}
+            </TabsContent>
+          </Tabs>
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => {
+                setConnectorCommand('')
+                setConnectorYaml('')
+                setConnectorCopyError(null)
+              }}
+            >
+              {t('common.actions.close', 'Close')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog

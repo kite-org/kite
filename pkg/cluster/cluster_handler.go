@@ -6,10 +6,12 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/common"
+	"github.com/zxh326/kite/pkg/connector"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/rbac"
 	"gorm.io/gorm"
@@ -63,6 +65,8 @@ func (cm *ClusterManager) GetClusterList(c *gin.Context) {
 			"description":   cluster.Description,
 			"enabled":       cluster.Enable,
 			"inCluster":     cluster.InCluster,
+			"connector":     cluster.Connector,
+			"connected":     cluster.Connector && cm.connectorManager.Connected(cluster.ID),
 			"isDefault":     cluster.IsDefault,
 			"prometheusURL": cluster.PrometheusURL,
 			"config":        "",
@@ -93,12 +97,18 @@ func (cm *ClusterManager) CreateCluster(c *gin.Context) {
 		Config        string `json:"config"`
 		PrometheusURL string `json:"prometheusURL"`
 		InCluster     bool   `json:"inCluster"`
+		Connector     bool   `json:"connector"`
 		IsDefault     bool   `json:"isDefault"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+	if req.Connector {
+		req.InCluster = false
+		req.Config = ""
+		req.PrometheusURL = ""
 	}
 
 	if _, err := model.GetClusterByName(req.Name); err == nil {
@@ -116,14 +126,27 @@ func (cm *ClusterManager) CreateCluster(c *gin.Context) {
 		}
 	}
 
+	var connectorToken string
+	var connectorTokenHash string
+	if req.Connector {
+		var err error
+		connectorToken, connectorTokenHash, err = connector.NewToken()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
 	cluster := &model.Cluster{
-		Name:          req.Name,
-		Description:   req.Description,
-		Config:        model.SecretString(req.Config),
-		PrometheusURL: req.PrometheusURL,
-		InCluster:     req.InCluster,
-		IsDefault:     req.IsDefault,
-		Enable:        true,
+		Name:               req.Name,
+		Description:        req.Description,
+		Config:             model.SecretString(req.Config),
+		PrometheusURL:      req.PrometheusURL,
+		InCluster:          req.InCluster,
+		Connector:          req.Connector,
+		ConnectorTokenHash: connectorTokenHash,
+		IsDefault:          req.IsDefault,
+		Enable:             true,
 	}
 
 	if err := model.AddCluster(cluster); err != nil {
@@ -133,10 +156,29 @@ func (cm *ClusterManager) CreateCluster(c *gin.Context) {
 
 	TriggerClusterSync()
 
-	c.JSON(http.StatusCreated, gin.H{
+	result := gin.H{
 		"id":      cluster.ID,
 		"message": "cluster created successfully",
-	})
+	}
+	if req.Connector {
+		scheme := "http"
+		if c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https") {
+			scheme = "https"
+		}
+		host := strings.TrimSpace(common.Host)
+		if host == "" {
+			host = strings.TrimSpace(c.GetHeader("X-Forwarded-Host"))
+			if host == "" {
+				host = c.Request.Host
+			}
+		}
+		if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
+			host = scheme + "://" + host
+		}
+		result["connectorServer"] = fmt.Sprintf("%s%s", strings.TrimRight(host, "/"), common.Base)
+		result["connectorToken"] = connectorToken
+	}
+	c.JSON(http.StatusCreated, result)
 }
 
 func (cm *ClusterManager) UpdateCluster(c *gin.Context) {
@@ -182,6 +224,10 @@ func (cm *ClusterManager) UpdateCluster(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+	}
+	if cluster.Connector {
+		req.InCluster = false
+		req.PrometheusURL = ""
 	}
 
 	updates := map[string]interface{}{
@@ -242,10 +288,17 @@ func (cm *ClusterManager) DeleteCluster(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if cluster.Connector {
+		cm.connectorManager.Remove(cluster.ID)
+	}
 
 	TriggerClusterSync()
 
 	c.JSON(http.StatusOK, gin.H{"message": "cluster deleted successfully"})
+}
+
+func (cm *ClusterManager) ConnectConnector(c *gin.Context) {
+	cm.connectorManager.ServeHTTP(c.Writer, c.Request)
 }
 
 func (cm *ClusterManager) ImportClustersFromKubeconfig(c *gin.Context) {
