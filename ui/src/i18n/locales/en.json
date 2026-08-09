@@ -897,6 +897,7 @@
       "applyUrl": "Apply directly with URL",
       "copyApplyCommand": "Copy apply command",
       "orUseYaml": "Or deploy with YAML",
+      "loadYamlError": "Failed to load YAML from the manifest URL.",
       "copyError": "Failed to copy. Copy the content manually."
     },
     "empty": {

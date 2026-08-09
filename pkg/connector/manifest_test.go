@@ -18,7 +18,7 @@ func TestGenerateManifest(t *testing.T) {
 		"apiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRoleBinding",
 		"name: cluster-admin",
 		"apiVersion: apps/v1\nkind: Deployment",
-		"image: ghcr.io/kite-org/kite:v1.0",
+		`image: "ghcr.io/kite-org/kite:v1.0"`,
 		"--server=$(KITE_SERVER)",
 		"--token=$(CONNECTOR_TOKEN)",
 		"value: \"https://kite.example.com\"",
@@ -43,7 +43,7 @@ func TestGenerateManifestWhitespaceTrimmed(t *testing.T) {
 	if !strings.Contains(manifest, `"tok"`) {
 		t.Errorf("token not trimmed:\n%s", manifest)
 	}
-	if !strings.Contains(manifest, "image: img:tag") {
+	if !strings.Contains(manifest, `image: "img:tag"`) {
 		t.Errorf("image not trimmed:\n%s", manifest)
 	}
 }

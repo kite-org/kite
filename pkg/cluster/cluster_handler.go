@@ -148,9 +148,15 @@ func (cm *ClusterManager) CreateCluster(c *gin.Context) {
 
 	var connectorToken string
 	var connectorTokenHash string
+	var connectorManifestGrant string
 	if req.Connector {
 		var err error
 		connectorToken, connectorTokenHash, err = connector.NewToken()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		connectorManifestGrant, err = cm.connectorManager.CreateManifestGrant(connectorToken)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -184,15 +190,7 @@ func (cm *ClusterManager) CreateCluster(c *gin.Context) {
 		serverURL := connectorServerURL(c)
 		result["connectorServer"] = serverURL
 		result["connectorToken"] = connectorToken
-		image := model.DefaultGeneralConnectorImageValue()
-		if setting, err := model.GetGeneralSetting(); err == nil && setting != nil && setting.ConnectorImage != "" {
-			image = setting.ConnectorImage
-		}
-		// Build the manifest download URL so the user can kubectl apply -f <url>.
-		result["connectorManifestURL"] = fmt.Sprintf("%s/api/v1/connector/manifest?token=%s", strings.TrimRight(serverURL, "/"), connectorToken)
-		// Include the pre-generated manifest so the frontend does not need to
-		// duplicate the template logic.
-		result["connectorYaml"] = connector.GenerateManifest(serverURL, connectorToken, image)
+		result["connectorManifestURL"] = fmt.Sprintf("%s/api/v1/connector/manifest?grant=%s", strings.TrimRight(serverURL, "/"), connectorManifestGrant)
 	}
 	c.JSON(http.StatusCreated, result)
 }
@@ -318,19 +316,19 @@ func (cm *ClusterManager) ConnectConnector(c *gin.Context) {
 	cm.connectorManager.ServeHTTP(c.Writer, c.Request)
 }
 
-// GetConnectorManifest returns a Kubernetes YAML manifest that deploys the
-// Connector inside a target cluster. Authentication is done via the connector
-// token in the query string, so no JWT is required (similar to ConnectConnector).
 func (cm *ClusterManager) GetConnectorManifest(c *gin.Context) {
-	token := strings.TrimSpace(c.Query("token"))
-	if token == "" || !connector.ValidToken(token) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+	grant := strings.TrimSpace(c.Query("grant"))
+	token, err := cm.connectorManager.ResolveManifestGrant(grant)
+	if errors.Is(err, connector.ErrInvalidManifestGrant) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired manifest grant"})
 		return
 	}
-	hash := connector.TokenHash(token)
-	cluster, err := model.GetClusterByConnectorTokenHash(hash)
-	if err != nil || cluster == nil || !cluster.Connector || !cluster.Enable {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to validate manifest grant"})
+		return
+	}
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired manifest grant"})
 		return
 	}
 	serverURL := connectorServerURL(c)
@@ -339,6 +337,7 @@ func (cm *ClusterManager) GetConnectorManifest(c *gin.Context) {
 		image = setting.ConnectorImage
 	}
 	manifest := connector.GenerateManifest(serverURL, token, image)
+	c.Header("Cache-Control", "no-store")
 	c.Header("Content-Disposition", `attachment; filename="kite-connector.yaml"`)
 	c.Data(http.StatusOK, "text/yaml; charset=utf-8", []byte(manifest))
 }

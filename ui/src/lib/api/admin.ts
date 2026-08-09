@@ -53,7 +53,6 @@ export const createCluster = async (
   connectorServer?: string
   connectorToken?: string
   connectorManifestURL?: string
-  connectorYaml?: string
 }> => {
   return await apiClient.post<{
     id: number
@@ -61,7 +60,6 @@ export const createCluster = async (
     connectorServer?: string
     connectorToken?: string
     connectorManifestURL?: string
-    connectorYaml?: string
   }>('/admin/clusters/', clusterData)
 }
 

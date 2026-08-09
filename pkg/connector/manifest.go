@@ -17,6 +17,8 @@ func GenerateManifest(serverURL, token, image string) string {
 	// of special characters.
 	tokenJSON := fmt.Sprintf("%q", token)
 	serverJSON := fmt.Sprintf("%q", serverURL)
+	imageJSON := fmt.Sprintf("%q", image)
+	tokenHashJSON := fmt.Sprintf("%q", tokenHash(token))
 	return fmt.Sprintf(`apiVersion: v1
 kind: Secret
 metadata:
@@ -57,6 +59,8 @@ spec:
       app.kubernetes.io/name: kite-connector
   template:
     metadata:
+      annotations:
+        kite.kubernetes.io/connector-token-hash: %s
       labels:
         app.kubernetes.io/name: kite-connector
     spec:
@@ -78,5 +82,5 @@ spec:
                 secretKeyRef:
                   name: kite-connector-token
                   key: token
-`, tokenJSON, image, serverJSON)
+`, tokenJSON, tokenHashJSON, imageJSON, serverJSON)
 }

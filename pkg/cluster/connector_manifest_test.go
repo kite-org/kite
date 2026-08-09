@@ -29,10 +29,14 @@ func TestGetConnectorManifest(t *testing.T) {
 		t.Fatalf("adding cluster: %v", err)
 	}
 
-	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}}
+	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, connectorManager: connector.NewManager(func() {})}
+	grant, err := manager.connectorManager.CreateManifestGrant(token)
+	if err != nil {
+		t.Fatalf("generating manifest grant: %v", err)
+	}
 	router := newConnectorManifestRouter(manager)
 
-	rec := performClusterRequest(router, http.MethodGet, "/manifest?token="+token, "")
+	rec := performClusterRequest(router, http.MethodGet, "/manifest?grant="+grant, "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
 	}
@@ -53,21 +57,21 @@ func TestGetConnectorManifest(t *testing.T) {
 	}
 }
 
-func TestGetConnectorManifestInvalidToken(t *testing.T) {
+func TestGetConnectorManifestInvalidGrant(t *testing.T) {
 	setupClusterHandlerTestDB(t)
-	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}}
+	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, connectorManager: connector.NewManager(func() {})}
 	router := newConnectorManifestRouter(manager)
 
-	// Missing token.
+	// Missing grant.
 	rec := performClusterRequest(router, http.MethodGet, "/manifest", "")
 	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("missing token: status = %d, want %d", rec.Code, http.StatusUnauthorized)
+		t.Fatalf("missing grant: status = %d, want %d", rec.Code, http.StatusUnauthorized)
 	}
 
-	// Malformed token.
-	rec = performClusterRequest(router, http.MethodGet, "/manifest?token=garbage", "")
+	// Malformed grant.
+	rec = performClusterRequest(router, http.MethodGet, "/manifest?grant=garbage", "")
 	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("malformed token: status = %d, want %d", rec.Code, http.StatusUnauthorized)
+		t.Fatalf("malformed grant: status = %d, want %d", rec.Code, http.StatusUnauthorized)
 	}
 }
 
@@ -79,10 +83,14 @@ func TestGetConnectorManifestTokenNotAssociated(t *testing.T) {
 		t.Fatalf("generating token: %v", err)
 	}
 
-	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}}
+	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, connectorManager: connector.NewManager(func() {})}
+	grant, err := manager.connectorManager.CreateManifestGrant(token)
+	if err != nil {
+		t.Fatalf("generating manifest grant: %v", err)
+	}
 	router := newConnectorManifestRouter(manager)
 
-	rec := performClusterRequest(router, http.MethodGet, "/manifest?token="+token, "")
+	rec := performClusterRequest(router, http.MethodGet, "/manifest?grant="+grant, "")
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("unassociated token: status = %d, want %d", rec.Code, http.StatusUnauthorized)
 	}
@@ -108,10 +116,14 @@ func TestGetConnectorManifestDisabledCluster(t *testing.T) {
 		t.Fatalf("disabling cluster: %v", err)
 	}
 
-	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}}
+	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, connectorManager: connector.NewManager(func() {})}
+	grant, err := manager.connectorManager.CreateManifestGrant(token)
+	if err != nil {
+		t.Fatalf("generating manifest grant: %v", err)
+	}
 	router := newConnectorManifestRouter(manager)
 
-	rec := performClusterRequest(router, http.MethodGet, "/manifest?token="+token, "")
+	rec := performClusterRequest(router, http.MethodGet, "/manifest?grant="+grant, "")
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("disabled cluster: status = %d, want %d", rec.Code, http.StatusUnauthorized)
 	}
@@ -120,7 +132,7 @@ func TestGetConnectorManifestDisabledCluster(t *testing.T) {
 func TestCreateConnectorClusterReturnsConnectionInfo(t *testing.T) {
 	setupClusterHandlerTestDB(t)
 
-	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}}
+	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, connectorManager: connector.NewManager(func() {})}
 	router := gin.New()
 	router.POST("/clusters", manager.CreateCluster)
 
@@ -138,7 +150,6 @@ func TestCreateConnectorClusterReturnsConnectionInfo(t *testing.T) {
 	serverURL, _ := result["connectorServer"].(string)
 	token, _ := result["connectorToken"].(string)
 	manifestURL, _ := result["connectorManifestURL"].(string)
-	yaml, _ := result["connectorYaml"].(string)
 
 	if serverURL == "" {
 		t.Fatal("connectorServer is empty")
@@ -152,22 +163,12 @@ func TestCreateConnectorClusterReturnsConnectionInfo(t *testing.T) {
 	if !strings.HasPrefix(manifestURL, serverURL) {
 		t.Errorf("manifestURL %q should start with serverURL %q", manifestURL, serverURL)
 	}
-	if !strings.Contains(manifestURL, token) {
-		t.Errorf("manifestURL %q should contain the token", manifestURL)
+	if strings.Contains(manifestURL, token) {
+		t.Errorf("manifestURL %q should not contain the connector token", manifestURL)
 	}
-	if yaml == "" {
-		t.Fatal("connectorYaml is empty")
+	if !strings.Contains(manifestURL, "?grant=") {
+		t.Errorf("manifestURL %q should contain a manifest grant", manifestURL)
 	}
-	for _, want := range []string{
-		"kind: Secret",
-		"kind: Deployment",
-		"kite-connector",
-	} {
-		if !strings.Contains(yaml, want) {
-			t.Errorf("connectorYaml missing %q", want)
-		}
-	}
-
 	// Verify the cluster was persisted correctly.
 	cluster, err := model.GetClusterByName("conn-test")
 	if err != nil {
@@ -187,7 +188,7 @@ func TestCreateConnectorClusterReturnsConnectionInfo(t *testing.T) {
 func TestCreateConnectorClusterIgnoresKubeconfig(t *testing.T) {
 	setupClusterHandlerTestDB(t)
 
-	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}}
+	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, connectorManager: connector.NewManager(func() {})}
 	router := gin.New()
 	router.POST("/clusters", manager.CreateCluster)
 
@@ -215,7 +216,7 @@ func TestCreateConnectorClusterIgnoresKubeconfig(t *testing.T) {
 func TestCreateConnectorClusterServerURLDerivation(t *testing.T) {
 	setupClusterHandlerTestDB(t)
 
-	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}}
+	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, connectorManager: connector.NewManager(func() {})}
 	router := gin.New()
 	router.POST("/clusters", manager.CreateCluster)
 

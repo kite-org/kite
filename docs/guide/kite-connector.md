@@ -86,10 +86,10 @@ You can deploy in either of the following ways:
 After creation, Kite generates a manifest download URL that you can apply directly with `kubectl apply`:
 
 ```bash
-kubectl apply -f 'https://kite.example.com/api/v1/connector/manifest?token=<connector-token>'
+kubectl apply -f 'https://kite.example.com/api/v1/connector/manifest?grant=<manifest-grant>'
 ```
 
-This URL is authenticated by the Connector Token and requires no additional credentials. The token is embedded in the returned YAML, so the URL has the same security level as the token itself and is shown only once when the cluster is created.
+The URL contains an encrypted manifest grant that is separate from the Connector Token. The grant expires after 10 minutes and remains valid across Kite restarts while the JWT secret is unchanged. It can be reused until it expires, so apply it promptly or use the YAML shown in the dialog. The returned YAML contains the Connector Token and must still be handled as a secret.
 
 **Option 2: Copy the YAML and deploy manually**
 

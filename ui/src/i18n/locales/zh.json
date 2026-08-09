@@ -908,6 +908,7 @@
       "applyUrl": "通过 URL 直接部署",
       "copyApplyCommand": "复制部署命令",
       "orUseYaml": "或使用 YAML 部署",
+      "loadYamlError": "无法通过 Manifest URL 加载 YAML。",
       "copyError": "复制失败，请手动复制内容。"
     },
     "empty": {

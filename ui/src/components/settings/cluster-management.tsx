@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import {
   IconCopy,
   IconEdit,
@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -66,10 +67,15 @@ export function ClusterManagement() {
   const [deletingCluster, setDeletingCluster] = useState<Cluster | null>(null)
   const [connectorCommand, setConnectorCommand] = useState('')
   const [connectorYaml, setConnectorYaml] = useState('')
+  const [connectorYamlError, setConnectorYamlError] = useState<string | null>(
+    null
+  )
+  const [isConnectorYamlLoading, setIsConnectorYamlLoading] = useState(false)
   const [connectorManifestURL, setConnectorManifestURL] = useState('')
   const [connectorCopyError, setConnectorCopyError] = useState<
     'command' | 'yaml' | null
   >(null)
+  const connectorYamlRequestID = useRef(0)
 
   const getClusterTypeBadge = useCallback(
     (cluster: Cluster) => {
@@ -235,16 +241,14 @@ export function ClusterManagement() {
 
   const createMutation = useMutation({
     mutationFn: createCluster,
-    onSuccess: ({
+    onSuccess: async ({
       connectorServer,
       connectorToken,
       connectorManifestURL,
-      connectorYaml,
     }: {
       connectorServer?: string
       connectorToken?: string
       connectorManifestURL?: string
-      connectorYaml?: string
     }) => {
       queryClient.invalidateQueries({ queryKey: ['cluster-list'] })
       toast.success(
@@ -256,8 +260,42 @@ export function ClusterManagement() {
         setConnectorCommand(
           `kite connector --server='${connectorServer}' --token='${connectorToken}'`
         )
-        setConnectorYaml(connectorYaml || '')
+        setConnectorYaml('')
+        setConnectorYamlError(null)
         setConnectorManifestURL(connectorManifestURL || '')
+        setIsConnectorYamlLoading(true)
+        const requestID = ++connectorYamlRequestID.current
+        try {
+          if (!connectorManifestURL) throw new Error('Missing manifest URL')
+          const manifestURL = new URL(
+            connectorManifestURL,
+            window.location.origin
+          )
+          const response = await fetch(
+            `${manifestURL.pathname}${manifestURL.search}`,
+            {
+              cache: 'no-store',
+            }
+          )
+          if (!response.ok) throw new Error(`HTTP ${response.status}`)
+          const yaml = await response.text()
+          if (requestID === connectorYamlRequestID.current) {
+            setConnectorYaml(yaml)
+          }
+        } catch {
+          if (requestID === connectorYamlRequestID.current) {
+            setConnectorYamlError(
+              t(
+                'clusterManagement.connector.loadYamlError',
+                'Failed to load YAML from the manifest URL.'
+              )
+            )
+          }
+        } finally {
+          if (requestID === connectorYamlRequestID.current) {
+            setIsConnectorYamlLoading(false)
+          }
+        }
       }
     },
     onError: (error: Error) => {
@@ -452,8 +490,11 @@ export function ClusterManagement() {
         open={!!connectorCommand}
         onOpenChange={(open) => {
           if (!open) {
+            connectorYamlRequestID.current += 1
             setConnectorCommand('')
             setConnectorYaml('')
+            setConnectorYamlError(null)
+            setIsConnectorYamlLoading(false)
             setConnectorManifestURL('')
             setConnectorCopyError(null)
           }
@@ -562,14 +603,20 @@ export function ClusterManagement() {
                   </div>
                 </div>
               )}
-              {connectorManifestURL && (
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">
-                    {t(
-                      'clusterManagement.connector.orUseYaml',
-                      'Or deploy with YAML'
-                    )}
-                  </Label>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">
+                  {t(
+                    'clusterManagement.connector.orUseYaml',
+                    'Or deploy with YAML'
+                  )}
+                </Label>
+                {isConnectorYamlLoading ? (
+                  <Skeleton className="h-96 w-full" />
+                ) : connectorYamlError ? (
+                  <p role="alert" className="text-sm text-destructive">
+                    {connectorYamlError}
+                  </p>
+                ) : (
                   <Textarea
                     readOnly
                     className="h-96 resize-none font-mono text-xs"
@@ -579,27 +626,28 @@ export function ClusterManagement() {
                     )}
                     value={connectorYaml}
                   />
+                )}
+              </div>
+              {connectorYaml && (
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(connectorYaml)
+                        setConnectorCopyError(null)
+                        toast.success(t('common.messages.copied', 'Copied'))
+                      } catch {
+                        setConnectorCopyError('yaml')
+                      }
+                    }}
+                  >
+                    <IconCopy className="size-4" />
+                    {t('clusterManagement.connector.copyYaml', 'Copy YAML')}
+                  </Button>
                 </div>
               )}
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={async () => {
-                    if (!connectorYaml) return
-                    try {
-                      await navigator.clipboard.writeText(connectorYaml)
-                      setConnectorCopyError(null)
-                      toast.success(t('common.messages.copied', 'Copied'))
-                    } catch {
-                      setConnectorCopyError('yaml')
-                    }
-                  }}
-                >
-                  <IconCopy className="size-4" />
-                  {t('clusterManagement.connector.copyYaml', 'Copy YAML')}
-                </Button>
-              </div>
               {connectorCopyError === 'yaml' && (
                 <p role="alert" className="text-sm text-destructive">
                   {t(
@@ -614,8 +662,11 @@ export function ClusterManagement() {
             <Button
               type="button"
               onClick={() => {
+                connectorYamlRequestID.current += 1
                 setConnectorCommand('')
                 setConnectorYaml('')
+                setConnectorYamlError(null)
+                setIsConnectorYamlLoading(false)
                 setConnectorManifestURL('')
                 setConnectorCopyError(null)
               }}

@@ -86,10 +86,10 @@ Kubernetes YAML 方式会创建以下资源：
 创建成功后，Kite 会生成一个 Manifest 下载 URL，可以直接用 `kubectl apply` 部署：
 
 ```bash
-kubectl apply -f 'https://kite.example.com/api/v1/connector/manifest?token=<connector-token>'
+kubectl apply -f 'https://kite.example.com/api/v1/connector/manifest?grant=<manifest-grant>'
 ```
 
-该 URL 通过 Connector Token 鉴权，无需额外认证。Token 已嵌入返回的 YAML 中，因此 URL 的安全级别与 Token 本身一致，仅在创建集群时展示一次。
+该 URL 包含一个与 Connector Token 分离的加密 Manifest Grant。Grant 会在 10 分钟后过期，只要 JWT Secret 不变，Kite 重启后仍然有效。Grant 在过期前可以重复使用，因此请尽快执行该命令，或改用对话框中展示的 YAML。返回的 YAML 仍包含 Connector Token，必须按敏感凭据处理。
 
 **方式二：复制 YAML 手动部署**
 
