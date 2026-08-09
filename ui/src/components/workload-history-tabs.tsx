@@ -1,8 +1,8 @@
 import { useTranslation } from 'react-i18next'
 
 import { ResourceTypeMap, WorkloadRevisionResourceType } from '@/types/api'
-import { ResourceHistoryTable } from '@/components/resource-history-table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ResourceHistoryTable } from '@/components/resource-history-table'
 import { WorkloadRevisionsTable } from '@/components/workload-revisions-table'
 
 export function WorkloadHistoryTabs<T extends WorkloadRevisionResourceType>({

@@ -50,13 +50,13 @@ func newDaemonSetHandlerTestRouter(t *testing.T, cs *cluster.ClientSet) *gin.Eng
 }
 
 func TestDaemonSetHandlerRevisions_CurrentIsHighestRevision(t *testing.T) {
-	setupDeploymentHandlerTestDB(t)
+	setupWorkloadHandlerTestDB(t)
 
 	ds := makeTestDaemonSet()
 	cr1 := makeTestControllerRevision(t, "demo-ds-cr1", 1, "initial deploy", "fluentd:1.14", daemonSetTestUID, "DaemonSet")
 	cr2 := makeTestControllerRevision(t, "demo-ds-cr2", 2, "bump to 1.15", "fluentd:1.15", daemonSetTestUID, "DaemonSet")
 
-	cs := newDeploymentHandlerTestClientSet(t, ds, cr1, cr2)
+	cs := newWorkloadHandlerTestClientSet(t, ds, cr1, cr2)
 	router := newDaemonSetHandlerTestRouter(t, cs)
 
 	rec := httptest.NewRecorder()
@@ -82,9 +82,9 @@ func TestDaemonSetHandlerRevisions_CurrentIsHighestRevision(t *testing.T) {
 }
 
 func TestDaemonSetHandlerRevisions_NotFound(t *testing.T) {
-	setupDeploymentHandlerTestDB(t)
+	setupWorkloadHandlerTestDB(t)
 
-	cs := newDeploymentHandlerTestClientSet(t)
+	cs := newWorkloadHandlerTestClientSet(t)
 	router := newDaemonSetHandlerTestRouter(t, cs)
 
 	rec := httptest.NewRecorder()
@@ -97,36 +97,31 @@ func TestDaemonSetHandlerRevisions_NotFound(t *testing.T) {
 }
 
 // TestDaemonSetHandlerRollback_Revision covers both the default (no
-// explicit revision, "{}") and explicit-revision rollback request shapes,
-// which share identical scaffolding and only differ in the request body and
-// the resulting change-cause annotation.
+// explicit revision, "{}") and explicit-revision rollback request shapes.
 func TestDaemonSetHandlerRollback_Revision(t *testing.T) {
 	tests := []struct {
-		name            string
-		body            string
-		wantChangeCause string
+		name string
+		body string
 	}{
 		{
-			name:            "defaults to the previous revision",
-			body:            "{}",
-			wantChangeCause: "Rolled back to revision 1 via Kite",
+			name: "defaults to the previous revision",
+			body: "{}",
 		},
 		{
-			name:            "explicit revision with custom change cause",
-			body:            `{"revision":1,"changeCause":"manual rollback"}`,
-			wantChangeCause: "manual rollback",
+			name: "uses the explicit revision",
+			body: `{"revision":1}`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			setupDeploymentHandlerTestDB(t)
+			setupWorkloadHandlerTestDB(t)
 
 			ds := makeTestDaemonSet()
 			cr1 := makeTestControllerRevision(t, "demo-ds-cr1", 1, "initial deploy", "fluentd:1.14", daemonSetTestUID, "DaemonSet")
 			cr2 := makeTestControllerRevision(t, "demo-ds-cr2", 2, "bump to 1.15", "fluentd:1.15", daemonSetTestUID, "DaemonSet")
 
-			cs := newDeploymentHandlerTestClientSet(t, ds, cr1, cr2)
+			cs := newWorkloadHandlerTestClientSet(t, ds, cr1, cr2)
 			router := newDaemonSetHandlerTestRouter(t, cs)
 
 			rec := httptest.NewRecorder()
@@ -145,17 +140,14 @@ func TestDaemonSetHandlerRollback_Revision(t *testing.T) {
 			if got := updated.Spec.Template.Spec.Containers[0].Image; got != "fluentd:1.14" {
 				t.Fatalf("expected rollback to revision 1's image fluentd:1.14, got %s", got)
 			}
-			if got := updated.Annotations[deploymentChangeCauseAnnotation]; got != tt.wantChangeCause {
-				t.Fatalf("expected change-cause %q, got %q", tt.wantChangeCause, got)
-			}
 		})
 	}
 }
 
 func TestDaemonSetHandlerRollback_NotFound(t *testing.T) {
-	setupDeploymentHandlerTestDB(t)
+	setupWorkloadHandlerTestDB(t)
 
-	cs := newDeploymentHandlerTestClientSet(t)
+	cs := newWorkloadHandlerTestClientSet(t)
 	router := newDaemonSetHandlerTestRouter(t, cs)
 
 	rec := httptest.NewRecorder()
@@ -169,13 +161,13 @@ func TestDaemonSetHandlerRollback_NotFound(t *testing.T) {
 }
 
 func TestDaemonSetHandlerRollback_RevisionNotFound(t *testing.T) {
-	setupDeploymentHandlerTestDB(t)
+	setupWorkloadHandlerTestDB(t)
 
 	ds := makeTestDaemonSet()
 	cr1 := makeTestControllerRevision(t, "demo-ds-cr1", 1, "", "fluentd:1.14", daemonSetTestUID, "DaemonSet")
 	cr2 := makeTestControllerRevision(t, "demo-ds-cr2", 2, "", "fluentd:1.15", daemonSetTestUID, "DaemonSet")
 
-	cs := newDeploymentHandlerTestClientSet(t, ds, cr1, cr2)
+	cs := newWorkloadHandlerTestClientSet(t, ds, cr1, cr2)
 	router := newDaemonSetHandlerTestRouter(t, cs)
 
 	rec := httptest.NewRecorder()
@@ -189,10 +181,10 @@ func TestDaemonSetHandlerRollback_RevisionNotFound(t *testing.T) {
 }
 
 func TestDaemonSetHandlerRollback_NoHistory(t *testing.T) {
-	setupDeploymentHandlerTestDB(t)
+	setupWorkloadHandlerTestDB(t)
 
 	ds := makeTestDaemonSet()
-	cs := newDeploymentHandlerTestClientSet(t, ds)
+	cs := newWorkloadHandlerTestClientSet(t, ds)
 	router := newDaemonSetHandlerTestRouter(t, cs)
 
 	rec := httptest.NewRecorder()

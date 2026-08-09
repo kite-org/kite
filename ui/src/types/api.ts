@@ -746,18 +746,13 @@ export interface ResourceHistoryResponse {
 }
 
 export type WorkloadRevisionResourceType =
-  | 'deployments'
-  | 'statefulsets'
-  | 'daemonsets'
+  'deployments' | 'statefulsets' | 'daemonsets'
 
 export interface WorkloadRevisionItem {
   revision: number
   revisionObject: string
   changeCause?: string
   images: string[]
-  // Only present for Deployments, where the owned ReplicaSet tracks its own
-  // replica count. StatefulSet/DaemonSet revisions are point-in-time
-  // template snapshots (ControllerRevisions) with no replica count.
   replicas?: number
   createdAt: string
   current: boolean

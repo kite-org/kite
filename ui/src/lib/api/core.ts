@@ -1083,11 +1083,11 @@ export const rollbackWorkload = async (
   resourceType: WorkloadRevisionResourceType,
   namespace: string,
   name: string,
-  revision?: number
+  revision: number
 ): Promise<{ message?: string; revision?: number }> => {
   return apiClient.put<{ message?: string; revision?: number }>(
     `/${resourceType}/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/rollback`,
-    revision !== undefined ? { revision } : {}
+    { revision }
   )
 }
 

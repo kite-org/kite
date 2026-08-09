@@ -85,7 +85,7 @@ func makeTestControllerRevision(t *testing.T, name string, revision int64, chang
 		Data:     controllerRevisionData(t, image),
 	}
 	if changeCause != "" {
-		cr.Annotations = map[string]string{deploymentChangeCauseAnnotation: changeCause}
+		cr.Annotations = map[string]string{changeCauseAnnotation: changeCause}
 	}
 	return cr
 }
@@ -108,18 +108,18 @@ func newStatefulSetHandlerTestRouter(t *testing.T, cs *cluster.ClientSet) *gin.E
 	return router
 }
 
-func TestStatefulSetHandlerRevisions_CurrentFollowsStatusCurrentRevision(t *testing.T) {
-	setupDeploymentHandlerTestDB(t)
+func TestStatefulSetHandlerRevisions_CurrentFollowsStatusUpdateRevision(t *testing.T) {
+	setupWorkloadHandlerTestDB(t)
 
-	// status.currentRevision names cr2 as current, even though cr3 (a higher
-	// revision number) also exists - mirrors a StatefulSet mid-rollout where
-	// the newest ControllerRevision hasn't been adopted as current yet.
+	// During a rollout, currentRevision still points to the old pods while
+	// updateRevision identifies the desired revision from the StatefulSet spec.
 	sts := makeTestStatefulSet("demo-sts-cr2")
+	sts.Status.UpdateRevision = "demo-sts-cr3"
 	cr1 := makeTestControllerRevision(t, "demo-sts-cr1", 1, "initial deploy", "nginx:1.25", statefulSetTestUID, "StatefulSet")
 	cr2 := makeTestControllerRevision(t, "demo-sts-cr2", 2, "bump to 1.26", "nginx:1.26", statefulSetTestUID, "StatefulSet")
 	cr3 := makeTestControllerRevision(t, "demo-sts-cr3", 3, "bump to 1.27", "nginx:1.27", statefulSetTestUID, "StatefulSet")
 
-	cs := newDeploymentHandlerTestClientSet(t, sts, cr1, cr2, cr3)
+	cs := newWorkloadHandlerTestClientSet(t, sts, cr1, cr2, cr3)
 	router := newStatefulSetHandlerTestRouter(t, cs)
 
 	rec := httptest.NewRecorder()
@@ -137,7 +137,7 @@ func TestStatefulSetHandlerRevisions_CurrentFollowsStatusCurrentRevision(t *test
 		t.Fatalf("unexpected revision order: %+v", items)
 	}
 	for _, item := range items {
-		wantCurrent := item.Revision == 2
+		wantCurrent := item.Revision == 3
 		if item.Current != wantCurrent {
 			t.Errorf("revision %d: current=%v, want %v", item.Revision, item.Current, wantCurrent)
 		}
@@ -151,13 +151,13 @@ func TestStatefulSetHandlerRevisions_CurrentFollowsStatusCurrentRevision(t *test
 }
 
 func TestStatefulSetHandlerRevisions_FallsBackToHighestWhenCurrentRevisionEmpty(t *testing.T) {
-	setupDeploymentHandlerTestDB(t)
+	setupWorkloadHandlerTestDB(t)
 
 	sts := makeTestStatefulSet("")
 	cr1 := makeTestControllerRevision(t, "demo-sts-cr1", 1, "", "nginx:1.25", statefulSetTestUID, "StatefulSet")
 	cr2 := makeTestControllerRevision(t, "demo-sts-cr2", 2, "", "nginx:1.26", statefulSetTestUID, "StatefulSet")
 
-	cs := newDeploymentHandlerTestClientSet(t, sts, cr1, cr2)
+	cs := newWorkloadHandlerTestClientSet(t, sts, cr1, cr2)
 	router := newStatefulSetHandlerTestRouter(t, cs)
 
 	rec := httptest.NewRecorder()
@@ -174,9 +174,9 @@ func TestStatefulSetHandlerRevisions_FallsBackToHighestWhenCurrentRevisionEmpty(
 }
 
 func TestStatefulSetHandlerRevisions_NotFound(t *testing.T) {
-	setupDeploymentHandlerTestDB(t)
+	setupWorkloadHandlerTestDB(t)
 
-	cs := newDeploymentHandlerTestClientSet(t)
+	cs := newWorkloadHandlerTestClientSet(t)
 	router := newStatefulSetHandlerTestRouter(t, cs)
 
 	rec := httptest.NewRecorder()
@@ -188,73 +188,63 @@ func TestStatefulSetHandlerRevisions_NotFound(t *testing.T) {
 	}
 }
 
-func TestStatefulSetHandlerRollback_DefaultUsesRevisionBeforeCurrent(t *testing.T) {
-	setupDeploymentHandlerTestDB(t)
-
-	sts := makeTestStatefulSet("demo-sts-cr2")
-	cr1 := makeTestControllerRevision(t, "demo-sts-cr1", 1, "initial deploy", "nginx:1.25", statefulSetTestUID, "StatefulSet")
-	cr2 := makeTestControllerRevision(t, "demo-sts-cr2", 2, "bump to 1.26", "nginx:1.26", statefulSetTestUID, "StatefulSet")
-	cr3 := makeTestControllerRevision(t, "demo-sts-cr3", 3, "bump to 1.27", "nginx:1.27", statefulSetTestUID, "StatefulSet")
-
-	cs := newDeploymentHandlerTestClientSet(t, sts, cr1, cr2, cr3)
-	router := newStatefulSetHandlerTestRouter(t, cs)
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, "/statefulsets/default/demo-sts/rollback", strings.NewReader("{}"))
-	req.Header.Set("Content-Type", "application/json")
-	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+func TestStatefulSetHandlerRollback_Revision(t *testing.T) {
+	tests := []struct {
+		name            string
+		currentRevision string
+		body            string
+		wantImage       string
+	}{
+		{
+			name:            "defaults to the previous revision",
+			currentRevision: "demo-sts-cr2",
+			body:            "{}",
+			wantImage:       "nginx:1.26",
+		},
+		{
+			name:            "uses the explicit revision",
+			currentRevision: "demo-sts-cr3",
+			body:            `{"revision":1}`,
+			wantImage:       "nginx:1.25",
+		},
 	}
 
-	updated, err := cs.K8sClient.ClientSet.AppsV1().StatefulSets("default").Get(t.Context(), "demo-sts", metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("get updated statefulset: %v", err)
-	}
-	// Current is revision 2, so the default rollback target must be
-	// revision 1 (immediately before current), not revision 2 itself.
-	if got := updated.Spec.Template.Spec.Containers[0].Image; got != "nginx:1.25" {
-		t.Fatalf("expected rollback to revision 1's image nginx:1.25, got %s", got)
-	}
-	if got := updated.Annotations[deploymentChangeCauseAnnotation]; got != "Rolled back to revision 1 via Kite" {
-		t.Fatalf("unexpected change-cause annotation: %s", got)
-	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setupWorkloadHandlerTestDB(t)
 
-func TestStatefulSetHandlerRollback_ExplicitRevision(t *testing.T) {
-	setupDeploymentHandlerTestDB(t)
+			sts := makeTestStatefulSet(tt.currentRevision)
+			cr1 := makeTestControllerRevision(t, "demo-sts-cr1", 1, "initial deploy", "nginx:1.25", statefulSetTestUID, "StatefulSet")
+			cr2 := makeTestControllerRevision(t, "demo-sts-cr2", 2, "bump to 1.26", "nginx:1.26", statefulSetTestUID, "StatefulSet")
+			cr3 := makeTestControllerRevision(t, "demo-sts-cr3", 3, "bump to 1.27", "nginx:1.27", statefulSetTestUID, "StatefulSet")
 
-	sts := makeTestStatefulSet("demo-sts-cr3")
-	cr1 := makeTestControllerRevision(t, "demo-sts-cr1", 1, "initial deploy", "nginx:1.25", statefulSetTestUID, "StatefulSet")
-	cr2 := makeTestControllerRevision(t, "demo-sts-cr2", 2, "bump to 1.26", "nginx:1.26", statefulSetTestUID, "StatefulSet")
-	cr3 := makeTestControllerRevision(t, "demo-sts-cr3", 3, "bump to 1.27", "nginx:1.27", statefulSetTestUID, "StatefulSet")
+			cs := newWorkloadHandlerTestClientSet(t, sts, cr1, cr2, cr3)
+			router := newStatefulSetHandlerTestRouter(t, cs)
 
-	cs := newDeploymentHandlerTestClientSet(t, sts, cr1, cr2, cr3)
-	router := newStatefulSetHandlerTestRouter(t, cs)
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPut, "/statefulsets/default/demo-sts/rollback", strings.NewReader(tt.body))
+			req.Header.Set("Content-Type", "application/json")
+			router.ServeHTTP(rec, req)
 
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPut, "/statefulsets/default/demo-sts/rollback", strings.NewReader(`{"revision":1}`))
-	req.Header.Set("Content-Type", "application/json")
-	router.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+			}
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	updated, err := cs.K8sClient.ClientSet.AppsV1().StatefulSets("default").Get(t.Context(), "demo-sts", metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("get updated statefulset: %v", err)
-	}
-	if got := updated.Spec.Template.Spec.Containers[0].Image; got != "nginx:1.25" {
-		t.Fatalf("expected rollback to revision 1's image nginx:1.25, got %s", got)
+			updated, err := cs.K8sClient.ClientSet.AppsV1().StatefulSets("default").Get(t.Context(), "demo-sts", metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("get updated statefulset: %v", err)
+			}
+			if got := updated.Spec.Template.Spec.Containers[0].Image; got != tt.wantImage {
+				t.Fatalf("expected rollback image %s, got %s", tt.wantImage, got)
+			}
+		})
 	}
 }
 
 func TestStatefulSetHandlerRollback_NotFound(t *testing.T) {
-	setupDeploymentHandlerTestDB(t)
+	setupWorkloadHandlerTestDB(t)
 
-	cs := newDeploymentHandlerTestClientSet(t)
+	cs := newWorkloadHandlerTestClientSet(t)
 	router := newStatefulSetHandlerTestRouter(t, cs)
 
 	rec := httptest.NewRecorder()
@@ -268,13 +258,13 @@ func TestStatefulSetHandlerRollback_NotFound(t *testing.T) {
 }
 
 func TestStatefulSetHandlerRollback_RevisionNotFound(t *testing.T) {
-	setupDeploymentHandlerTestDB(t)
+	setupWorkloadHandlerTestDB(t)
 
 	sts := makeTestStatefulSet("demo-sts-cr2")
 	cr1 := makeTestControllerRevision(t, "demo-sts-cr1", 1, "", "nginx:1.25", statefulSetTestUID, "StatefulSet")
 	cr2 := makeTestControllerRevision(t, "demo-sts-cr2", 2, "", "nginx:1.26", statefulSetTestUID, "StatefulSet")
 
-	cs := newDeploymentHandlerTestClientSet(t, sts, cr1, cr2)
+	cs := newWorkloadHandlerTestClientSet(t, sts, cr1, cr2)
 	router := newStatefulSetHandlerTestRouter(t, cs)
 
 	rec := httptest.NewRecorder()
@@ -288,10 +278,10 @@ func TestStatefulSetHandlerRollback_RevisionNotFound(t *testing.T) {
 }
 
 func TestStatefulSetHandlerRollback_NoHistory(t *testing.T) {
-	setupDeploymentHandlerTestDB(t)
+	setupWorkloadHandlerTestDB(t)
 
 	sts := makeTestStatefulSet("")
-	cs := newDeploymentHandlerTestClientSet(t, sts)
+	cs := newWorkloadHandlerTestClientSet(t, sts)
 	router := newStatefulSetHandlerTestRouter(t, cs)
 
 	rec := httptest.NewRecorder()

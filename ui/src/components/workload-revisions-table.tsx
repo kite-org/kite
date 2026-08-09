@@ -6,7 +6,7 @@ import { WorkloadRevisionItem, WorkloadRevisionResourceType } from '@/types/api'
 import { rollbackWorkload, useWorkloadRevisions } from '@/lib/api'
 import { formatDate, translateError } from '@/lib/utils'
 
-import { SimpleTable } from './simple-table'
+import { Column, SimpleTable } from './simple-table'
 import { Button } from './ui/button'
 import { Card, CardContent } from './ui/card'
 import {
@@ -36,14 +36,15 @@ function WorkloadRollbackButton({
   namespace: string
   name: string
   disabled: boolean
-  onRollback: (revision: number) => Promise<void>
+  onRollback: (revision: number) => Promise<boolean>
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
 
   const handleConfirm = async () => {
-    await onRollback(item.revision)
-    setOpen(false)
+    if (await onRollback(item.revision)) {
+      setOpen(false)
+    }
   }
 
   return (
@@ -106,9 +107,9 @@ export function WorkloadRevisionsTable({
   onRollbackComplete: () => Promise<unknown>
 }) {
   const { t } = useTranslation()
-  const [rollingBackRevision, setRollingBackRevision] = useState<
-    number | null
-  >(null)
+  const [rollingBackRevision, setRollingBackRevision] = useState<number | null>(
+    null
+  )
   const {
     data,
     isLoading,
@@ -121,13 +122,16 @@ export function WorkloadRevisionsTable({
     setRollingBackRevision(revision)
     try {
       await rollbackWorkload(resourceType, namespace, name, revision)
-      toast.success(t('workloads.messages.rollbackStarted'))
-      await Promise.all([refetchRevisions(), onRollbackComplete()])
     } catch (err) {
       toast.error(translateError(err, t))
-    } finally {
       setRollingBackRevision(null)
+      return false
     }
+
+    toast.success(t('workloads.messages.rollbackStarted'))
+    await Promise.allSettled([refetchRevisions(), onRollbackComplete()])
+    setRollingBackRevision(null)
+    return true
   }
 
   if (isLoading) {
@@ -150,99 +154,94 @@ export function WorkloadRevisionsTable({
     )
   }
 
+  const columns: Column<WorkloadRevisionItem>[] = [
+    {
+      header: t('common.fields.revision'),
+      accessor: (item) => item.revision,
+      cell: (value) => (
+        <span className="font-medium tabular-nums">{value as number}</span>
+      ),
+    },
+    {
+      header: t(revisionObjectLabelKey[resourceType]),
+      accessor: (item) => item.revisionObject,
+      cell: (value) => value as string,
+      align: 'left',
+    },
+    ...(resourceType === 'deployments'
+      ? [
+          {
+            header: t('common.fields.replicas'),
+            accessor: (item: WorkloadRevisionItem) => item.replicas,
+            cell: (value: unknown) => (
+              <span className="tabular-nums">{value as number}</span>
+            ),
+            align: 'left' as const,
+          },
+        ]
+      : []),
+    {
+      header: t('common.fields.created'),
+      accessor: (item) => item.createdAt,
+      cell: (value) => (
+        <span className="text-sm text-muted-foreground">
+          {value ? formatDate(value as string) : '-'}
+        </span>
+      ),
+      align: 'left',
+    },
+    {
+      header: t('common.tabs.containers'),
+      accessor: (item) => item.images,
+      cell: (value) => (
+        <div className="max-w-md whitespace-pre-wrap break-words text-xs text-muted-foreground">
+          {((value as string[]) || []).join(', ') || '-'}
+        </div>
+      ),
+      align: 'left',
+    },
+    {
+      header: t('workloads.fields.changeCause'),
+      accessor: (item) => item.changeCause || '-',
+      cell: (value) => (
+        <span className="text-sm text-muted-foreground">{value as string}</span>
+      ),
+      align: 'left',
+    },
+    {
+      header: t('common.fields.actions'),
+      accessor: (item) => item,
+      cell: (value) => {
+        const item = value as WorkloadRevisionItem
+        return (
+          <div className="ml-auto w-max">
+            {item.current ? (
+              <Button variant="outline" size="sm" className="w-24" disabled>
+                {t('common.fields.current')}
+              </Button>
+            ) : (
+              <WorkloadRollbackButton
+                item={item}
+                namespace={namespace}
+                name={name}
+                disabled={rollingBackRevision !== null}
+                onRollback={handleRollback}
+              />
+            )}
+          </div>
+        )
+      },
+      align: 'right',
+    },
+  ]
+
   return (
     <Card>
       <CardContent>
         <SimpleTable
-          data={data?.items || []}
+          data={data?.items ?? []}
           emptyMessage={t('workloads.messages.noRevisions')}
-          columns={[
-            {
-              header: t('common.fields.revision'),
-              accessor: (item) => item.revision,
-              cell: (value) => (
-                <span className="font-medium tabular-nums">
-                  {value as number}
-                </span>
-              ),
-            },
-            {
-              header: t(revisionObjectLabelKey[resourceType]),
-              accessor: (item) => item.revisionObject,
-              cell: (value) => value as string,
-              align: 'left',
-            },
-            {
-              header: t('common.fields.replicas'),
-              accessor: (item) => item.replicas,
-              cell: (value) => (
-                <span className="tabular-nums">
-                  {value === undefined ? '-' : (value as number)}
-                </span>
-              ),
-              align: 'left',
-            },
-            {
-              header: t('common.fields.created'),
-              accessor: (item) => item.createdAt,
-              cell: (value) => (
-                <span className="text-sm text-muted-foreground">
-                  {value ? formatDate(value as string) : '-'}
-                </span>
-              ),
-              align: 'left',
-            },
-            {
-              header: t('common.tabs.containers'),
-              accessor: (item) => item.images,
-              cell: (value) => (
-                <div className="max-w-md whitespace-pre-wrap break-words text-xs text-muted-foreground">
-                  {((value as string[]) || []).join(', ') || '-'}
-                </div>
-              ),
-              align: 'left',
-            },
-            {
-              header: t('workloads.fields.changeCause'),
-              accessor: (item) => item.changeCause || '-',
-              cell: (value) => (
-                <span className="text-sm text-muted-foreground">
-                  {value as string}
-                </span>
-              ),
-              align: 'left',
-            },
-            {
-              header: t('common.fields.actions'),
-              accessor: (item) => item,
-              cell: (value) => {
-                const item = value as WorkloadRevisionItem
-                return (
-                  <div className="ml-auto w-max">
-                    {item.current ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-24"
-                        disabled
-                      >
-                        {t('common.fields.current')}
-                      </Button>
-                    ) : (
-                      <WorkloadRollbackButton
-                        item={item}
-                        namespace={namespace}
-                        name={name}
-                        disabled={rollingBackRevision !== null}
-                        onRollback={handleRollback}
-                      />
-                    )}
-                  </div>
-                )
-              },
-              align: 'right',
-            },
-          ]}
+          columns={columns}
           pagination={{ enabled: true, pageSize: 10 }}
         />
       </CardContent>

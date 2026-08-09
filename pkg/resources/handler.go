@@ -71,6 +71,11 @@ type Restartable interface {
 	Restart(c *gin.Context, namespace, name string) error
 }
 
+type workloadRevisionHandler interface {
+	Revisions(c *gin.Context)
+	Rollback(c *gin.Context)
+}
+
 type SearchFunc func(c *gin.Context, query string, limit int64) ([]common.SearchResult, error)
 
 var handlers = map[string]resourceHandler{}
@@ -199,6 +204,10 @@ func RegisterRoutes(group *gin.RouterGroup) {
 
 	for name, handler := range handlers {
 		g := group.Group("/" + name)
+		if workloadHandler, ok := handler.(workloadRevisionHandler); ok {
+			g.GET("/:namespace/:name/revisions", workloadHandler.Revisions)
+			g.PUT("/:namespace/:name/rollback", workloadHandler.Rollback)
+		}
 		handler.registerCustomRoutes(g)
 		if handler.IsClusterScoped() {
 			registerClusterScopeRoutes(g, handler)

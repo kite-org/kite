@@ -2,28 +2,21 @@ package resources
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"io"
 	"net/http"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/common"
 	appsv1 "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	deploymentRevisionAnnotation    = "deployment.kubernetes.io/revision"
-	deploymentChangeCauseAnnotation = "kubernetes.io/change-cause"
-)
+const deploymentRevisionAnnotation = "deployment.kubernetes.io/revision"
 
 type DeploymentHandler struct {
 	*GenericResourceHandler[*appsv1.Deployment, *appsv1.DeploymentList]
@@ -48,19 +41,14 @@ func (h *DeploymentHandler) Restart(c *gin.Context, namespace, name string) erro
 	return cs.K8sClient.Update(c.Request.Context(), &deployment)
 }
 
-func (h *DeploymentHandler) registerCustomRoutes(group *gin.RouterGroup) {
-	group.GET("/:namespace/:name/revisions", h.Revisions)
-	group.PUT("/:namespace/:name/rollback", h.Rollback)
-}
-
 func (h *DeploymentHandler) Revisions(c *gin.Context) {
 	namespace, name := c.Param("namespace"), c.Param("name")
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
 	ctx := c.Request.Context()
 
-	var deployment appsv1.Deployment
-	if err := cs.K8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, &deployment); err != nil {
-		if client.IgnoreNotFound(err) == nil {
+	deployment, err := cs.K8sClient.ClientSet.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}
@@ -68,13 +56,13 @@ func (h *DeploymentHandler) Revisions(c *gin.Context) {
 		return
 	}
 
-	replicaSets, err := listDeploymentReplicaSets(ctx, cs, &deployment)
+	replicaSets, err := listDeploymentReplicaSets(ctx, cs, deployment)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	currentIndex := deploymentCurrentRevisionIndex(&deployment, replicaSets)
+	currentIndex := deploymentCurrentRevisionIndex(deployment, replicaSets)
 
 	items := make([]WorkloadRevisionItem, 0, len(replicaSets))
 	for i, rs := range replicaSets {
@@ -87,7 +75,7 @@ func (h *DeploymentHandler) Revisions(c *gin.Context) {
 		items = append(items, WorkloadRevisionItem{
 			Revision:       deploymentRevisionOf(rs),
 			RevisionObject: rs.Name,
-			ChangeCause:    rs.Annotations[deploymentChangeCauseAnnotation],
+			ChangeCause:    rs.Annotations[changeCauseAnnotation],
 			Images:         images,
 			Replicas:       &replicas,
 			CreatedAt:      rs.CreationTimestamp,
@@ -97,110 +85,14 @@ func (h *DeploymentHandler) Revisions(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
-func (h *DeploymentHandler) Rollback(c *gin.Context) {
-	namespace, name := c.Param("namespace"), c.Param("name")
-	cs := c.MustGet("cluster").(*cluster.ClientSet)
-	ctx := c.Request.Context()
-
-	var req workloadRollbackRequest
-	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	var deployment appsv1.Deployment
-	if err := cs.K8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, &deployment); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	oldDeployment := deployment.DeepCopy()
-
-	replicaSets, err := listDeploymentReplicaSets(ctx, cs, &deployment)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	if len(replicaSets) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "no revision history found for this deployment"})
-		return
-	}
-
-	targetRevision := req.Revision
-	if targetRevision == 0 {
-		currentIndex := deploymentCurrentRevisionIndex(&deployment, replicaSets)
-		if currentIndex < 0 || currentIndex+1 >= len(replicaSets) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "no previous revision found"})
-			return
-		}
-		targetRevision = deploymentRevisionOf(replicaSets[currentIndex+1])
-	}
-
-	found := false
-	for _, rs := range replicaSets {
-		if deploymentRevisionOf(rs) == targetRevision {
-			found = true
-			break
-		}
-	}
-	if !found {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("revision %d not found", targetRevision)})
-		return
-	}
-
-	var success bool
-	var errMsg string
-	defer func() {
-		h.recordHistory(c, "rollback", oldDeployment, &deployment, success, errMsg)
-	}()
-
-	if err := rollbackWorkload(cs, deploymentGroupKind, &deployment, targetRevision); err != nil {
-		errMsg = err.Error()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Re-fetch and annotate through the same typed clientset kubectl's
-	// Rollbacker just wrote through (rather than controller-runtime's
-	// client), so this read is guaranteed to see the rollback it just
-	// applied.
-	updated, err := cs.K8sClient.ClientSet.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
-	if err != nil {
-		errMsg = err.Error()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	if updated.Annotations == nil {
-		updated.Annotations = make(map[string]string)
-	}
-	changeCause := strings.TrimSpace(req.ChangeCause)
-	if changeCause == "" {
-		changeCause = fmt.Sprintf("Rolled back to revision %d via Kite", targetRevision)
-	}
-	updated.Annotations[deploymentChangeCauseAnnotation] = changeCause
-	updated, err = cs.K8sClient.ClientSet.AppsV1().Deployments(namespace).Update(ctx, updated, metav1.UpdateOptions{})
-	if err != nil {
-		errMsg = err.Error()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	deployment = *updated
-
-	success = true
-	c.JSON(http.StatusOK, gin.H{"message": "deployment rolled back", "revision": targetRevision})
-}
-
 func listDeploymentReplicaSets(ctx context.Context, cs *cluster.ClientSet, deployment *appsv1.Deployment) ([]*appsv1.ReplicaSet, error) {
 	selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
 	if err != nil {
 		return nil, err
 	}
 
-	var rsList appsv1.ReplicaSetList
-	if err := cs.K8sClient.List(ctx, &rsList, client.InNamespace(deployment.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
+	rsList, err := cs.K8sClient.ClientSet.AppsV1().ReplicaSets(deployment.Namespace).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
+	if err != nil {
 		return nil, err
 	}
 
@@ -237,11 +129,6 @@ func deploymentRevisionOf(rs *appsv1.ReplicaSet) int64 {
 	return v
 }
 
-// deploymentCurrentRevisionIndex resolves which entry in replicaSets (sorted
-// by descending revision) is the Deployment's current revision, using the
-// Deployment's own deployment.kubernetes.io/revision annotation as the
-// source of truth. It falls back to the highest revision (index 0) when the
-// annotation is missing or doesn't match any ReplicaSet in the list.
 func deploymentCurrentRevisionIndex(deployment *appsv1.Deployment, replicaSets []*appsv1.ReplicaSet) int {
 	if deployment.Annotations != nil {
 		if v, err := strconv.ParseInt(deployment.Annotations[deploymentRevisionAnnotation], 10, 64); err == nil {
