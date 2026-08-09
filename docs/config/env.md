@@ -15,7 +15,11 @@ Kite supports several environment variables by default to change the default val
 
 - **TRUSTED_PROXIES**: Comma-separated list of reverse proxy, ingress, or load balancer IPs/CIDRs that Kite should trust when reading `X-Forwarded-For` / `X-Real-IP` to determine the client IP. By default, Kite trusts local/private network ranges (`127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `::1`, `fc00::/7`) so common ingress deployments can report real client IPs. Set a narrower value such as `TRUSTED_PROXIES=10.42.0.0/16,192.168.1.10` for production, or `TRUSTED_PROXIES=none` to ignore all client-supplied forwarding headers.
 
+- **KUBECTL_TERMINAL_IMAGE**: Docker image used for the kubectl terminal.
+
 - **NODE_TERMINAL_IMAGE**: Docker image used for generating Node Terminal Agent.
+
+- **CONNECTOR_IMAGE**: Docker image used when generating the Kite Connector manifest for connector-type clusters.
 
 - **ENABLE_ANALYTICS**: Enable data analytics functionality, default value is `false`. When enabled, Kite will collect limited data to help improve the product.
 

@@ -15,6 +15,7 @@ const DefaultGeneralAIModel = "gpt-4o-mini"
 const DefaultGeneralAnthropicModel = "claude-sonnet-4-5"
 const DefaultGeneralKubectlImage = "zzde/kubectl:latest"
 const DefaultGeneralNodeTerminalImage = "busybox:latest"
+const DefaultGeneralConnectorImage = "ghcr.io/kite-org/kite:latest"
 
 const GeneralAIProviderOpenAI = "openai"
 const GeneralAIProviderAnthropic = "anthropic"
@@ -24,6 +25,22 @@ func DefaultGeneralNodeTerminalImageValue() string {
 	image := strings.TrimSpace(common.NodeTerminalImage)
 	if image == "" {
 		return DefaultGeneralNodeTerminalImage
+	}
+	return image
+}
+
+func DefaultGeneralKubectlImageValue() string {
+	image := strings.TrimSpace(common.KubectlTerminalImage)
+	if image == "" {
+		return DefaultGeneralKubectlImage
+	}
+	return image
+}
+
+func DefaultGeneralConnectorImageValue() string {
+	image := strings.TrimSpace(common.ConnectorImage)
+	if image == "" {
+		return DefaultGeneralConnectorImage
 	}
 	return image
 }
@@ -39,6 +56,7 @@ type GeneralSetting struct {
 	KubectlEnabled          bool         `json:"kubectlEnabled" gorm:"column:kubectl_enabled;type:boolean;not null;default:true"`
 	KubectlImage            string       `json:"kubectlImage" gorm:"column:kubectl_image;type:varchar(255);not null;default:'zzde/kubectl:latest'"`
 	NodeTerminalImage       string       `json:"nodeTerminalImage" gorm:"column:node_terminal_image;type:varchar(255);not null;default:'busybox:latest'"`
+	ConnectorImage          string       `json:"connectorImage" gorm:"column:connector_image;type:varchar(255);not null;default:'ghcr.io/kite-org/kite:latest'"`
 	EnableAnalytics         bool         `json:"enableAnalytics" gorm:"column:enable_analytics;type:boolean;not null;default:false"`
 	EnableVersionCheck      bool         `json:"enableVersionCheck" gorm:"column:enable_version_check;type:boolean;not null;default:true"`
 	PasswordLoginDisabled   bool         `json:"passwordLoginDisabled" gorm:"column:password_login_disabled;type:boolean;not null;default:false"`
@@ -92,13 +110,16 @@ func GetGeneralSetting() (*GeneralSetting, error) {
 			updates["ai_model"] = setting.AIModel
 		}
 		if setting.KubectlImage == "" {
-			setting.KubectlImage = DefaultGeneralKubectlImage
-			updates["kubectl_image"] = DefaultGeneralKubectlImage
+			setting.KubectlImage = DefaultGeneralKubectlImageValue()
+			updates["kubectl_image"] = setting.KubectlImage
 		}
 		if setting.NodeTerminalImage == "" {
-			defaultNodeTerminalImage := DefaultGeneralNodeTerminalImageValue()
-			setting.NodeTerminalImage = defaultNodeTerminalImage
-			updates["node_terminal_image"] = defaultNodeTerminalImage
+			setting.NodeTerminalImage = DefaultGeneralNodeTerminalImageValue()
+			updates["node_terminal_image"] = setting.NodeTerminalImage
+		}
+		if setting.ConnectorImage == "" {
+			setting.ConnectorImage = DefaultGeneralConnectorImageValue()
+			updates["connector_image"] = setting.ConnectorImage
 		}
 		if err := ensureJWTSecret(&setting, updates); err != nil {
 			return nil, err
@@ -122,8 +143,9 @@ func GetGeneralSetting() (*GeneralSetting, error) {
 		AIModel:            DefaultGeneralAIModel,
 		AIMaxTokens:        4096,
 		KubectlEnabled:     true,
-		KubectlImage:       DefaultGeneralKubectlImage,
+		KubectlImage:       DefaultGeneralKubectlImageValue(),
 		NodeTerminalImage:  DefaultGeneralNodeTerminalImageValue(),
+		ConnectorImage:     DefaultGeneralConnectorImageValue(),
 		EnableAnalytics:    common.EnableAnalytics,
 		EnableVersionCheck: common.EnableVersionCheck,
 		EnableMFA:          true,

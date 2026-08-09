@@ -33,6 +33,7 @@ var (
 
 	NodeTerminalImage    = "busybox:latest"
 	KubectlTerminalImage = "zzde/kubectl:latest"
+	ConnectorImage       = "ghcr.io/kite-org/kite:latest"
 	DBType               = "sqlite"
 	DBDSN                = "dev.db"
 
@@ -119,6 +120,10 @@ func LoadEnvs() {
 
 	if kubectlTerminalImage := os.Getenv("KUBECTL_TERMINAL_IMAGE"); kubectlTerminalImage != "" {
 		KubectlTerminalImage = kubectlTerminalImage
+	}
+
+	if connectorImage := os.Getenv("CONNECTOR_IMAGE"); connectorImage != "" {
+		ConnectorImage = connectorImage
 	}
 
 	if dbDSN := os.Getenv("DB_DSN"); dbDSN != "" {

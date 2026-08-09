@@ -15,7 +15,11 @@ Kite 默认支持一些环境变量，来改变一些配置项的默认值。
 
 - **TRUSTED_PROXIES**：以逗号分隔的反向代理、Ingress 或负载均衡器 IP/CIDR 列表；只有这些直连 Kite 的上一跳才会被信任，Kite 才会读取其转发的 `X-Forwarded-For` / `X-Real-IP` 来判断客户端 IP。默认信任本地和常见私网网段（`127.0.0.0/8`、`10.0.0.0/8`、`172.16.0.0/12`、`192.168.0.0/16`、`::1`、`fc00::/7`），方便常见 Ingress 部署拿到真实用户 IP。生产环境建议配置为更窄的范围，例如 `TRUSTED_PROXIES=10.42.0.0/16,192.168.1.10`；如需忽略所有客户端转发头，可设置 `TRUSTED_PROXIES=none`。
 
+- **KUBECTL_TERMINAL_IMAGE**: 用于 kubectl 终端的 Docker 镜像。
+
 - **NODE_TERMINAL_IMAGE**: 用于生成 Node Terminal Agent 的 Docker 镜像。
+
+- **CONNECTOR_IMAGE**: 为 Connector 类型集群生成 Kite Connector 部署清单时使用的 Docker 镜像。
 
 - **ENABLE_ANALYTICS**：启用数据分析功能，默认值为 `false`。当启用后，Kite 将收集有限数据以帮助改进产品。
 

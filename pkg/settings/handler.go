@@ -27,6 +27,7 @@ func HandleGetGeneralSetting(c *gin.Context) {
 		"kubectlEnabled":        setting.KubectlEnabled,
 		"kubectlImage":          setting.KubectlImage,
 		"nodeTerminalImage":     setting.NodeTerminalImage,
+		"connectorImage":        setting.ConnectorImage,
 		"enableAnalytics":       setting.EnableAnalytics,
 		"enableVersionCheck":    setting.EnableVersionCheck,
 		"passwordLoginDisabled": setting.PasswordLoginDisabled,
@@ -46,6 +47,7 @@ type UpdateGeneralSettingRequest struct {
 	KubectlEnabled        *bool   `json:"kubectlEnabled"`
 	KubectlImage          *string `json:"kubectlImage"`
 	NodeTerminalImage     *string `json:"nodeTerminalImage"`
+	ConnectorImage        *string `json:"connectorImage"`
 	EnableAnalytics       *bool   `json:"enableAnalytics"`
 	EnableVersionCheck    *bool   `json:"enableVersionCheck"`
 	PasswordLoginDisabled *bool   `json:"passwordLoginDisabled"`
@@ -116,7 +118,7 @@ func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 		return
 	}
 	if kubectlImage == "" {
-		kubectlImage = model.DefaultGeneralKubectlImage
+		kubectlImage = model.DefaultGeneralKubectlImageValue()
 	}
 	nodeTerminalImage := strings.TrimSpace(currentSetting.NodeTerminalImage)
 	if req.NodeTerminalImage != nil {
@@ -124,6 +126,13 @@ func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 	}
 	if nodeTerminalImage == "" {
 		nodeTerminalImage = model.DefaultGeneralNodeTerminalImageValue()
+	}
+	connectorImage := strings.TrimSpace(currentSetting.ConnectorImage)
+	if req.ConnectorImage != nil {
+		connectorImage = strings.TrimSpace(*req.ConnectorImage)
+	}
+	if connectorImage == "" {
+		connectorImage = model.DefaultGeneralConnectorImageValue()
 	}
 
 	aiMaxTokens := currentSetting.AIMaxTokens
@@ -158,6 +167,9 @@ func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 	}
 	if req.NodeTerminalImage != nil {
 		updates["node_terminal_image"] = nodeTerminalImage
+	}
+	if req.ConnectorImage != nil {
+		updates["connector_image"] = connectorImage
 	}
 	if req.EnableAnalytics != nil {
 		updates["enable_analytics"] = *req.EnableAnalytics
@@ -199,6 +211,7 @@ func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 		"kubectlEnabled":        updated.KubectlEnabled,
 		"kubectlImage":          updated.KubectlImage,
 		"nodeTerminalImage":     updated.NodeTerminalImage,
+		"connectorImage":        updated.ConnectorImage,
 		"enableAnalytics":       updated.EnableAnalytics,
 		"enableVersionCheck":    updated.EnableVersionCheck,
 		"passwordLoginDisabled": updated.PasswordLoginDisabled,

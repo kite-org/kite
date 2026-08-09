@@ -779,6 +779,13 @@
         "image": "Image"
       }
     },
+    "connector": {
+      "title": "Connector Image",
+      "description": "Container image used when generating the Kite Connector manifest for connector-type clusters.",
+      "form": {
+        "image": "Image"
+      }
+    },
     "runtime": {
       "title": "Runtime",
       "description": "Configure analytics and version checking behavior.",
@@ -887,6 +894,9 @@
       "yaml": "Kubernetes YAML",
       "copyCommand": "Copy command",
       "copyYaml": "Copy YAML",
+      "applyUrl": "Apply directly with URL",
+      "copyApplyCommand": "Copy apply command",
+      "orUseYaml": "Or deploy with YAML",
       "copyError": "Failed to copy. Copy the content manually."
     },
     "empty": {

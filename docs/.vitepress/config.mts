@@ -108,6 +108,7 @@ export default defineConfig({
             { text: "Helm Management", link: "/guide/helm-management" },
             { text: "AI Assistant", link: "/guide/ai-assistant" },
             { text: "Web Terminal", link: "/guide/web-terminal" },
+            { text: "Kite Connector", link: "/guide/kite-connector" },
             { text: "Resource History", link: "/guide/resource-history" },
             { text: "Custom Sidebar", link: "/guide/custom-sidebar" },
             { text: "Kube Proxy", link: "/guide/kube-proxy" },

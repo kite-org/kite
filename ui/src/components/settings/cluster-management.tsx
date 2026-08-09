@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -65,6 +66,7 @@ export function ClusterManagement() {
   const [deletingCluster, setDeletingCluster] = useState<Cluster | null>(null)
   const [connectorCommand, setConnectorCommand] = useState('')
   const [connectorYaml, setConnectorYaml] = useState('')
+  const [connectorManifestURL, setConnectorManifestURL] = useState('')
   const [connectorCopyError, setConnectorCopyError] = useState<
     'command' | 'yaml' | null
   >(null)
@@ -233,7 +235,17 @@ export function ClusterManagement() {
 
   const createMutation = useMutation({
     mutationFn: createCluster,
-    onSuccess: ({ connectorServer, connectorToken }) => {
+    onSuccess: ({
+      connectorServer,
+      connectorToken,
+      connectorManifestURL,
+      connectorYaml,
+    }: {
+      connectorServer?: string
+      connectorToken?: string
+      connectorManifestURL?: string
+      connectorYaml?: string
+    }) => {
       queryClient.invalidateQueries({ queryKey: ['cluster-list'] })
       toast.success(
         t('clusterManagement.messages.created', 'Cluster created successfully')
@@ -244,67 +256,8 @@ export function ClusterManagement() {
         setConnectorCommand(
           `kite connector --server='${connectorServer}' --token='${connectorToken}'`
         )
-        setConnectorYaml(`apiVersion: v1
-kind: Secret
-metadata:
-  name: kite-connector-token
-  namespace: kube-system
-type: Opaque
-stringData:
-  token: ${JSON.stringify(connectorToken)}
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: kite-connector
-  namespace: kube-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: kite-connector
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-admin
-subjects:
-  - kind: ServiceAccount
-    name: kite-connector
-    namespace: kube-system
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: kite-connector
-  namespace: kube-system
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: kite-connector
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/name: kite-connector
-    spec:
-      serviceAccountName: kite-connector
-      containers:
-        - name: connector
-          image: ghcr.io/kite-org/kite:latest
-          command:
-            - /app/kite
-          args:
-            - connector
-            - --server=$(KITE_SERVER)
-            - --token=$(CONNECTOR_TOKEN)
-          env:
-            - name: KITE_SERVER
-              value: ${JSON.stringify(connectorServer)}
-            - name: CONNECTOR_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: kite-connector-token
-                  key: token`)
+        setConnectorYaml(connectorYaml || '')
+        setConnectorManifestURL(connectorManifestURL || '')
       }
     },
     onError: (error: Error) => {
@@ -501,6 +454,7 @@ spec:
           if (!open) {
             setConnectorCommand('')
             setConnectorYaml('')
+            setConnectorManifestURL('')
             setConnectorCopyError(null)
           }
         }}
@@ -569,15 +523,64 @@ spec:
               )}
             </TabsContent>
             <TabsContent value="yaml" className="space-y-2">
-              <Textarea
-                readOnly
-                className="h-96 resize-none font-mono text-xs"
-                aria-label={t(
-                  'clusterManagement.connector.yaml',
-                  'Kubernetes YAML'
-                )}
-                value={connectorYaml}
-              />
+              {connectorManifestURL && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">
+                    {t(
+                      'clusterManagement.connector.applyUrl',
+                      'Apply directly with URL'
+                    )}
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      readOnly
+                      className="font-mono text-xs"
+                      value={`kubectl apply -f ${connectorManifestURL}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      aria-label={t(
+                        'clusterManagement.connector.copyApplyCommand',
+                        'Copy apply command'
+                      )}
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(
+                            `kubectl apply -f ${connectorManifestURL}`
+                          )
+                          setConnectorCopyError(null)
+                          toast.success(t('common.messages.copied', 'Copied'))
+                        } catch {
+                          setConnectorCopyError('yaml')
+                        }
+                      }}
+                    >
+                      <IconCopy className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {connectorManifestURL && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">
+                    {t(
+                      'clusterManagement.connector.orUseYaml',
+                      'Or deploy with YAML'
+                    )}
+                  </Label>
+                  <Textarea
+                    readOnly
+                    className="h-96 resize-none font-mono text-xs"
+                    aria-label={t(
+                      'clusterManagement.connector.yaml',
+                      'Kubernetes YAML'
+                    )}
+                    value={connectorYaml}
+                  />
+                </div>
+              )}
               <div className="flex justify-end">
                 <Button
                   type="button"
@@ -613,6 +616,7 @@ spec:
               onClick={() => {
                 setConnectorCommand('')
                 setConnectorYaml('')
+                setConnectorManifestURL('')
                 setConnectorCopyError(null)
               }}
             >

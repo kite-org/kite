@@ -18,6 +18,26 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// connectorServerURL derives the Kite server URL from the request context,
+// using common.Host / X-Forwarded-Host / request host and common.Base.
+func connectorServerURL(c *gin.Context) string {
+	scheme := "http"
+	if c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https") {
+		scheme = "https"
+	}
+	host := strings.TrimSpace(common.Host)
+	if host == "" {
+		host = strings.TrimSpace(c.GetHeader("X-Forwarded-Host"))
+		if host == "" {
+			host = c.Request.Host
+		}
+	}
+	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
+		host = scheme + "://" + host
+	}
+	return fmt.Sprintf("%s%s", strings.TrimRight(host, "/"), common.Base)
+}
+
 func (cm *ClusterManager) GetClusters(c *gin.Context) {
 	clusters, errors, defaultContext := cm.snapshotState()
 	result := make([]common.ClusterInfo, 0, len(clusters))
@@ -161,22 +181,18 @@ func (cm *ClusterManager) CreateCluster(c *gin.Context) {
 		"message": "cluster created successfully",
 	}
 	if req.Connector {
-		scheme := "http"
-		if c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https") {
-			scheme = "https"
-		}
-		host := strings.TrimSpace(common.Host)
-		if host == "" {
-			host = strings.TrimSpace(c.GetHeader("X-Forwarded-Host"))
-			if host == "" {
-				host = c.Request.Host
-			}
-		}
-		if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
-			host = scheme + "://" + host
-		}
-		result["connectorServer"] = fmt.Sprintf("%s%s", strings.TrimRight(host, "/"), common.Base)
+		serverURL := connectorServerURL(c)
+		result["connectorServer"] = serverURL
 		result["connectorToken"] = connectorToken
+		image := model.DefaultGeneralConnectorImageValue()
+		if setting, err := model.GetGeneralSetting(); err == nil && setting != nil && setting.ConnectorImage != "" {
+			image = setting.ConnectorImage
+		}
+		// Build the manifest download URL so the user can kubectl apply -f <url>.
+		result["connectorManifestURL"] = fmt.Sprintf("%s/api/v1/connector/manifest?token=%s", strings.TrimRight(serverURL, "/"), connectorToken)
+		// Include the pre-generated manifest so the frontend does not need to
+		// duplicate the template logic.
+		result["connectorYaml"] = connector.GenerateManifest(serverURL, connectorToken, image)
 	}
 	c.JSON(http.StatusCreated, result)
 }
@@ -300,6 +316,31 @@ func (cm *ClusterManager) DeleteCluster(c *gin.Context) {
 
 func (cm *ClusterManager) ConnectConnector(c *gin.Context) {
 	cm.connectorManager.ServeHTTP(c.Writer, c.Request)
+}
+
+// GetConnectorManifest returns a Kubernetes YAML manifest that deploys the
+// Connector inside a target cluster. Authentication is done via the connector
+// token in the query string, so no JWT is required (similar to ConnectConnector).
+func (cm *ClusterManager) GetConnectorManifest(c *gin.Context) {
+	token := strings.TrimSpace(c.Query("token"))
+	if token == "" || !connector.ValidToken(token) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		return
+	}
+	hash := connector.TokenHash(token)
+	cluster, err := model.GetClusterByConnectorTokenHash(hash)
+	if err != nil || cluster == nil || !cluster.Connector || !cluster.Enable {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		return
+	}
+	serverURL := connectorServerURL(c)
+	image := model.DefaultGeneralConnectorImageValue()
+	if setting, err := model.GetGeneralSetting(); err == nil && setting != nil && setting.ConnectorImage != "" {
+		image = setting.ConnectorImage
+	}
+	manifest := connector.GenerateManifest(serverURL, token, image)
+	c.Header("Content-Disposition", `attachment; filename="kite-connector.yaml"`)
+	c.Data(http.StatusOK, "text/yaml; charset=utf-8", []byte(manifest))
 }
 
 func (cm *ClusterManager) ImportClustersFromKubeconfig(c *gin.Context) {

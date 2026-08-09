@@ -69,6 +69,7 @@ func TestLoadEnvs(t *testing.T) {
 	t.Setenv("NAMESPACE", "test-namespace")
 	t.Setenv("NODE_TERMINAL_IMAGE", "test-node-image")
 	t.Setenv("KUBECTL_TERMINAL_IMAGE", "test-kubectl-image")
+	t.Setenv("CONNECTOR_IMAGE", "test-connector-image")
 	t.Setenv("DB_DSN", "test.db")
 	t.Setenv("DB_TYPE", "mysql")
 	t.Setenv("KITE_ENCRYPT_KEY", "test-encrypt-key")

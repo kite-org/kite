@@ -52,12 +52,16 @@ export const createCluster = async (
   message: string
   connectorServer?: string
   connectorToken?: string
+  connectorManifestURL?: string
+  connectorYaml?: string
 }> => {
   return await apiClient.post<{
     id: number
     message: string
     connectorServer?: string
     connectorToken?: string
+    connectorManifestURL?: string
+    connectorYaml?: string
   }>('/admin/clusters/', clusterData)
 }
 
@@ -364,6 +368,7 @@ export interface GeneralSetting {
   kubectlEnabled: boolean
   kubectlImage: string
   nodeTerminalImage: string
+  connectorImage: string
   enableAnalytics: boolean
   enableVersionCheck: boolean
   passwordLoginDisabled: boolean
@@ -382,6 +387,7 @@ export interface GeneralSettingUpdateRequest {
   kubectlEnabled?: boolean
   kubectlImage?: string
   nodeTerminalImage?: string
+  connectorImage?: string
   enableAnalytics?: boolean
   enableVersionCheck?: boolean
   passwordLoginDisabled?: boolean

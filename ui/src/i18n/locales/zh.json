@@ -790,6 +790,13 @@
         "image": "镜像"
       }
     },
+    "connector": {
+      "title": "Connector 镜像",
+      "description": "为 Connector 类型集群生成 Kite Connector 部署清单时使用的容器镜像。",
+      "form": {
+        "image": "镜像"
+      }
+    },
     "runtime": {
       "title": "运行时",
       "description": "配置数据统计和版本检查。",
@@ -898,6 +905,9 @@
       "yaml": "Kubernetes YAML",
       "copyCommand": "复制命令行",
       "copyYaml": "复制 YAML",
+      "applyUrl": "通过 URL 直接部署",
+      "copyApplyCommand": "复制部署命令",
+      "orUseYaml": "或使用 YAML 部署",
       "copyError": "复制失败，请手动复制内容。"
     },
     "empty": {

@@ -56,9 +56,20 @@ func NewToken() (string, string, error) {
 	return token, hex.EncodeToString(hash[:]), nil
 }
 
+// TokenHash returns the SHA-256 hex hash for a plaintext connector token.
+func TokenHash(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(hash[:])
+}
+
 func validToken(token string) bool {
 	decoded, err := base64.RawURLEncoding.Strict().DecodeString(token)
 	return err == nil && len(decoded) == connectorTokenSize
+}
+
+// ValidToken checks whether the token string has a valid format.
+func ValidToken(token string) bool {
+	return validToken(token)
 }
 
 func (m *Manager) authorize(req *http.Request) (string, bool, error) {
