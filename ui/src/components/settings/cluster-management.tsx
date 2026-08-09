@@ -576,7 +576,7 @@ export function ClusterManagement() {
                     <Input
                       readOnly
                       className="font-mono text-xs"
-                      value={`kubectl apply -f ${connectorManifestURL}`}
+                      value={`kubectl apply -f "${connectorManifestURL}"`}
                     />
                     <Button
                       type="button"
@@ -589,7 +589,7 @@ export function ClusterManagement() {
                       onClick={async () => {
                         try {
                           await navigator.clipboard.writeText(
-                            `kubectl apply -f ${connectorManifestURL}`
+                            `kubectl apply -f "${connectorManifestURL}"`
                           )
                           setConnectorCopyError(null)
                           toast.success(t('common.messages.copied', 'Copied'))
