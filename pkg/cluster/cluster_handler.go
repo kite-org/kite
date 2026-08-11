@@ -316,6 +316,10 @@ func (cm *ClusterManager) ConnectConnector(c *gin.Context) {
 	cm.connectorManager.ServeHTTP(c.Writer, c.Request)
 }
 
+func (cm *ClusterManager) RegisterConnector(c *gin.Context) {
+	cm.connectorManager.Register(c.Writer, c.Request)
+}
+
 func (cm *ClusterManager) GetConnectorManifest(c *gin.Context) {
 	grant := strings.TrimSpace(c.Query("grant"))
 	token, err := cm.connectorManager.ResolveManifestGrant(grant)

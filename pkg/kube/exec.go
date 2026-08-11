@@ -5,13 +5,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
 
 	"github.com/zxh326/kite/pkg/common"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
-	"k8s.io/streaming/pkg/httpstream"
 )
 
 // ExecOptions holds parameters for ExecCommand
@@ -43,19 +41,9 @@ func (c *K8sClient) ExecCommand(ctx context.Context, opts ExecOptions) error {
 		TTY:       opts.TTY,
 	}, scheme.ParameterCodec)
 
-	spdyExec, err := remotecommand.NewSPDYExecutor(c.Configuration, http.MethodPost, req.URL())
+	exec, err := newRemoteCommandExecutor(c.Configuration, req.URL())
 	if err != nil {
 		return fmt.Errorf("failed to create executor: %w", err)
-	}
-	websocketExec, err := remotecommand.NewWebSocketExecutor(c.Configuration, http.MethodGet, req.URL().String())
-	if err != nil {
-		return fmt.Errorf("failed to create WebSocket executor: %w", err)
-	}
-	exec, err := remotecommand.NewFallbackExecutor(websocketExec, spdyExec, func(err error) bool {
-		return httpstream.IsUpgradeFailure(err) || httpstream.IsHTTPSProxyError(err)
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create fallback executor: %w", err)
 	}
 
 	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{

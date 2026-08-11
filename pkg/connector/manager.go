@@ -4,24 +4,15 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/subtle"
-	"crypto/tls"
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"io"
-	"math/big"
 	"net"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -36,7 +27,6 @@ import (
 )
 
 const (
-	kubernetesAPITarget  = "kubernetes-api"
 	connectorTokenSize   = 32
 	manifestGrantTimeout = 10 * time.Minute
 	manifestGrantAAD     = "kite:connector-manifest-grant:v1"
@@ -55,27 +45,19 @@ type manifestGrant struct {
 	ExpiresAt      int64  `json:"exp"`
 }
 
-type localProxy struct {
-	listener  net.Listener
-	server    *http.Server
-	transport *http.Transport
-	token     string
-	caData    []byte
-}
-
 type Manager struct {
-	server    *remotedialer.Server
-	onChange  func()
-	jwtSecret string
-	mu        sync.Mutex
-	proxies   map[string]*localProxy
+	server        *remotedialer.Server
+	onChange      func()
+	jwtSecret     string
+	mu            sync.RWMutex
+	registrations map[string]registeredCluster
 }
 
 func NewManager(onChange func()) *Manager {
 	m := &Manager{
-		onChange:  onChange,
-		jwtSecret: common.JwtSecret,
-		proxies:   make(map[string]*localProxy),
+		onChange:      onChange,
+		jwtSecret:     common.JwtSecret,
+		registrations: make(map[string]registeredCluster),
 	}
 	m.server = remotedialer.New(m.authorize, remotedialer.DefaultErrorWriter)
 	return m
@@ -187,12 +169,7 @@ func (m *Manager) ResolveManifestGrant(grant string) (string, error) {
 }
 
 func (m *Manager) authorize(req *http.Request) (string, bool, error) {
-	authorization := req.Header.Get("Authorization")
-	token, found := strings.CutPrefix(authorization, "Bearer ")
-	if !found || token == "" {
-		return "", false, nil
-	}
-	cluster, err := resolveToken(token)
+	cluster, err := authenticateConnector(req)
 	if err != nil {
 		klog.Errorf("Failed to validate connector token: %v", err)
 		return "", false, errors.New("failed to validate connector token")
@@ -222,6 +199,19 @@ func (m *Manager) authorize(req *http.Request) (string, bool, error) {
 	return clientKey, true, nil
 }
 
+func authenticateConnector(req *http.Request) (*model.Cluster, error) {
+	authorization := req.Header.Get("Authorization")
+	token, found := strings.CutPrefix(authorization, "Bearer ")
+	if !found || token == "" {
+		return nil, nil
+	}
+	cluster, err := resolveToken(token)
+	if err != nil {
+		return nil, err
+	}
+	return cluster, nil
+}
+
 func (m *Manager) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	state := &requestState{}
 	req = req.WithContext(context.WithValue(req.Context(), requestStateKey{}, state))
@@ -237,116 +227,12 @@ func (m *Manager) Connected(clusterID uint) bool {
 
 func (m *Manager) Dialer(clusterID uint) func(context.Context, string, string) (net.Conn, error) {
 	clientKey := strconv.FormatUint(uint64(clusterID), 10)
-	dialer := m.server.Dialer(clientKey)
-	return func(ctx context.Context, network, _ string) (net.Conn, error) {
-		return dialer(ctx, network, kubernetesAPITarget)
-	}
-}
-
-func (m *Manager) Listen(clusterID uint) (string, string, []byte, error) {
-	clientKey := strconv.FormatUint(uint64(clusterID), 10)
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	cluster, err := model.GetClusterByID(clusterID)
-	if err != nil {
-		return "", "", nil, err
-	}
-	if !cluster.Connector || !cluster.Enable {
-		return "", "", nil, errors.New("connector cluster is unavailable")
-	}
-	if proxy, ok := m.proxies[clientKey]; ok {
-		return proxy.listener.Addr().String(), proxy.token, proxy.caData, nil
-	}
-
-	tokenBytes := make([]byte, connectorTokenSize)
-	if _, err := rand.Read(tokenBytes); err != nil {
-		return "", "", nil, err
-	}
-	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		return "", "", nil, err
-	}
-	serialLimit := new(big.Int).Lsh(big.NewInt(1), 128)
-	serialNumber, err := rand.Int(rand.Reader, serialLimit)
-	if err != nil {
-		return "", "", nil, err
-	}
-	serialNumber.SetBit(serialNumber, 0, 1)
-	now := time.Now()
-	certificateTemplate := &x509.Certificate{
-		SerialNumber:          serialNumber,
-		Subject:               pkix.Name{CommonName: "kite connector loopback"},
-		NotBefore:             now.Add(-time.Minute),
-		NotAfter:              now.AddDate(10, 0, 0),
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
-	}
-	certificateDER, err := x509.CreateCertificate(rand.Reader, certificateTemplate, certificateTemplate, publicKey, privateKey)
-	if err != nil {
-		return "", "", nil, err
-	}
-	token := base64.RawURLEncoding.EncodeToString(tokenBytes)
-	caData := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificateDER})
-	expectedAuthorization := []byte("Bearer " + token)
-	target := &url.URL{Scheme: "http", Host: kubernetesAPITarget}
-	transport := &http.Transport{DialContext: m.Dialer(clusterID)}
-	reverseProxy := &httputil.ReverseProxy{
-		Rewrite: func(req *httputil.ProxyRequest) {
-			req.SetURL(target)
-			req.Out.Host = target.Host
-			req.Out.Header.Del("Authorization")
-		},
-		Transport:     transport,
-		FlushInterval: -1,
-	}
-	server := &http.Server{
-		Handler: http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-			if subtle.ConstantTimeCompare([]byte(req.Header.Get("Authorization")), expectedAuthorization) != 1 {
-				rw.Header().Set("WWW-Authenticate", "Bearer")
-				http.Error(rw, "unauthorized", http.StatusUnauthorized)
-				return
-			}
-			reverseProxy.ServeHTTP(rw, req)
-		}),
-		ReadHeaderTimeout: 10 * time.Second,
-		TLSConfig: &tls.Config{
-			Certificates: []tls.Certificate{{
-				Certificate: [][]byte{certificateDER},
-				PrivateKey:  privateKey,
-			}},
-			MinVersion: tls.VersionTLS13,
-		},
-	}
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return "", "", nil, err
-	}
-	m.proxies[clientKey] = &localProxy{
-		listener:  listener,
-		server:    server,
-		transport: transport,
-		token:     token,
-		caData:    caData,
-	}
-	go func() {
-		if err := server.ServeTLS(listener, "", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			klog.Errorf("Connector proxy for cluster %s stopped: %v", clientKey, err)
-		}
-	}()
-	return listener.Addr().String(), token, caData, nil
+	return m.server.Dialer(clientKey)
 }
 
 func (m *Manager) Remove(clusterID uint) {
 	clientKey := strconv.FormatUint(uint64(clusterID), 10)
 	m.mu.Lock()
-	proxy := m.proxies[clientKey]
-	delete(m.proxies, clientKey)
+	delete(m.registrations, clientKey)
 	m.mu.Unlock()
-	if proxy != nil {
-		_ = proxy.server.Close()
-		proxy.transport.CloseIdleConnections()
-	}
 }

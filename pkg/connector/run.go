@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"strings"
 	"time"
@@ -18,43 +17,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type singleConnListener struct {
-	conn net.Conn
-	addr net.Addr
-}
-
-// upgradeAwareTransport routes upgrade requests (SPDY/WebSocket) through an
-// HTTP/1.1-only transport, while letting regular requests use the standard
-// transport which may negotiate HTTP/2.  HTTP/2 rejects Upgrade headers, so
-// kubectl exec/attach/port-forward requests must go over HTTP/1.1.
-type upgradeAwareTransport struct {
-	normal    http.RoundTripper
-	http1Only http.RoundTripper
-}
-
-func (t *upgradeAwareTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.Header.Get("Upgrade") != "" {
-		return t.http1Only.RoundTrip(req)
-	}
-	return t.normal.RoundTrip(req)
-}
-
-func (l *singleConnListener) Accept() (net.Conn, error) {
-	if l.conn == nil {
-		return nil, net.ErrClosed
-	}
-	conn := l.conn
-	l.conn = nil
-	return conn, nil
-}
-
-func (l *singleConnListener) Close() error {
-	return nil
-}
-
-func (l *singleConnListener) Addr() net.Addr {
-	return l.addr
-}
+const registrationRefreshInterval = time.Minute
 
 func Run(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("kite connector", flag.ContinueOnError)
@@ -79,19 +42,12 @@ func Run(ctx context.Context, args []string) error {
 	if serverURL.Fragment != "" {
 		return errors.New("server URL must not contain a fragment")
 	}
-	switch serverURL.Scheme {
-	case "http":
-		serverURL.Scheme = "ws"
-	case "https":
-		serverURL.Scheme = "wss"
-	default:
+	if serverURL.Scheme != "http" && serverURL.Scheme != "https" {
 		return errors.New("server URL must use http or https")
 	}
 	if serverURL.Host == "" {
 		return errors.New("invalid connector server URL")
 	}
-	serverURL.Path = strings.TrimRight(serverURL.Path, "/") + "/api/v1/connector/connect"
-	serverURL.RawPath = ""
 
 	var config *rest.Config
 	if *kubeconfig == "" {
@@ -105,79 +61,79 @@ func Run(ctx context.Context, args []string) error {
 			return fmt.Errorf("load kubeconfig: %w", err)
 		}
 	}
-	target, err := url.Parse(config.Host)
-	if err != nil {
-		return fmt.Errorf("parse Kubernetes API URL: %w", err)
-	}
 
-	// Create two transports so we can conditionally force HTTP/1.1 only for
-	// upgrade requests (SPDY/WebSocket used by kubectl exec, attach,
-	// port-forward).  HTTP/2 does not allow Upgrade headers and would reject
-	// those requests, but regular requests benefit from HTTP/2 multiplexing.
-	normalTransport, err := rest.TransportFor(config)
+	apiAddress, err := apiServerAddress(config.Host)
 	if err != nil {
-		return fmt.Errorf("create Kubernetes API transport: %w", err)
+		return err
 	}
-	h1Config := rest.CopyConfig(config)
-	h1Config.NextProtos = []string{"http/1.1"}
-	h1Transport, err := rest.TransportFor(h1Config)
-	if err != nil {
-		return fmt.Errorf("create HTTP/1.1 transport: %w", err)
+	registrationURL := *serverURL
+	registrationURL.Path = strings.TrimRight(registrationURL.Path, "/") + "/api/v1/connector/register"
+	registrationURL.RawPath = ""
+	registrationURL.RawQuery = ""
+	connectURL := *serverURL
+	if connectURL.Scheme == "http" {
+		connectURL.Scheme = "ws"
+	} else {
+		connectURL.Scheme = "wss"
 	}
-	transport := &upgradeAwareTransport{
-		normal:    normalTransport,
-		http1Only: h1Transport,
-	}
+	connectURL.Path = strings.TrimRight(connectURL.Path, "/") + "/api/v1/connector/connect"
+	connectURL.RawPath = ""
+	connectURL.RawQuery = ""
 
-	proxy := &httputil.ReverseProxy{
-		Rewrite: func(req *httputil.ProxyRequest) {
-			req.SetURL(target)
-			req.Out.Host = target.Host
-			req.Out.Header.Del("Authorization")
-			for name := range req.Out.Header {
-				if strings.HasPrefix(strings.ToLower(name), "impersonate-") {
-					req.Out.Header.Del(name)
+	client := &http.Client{Timeout: 30 * time.Second}
+	go func() {
+		ticker := time.NewTicker(registrationRefreshInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := registerConnector(ctx, client, registrationURL.String(), *token, config); err != nil {
+					klog.Warningf("Failed to refresh connector registration: %v", err)
 				}
 			}
-		},
-		Transport:     transport,
-		FlushInterval: -1,
-	}
+		}
+	}()
+
 	headers := http.Header{"Authorization": []string{"Bearer " + *token}}
-	localDialer := func(_ context.Context, network, address string) (net.Conn, error) {
-		if network != "tcp" || address != kubernetesAPITarget {
-			return nil, fmt.Errorf("unsupported tunnel target %s/%s", network, address)
-		}
-		proxyConn, tunnelConn := net.Pipe()
-		proxyServer := &http.Server{
-			Handler:           proxy,
-			ReadHeaderTimeout: 10 * time.Second,
-		}
-		go func() {
-			_ = proxyServer.Serve(&singleConnListener{conn: proxyConn, addr: proxyConn.LocalAddr()})
-		}()
-		return tunnelConn, nil
-	}
 	authorizer := func(network, address string) bool {
-		return network == "tcp" && address == kubernetesAPITarget
+		return network == "tcp" && address == apiAddress
 	}
 
 	klog.Info("Kite connector started")
-	retryCount := 0
 	for {
-		err := remotedialer.ConnectToProxyWithDialer(ctx, serverURL.String(), headers, authorizer, nil, localDialer, nil)
+		err := registerConnector(ctx, client, registrationURL.String(), *token, config)
+		if err == nil {
+			err = remotedialer.ConnectToProxy(ctx, connectURL.String(), headers, authorizer, nil, nil)
+		}
 		if ctx.Err() != nil {
 			return nil //nolint:nilerr // Context cancellation is a clean shutdown.
 		}
-		retryCount++
-		klog.Warningf("Kite connector connection lost (retry %d): %v", retryCount, err)
-		if retryCount >= 10 {
-			return fmt.Errorf("kite connector failed to connect after %d retries: %w", retryCount, err)
-		}
+		klog.Warningf("Kite connector unavailable: %v; retrying in 5 seconds", err)
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-time.After(5 * time.Second):
 		}
 	}
+}
+
+func apiServerAddress(host string) (string, error) {
+	apiURL, err := url.Parse(host)
+	if err != nil || apiURL.Hostname() == "" {
+		return "", fmt.Errorf("invalid Kubernetes API URL %q", host)
+	}
+	port := apiURL.Port()
+	if port == "" {
+		switch apiURL.Scheme {
+		case "http":
+			port = "80"
+		case "https":
+			port = "443"
+		default:
+			return "", fmt.Errorf("Kubernetes API URL must use http or https")
+		}
+	}
+	return net.JoinHostPort(apiURL.Hostname(), port), nil
 }

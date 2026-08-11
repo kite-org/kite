@@ -30,6 +30,7 @@ type ClientSet struct {
 	DiscoveredPrometheusURL string
 	config                  string
 	prometheusURL           string
+	connectorGeneration     uint64
 }
 
 type ClusterManager struct {
@@ -312,7 +313,11 @@ func syncClusters(cm *ClusterManager, readyCh chan<- struct{}) error {
 			cm.mu.Unlock()
 			continue
 		}
-		if shouldUpdateCluster(current, cluster) {
+		connectorConfigChanged := cluster.Connector && currentExist && current.connectorGeneration != cm.connectorManager.Generation(cluster.ID)
+		if connectorConfigChanged {
+			klog.Infof("Connector transport configuration changed for cluster %s, updating", cluster.Name)
+		}
+		if connectorConfigChanged || shouldUpdateCluster(current, cluster) {
 			if currentExist {
 				cm.mu.Lock()
 				delete(cm.clusters, cluster.Name)
@@ -429,20 +434,16 @@ func (cm *ClusterManager) buildClientSet(cluster *model.Cluster) (*ClientSet, er
 	if !cluster.Connector {
 		return buildClientSet(cluster)
 	}
-	address, token, caData, err := cm.connectorManager.Listen(cluster.ID)
+	config, generation, err := cm.connectorManager.RESTConfig(cluster.ID)
 	if err != nil {
 		return nil, err
 	}
-	return newClientSet(cluster.Name, &rest.Config{
-		Host:        "https://" + address,
-		BearerToken: token,
-		TLSClientConfig: rest.TLSClientConfig{
-			CAData: caData,
-		},
-		Proxy: func(*http.Request) (*url.URL, error) {
-			return nil, nil
-		},
-	}, cluster.PrometheusURL)
+	clientSet, err := newClientSet(cluster.Name, config, cluster.PrometheusURL)
+	if err != nil {
+		return nil, err
+	}
+	clientSet.connectorGeneration = generation
+	return clientSet, nil
 }
 
 func (cm *ClusterManager) syncClusters() error {
