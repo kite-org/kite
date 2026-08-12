@@ -3,7 +3,7 @@ module github.com/zxh326/kite
 go 1.26.0
 
 require (
-	github.com/anthropics/anthropic-sdk-go v1.61.0
+	github.com/anthropics/anthropic-sdk-go v1.62.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bytedance/mockey v1.4.6
 	github.com/fsnotify/fsnotify v1.10.1
