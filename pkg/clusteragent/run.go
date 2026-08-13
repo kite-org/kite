@@ -16,7 +16,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const registrationRefreshInterval = time.Minute
+const registrationRefreshInterval = 10 * time.Minute
 
 func Run(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("kite cluster-agent", flag.ContinueOnError)

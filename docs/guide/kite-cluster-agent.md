@@ -14,7 +14,6 @@ Kite Cluster Agent reverses the connection direction:
 
 - The Cluster Agent dials Kite Server from the cluster side; Kite does not need to enter the cluster network.
 - Kubernetes credentials are encrypted with the cluster's registration public key before they are uploaded to Kite Server.
-- Kite still uses its existing Kubernetes Client to access the cluster, so resource management, logs, and terminals do not need a separate protocol.
 
 ## How It Works
 
@@ -42,13 +41,10 @@ Target cluster kube-apiserver
 The detailed process:
 
 1. When you create a Cluster Agent cluster in the Kite UI, Kite generates a random connection token and an X25519 registration key pair. It stores only the token's SHA-256 hash, encrypts the registration private key in the database, and shows the raw token and public key once after creation.
-2. The Cluster Agent loads its in-cluster ServiceAccount or kubeconfig, encrypts the API server address, CA, and Kubernetes credentials with a NaCl sealed box, and sends the registration to `/api/v1/cluster-agent/register`. It refreshes this registration every minute.
-3. Kite Server decrypts the registration with the cluster private key and keeps the resulting transport configuration and credentials in process memory.
-4. After registering successfully, the Cluster Agent connects to `/api/v1/cluster-agent/connect` using WebSocket and the connection token. Kite validates the token and binds the remotedialer session to the corresponding cluster.
-5. Kite Server builds its Kubernetes REST configuration from the registered data. It removes `Impersonate-*` headers and applies the Cluster Agent's registered Kubernetes credentials on the server-side transport.
-6. When the Kubernetes transport needs a connection, remotedialer asks the Cluster Agent to open a TCP connection to kube-apiserver. The Cluster Agent forwards bytes over that connection; it does not run an HTTP reverse proxy or inject Kubernetes credentials itself.
-
-A single Cluster Agent WebSocket can carry multiple Kubernetes API connections. Streaming requests such as logs, watches, and terminals also travel over the same tunnel.
+2. The Cluster Agent loads its in-cluster ServiceAccount or kubeconfig, encrypts it, and sends it to `/api/v1/cluster-agent/register`. The Cluster Agent refreshes this registration every 10 minutes.
+3. Kite Server decrypts the registration with the cluster private key and keeps the decrypted configuration and credentials in process memory.
+4. After registering successfully, the Cluster Agent connects to `/api/v1/cluster-agent/connect` using the connection token. Kite validates the token and binds the session to the corresponding cluster.
+5. Kite Server can then access the cluster's kube-apiserver directly through this WebSocket tunnel, forwarding Kubernetes API requests and streaming requests.
 
 ## Usage
 

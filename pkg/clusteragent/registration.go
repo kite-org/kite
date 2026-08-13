@@ -230,6 +230,12 @@ func (m *Manager) RESTConfig(clusterID uint) (*rest.Config, uint64, error) {
 			NextProtos: []string{"http/1.1"},
 		},
 		Dial: m.Dialer(clusterID),
+		// Always dial the registered API server through the tunnel; an
+		// env-configured proxy would bypass it and could leak the cluster's
+		// Authorization header.
+		Proxy: func(*http.Request) (*url.URL, error) {
+			return nil, nil
+		},
 	}
 	config.WrapTransport = func(next http.RoundTripper) http.RoundTripper {
 		return &authorizationRoundTripper{next: next, manager: m, clientKey: clientKey}

@@ -14,7 +14,6 @@ Kite Cluster Agent 将连接方向反转：
 
 - Cluster Agent 从集群侧主动连接 Kite Server，不要求 Kite 主动进入集群网络。
 - Kubernetes 凭据使用集群注册公钥加密后再上传到 Kite Server。
-- Kite 仍然使用现有 Kubernetes Client 访问集群，资源管理、日志和终端等功能不需要单独实现一套协议。
 
 ## 原理
 
@@ -42,13 +41,10 @@ Cluster Agent 代拨 TCP
 具体过程：
 
 1. 在 Kite UI 中创建 Cluster Agent 集群时，Kite 生成一个随机连接 Token 和一对 X25519 注册密钥，只保存 Token 的 SHA-256 哈希，将注册私钥加密存入数据库，并在创建成功后展示一次原始 Token 和公钥。
-2. Cluster Agent 加载集群内 ServiceAccount 或 kubeconfig，使用 NaCl sealed box 加密 API Server 地址、CA 和 Kubernetes 凭据，再发送到 `/api/v1/cluster-agent/register`。Cluster Agent 每分钟刷新一次这份注册信息。
-3. Kite Server 使用集群私钥解密注册信息，并将解密后的 Transport 配置和凭据保存在进程内存中。
-4. 注册成功后，Cluster Agent 使用连接 Token 连接 `/api/v1/cluster-agent/connect` WebSocket 接口。Kite 校验 Token 后，将 remotedialer Session 绑定到对应集群。
-5. Kite Server 根据注册信息构建 Kubernetes REST 配置，在 Server 端的 Transport 中移除 `Impersonate-*` 请求头，并注入 Cluster Agent 注册的 Kubernetes 凭据。
-6. Kubernetes Transport 需要建立连接时，remotedialer 通知 Cluster Agent 向 kube-apiserver 发起 TCP 连接。Cluster Agent 只负责在该连接上转发字节，不运行 HTTP 反向代理，也不在本地注入 Kubernetes 凭据。
-
-一条 Cluster Agent WebSocket 可以承载多个 Kubernetes API 连接。日志、Watch 和终端等流式请求也通过同一条隧道传输。
+2. Cluster Agent 加载集群内 ServiceAccount 或 kubeconfig，加密后发送到 `/api/v1/cluster-agent/register`。Cluster Agent 每 10 分钟刷新一次这份注册信息。
+3. Kite Server 使用集群私钥解密注册信息，并将解密后的配置和凭据保存在进程内存中。
+4. 注册成功后，Cluster Agent 使用连接 Token 连接 `/api/v1/cluster-agent/connect` WebSocket 接口。Kite 校验 Token 后，将此 Session 绑定到对应集群。
+5. 后续通过这个 websocket 隧道，Kite Server 可以直接访问集群的 kube-apiserver，转发 Kubernetes API 请求和流式请求。
 
 ## 使用方式
 
