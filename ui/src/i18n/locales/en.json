@@ -799,9 +799,9 @@
         "image": "Image"
       }
     },
-    "connector": {
-      "title": "Connector Image",
-      "description": "Container image used when generating the Kite Connector manifest for connector-type clusters.",
+    "clusterAgent": {
+      "title": "Cluster Agent Image",
+      "description": "Container image used when generating the Kite Cluster Agent manifest for Cluster Agent clusters.",
       "form": {
         "image": "Image"
       }
@@ -901,14 +901,14 @@
     "type": {
       "inCluster": "In-Cluster",
       "external": "External",
-      "connector": "Kite Connector"
+      "clusterAgent": "Kite Cluster Agent"
     },
     "status": {
-      "waiting": "Waiting for Connector",
+      "waiting": "Waiting for Cluster Agent",
       "connected": "Connected"
     },
-    "connector": {
-      "title": "Connect Kite Connector",
+    "clusterAgent": {
+      "title": "Connect Kite Cluster Agent",
       "description": "Choose a command or Kubernetes YAML to run inside the target cluster. This connection information is shown only once.",
       "command": "Command",
       "yaml": "Kubernetes YAML",
@@ -954,7 +954,7 @@
       "configPlaceholder": "Paste kubeconfig content here...",
       "prometheusUrl": "Prometheus URL",
       "prometheusUrlPlaceholder": "https://prometheus.example.com",
-      "connectorDescription": "Create the cluster first, then run the generated command inside the target cluster.",
+      "clusterAgentDescription": "Create the cluster first, then run the generated command inside the target cluster.",
       "enabled": "Enabled",
       "isDefault": "Set as Default"
     }

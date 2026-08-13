@@ -19,7 +19,7 @@ export interface ClusterCreateRequest {
   config?: string
   prometheusURL?: string
   inCluster?: boolean
-  connector?: boolean
+  clusterAgent?: boolean
   isDefault?: boolean
 }
 
@@ -50,16 +50,18 @@ export const createCluster = async (
 ): Promise<{
   id: number
   message: string
-  connectorServer?: string
-  connectorToken?: string
-  connectorManifestURL?: string
+  clusterAgentServer?: string
+  clusterAgentToken?: string
+  clusterAgentPublicKey?: string
+  clusterAgentManifestURL?: string
 }> => {
   return await apiClient.post<{
     id: number
     message: string
-    connectorServer?: string
-    connectorToken?: string
-    connectorManifestURL?: string
+    clusterAgentServer?: string
+    clusterAgentToken?: string
+    clusterAgentPublicKey?: string
+    clusterAgentManifestURL?: string
   }>('/admin/clusters/', clusterData)
 }
 
@@ -366,7 +368,7 @@ export interface GeneralSetting {
   kubectlEnabled: boolean
   kubectlImage: string
   nodeTerminalImage: string
-  connectorImage: string
+  clusterAgentImage: string
   enableAnalytics: boolean
   enableVersionCheck: boolean
   passwordLoginDisabled: boolean
@@ -385,7 +387,7 @@ export interface GeneralSettingUpdateRequest {
   kubectlEnabled?: boolean
   kubectlImage?: string
   nodeTerminalImage?: string
-  connectorImage?: string
+  clusterAgentImage?: string
   enableAnalytics?: boolean
   enableVersionCheck?: boolean
   passwordLoginDisabled?: boolean

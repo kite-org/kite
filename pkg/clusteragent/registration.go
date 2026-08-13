@@ -1,8 +1,10 @@
-package connector
+package clusteragent
 
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,12 +15,13 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/crypto/nacl/box"
 	"k8s.io/client-go/rest"
 )
 
-const registrationMaxBytes = 1 << 20
+const registrationMaxBytes = 2 << 20
 
-type connectorRegistration struct {
+type clusterAgentRegistration struct {
 	APIServer     string `json:"apiServer"`
 	CAData        []byte `json:"caData,omitempty"`
 	CertData      []byte `json:"certData,omitempty"`
@@ -29,8 +32,84 @@ type connectorRegistration struct {
 }
 
 type registeredCluster struct {
-	registration connectorRegistration
+	registration clusterAgentRegistration
 	generation   uint64
+}
+
+type encryptedClusterAgentRegistration struct {
+	Version    int    `json:"version"`
+	Ciphertext string `json:"ciphertext"`
+}
+
+func NewRegistrationKeyPair() (string, string, error) {
+	publicKey, privateKey, err := box.GenerateKey(rand.Reader)
+	if err != nil {
+		return "", "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(publicKey[:]),
+		base64.RawURLEncoding.EncodeToString(privateKey[:]), nil
+}
+
+func decodeRegistrationKey(encoded string) ([32]byte, error) {
+	decoded, err := base64.RawURLEncoding.Strict().DecodeString(encoded)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	if len(decoded) != 32 {
+		return [32]byte{}, errors.New("invalid registration key")
+	}
+	var key [32]byte
+	copy(key[:], decoded)
+	return key, nil
+}
+
+func encryptClusterAgentRegistration(registration clusterAgentRegistration, encodedServerPublicKey string) ([]byte, error) {
+	serverPublicKey, err := decodeRegistrationKey(encodedServerPublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("decode registration public key: %w", err)
+	}
+	plaintext, err := json.Marshal(registration)
+	if err != nil {
+		return nil, fmt.Errorf("encode cluster agent registration: %w", err)
+	}
+	ciphertext, err := box.SealAnonymous(nil, plaintext, &serverPublicKey, rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("encrypt cluster agent registration: %w", err)
+	}
+	encrypted := encryptedClusterAgentRegistration{
+		Version:    1,
+		Ciphertext: base64.RawURLEncoding.EncodeToString(ciphertext),
+	}
+	return json.Marshal(encrypted)
+}
+
+func decryptClusterAgentRegistration(encrypted encryptedClusterAgentRegistration, encodedServerPublicKey, encodedServerPrivateKey string) (clusterAgentRegistration, error) {
+	if encrypted.Version != 1 {
+		return clusterAgentRegistration{}, errors.New("unsupported cluster agent registration version")
+	}
+	serverPublicKey, err := decodeRegistrationKey(encodedServerPublicKey)
+	if err != nil {
+		return clusterAgentRegistration{}, fmt.Errorf("decode registration public key: %w", err)
+	}
+	serverPrivateKey, err := decodeRegistrationKey(encodedServerPrivateKey)
+	if err != nil {
+		return clusterAgentRegistration{}, fmt.Errorf("decode registration private key: %w", err)
+	}
+	ciphertext, err := base64.RawURLEncoding.Strict().DecodeString(encrypted.Ciphertext)
+	if err != nil {
+		return clusterAgentRegistration{}, fmt.Errorf("decode cluster agent registration: %w", err)
+	}
+	plaintext, ok := box.OpenAnonymous(nil, ciphertext, &serverPublicKey, &serverPrivateKey)
+	if !ok {
+		return clusterAgentRegistration{}, errors.New("decrypt cluster agent registration")
+	}
+	var registration clusterAgentRegistration
+	decoder := json.NewDecoder(bytes.NewReader(plaintext))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&registration); err != nil {
+		return clusterAgentRegistration{}, fmt.Errorf("decode cluster agent registration: %w", err)
+	}
+	return registration, nil
 }
 
 type credentialCaptureRoundTripper struct{}
@@ -54,16 +133,20 @@ func (t *authorizationRoundTripper) RoundTrip(req *http.Request) (*http.Response
 	t.manager.mu.RLock()
 	authorization := t.manager.registrations[t.clientKey].registration.Authorization
 	t.manager.mu.RUnlock()
-	if authorization == "" {
-		return t.next.RoundTrip(req)
-	}
 	request := req.Clone(req.Context())
 	request.Header = req.Header.Clone()
-	request.Header.Set("Authorization", authorization)
+	for name := range request.Header {
+		if strings.HasPrefix(strings.ToLower(name), "impersonate-") {
+			request.Header.Del(name)
+		}
+	}
+	if authorization != "" {
+		request.Header.Set("Authorization", authorization)
+	}
 	return t.next.RoundTrip(request)
 }
 
-func sameTransportConfig(a, b connectorRegistration) bool {
+func sameTransportConfig(a, b clusterAgentRegistration) bool {
 	return a.APIServer == b.APIServer &&
 		a.ServerName == b.ServerName &&
 		a.Insecure == b.Insecure &&
@@ -73,9 +156,9 @@ func sameTransportConfig(a, b connectorRegistration) bool {
 }
 
 func (m *Manager) Register(rw http.ResponseWriter, req *http.Request) {
-	cluster, err := authenticateConnector(req)
+	cluster, err := authenticateClusterAgent(req)
 	if err != nil {
-		http.Error(rw, "failed to validate connector token", http.StatusInternalServerError)
+		http.Error(rw, "failed to validate cluster agent token", http.StatusInternalServerError)
 		return
 	}
 	if cluster == nil {
@@ -84,11 +167,16 @@ func (m *Manager) Register(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	req.Body = http.MaxBytesReader(rw, req.Body, registrationMaxBytes)
-	var registration connectorRegistration
+	var encrypted encryptedClusterAgentRegistration
 	decoder := json.NewDecoder(req.Body)
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&registration); err != nil {
-		http.Error(rw, "invalid connector registration", http.StatusBadRequest)
+	if err := decoder.Decode(&encrypted); err != nil {
+		http.Error(rw, "invalid cluster agent registration", http.StatusBadRequest)
+		return
+	}
+	registration, err := decryptClusterAgentRegistration(encrypted, cluster.ClusterAgentPublicKey, string(cluster.ClusterAgentPrivateKey))
+	if err != nil {
+		http.Error(rw, "invalid encrypted cluster agent registration", http.StatusBadRequest)
 		return
 	}
 	apiURL, err := url.Parse(registration.APIServer)
@@ -128,7 +216,7 @@ func (m *Manager) RESTConfig(clusterID uint) (*rest.Config, uint64, error) {
 	registered, ok := m.registrations[clientKey]
 	m.mu.RUnlock()
 	if !ok {
-		return nil, 0, errors.New("waiting for connector registration")
+		return nil, 0, errors.New("waiting for cluster agent registration")
 	}
 	registration := registered.registration
 	config := &rest.Config{
@@ -142,9 +230,6 @@ func (m *Manager) RESTConfig(clusterID uint) (*rest.Config, uint64, error) {
 			NextProtos: []string{"http/1.1"},
 		},
 		Dial: m.Dialer(clusterID),
-		Proxy: func(*http.Request) (*url.URL, error) {
-			return nil, nil
-		},
 	}
 	config.WrapTransport = func(next http.RoundTripper) http.RoundTripper {
 		return &authorizationRoundTripper{next: next, manager: m, clientKey: clientKey}
@@ -159,45 +244,47 @@ func (m *Manager) Generation(clusterID uint) uint64 {
 	return m.registrations[clientKey].generation
 }
 
-func registerConnector(ctx context.Context, client *http.Client, registrationURL, token string, config *rest.Config) error {
+func registerClusterAgent(ctx context.Context, client *http.Client, registrationURL, token, publicKey string, config *rest.Config) error {
 	registration, err := registrationFromConfig(config)
 	if err != nil {
 		return err
 	}
-	body, err := json.Marshal(registration)
+	body, err := encryptClusterAgentRegistration(registration, publicKey)
 	if err != nil {
-		return fmt.Errorf("encode connector registration: %w", err)
+		return err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, registrationURL, bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("create connector registration request: %w", err)
+		return fmt.Errorf("create cluster agent registration request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("register connector: %w", err)
+		return fmt.Errorf("register cluster agent: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode != http.StatusNoContent {
 		message, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return fmt.Errorf("register connector: server returned %s: %s", resp.Status, strings.TrimSpace(string(message)))
+		return fmt.Errorf("register cluster agent: server returned %s: %s", resp.Status, strings.TrimSpace(string(message)))
 	}
 	return nil
 }
 
-func registrationFromConfig(config *rest.Config) (connectorRegistration, error) {
+func registrationFromConfig(config *rest.Config) (clusterAgentRegistration, error) {
 	caData, err := loadTLSData(config.CAData, config.CAFile)
 	if err != nil {
-		return connectorRegistration{}, fmt.Errorf("load Kubernetes CA: %w", err)
+		return clusterAgentRegistration{}, fmt.Errorf("load Kubernetes CA: %w", err)
 	}
 	certData, err := loadTLSData(config.CertData, config.CertFile)
 	if err != nil {
-		return connectorRegistration{}, fmt.Errorf("load Kubernetes client certificate: %w", err)
+		return clusterAgentRegistration{}, fmt.Errorf("load Kubernetes client certificate: %w", err)
 	}
 	keyData, err := loadTLSData(config.KeyData, config.KeyFile)
 	if err != nil {
-		return connectorRegistration{}, fmt.Errorf("load Kubernetes client key: %w", err)
+		return clusterAgentRegistration{}, fmt.Errorf("load Kubernetes client key: %w", err)
 	}
 
 	authConfig := rest.CopyConfig(config)
@@ -207,25 +294,25 @@ func registrationFromConfig(config *rest.Config) (connectorRegistration, error) 
 	}
 	authTransport, err := rest.TransportFor(authConfig)
 	if err != nil {
-		return connectorRegistration{}, fmt.Errorf("create Kubernetes authentication transport: %w", err)
+		return clusterAgentRegistration{}, fmt.Errorf("create Kubernetes authentication transport: %w", err)
 	}
 	authRequest, err := http.NewRequest(http.MethodGet, config.Host, nil)
 	if err != nil {
-		return connectorRegistration{}, fmt.Errorf("create Kubernetes authentication request: %w", err)
+		return clusterAgentRegistration{}, fmt.Errorf("create Kubernetes authentication request: %w", err)
 	}
 	authResponse, err := authTransport.RoundTrip(authRequest)
 	if err != nil {
-		return connectorRegistration{}, fmt.Errorf("resolve Kubernetes credentials: %w", err)
+		return clusterAgentRegistration{}, fmt.Errorf("resolve Kubernetes credentials: %w", err)
 	}
 	if authResponse.Body != nil {
 		_ = authResponse.Body.Close()
 	}
 	authorization := authResponse.Request.Header.Get("Authorization")
 	if authorization == "" && len(certData) == 0 {
-		return connectorRegistration{}, errors.New("Kubernetes configuration must provide bearer/basic authentication or a client certificate")
+		return clusterAgentRegistration{}, errors.New("kubernetes configuration must provide bearer/basic authentication or a client certificate")
 	}
 
-	return connectorRegistration{
+	return clusterAgentRegistration{
 		APIServer:     config.Host,
 		CAData:        caData,
 		CertData:      certData,

@@ -10,17 +10,17 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zxh326/kite/pkg/clusteragent"
 	"github.com/zxh326/kite/pkg/common"
-	"github.com/zxh326/kite/pkg/connector"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/rbac"
 	"gorm.io/gorm"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// connectorServerURL derives the Kite server URL from the request context,
+// clusterAgentServerURL derives the Kite server URL from the request context,
 // using common.Host / X-Forwarded-Host / request host and common.Base.
-func connectorServerURL(c *gin.Context) string {
+func clusterAgentServerURL(c *gin.Context) string {
 	scheme := "http"
 	if c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https") {
 		scheme = "https"
@@ -85,8 +85,8 @@ func (cm *ClusterManager) GetClusterList(c *gin.Context) {
 			"description":   cluster.Description,
 			"enabled":       cluster.Enable,
 			"inCluster":     cluster.InCluster,
-			"connector":     cluster.Connector,
-			"connected":     cluster.Connector && cm.connectorManager.Connected(cluster.ID),
+			"clusterAgent":  cluster.ClusterAgent,
+			"connected":     cluster.ClusterAgent && cm.clusterAgentManager.Connected(cluster.ID),
 			"isDefault":     cluster.IsDefault,
 			"prometheusURL": cluster.PrometheusURL,
 			"config":        "",
@@ -117,7 +117,7 @@ func (cm *ClusterManager) CreateCluster(c *gin.Context) {
 		Config        string `json:"config"`
 		PrometheusURL string `json:"prometheusURL"`
 		InCluster     bool   `json:"inCluster"`
-		Connector     bool   `json:"connector"`
+		ClusterAgent  bool   `json:"clusterAgent"`
 		IsDefault     bool   `json:"isDefault"`
 	}
 
@@ -125,7 +125,7 @@ func (cm *ClusterManager) CreateCluster(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if req.Connector {
+	if req.ClusterAgent {
 		req.InCluster = false
 		req.Config = ""
 		req.PrometheusURL = ""
@@ -146,17 +146,24 @@ func (cm *ClusterManager) CreateCluster(c *gin.Context) {
 		}
 	}
 
-	var connectorToken string
-	var connectorTokenHash string
-	var connectorManifestGrant string
-	if req.Connector {
+	var clusterAgentToken string
+	var clusterAgentTokenHash string
+	var clusterAgentPublicKey string
+	var clusterAgentPrivateKey string
+	var clusterAgentManifestGrant string
+	if req.ClusterAgent {
 		var err error
-		connectorToken, connectorTokenHash, err = connector.NewToken()
+		clusterAgentToken, clusterAgentTokenHash, err = clusteragent.NewToken()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		connectorManifestGrant, err = cm.connectorManager.CreateManifestGrant(connectorToken)
+		clusterAgentPublicKey, clusterAgentPrivateKey, err = clusteragent.NewRegistrationKeyPair()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		clusterAgentManifestGrant, err = cm.clusterAgentManager.CreateManifestGrant(clusterAgentToken)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -164,15 +171,17 @@ func (cm *ClusterManager) CreateCluster(c *gin.Context) {
 	}
 
 	cluster := &model.Cluster{
-		Name:               req.Name,
-		Description:        req.Description,
-		Config:             model.SecretString(req.Config),
-		PrometheusURL:      req.PrometheusURL,
-		InCluster:          req.InCluster,
-		Connector:          req.Connector,
-		ConnectorTokenHash: connectorTokenHash,
-		IsDefault:          req.IsDefault,
-		Enable:             true,
+		Name:                   req.Name,
+		Description:            req.Description,
+		Config:                 model.SecretString(req.Config),
+		PrometheusURL:          req.PrometheusURL,
+		InCluster:              req.InCluster,
+		ClusterAgent:           req.ClusterAgent,
+		ClusterAgentTokenHash:  clusterAgentTokenHash,
+		ClusterAgentPublicKey:  clusterAgentPublicKey,
+		ClusterAgentPrivateKey: model.SecretString(clusterAgentPrivateKey),
+		IsDefault:              req.IsDefault,
+		Enable:                 true,
 	}
 
 	if err := model.AddCluster(cluster); err != nil {
@@ -186,11 +195,12 @@ func (cm *ClusterManager) CreateCluster(c *gin.Context) {
 		"id":      cluster.ID,
 		"message": "cluster created successfully",
 	}
-	if req.Connector {
-		serverURL := connectorServerURL(c)
-		result["connectorServer"] = serverURL
-		result["connectorToken"] = connectorToken
-		result["connectorManifestURL"] = fmt.Sprintf("%s/api/v1/connector/manifest?grant=%s", strings.TrimRight(serverURL, "/"), connectorManifestGrant)
+	if req.ClusterAgent {
+		serverURL := clusterAgentServerURL(c)
+		result["clusterAgentServer"] = serverURL
+		result["clusterAgentToken"] = clusterAgentToken
+		result["clusterAgentPublicKey"] = clusterAgentPublicKey
+		result["clusterAgentManifestURL"] = fmt.Sprintf("%s/api/v1/cluster-agent/manifest?grant=%s", strings.TrimRight(serverURL, "/"), clusterAgentManifestGrant)
 	}
 	c.JSON(http.StatusCreated, result)
 }
@@ -239,7 +249,7 @@ func (cm *ClusterManager) UpdateCluster(c *gin.Context) {
 			return
 		}
 	}
-	if cluster.Connector {
+	if cluster.ClusterAgent {
 		req.InCluster = false
 		req.Config = ""
 		req.PrometheusURL = ""
@@ -303,8 +313,8 @@ func (cm *ClusterManager) DeleteCluster(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	if cluster.Connector {
-		cm.connectorManager.Remove(cluster.ID)
+	if cluster.ClusterAgent {
+		cm.clusterAgentManager.Remove(cluster.ID)
 	}
 
 	TriggerClusterSync()
@@ -312,18 +322,18 @@ func (cm *ClusterManager) DeleteCluster(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "cluster deleted successfully"})
 }
 
-func (cm *ClusterManager) ConnectConnector(c *gin.Context) {
-	cm.connectorManager.ServeHTTP(c.Writer, c.Request)
+func (cm *ClusterManager) ConnectClusterAgent(c *gin.Context) {
+	cm.clusterAgentManager.ServeHTTP(c.Writer, c.Request)
 }
 
-func (cm *ClusterManager) RegisterConnector(c *gin.Context) {
-	cm.connectorManager.Register(c.Writer, c.Request)
+func (cm *ClusterManager) RegisterClusterAgent(c *gin.Context) {
+	cm.clusterAgentManager.Register(c.Writer, c.Request)
 }
 
-func (cm *ClusterManager) GetConnectorManifest(c *gin.Context) {
+func (cm *ClusterManager) GetClusterAgentManifest(c *gin.Context) {
 	grant := strings.TrimSpace(c.Query("grant"))
-	token, err := cm.connectorManager.ResolveManifestGrant(grant)
-	if errors.Is(err, connector.ErrInvalidManifestGrant) {
+	token, err := cm.clusterAgentManager.ResolveManifestGrant(grant)
+	if errors.Is(err, clusteragent.ErrInvalidManifestGrant) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired manifest grant"})
 		return
 	}
@@ -335,14 +345,23 @@ func (cm *ClusterManager) GetConnectorManifest(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired manifest grant"})
 		return
 	}
-	serverURL := connectorServerURL(c)
-	image := model.DefaultGeneralConnectorImageValue()
-	if setting, err := model.GetGeneralSetting(); err == nil && setting != nil && setting.ConnectorImage != "" {
-		image = setting.ConnectorImage
+	publicKey, err := cm.clusterAgentManager.RegistrationPublicKey(token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load cluster agent registration key"})
+		return
 	}
-	manifest := connector.GenerateManifest(serverURL, token, image)
+	if publicKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired manifest grant"})
+		return
+	}
+	serverURL := clusterAgentServerURL(c)
+	image := model.DefaultGeneralClusterAgentImageValue()
+	if setting, err := model.GetGeneralSetting(); err == nil && setting != nil && setting.ClusterAgentImage != "" {
+		image = setting.ClusterAgentImage
+	}
+	manifest := clusteragent.GenerateManifest(serverURL, token, publicKey, image)
 	c.Header("Cache-Control", "no-store")
-	c.Header("Content-Disposition", `attachment; filename="kite-connector.yaml"`)
+	c.Header("Content-Disposition", `attachment; filename="kite-cluster-agent.yaml"`)
 	c.Data(http.StatusOK, "text/yaml; charset=utf-8", []byte(manifest))
 }
 

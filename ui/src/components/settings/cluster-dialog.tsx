@@ -40,7 +40,7 @@ function createClusterFormData(cluster?: Cluster | null) {
     enabled: cluster?.enabled ?? true,
     isDefault: cluster?.isDefault ?? false,
     inCluster: cluster?.inCluster ?? false,
-    connector: cluster?.connector ?? false,
+    clusterAgent: cluster?.clusterAgent ?? false,
   }
 }
 
@@ -126,8 +126,8 @@ function ClusterDialogContent({
               </Label>
               <Select
                 value={
-                  formData.connector
-                    ? 'connector'
+                  formData.clusterAgent
+                    ? 'clusterAgent'
                     : formData.inCluster
                       ? 'inCluster'
                       : 'external'
@@ -135,7 +135,7 @@ function ClusterDialogContent({
                 onValueChange={(value) => {
                   setFormData((prev) => ({
                     ...prev,
-                    connector: value === 'connector',
+                    clusterAgent: value === 'clusterAgent',
                     inCluster: value === 'inCluster',
                     config: value === 'external' ? prev.config : '',
                   }))
@@ -151,8 +151,11 @@ function ClusterDialogContent({
                   <SelectItem value="inCluster">
                     {t('clusterManagement.type.inCluster', 'In-Cluster')}
                   </SelectItem>
-                  <SelectItem value="connector">
-                    {t('clusterManagement.type.connector', 'Kite Connector')}
+                  <SelectItem value="clusterAgent">
+                    {t(
+                      'clusterManagement.type.clusterAgent',
+                      'Kite Cluster Agent'
+                    )}
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -176,7 +179,7 @@ function ClusterDialogContent({
           />
         </div>
 
-        {!formData.inCluster && !formData.connector && (
+        {!formData.inCluster && !formData.clusterAgent && (
           <div className="space-y-2">
             <Label htmlFor="cluster-config">
               {t('clusterManagement.dialog.config', 'Kubeconfig')}
@@ -201,13 +204,13 @@ function ClusterDialogContent({
               rows={8}
               className="text-sm"
               required={
-                !isEditMode && !formData.inCluster && !formData.connector
+                !isEditMode && !formData.inCluster && !formData.clusterAgent
               }
             />
           </div>
         )}
 
-        {!formData.connector && (
+        {!formData.clusterAgent && (
           <div className="space-y-2">
             <Label htmlFor="prometheus-url">
               {t('clusterManagement.dialog.prometheusUrl', 'Prometheus URL')}
@@ -268,11 +271,11 @@ function ClusterDialogContent({
             </p>
           </div>
         )}
-        {formData.connector && (
+        {formData.clusterAgent && (
           <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <p className="text-sm text-blue-700 dark:text-blue-300">
               {t(
-                'clusterManagement.dialog.connectorDescription',
+                'clusterManagement.dialog.clusterAgentDescription',
                 'Create the cluster first, then run the generated command inside the target cluster.'
               )}
             </p>
@@ -292,7 +295,7 @@ function ClusterDialogContent({
               !formData.name ||
               (!isEditMode &&
                 !formData.inCluster &&
-                !formData.connector &&
+                !formData.clusterAgent &&
                 !formData.config)
             }
           >

@@ -810,9 +810,9 @@
         "image": "镜像"
       }
     },
-    "connector": {
-      "title": "Connector 镜像",
-      "description": "为 Connector 类型集群生成 Kite Connector 部署清单时使用的容器镜像。",
+    "clusterAgent": {
+      "title": "Cluster Agent 镜像",
+      "description": "为 Cluster Agent 类型集群生成 Kite Cluster Agent 部署清单时使用的容器镜像。",
       "form": {
         "image": "镜像"
       }
@@ -912,14 +912,14 @@
     "type": {
       "inCluster": "集群内",
       "external": "外部",
-      "connector": "Kite Connector"
+      "clusterAgent": "Kite Cluster Agent"
     },
     "status": {
-      "waiting": "等待 Connector",
+      "waiting": "等待 Cluster Agent",
       "connected": "已连接"
     },
-    "connector": {
-      "title": "连接 Kite Connector",
+    "clusterAgent": {
+      "title": "连接 Kite Cluster Agent",
       "description": "选择命令行或 Kubernetes YAML 在目标集群中运行。此连接信息仅显示一次。",
       "command": "命令行",
       "yaml": "Kubernetes YAML",
@@ -965,7 +965,7 @@
       "configPlaceholder": "粘贴 kubeconfig 内容...",
       "prometheusUrl": "Prometheus URL",
       "prometheusUrlPlaceholder": "https://prometheus.example.com",
-      "connectorDescription": "先创建集群，然后在目标集群内运行生成的命令。",
+      "clusterAgentDescription": "先创建集群，然后在目标集群内运行生成的命令。",
       "enabled": "启用",
       "isDefault": "设为默认"
     }

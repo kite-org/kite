@@ -1,11 +1,10 @@
-package connector
+package clusteragent
 
 import (
 	"context"
 	"errors"
 	"flag"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -20,10 +19,11 @@ import (
 const registrationRefreshInterval = time.Minute
 
 func Run(ctx context.Context, args []string) error {
-	flags := flag.NewFlagSet("kite connector", flag.ContinueOnError)
+	flags := flag.NewFlagSet("kite cluster-agent", flag.ContinueOnError)
 	klog.InitFlags(flags)
 	server := flags.String("server", "", "Kite server URL")
-	token := flags.String("token", "", "Kite connector token")
+	token := flags.String("token", "", "Kite cluster agent token")
+	publicKey := flags.String("public-key", "", "Kite cluster agent registration public key")
 	kubeconfig := flags.String("kubeconfig", "", "Path to kubeconfig file")
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -33,6 +33,9 @@ func Run(ctx context.Context, args []string) error {
 	}
 	if *token == "" {
 		return errors.New("--token is required")
+	}
+	if *publicKey == "" {
+		return errors.New("--public-key is required")
 	}
 
 	serverURL, err := url.Parse(*server)
@@ -46,7 +49,7 @@ func Run(ctx context.Context, args []string) error {
 		return errors.New("server URL must use http or https")
 	}
 	if serverURL.Host == "" {
-		return errors.New("invalid connector server URL")
+		return errors.New("invalid cluster agent server URL")
 	}
 
 	var config *rest.Config
@@ -62,12 +65,8 @@ func Run(ctx context.Context, args []string) error {
 		}
 	}
 
-	apiAddress, err := apiServerAddress(config.Host)
-	if err != nil {
-		return err
-	}
 	registrationURL := *serverURL
-	registrationURL.Path = strings.TrimRight(registrationURL.Path, "/") + "/api/v1/connector/register"
+	registrationURL.Path = strings.TrimRight(registrationURL.Path, "/") + "/api/v1/cluster-agent/register"
 	registrationURL.RawPath = ""
 	registrationURL.RawQuery = ""
 	connectURL := *serverURL
@@ -76,7 +75,7 @@ func Run(ctx context.Context, args []string) error {
 	} else {
 		connectURL.Scheme = "wss"
 	}
-	connectURL.Path = strings.TrimRight(connectURL.Path, "/") + "/api/v1/connector/connect"
+	connectURL.Path = strings.TrimRight(connectURL.Path, "/") + "/api/v1/cluster-agent/connect"
 	connectURL.RawPath = ""
 	connectURL.RawQuery = ""
 
@@ -89,51 +88,32 @@ func Run(ctx context.Context, args []string) error {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				if err := registerConnector(ctx, client, registrationURL.String(), *token, config); err != nil {
-					klog.Warningf("Failed to refresh connector registration: %v", err)
+				if err := registerClusterAgent(ctx, client, registrationURL.String(), *token, *publicKey, config); err != nil {
+					klog.Warningf("Failed to refresh cluster agent registration: %v", err)
 				}
 			}
 		}
 	}()
 
 	headers := http.Header{"Authorization": []string{"Bearer " + *token}}
-	authorizer := func(network, address string) bool {
-		return network == "tcp" && address == apiAddress
+	authorizer := func(network, _ string) bool {
+		return network == "tcp"
 	}
 
-	klog.Info("Kite connector started")
+	klog.Info("Kite cluster agent started")
 	for {
-		err := registerConnector(ctx, client, registrationURL.String(), *token, config)
+		err := registerClusterAgent(ctx, client, registrationURL.String(), *token, *publicKey, config)
 		if err == nil {
 			err = remotedialer.ConnectToProxy(ctx, connectURL.String(), headers, authorizer, nil, nil)
 		}
 		if ctx.Err() != nil {
 			return nil //nolint:nilerr // Context cancellation is a clean shutdown.
 		}
-		klog.Warningf("Kite connector unavailable: %v; retrying in 5 seconds", err)
+		klog.Warningf("Kite cluster agent unavailable: %v; retrying in 5 seconds", err)
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-time.After(5 * time.Second):
 		}
 	}
-}
-
-func apiServerAddress(host string) (string, error) {
-	apiURL, err := url.Parse(host)
-	if err != nil || apiURL.Hostname() == "" {
-		return "", fmt.Errorf("invalid Kubernetes API URL %q", host)
-	}
-	port := apiURL.Port()
-	if port == "" {
-		switch apiURL.Scheme {
-		case "http":
-			port = "80"
-		case "https":
-			port = "443"
-		default:
-			return "", fmt.Errorf("Kubernetes API URL must use http or https")
-		}
-	}
-	return net.JoinHostPort(apiURL.Hostname(), port), nil
 }

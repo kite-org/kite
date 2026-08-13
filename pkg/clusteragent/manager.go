@@ -1,4 +1,4 @@
-package connector
+package clusteragent
 
 import (
 	"context"
@@ -27,9 +27,9 @@ import (
 )
 
 const (
-	connectorTokenSize   = 32
-	manifestGrantTimeout = 10 * time.Minute
-	manifestGrantAAD     = "kite:connector-manifest-grant:v1"
+	clusterAgentTokenSize = 32
+	manifestGrantTimeout  = 10 * time.Minute
+	manifestGrantAAD      = "kite:cluster-agent-manifest-grant:v1"
 )
 
 var ErrInvalidManifestGrant = errors.New("invalid manifest grant")
@@ -41,8 +41,8 @@ type requestState struct {
 }
 
 type manifestGrant struct {
-	ConnectorToken string `json:"token"`
-	ExpiresAt      int64  `json:"exp"`
+	ClusterAgentToken string `json:"token"`
+	ExpiresAt         int64  `json:"exp"`
 }
 
 type Manager struct {
@@ -64,12 +64,26 @@ func NewManager(onChange func()) *Manager {
 }
 
 func NewToken() (string, string, error) {
-	value := make([]byte, connectorTokenSize)
+	value := make([]byte, clusterAgentTokenSize)
 	if _, err := rand.Read(value); err != nil {
 		return "", "", err
 	}
 	token := base64.RawURLEncoding.EncodeToString(value)
 	return token, tokenHash(token), nil
+}
+
+func (m *Manager) RegistrationPublicKey(token string) (string, error) {
+	cluster, err := resolveToken(token)
+	if err != nil {
+		return "", err
+	}
+	if cluster == nil {
+		return "", nil
+	}
+	if cluster.ClusterAgentPublicKey == "" {
+		return "", errors.New("cluster agent registration public key is missing")
+	}
+	return cluster.ClusterAgentPublicKey, nil
 }
 
 func tokenHash(token string) string {
@@ -79,21 +93,21 @@ func tokenHash(token string) string {
 
 func validToken(token string) bool {
 	decoded, err := base64.RawURLEncoding.Strict().DecodeString(token)
-	return err == nil && len(decoded) == connectorTokenSize
+	return err == nil && len(decoded) == clusterAgentTokenSize
 }
 
 func resolveToken(token string) (*model.Cluster, error) {
 	if !validToken(token) {
 		return nil, nil
 	}
-	cluster, err := model.GetClusterByConnectorTokenHash(tokenHash(token))
+	cluster, err := model.GetClusterByClusterAgentTokenHash(tokenHash(token))
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	if !cluster.Connector || !cluster.Enable {
+	if !cluster.ClusterAgent || !cluster.Enable {
 		return nil, nil
 	}
 	return cluster, nil
@@ -111,10 +125,10 @@ func manifestGrantCipher(jwtSecret string) (cipher.AEAD, error) {
 	return cipher.NewGCM(block)
 }
 
-func (m *Manager) CreateManifestGrant(connectorToken string) (string, error) {
+func (m *Manager) CreateManifestGrant(clusterAgentToken string) (string, error) {
 	payload, err := json.Marshal(manifestGrant{
-		ConnectorToken: connectorToken,
-		ExpiresAt:      time.Now().Add(manifestGrantTimeout).Unix(),
+		ClusterAgentToken: clusterAgentToken,
+		ExpiresAt:         time.Now().Add(manifestGrantTimeout).Unix(),
 	})
 	if err != nil {
 		return "", err
@@ -158,21 +172,21 @@ func (m *Manager) ResolveManifestGrant(grant string) (string, error) {
 	if time.Now().Unix() >= stored.ExpiresAt {
 		return "", ErrInvalidManifestGrant
 	}
-	cluster, err := resolveToken(stored.ConnectorToken)
+	cluster, err := resolveToken(stored.ClusterAgentToken)
 	if err != nil {
 		return "", err
 	}
 	if cluster == nil {
 		return "", nil
 	}
-	return stored.ConnectorToken, nil
+	return stored.ClusterAgentToken, nil
 }
 
 func (m *Manager) authorize(req *http.Request) (string, bool, error) {
-	cluster, err := authenticateConnector(req)
+	cluster, err := authenticateClusterAgent(req)
 	if err != nil {
-		klog.Errorf("Failed to validate connector token: %v", err)
-		return "", false, errors.New("failed to validate connector token")
+		klog.Errorf("Failed to validate cluster agent token: %v", err)
+		return "", false, errors.New("failed to validate cluster agent token")
 	}
 	if cluster == nil {
 		return "", false, nil
@@ -199,7 +213,7 @@ func (m *Manager) authorize(req *http.Request) (string, bool, error) {
 	return clientKey, true, nil
 }
 
-func authenticateConnector(req *http.Request) (*model.Cluster, error) {
+func authenticateClusterAgent(req *http.Request) (*model.Cluster, error) {
 	authorization := req.Header.Get("Authorization")
 	token, found := strings.CutPrefix(authorization, "Bearer ")
 	if !found || token == "" {

@@ -65,27 +65,28 @@ export function ClusterManagement() {
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [editingCluster, setEditingCluster] = useState<Cluster | null>(null)
   const [deletingCluster, setDeletingCluster] = useState<Cluster | null>(null)
-  const [connectorCommand, setConnectorCommand] = useState('')
-  const [connectorYaml, setConnectorYaml] = useState('')
-  const [connectorYamlError, setConnectorYamlError] = useState<string | null>(
-    null
-  )
-  const [isConnectorYamlLoading, setIsConnectorYamlLoading] = useState(false)
-  const [connectorManifestURL, setConnectorManifestURL] = useState('')
-  const [connectorCopyError, setConnectorCopyError] = useState<
+  const [clusterAgentCommand, setClusterAgentCommand] = useState('')
+  const [clusterAgentYaml, setClusterAgentYaml] = useState('')
+  const [clusterAgentYamlError, setClusterAgentYamlError] = useState<
+    string | null
+  >(null)
+  const [isClusterAgentYamlLoading, setIsClusterAgentYamlLoading] =
+    useState(false)
+  const [clusterAgentManifestURL, setClusterAgentManifestURL] = useState('')
+  const [clusterAgentCopyError, setClusterAgentCopyError] = useState<
     'command' | 'yaml' | null
   >(null)
-  const connectorYamlRequestID = useRef(0)
+  const clusterAgentYamlRequestID = useRef(0)
 
   const getClusterTypeBadge = useCallback(
     (cluster: Cluster) => {
-      if (cluster.connector) {
+      if (cluster.clusterAgent) {
         return (
           <Badge
             variant="outline"
             className="bg-violet-50 text-violet-700 border-violet-200"
           >
-            {t('clusterManagement.type.connector', 'Kite Connector')}
+            {t('clusterManagement.type.clusterAgent', 'Kite Cluster Agent')}
           </Badge>
         )
       }
@@ -118,14 +119,14 @@ export function ClusterManagement() {
           <Badge variant="secondary">{t('status.disabled', 'Disabled')}</Badge>
         )
       }
-      if (cluster.connector && !cluster.connected) {
+      if (cluster.clusterAgent && !cluster.connected) {
         return (
           <Badge variant="outline">
-            {t('clusterManagement.status.waiting', 'Waiting for Connector')}
+            {t('clusterManagement.status.waiting', 'Waiting for Cluster Agent')}
           </Badge>
         )
       }
-      if (cluster.connector) {
+      if (cluster.clusterAgent) {
         return (
           <Badge variant="default">
             {t('clusterManagement.status.connected', 'Connected')}
@@ -160,7 +161,7 @@ export function ClusterManagement() {
         id: 'version',
         header: t('common.fields.version', 'Version'),
         cell: ({ row: { original: cluster } }) => {
-          if (cluster.connector && !cluster.connected) {
+          if (cluster.clusterAgent && !cluster.connected) {
             return <span className="text-muted-foreground">-</span>
           }
           if (cluster.error) {
@@ -242,33 +243,35 @@ export function ClusterManagement() {
   const createMutation = useMutation({
     mutationFn: createCluster,
     onSuccess: async ({
-      connectorServer,
-      connectorToken,
-      connectorManifestURL,
+      clusterAgentServer,
+      clusterAgentToken,
+      clusterAgentPublicKey,
+      clusterAgentManifestURL,
     }: {
-      connectorServer?: string
-      connectorToken?: string
-      connectorManifestURL?: string
+      clusterAgentServer?: string
+      clusterAgentToken?: string
+      clusterAgentPublicKey?: string
+      clusterAgentManifestURL?: string
     }) => {
       queryClient.invalidateQueries({ queryKey: ['cluster-list'] })
       toast.success(
         t('clusterManagement.messages.created', 'Cluster created successfully')
       )
       setShowClusterDialog(false)
-      if (connectorServer && connectorToken) {
-        setConnectorCopyError(null)
-        setConnectorCommand(
-          `kite connector --server='${connectorServer}' --token='${connectorToken}'`
+      if (clusterAgentServer && clusterAgentToken && clusterAgentPublicKey) {
+        setClusterAgentCopyError(null)
+        setClusterAgentCommand(
+          `kite cluster-agent --server='${clusterAgentServer}' --token='${clusterAgentToken}' --public-key='${clusterAgentPublicKey}'`
         )
-        setConnectorYaml('')
-        setConnectorYamlError(null)
-        setConnectorManifestURL(connectorManifestURL || '')
-        setIsConnectorYamlLoading(true)
-        const requestID = ++connectorYamlRequestID.current
+        setClusterAgentYaml('')
+        setClusterAgentYamlError(null)
+        setClusterAgentManifestURL(clusterAgentManifestURL || '')
+        setIsClusterAgentYamlLoading(true)
+        const requestID = ++clusterAgentYamlRequestID.current
         try {
-          if (!connectorManifestURL) throw new Error('Missing manifest URL')
+          if (!clusterAgentManifestURL) throw new Error('Missing manifest URL')
           const manifestURL = new URL(
-            connectorManifestURL,
+            clusterAgentManifestURL,
             window.location.origin
           )
           const response = await fetch(
@@ -279,21 +282,21 @@ export function ClusterManagement() {
           )
           if (!response.ok) throw new Error(`HTTP ${response.status}`)
           const yaml = await response.text()
-          if (requestID === connectorYamlRequestID.current) {
-            setConnectorYaml(yaml)
+          if (requestID === clusterAgentYamlRequestID.current) {
+            setClusterAgentYaml(yaml)
           }
         } catch {
-          if (requestID === connectorYamlRequestID.current) {
-            setConnectorYamlError(
+          if (requestID === clusterAgentYamlRequestID.current) {
+            setClusterAgentYamlError(
               t(
-                'clusterManagement.connector.loadYamlError',
+                'clusterManagement.clusterAgent.loadYamlError',
                 'Failed to load YAML from the manifest URL.'
               )
             )
           }
         } finally {
-          if (requestID === connectorYamlRequestID.current) {
-            setIsConnectorYamlLoading(false)
+          if (requestID === clusterAgentYamlRequestID.current) {
+            setIsClusterAgentYamlLoading(false)
           }
         }
       }
@@ -487,27 +490,30 @@ export function ClusterManagement() {
       />
 
       <Dialog
-        open={!!connectorCommand}
+        open={!!clusterAgentCommand}
         onOpenChange={(open) => {
           if (!open) {
-            connectorYamlRequestID.current += 1
-            setConnectorCommand('')
-            setConnectorYaml('')
-            setConnectorYamlError(null)
-            setIsConnectorYamlLoading(false)
-            setConnectorManifestURL('')
-            setConnectorCopyError(null)
+            clusterAgentYamlRequestID.current += 1
+            setClusterAgentCommand('')
+            setClusterAgentYaml('')
+            setClusterAgentYamlError(null)
+            setIsClusterAgentYamlLoading(false)
+            setClusterAgentManifestURL('')
+            setClusterAgentCopyError(null)
           }
         }}
       >
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle className="text-balance">
-              {t('clusterManagement.connector.title', 'Connect Kite Connector')}
+              {t(
+                'clusterManagement.clusterAgent.title',
+                'Connect Kite Cluster Agent'
+              )}
             </DialogTitle>
             <DialogDescription className="text-pretty">
               {t(
-                'clusterManagement.connector.description',
+                'clusterManagement.clusterAgent.description',
                 'Choose a command or Kubernetes YAML to run inside the target cluster. This connection information is shown only once.'
               )}
             </DialogDescription>
@@ -515,10 +521,10 @@ export function ClusterManagement() {
           <Tabs defaultValue="command">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="command">
-                {t('clusterManagement.connector.command', 'Command')}
+                {t('clusterManagement.clusterAgent.command', 'Command')}
               </TabsTrigger>
               <TabsTrigger value="yaml">
-                {t('clusterManagement.connector.yaml', 'Kubernetes YAML')}
+                {t('clusterManagement.clusterAgent.yaml', 'Kubernetes YAML')}
               </TabsTrigger>
             </TabsList>
             <TabsContent value="command" className="space-y-2">
@@ -527,48 +533,48 @@ export function ClusterManagement() {
                   readOnly
                   className="font-mono"
                   aria-label={t(
-                    'clusterManagement.connector.command',
+                    'clusterManagement.clusterAgent.command',
                     'Command'
                   )}
-                  value={connectorCommand}
+                  value={clusterAgentCommand}
                 />
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
                   aria-label={t(
-                    'clusterManagement.connector.copyCommand',
+                    'clusterManagement.clusterAgent.copyCommand',
                     'Copy command'
                   )}
                   onClick={async () => {
-                    if (!connectorCommand) return
+                    if (!clusterAgentCommand) return
                     try {
-                      await navigator.clipboard.writeText(connectorCommand)
-                      setConnectorCopyError(null)
+                      await navigator.clipboard.writeText(clusterAgentCommand)
+                      setClusterAgentCopyError(null)
                       toast.success(t('common.messages.copied', 'Copied'))
                     } catch {
-                      setConnectorCopyError('command')
+                      setClusterAgentCopyError('command')
                     }
                   }}
                 >
                   <IconCopy className="size-4" />
                 </Button>
               </div>
-              {connectorCopyError === 'command' && (
+              {clusterAgentCopyError === 'command' && (
                 <p role="alert" className="text-sm text-destructive">
                   {t(
-                    'clusterManagement.connector.copyError',
+                    'clusterManagement.clusterAgent.copyError',
                     'Failed to copy. Copy the content manually.'
                   )}
                 </p>
               )}
             </TabsContent>
             <TabsContent value="yaml" className="space-y-2">
-              {connectorManifestURL && (
+              {clusterAgentManifestURL && (
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">
                     {t(
-                      'clusterManagement.connector.applyUrl',
+                      'clusterManagement.clusterAgent.applyUrl',
                       'Apply directly with URL'
                     )}
                   </Label>
@@ -576,25 +582,25 @@ export function ClusterManagement() {
                     <Input
                       readOnly
                       className="font-mono text-xs"
-                      value={`kubectl apply -f "${connectorManifestURL}"`}
+                      value={`kubectl apply -f "${clusterAgentManifestURL}"`}
                     />
                     <Button
                       type="button"
                       variant="outline"
                       size="icon"
                       aria-label={t(
-                        'clusterManagement.connector.copyApplyCommand',
+                        'clusterManagement.clusterAgent.copyApplyCommand',
                         'Copy apply command'
                       )}
                       onClick={async () => {
                         try {
                           await navigator.clipboard.writeText(
-                            `kubectl apply -f "${connectorManifestURL}"`
+                            `kubectl apply -f "${clusterAgentManifestURL}"`
                           )
-                          setConnectorCopyError(null)
+                          setClusterAgentCopyError(null)
                           toast.success(t('common.messages.copied', 'Copied'))
                         } catch {
-                          setConnectorCopyError('yaml')
+                          setClusterAgentCopyError('yaml')
                         }
                       }}
                     >
@@ -606,52 +612,52 @@ export function ClusterManagement() {
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">
                   {t(
-                    'clusterManagement.connector.orUseYaml',
+                    'clusterManagement.clusterAgent.orUseYaml',
                     'Or deploy with YAML'
                   )}
                 </Label>
-                {isConnectorYamlLoading ? (
+                {isClusterAgentYamlLoading ? (
                   <Skeleton className="h-96 w-full" />
-                ) : connectorYamlError ? (
+                ) : clusterAgentYamlError ? (
                   <p role="alert" className="text-sm text-destructive">
-                    {connectorYamlError}
+                    {clusterAgentYamlError}
                   </p>
                 ) : (
                   <Textarea
                     readOnly
                     className="h-96 resize-none font-mono text-xs"
                     aria-label={t(
-                      'clusterManagement.connector.yaml',
+                      'clusterManagement.clusterAgent.yaml',
                       'Kubernetes YAML'
                     )}
-                    value={connectorYaml}
+                    value={clusterAgentYaml}
                   />
                 )}
               </div>
-              {connectorYaml && (
+              {clusterAgentYaml && (
                 <div className="flex justify-end">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={async () => {
                       try {
-                        await navigator.clipboard.writeText(connectorYaml)
-                        setConnectorCopyError(null)
+                        await navigator.clipboard.writeText(clusterAgentYaml)
+                        setClusterAgentCopyError(null)
                         toast.success(t('common.messages.copied', 'Copied'))
                       } catch {
-                        setConnectorCopyError('yaml')
+                        setClusterAgentCopyError('yaml')
                       }
                     }}
                   >
                     <IconCopy className="size-4" />
-                    {t('clusterManagement.connector.copyYaml', 'Copy YAML')}
+                    {t('clusterManagement.clusterAgent.copyYaml', 'Copy YAML')}
                   </Button>
                 </div>
               )}
-              {connectorCopyError === 'yaml' && (
+              {clusterAgentCopyError === 'yaml' && (
                 <p role="alert" className="text-sm text-destructive">
                   {t(
-                    'clusterManagement.connector.copyError',
+                    'clusterManagement.clusterAgent.copyError',
                     'Failed to copy. Copy the content manually.'
                   )}
                 </p>
@@ -662,13 +668,13 @@ export function ClusterManagement() {
             <Button
               type="button"
               onClick={() => {
-                connectorYamlRequestID.current += 1
-                setConnectorCommand('')
-                setConnectorYaml('')
-                setConnectorYamlError(null)
-                setIsConnectorYamlLoading(false)
-                setConnectorManifestURL('')
-                setConnectorCopyError(null)
+                clusterAgentYamlRequestID.current += 1
+                setClusterAgentCommand('')
+                setClusterAgentYaml('')
+                setClusterAgentYamlError(null)
+                setIsClusterAgentYamlLoading(false)
+                setClusterAgentManifestURL('')
+                setClusterAgentCopyError(null)
               }}
             >
               {t('common.actions.close', 'Close')}

@@ -15,7 +15,7 @@ const DefaultGeneralAIModel = "gpt-4o-mini"
 const DefaultGeneralAnthropicModel = "claude-sonnet-4-5"
 const DefaultGeneralKubectlImage = "zzde/kubectl:latest"
 const DefaultGeneralNodeTerminalImage = "busybox:latest"
-const DefaultGeneralConnectorImage = "ghcr.io/kite-org/kite:latest"
+const DefaultGeneralClusterAgentImage = "ghcr.io/kite-org/kite:latest"
 
 const GeneralAIProviderOpenAI = "openai"
 const GeneralAIProviderAnthropic = "anthropic"
@@ -37,10 +37,10 @@ func DefaultGeneralKubectlImageValue() string {
 	return image
 }
 
-func DefaultGeneralConnectorImageValue() string {
-	image := strings.TrimSpace(common.ConnectorImage)
+func DefaultGeneralClusterAgentImageValue() string {
+	image := strings.TrimSpace(common.ClusterAgentImage)
 	if image == "" {
-		return DefaultGeneralConnectorImage
+		return DefaultGeneralClusterAgentImage
 	}
 	return image
 }
@@ -56,7 +56,7 @@ type GeneralSetting struct {
 	KubectlEnabled          bool         `json:"kubectlEnabled" gorm:"column:kubectl_enabled;type:boolean;not null;default:true"`
 	KubectlImage            string       `json:"kubectlImage" gorm:"column:kubectl_image;type:varchar(255);not null;default:'zzde/kubectl:latest'"`
 	NodeTerminalImage       string       `json:"nodeTerminalImage" gorm:"column:node_terminal_image;type:varchar(255);not null;default:'busybox:latest'"`
-	ConnectorImage          string       `json:"connectorImage" gorm:"column:connector_image;type:varchar(255);not null;default:'ghcr.io/kite-org/kite:latest'"`
+	ClusterAgentImage       string       `json:"clusterAgentImage" gorm:"column:cluster_agent_image;type:varchar(255);not null;default:'ghcr.io/kite-org/kite:latest'"`
 	EnableAnalytics         bool         `json:"enableAnalytics" gorm:"column:enable_analytics;type:boolean;not null;default:false"`
 	EnableVersionCheck      bool         `json:"enableVersionCheck" gorm:"column:enable_version_check;type:boolean;not null;default:true"`
 	PasswordLoginDisabled   bool         `json:"passwordLoginDisabled" gorm:"column:password_login_disabled;type:boolean;not null;default:false"`
@@ -117,9 +117,9 @@ func GetGeneralSetting() (*GeneralSetting, error) {
 			setting.NodeTerminalImage = DefaultGeneralNodeTerminalImageValue()
 			updates["node_terminal_image"] = setting.NodeTerminalImage
 		}
-		if setting.ConnectorImage == "" {
-			setting.ConnectorImage = DefaultGeneralConnectorImageValue()
-			updates["connector_image"] = setting.ConnectorImage
+		if setting.ClusterAgentImage == "" {
+			setting.ClusterAgentImage = DefaultGeneralClusterAgentImageValue()
+			updates["cluster_agent_image"] = setting.ClusterAgentImage
 		}
 		if err := ensureJWTSecret(&setting, updates); err != nil {
 			return nil, err
@@ -145,7 +145,7 @@ func GetGeneralSetting() (*GeneralSetting, error) {
 		KubectlEnabled:     true,
 		KubectlImage:       DefaultGeneralKubectlImageValue(),
 		NodeTerminalImage:  DefaultGeneralNodeTerminalImageValue(),
-		ConnectorImage:     DefaultGeneralConnectorImageValue(),
+		ClusterAgentImage:  DefaultGeneralClusterAgentImageValue(),
 		EnableAnalytics:    common.EnableAnalytics,
 		EnableVersionCheck: common.EnableVersionCheck,
 		EnableMFA:          true,

@@ -8,33 +8,39 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zxh326/kite/pkg/connector"
+	"github.com/zxh326/kite/pkg/clusteragent"
 	"github.com/zxh326/kite/pkg/model"
 )
 
-func TestGetConnectorManifest(t *testing.T) {
+func TestGetClusterAgentManifest(t *testing.T) {
 	setupClusterHandlerTestDB(t)
 
-	token, hash, err := connector.NewToken()
+	token, hash, err := clusteragent.NewToken()
 	if err != nil {
 		t.Fatalf("generating token: %v", err)
 	}
+	publicKey, privateKey, err := clusteragent.NewRegistrationKeyPair()
+	if err != nil {
+		t.Fatalf("generating registration key pair: %v", err)
+	}
 	cluster := &model.Cluster{
-		Name:               "conn-cluster",
-		Connector:          true,
-		Enable:             true,
-		ConnectorTokenHash: hash,
+		Name:                   "agent-cluster",
+		ClusterAgent:           true,
+		Enable:                 true,
+		ClusterAgentTokenHash:  hash,
+		ClusterAgentPublicKey:  publicKey,
+		ClusterAgentPrivateKey: model.SecretString(privateKey),
 	}
 	if err := model.AddCluster(cluster); err != nil {
 		t.Fatalf("adding cluster: %v", err)
 	}
 
-	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, connectorManager: connector.NewManager(func() {})}
-	grant, err := manager.connectorManager.CreateManifestGrant(token)
+	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, clusterAgentManager: clusteragent.NewManager(func() {})}
+	grant, err := manager.clusterAgentManager.CreateManifestGrant(token)
 	if err != nil {
 		t.Fatalf("generating manifest grant: %v", err)
 	}
-	router := newConnectorManifestRouter(manager)
+	router := newClusterAgentManifestRouter(manager)
 
 	rec := performClusterRequest(router, http.MethodGet, "/manifest?grant="+grant, "")
 	if rec.Code != http.StatusOK {
@@ -49,7 +55,7 @@ func TestGetConnectorManifest(t *testing.T) {
 		"kind: ServiceAccount",
 		"kind: ClusterRoleBinding",
 		"kind: Deployment",
-		"kite-connector",
+		"kite-cluster-agent",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("manifest missing %q:\n%s", want, body)
@@ -57,10 +63,10 @@ func TestGetConnectorManifest(t *testing.T) {
 	}
 }
 
-func TestGetConnectorManifestInvalidGrant(t *testing.T) {
+func TestGetClusterAgentManifestInvalidGrant(t *testing.T) {
 	setupClusterHandlerTestDB(t)
-	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, connectorManager: connector.NewManager(func() {})}
-	router := newConnectorManifestRouter(manager)
+	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, clusterAgentManager: clusteragent.NewManager(func() {})}
+	router := newClusterAgentManifestRouter(manager)
 
 	// Missing grant.
 	rec := performClusterRequest(router, http.MethodGet, "/manifest", "")
@@ -75,20 +81,20 @@ func TestGetConnectorManifestInvalidGrant(t *testing.T) {
 	}
 }
 
-func TestGetConnectorManifestTokenNotAssociated(t *testing.T) {
+func TestGetClusterAgentManifestTokenNotAssociated(t *testing.T) {
 	setupClusterHandlerTestDB(t)
 
-	token, _, err := connector.NewToken()
+	token, _, err := clusteragent.NewToken()
 	if err != nil {
 		t.Fatalf("generating token: %v", err)
 	}
 
-	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, connectorManager: connector.NewManager(func() {})}
-	grant, err := manager.connectorManager.CreateManifestGrant(token)
+	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, clusterAgentManager: clusteragent.NewManager(func() {})}
+	grant, err := manager.clusterAgentManager.CreateManifestGrant(token)
 	if err != nil {
 		t.Fatalf("generating manifest grant: %v", err)
 	}
-	router := newConnectorManifestRouter(manager)
+	router := newClusterAgentManifestRouter(manager)
 
 	rec := performClusterRequest(router, http.MethodGet, "/manifest?grant="+grant, "")
 	if rec.Code != http.StatusUnauthorized {
@@ -96,18 +102,18 @@ func TestGetConnectorManifestTokenNotAssociated(t *testing.T) {
 	}
 }
 
-func TestGetConnectorManifestDisabledCluster(t *testing.T) {
+func TestGetClusterAgentManifestDisabledCluster(t *testing.T) {
 	setupClusterHandlerTestDB(t)
 
-	token, hash, err := connector.NewToken()
+	token, hash, err := clusteragent.NewToken()
 	if err != nil {
 		t.Fatalf("generating token: %v", err)
 	}
 	cluster := &model.Cluster{
-		Name:               "disabled-conn",
-		Connector:          true,
-		Enable:             true,
-		ConnectorTokenHash: hash,
+		Name:                  "disabled-agent",
+		ClusterAgent:          true,
+		Enable:                true,
+		ClusterAgentTokenHash: hash,
 	}
 	if err := model.AddCluster(cluster); err != nil {
 		t.Fatalf("adding cluster: %v", err)
@@ -116,12 +122,12 @@ func TestGetConnectorManifestDisabledCluster(t *testing.T) {
 		t.Fatalf("disabling cluster: %v", err)
 	}
 
-	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, connectorManager: connector.NewManager(func() {})}
-	grant, err := manager.connectorManager.CreateManifestGrant(token)
+	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, clusterAgentManager: clusteragent.NewManager(func() {})}
+	grant, err := manager.clusterAgentManager.CreateManifestGrant(token)
 	if err != nil {
 		t.Fatalf("generating manifest grant: %v", err)
 	}
-	router := newConnectorManifestRouter(manager)
+	router := newClusterAgentManifestRouter(manager)
 
 	rec := performClusterRequest(router, http.MethodGet, "/manifest?grant="+grant, "")
 	if rec.Code != http.StatusUnauthorized {
@@ -129,15 +135,15 @@ func TestGetConnectorManifestDisabledCluster(t *testing.T) {
 	}
 }
 
-func TestCreateConnectorClusterReturnsConnectionInfo(t *testing.T) {
+func TestCreateClusterAgentClusterReturnsConnectionInfo(t *testing.T) {
 	setupClusterHandlerTestDB(t)
 
-	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, connectorManager: connector.NewManager(func() {})}
+	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, clusterAgentManager: clusteragent.NewManager(func() {})}
 	router := gin.New()
 	router.POST("/clusters", manager.CreateCluster)
 
 	rec := performClusterRequest(router, http.MethodPost, "/clusters",
-		`{"name":"conn-test","connector":true}`)
+		`{"name":"agent-test","clusterAgent":true}`)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
 	}
@@ -147,82 +153,82 @@ func TestCreateConnectorClusterReturnsConnectionInfo(t *testing.T) {
 		t.Fatalf("decoding response: %v", err)
 	}
 
-	serverURL, _ := result["connectorServer"].(string)
-	token, _ := result["connectorToken"].(string)
-	manifestURL, _ := result["connectorManifestURL"].(string)
+	serverURL, _ := result["clusterAgentServer"].(string)
+	token, _ := result["clusterAgentToken"].(string)
+	manifestURL, _ := result["clusterAgentManifestURL"].(string)
 
 	if serverURL == "" {
-		t.Fatal("connectorServer is empty")
+		t.Fatal("clusterAgentServer is empty")
 	}
 	if token == "" {
-		t.Fatal("connectorToken is empty")
+		t.Fatal("clusterAgentToken is empty")
 	}
 	if manifestURL == "" {
-		t.Fatal("connectorManifestURL is empty")
+		t.Fatal("clusterAgentManifestURL is empty")
 	}
 	if !strings.HasPrefix(manifestURL, serverURL) {
 		t.Errorf("manifestURL %q should start with serverURL %q", manifestURL, serverURL)
 	}
 	if strings.Contains(manifestURL, token) {
-		t.Errorf("manifestURL %q should not contain the connector token", manifestURL)
+		t.Errorf("manifestURL %q should not contain the cluster agent token", manifestURL)
 	}
 	if !strings.Contains(manifestURL, "?grant=") {
 		t.Errorf("manifestURL %q should contain a manifest grant", manifestURL)
 	}
 	// Verify the cluster was persisted correctly.
-	cluster, err := model.GetClusterByName("conn-test")
+	cluster, err := model.GetClusterByName("agent-test")
 	if err != nil {
 		t.Fatalf("loading cluster: %v", err)
 	}
-	if !cluster.Connector {
-		t.Error("cluster.Connector should be true")
+	if !cluster.ClusterAgent {
+		t.Error("cluster.ClusterAgent should be true")
 	}
-	if cluster.ConnectorTokenHash == "" {
-		t.Error("ConnectorTokenHash should not be empty")
+	if cluster.ClusterAgentTokenHash == "" {
+		t.Error("ClusterAgentTokenHash should not be empty")
 	}
 	if string(cluster.Config) != "" {
-		t.Errorf("connector cluster should have empty config, got %q", cluster.Config)
+		t.Errorf("cluster agent cluster should have empty config, got %q", cluster.Config)
 	}
 }
 
-func TestCreateConnectorClusterIgnoresKubeconfig(t *testing.T) {
+func TestCreateClusterAgentClusterIgnoresKubeconfig(t *testing.T) {
 	setupClusterHandlerTestDB(t)
 
-	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, connectorManager: connector.NewManager(func() {})}
+	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, clusterAgentManager: clusteragent.NewManager(func() {})}
 	router := gin.New()
 	router.POST("/clusters", manager.CreateCluster)
 
 	rec := performClusterRequest(router, http.MethodPost, "/clusters",
-		`{"name":"conn-ignore","connector":true,"config":"should-be-ignored","inCluster":true,"prometheusURL":"https://prom.example.com"}`)
+		`{"name":"agent-ignore","clusterAgent":true,"config":"should-be-ignored","inCluster":true,"prometheusURL":"https://prom.example.com"}`)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
 	}
 
-	cluster, err := model.GetClusterByName("conn-ignore")
+	cluster, err := model.GetClusterByName("agent-ignore")
 	if err != nil {
 		t.Fatalf("loading cluster: %v", err)
 	}
 	if string(cluster.Config) != "" {
-		t.Errorf("connector cluster config should be empty, got %q", cluster.Config)
+		t.Errorf("cluster agent cluster config should be empty, got %q", cluster.Config)
 	}
 	if cluster.InCluster {
-		t.Error("connector cluster InCluster should be false")
+		t.Error("cluster agent cluster InCluster should be false")
 	}
 	if cluster.PrometheusURL != "" {
-		t.Errorf("connector cluster PrometheusURL should be empty, got %q", cluster.PrometheusURL)
+		t.Errorf("cluster agent cluster PrometheusURL should be empty, got %q", cluster.PrometheusURL)
 	}
 }
 
-func TestCreateConnectorClusterServerURLDerivation(t *testing.T) {
+func TestCreateClusterAgentClusterServerURLDerivation(t *testing.T) {
 	setupClusterHandlerTestDB(t)
 
-	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, connectorManager: connector.NewManager(func() {})}
+	manager := &ClusterManager{clusters: map[string]*ClientSet{}, errors: map[string]string{}, clusterAgentManager: clusteragent.NewManager(func() {})}
 	router := gin.New()
 	router.POST("/clusters", manager.CreateCluster)
 
 	// Verify that X-Forwarded-Host and X-Forwarded-Proto are respected.
 	rec := httptest.NewRecorder()
-	body := strings.NewReader(`{"name":"conn-fwd","connector":true}`)
+	body := strings.NewReader(`{"name":"agent-fwd","clusterAgent":true}`)
 	req := httptest.NewRequest(http.MethodPost, "/clusters", body)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Forwarded-Host", "kite.example.com")
@@ -236,14 +242,14 @@ func TestCreateConnectorClusterServerURLDerivation(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
 		t.Fatalf("decoding response: %v", err)
 	}
-	serverURL, _ := result["connectorServer"].(string)
+	serverURL, _ := result["clusterAgentServer"].(string)
 	if !strings.HasPrefix(serverURL, "https://kite.example.com") {
 		t.Errorf("serverURL = %q, want https://kite.example.com prefix", serverURL)
 	}
 }
 
-func newConnectorManifestRouter(manager *ClusterManager) *gin.Engine {
+func newClusterAgentManifestRouter(manager *ClusterManager) *gin.Engine {
 	router := gin.New()
-	router.GET("/manifest", manager.GetConnectorManifest)
+	router.GET("/manifest", manager.GetClusterAgentManifest)
 	return router
 }

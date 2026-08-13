@@ -2,15 +2,17 @@ package model
 
 type Cluster struct {
 	Model
-	Name               string       `json:"name" gorm:"type:varchar(100);uniqueIndex;not null"`
-	Description        string       `json:"description" gorm:"type:text"`
-	Config             SecretString `json:"config" gorm:"type:text"`
-	PrometheusURL      string       `json:"prometheus_url,omitempty" gorm:"type:text"`
-	InCluster          bool         `json:"in_cluster" gorm:"type:boolean;default:false"`
-	Connector          bool         `json:"connector" gorm:"type:boolean;default:false"`
-	ConnectorTokenHash string       `json:"-" gorm:"type:varchar(64);index"`
-	IsDefault          bool         `json:"is_default" gorm:"type:boolean;default:false"`
-	Enable             bool         `json:"enable" gorm:"type:boolean;default:true"`
+	Name                   string       `json:"name" gorm:"type:varchar(100);uniqueIndex;not null"`
+	Description            string       `json:"description" gorm:"type:text"`
+	Config                 SecretString `json:"config" gorm:"type:text"`
+	PrometheusURL          string       `json:"prometheus_url,omitempty" gorm:"type:text"`
+	InCluster              bool         `json:"in_cluster" gorm:"type:boolean;default:false"`
+	ClusterAgent           bool         `json:"clusterAgent" gorm:"type:boolean;default:false"`
+	ClusterAgentTokenHash  string       `json:"-" gorm:"type:varchar(64);index"`
+	ClusterAgentPublicKey  string       `json:"-" gorm:"type:varchar(64)"`
+	ClusterAgentPrivateKey SecretString `json:"-" gorm:"type:text"`
+	IsDefault              bool         `json:"is_default" gorm:"type:boolean;default:false"`
+	Enable                 bool         `json:"enable" gorm:"type:boolean;default:true"`
 }
 
 func AddCluster(cluster *Cluster) error {
@@ -33,9 +35,9 @@ func GetClusterByID(id uint) (*Cluster, error) {
 	return &cluster, nil
 }
 
-func GetClusterByConnectorTokenHash(hash string) (*Cluster, error) {
+func GetClusterByClusterAgentTokenHash(hash string) (*Cluster, error) {
 	var cluster Cluster
-	if err := DB.Where("connector_token_hash = ?", hash).First(&cluster).Error; err != nil {
+	if err := DB.Where("cluster_agent_token_hash = ?", hash).First(&cluster).Error; err != nil {
 		return nil, err
 	}
 	return &cluster, nil

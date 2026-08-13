@@ -19,7 +19,7 @@ Kite supports several environment variables by default to change the default val
 
 - **NODE_TERMINAL_IMAGE**: Docker image used for generating Node Terminal Agent.
 
-- **CONNECTOR_IMAGE**: Docker image used when generating the Kite Connector manifest for connector-type clusters.
+- **CLUSTER_AGENT_IMAGE**: Docker image used when generating the Kite Cluster Agent manifest for Cluster Agent clusters.
 
 - **ENABLE_ANALYTICS**: Enable data analytics functionality, default value is `false`. When enabled, Kite will collect limited data to help improve the product.
 
