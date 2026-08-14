@@ -7,6 +7,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/common"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
+	"k8s.io/kubectl/pkg/describe"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
@@ -93,6 +95,28 @@ func executeGetResource(ctx context.Context, cs *cluster.ClientSet, args map[str
 	}
 
 	return string(yamlBytes), false
+}
+
+func executeDescribeResource(ctx context.Context, cs *cluster.ClientSet, args map[string]interface{}) (string, bool) {
+	kind, err := getRequiredString(args, "kind")
+	if err != nil {
+		return "Error: " + err.Error(), true
+	}
+	name, err := getRequiredString(args, "name")
+	if err != nil {
+		return "Error: " + err.Error(), true
+	}
+	namespace, _ := args["namespace"].(string)
+	resource := resolveResourceInfo(ctx, cs, kind)
+	describer, ok := describe.DescriberFor(resource.GVK().GroupKind(), cs.K8sClient.Configuration)
+	if !ok {
+		return fmt.Sprintf("Error: no describer found for %s", resource.Kind), true
+	}
+	result, err := describer.Describe(normalizeNamespace(resource, namespace), name, describe.DescriberSettings{ShowEvents: true})
+	if err != nil {
+		return fmt.Sprintf("Error describing %s/%s: %v", resource.Kind, name, err), true
+	}
+	return result, false
 }
 
 func redactSensitiveResourceData(resource resourceInfo, obj *unstructured.Unstructured) {
@@ -509,6 +533,100 @@ func executeGetPodLogs(ctx context.Context, cs *cluster.ClientSet, args map[stri
 	return fmt.Sprintf("Logs for pod %s/%s:\n\n```\n%s\n```", namespace, name, string(logBytes)), false
 }
 
+type execInPodOptions struct {
+	Name      string
+	Namespace string
+	Container string
+	Command   []string
+	Timeout   time.Duration
+}
+
+func parseExecInPodOptions(args map[string]interface{}) (execInPodOptions, error) {
+	name, err := getRequiredString(args, "name")
+	if err != nil {
+		return execInPodOptions{}, err
+	}
+	namespace, err := getRequiredString(args, "namespace")
+	if err != nil {
+		return execInPodOptions{}, err
+	}
+	container, _ := args["container"].(string)
+	container = strings.TrimSpace(container)
+
+	var command []string
+	switch values := args["command"].(type) {
+	case []string:
+		command = values
+	case []interface{}:
+		command = make([]string, 0, len(values))
+		for _, value := range values {
+			argument, ok := value.(string)
+			if !ok {
+				return execInPodOptions{}, fmt.Errorf("every command argument must be a string")
+			}
+			command = append(command, argument)
+		}
+	}
+	if len(command) == 0 || strings.TrimSpace(command[0]) == "" {
+		return execInPodOptions{}, fmt.Errorf("command is required")
+	}
+	rawTimeout := args["timeout_seconds"]
+	timeoutSeconds, ok := asInt64(rawTimeout)
+	if !ok || timeoutSeconds <= 0 {
+		return execInPodOptions{}, fmt.Errorf("timeout_seconds must be a positive integer")
+	}
+	if value, ok := rawTimeout.(float64); ok && value != float64(timeoutSeconds) {
+		return execInPodOptions{}, fmt.Errorf("timeout_seconds must be a positive integer")
+	}
+	timeout := time.Duration(timeoutSeconds) * time.Second
+	if timeout/time.Second != time.Duration(timeoutSeconds) {
+		return execInPodOptions{}, fmt.Errorf("timeout_seconds is too large")
+	}
+	return execInPodOptions{
+		Name:      name,
+		Namespace: namespace,
+		Container: container,
+		Command:   command,
+		Timeout:   timeout,
+	}, nil
+}
+
+func executeExecInPod(ctx context.Context, cs *cluster.ClientSet, args map[string]interface{}) (string, bool) {
+	options, err := parseExecInPodOptions(args)
+	if err != nil {
+		return "Error: " + err.Error(), true
+	}
+
+	execCtx, cancel := context.WithTimeout(ctx, options.Timeout)
+	defer cancel()
+	stdout, stderr, execErr := cs.K8sClient.ExecCommandBuffered(execCtx, options.Namespace, options.Name, options.Container, options.Command)
+
+	commandJSON, err := json.Marshal(options.Command)
+	if err != nil {
+		return "Error formatting command: " + err.Error(), true
+	}
+	var result strings.Builder
+	fmt.Fprintf(&result, "Command in pod %s/%s", options.Namespace, options.Name)
+	if options.Container != "" {
+		fmt.Fprintf(&result, " (container: %s)", options.Container)
+	}
+	fmt.Fprintf(&result, ": %s (timeout: %s)\n", commandJSON, options.Timeout)
+	if stdout != "" {
+		fmt.Fprintf(&result, "\nstdout:\n%s\n", stdout)
+	}
+	if stderr != "" {
+		fmt.Fprintf(&result, "\nstderr:\n%s\n", stderr)
+	}
+	if execErr != nil {
+		fmt.Fprintf(&result, "\nError: %v", execErr)
+		return result.String(), true
+	}
+	if stdout == "" && stderr == "" {
+		result.WriteString("\nCommand completed with no output.")
+	}
+	return result.String(), false
+}
+
 func executeGetClusterOverview(ctx context.Context, cs *cluster.ClientSet) (string, bool) {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "Cluster: %s\n\n", cs.Name)
@@ -585,6 +703,43 @@ func executeCreateResource(ctx context.Context, cs *cluster.ClientSet, user pkgm
 	return fmt.Sprintf("Successfully created %s/%s", obj.GetKind(), obj.GetName()), false
 }
 
+func executeApplyResource(ctx context.Context, cs *cluster.ClientSet, user pkgmodel.User, args map[string]interface{}) (string, bool) {
+	obj, err := parseResourceYAML(args)
+	if err != nil {
+		return "Error: " + err.Error(), true
+	}
+
+	resource := resolveResourceInfoForObject(ctx, cs, obj)
+	obj.SetNamespace(normalizeNamespace(resource, obj.GetNamespace()))
+	previous := buildObjectForResource(resource)
+	key := k8stypes.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}
+	previousYAML := ""
+	if getErr := cs.K8sClient.Get(ctx, key, previous); getErr == nil {
+		previousYAML = objectToYAML(previous)
+	} else if !apierrors.IsNotFound(getErr) {
+		return fmt.Sprintf("Error finding %s/%s: %v", resource.Kind, obj.GetName(), getErr), true
+	}
+
+	err = cs.K8sClient.Apply(ctx, client.ApplyConfigurationFromUnstructured(obj), client.FieldOwner("kite-ai-agent"))
+	currentYAML := ""
+	if err == nil {
+		current := buildObjectForResource(resource)
+		if getErr := cs.K8sClient.Get(ctx, key, current); getErr == nil {
+			currentYAML = objectToYAML(current)
+		}
+	}
+	if currentYAML == "" {
+		currentYAML, _ = getRequiredString(args, "yaml")
+	}
+	recordResourceHistory(cs, user, resource, obj.GetName(), obj.GetNamespace(), "apply", currentYAML, previousYAML, err == nil, err)
+
+	if err != nil {
+		return fmt.Sprintf("Error applying %s/%s: %v", resource.Kind, obj.GetName(), err), true
+	}
+	klog.V(1).Infof("AI Agent applied resource: %s/%s in namespace %s", resource.Kind, obj.GetName(), obj.GetNamespace())
+	return fmt.Sprintf("Successfully applied %s/%s", resource.Kind, obj.GetName()), false
+}
+
 func executeUpdateResource(ctx context.Context, cs *cluster.ClientSet, user pkgmodel.User, args map[string]interface{}) (string, bool) {
 	obj, err := parseResourceYAML(args)
 	if err != nil {
@@ -649,8 +804,15 @@ func executePatchResource(ctx context.Context, cs *cluster.ClientSet, user pkgmo
 	// Get previous state
 	previousYAML := objectToYAML(obj.DeepCopy())
 
+	patchType := k8stypes.StrategicMergePatchType
+	switch value, _ := args["patch_type"].(string); value {
+	case "merge":
+		patchType = k8stypes.MergePatchType
+	case "json":
+		patchType = k8stypes.JSONPatchType
+	}
 	patchBytes := []byte(patchStr)
-	patch := client.RawPatch(k8stypes.StrategicMergePatchType, patchBytes)
+	patch := client.RawPatch(patchType, patchBytes)
 	err = cs.K8sClient.Patch(ctx, obj, patch)
 
 	// Get current state after patch

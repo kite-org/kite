@@ -16,6 +16,17 @@ export function describeAction(
   const target = ns ? `${kind} ${ns}/${name}` : `${kind} ${name}`
 
   switch (tool) {
+    case 'exec_in_pod': {
+      const command = Array.isArray(args.command)
+        ? args.command.filter(
+            (value): value is string => typeof value === 'string'
+          )
+        : []
+      const container = (args.container as string) || ''
+      const pod = ns ? `${ns}/${name}` : name
+      const timeout = Number(args.timeout_seconds)
+      return `Exec ${JSON.stringify(command)} in Pod ${pod}${container ? ` (${container})` : ''}${timeout > 0 ? `, timeout ${timeout}s` : ''}`
+    }
     case 'delete_resource':
       return `Delete ${target}`
     case 'patch_resource': {
@@ -49,6 +60,15 @@ export function describeAction(
       }
       return 'Create resource'
     }
+    case 'apply_resource': {
+      const yaml = (args.yaml as string) || ''
+      const kindMatch = yaml.match(/^kind:\s*(.+)$/m)
+      const nameMatch = yaml.match(/^\s*name:\s*(.+)$/m)
+      if (kindMatch && nameMatch) {
+        return `Apply ${kindMatch[1].trim()} ${nameMatch[1].trim()}`
+      }
+      return 'Apply resource'
+    }
     case 'update_resource': {
       const yaml = (args.yaml as string) || ''
       const kindMatch = yaml.match(/^kind:\s*(.+)$/m)
@@ -63,21 +83,28 @@ export function describeAction(
   }
 }
 
-export function buildToolYamlPreview(
+export function buildToolPreview(
   tool: string | undefined,
   args: Record<string, unknown> | undefined
-): string | null {
+): { label: string; content: string } | null {
   if (!tool || !args) {
     return null
   }
 
   switch (tool) {
+    case 'exec_in_pod':
+      return {
+        label: 'Arguments',
+        content: JSON.stringify(args, null, 2),
+      }
     case 'create_resource':
+    case 'apply_resource':
     case 'update_resource': {
       const resourceYaml = args.yaml
-      return typeof resourceYaml === 'string' && resourceYaml.trim()
-        ? resourceYaml.trim()
-        : null
+      if (typeof resourceYaml !== 'string' || !resourceYaml.trim()) {
+        return null
+      }
+      return { label: 'YAML', content: resourceYaml.trim() }
     }
     case 'patch_resource': {
       const patch = args.patch
@@ -104,15 +131,18 @@ export function buildToolYamlPreview(
           preview.metadata = metadata
         }
 
-        return yaml
-          .dump(preview, {
-            indent: 2,
-            lineWidth: -1,
-            noRefs: true,
-          })
-          .trim()
+        return {
+          label: 'YAML',
+          content: yaml
+            .dump(preview, {
+              indent: 2,
+              lineWidth: -1,
+              noRefs: true,
+            })
+            .trim(),
+        }
       } catch {
-        return patch.trim()
+        return { label: 'Patch', content: patch.trim() }
       }
     }
     default:

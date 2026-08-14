@@ -109,7 +109,7 @@ func consumeOpenAIStreamingResponse(
 		for _, choice := range chunk.Choices {
 			delta := choice.Delta
 			if choice.FinishReason != "" {
-				stopReason = string(choice.FinishReason)
+				stopReason = choice.FinishReason
 			}
 
 			if delta.Content != "" {
