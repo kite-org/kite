@@ -132,35 +132,3 @@ func TestBuildInteractionToolResultForm(t *testing.T) {
 		t.Fatalf("unexpected mode: %#v", decoded["mode"])
 	}
 }
-
-func TestBuildInteractionEventData(t *testing.T) {
-	data := buildInteractionEventData(
-		requestChoiceTool,
-		"call-1",
-		"session-1",
-		interactionRequest{
-			Kind:        interactionKindChoice,
-			Name:        "resourceType",
-			Title:       "Pick a resource",
-			Description: "Choose one",
-			SubmitLabel: "Select",
-			Options:     []interactionOption{{Label: "Pod", Value: "pod"}},
-		},
-	)
-
-	if data["tool"] != requestChoiceTool {
-		t.Fatalf("unexpected tool: %#v", data["tool"])
-	}
-	if data["tool_call_id"] != "call-1" {
-		t.Fatalf("unexpected tool_call_id: %#v", data["tool_call_id"])
-	}
-	if data["session_id"] != "session-1" {
-		t.Fatalf("unexpected session_id: %#v", data["session_id"])
-	}
-	if data["kind"] != interactionKindChoice || data["title"] != "Pick a resource" {
-		t.Fatalf("unexpected request metadata: %#v", data)
-	}
-	if data["name"] != "resourceType" || data["description"] != "Choose one" || data["submit_label"] != "Select" {
-		t.Fatalf("unexpected optional fields: %#v", data)
-	}
-}

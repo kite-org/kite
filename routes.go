@@ -188,8 +188,7 @@ func registerClusterProtectedRoutes(api *gin.RouterGroup, helmChartsHandler *hel
 	proxyHandler.RegisterRoutes(api)
 
 	api.POST("/ai/chat", ai.HandleChat)
-	api.POST("/ai/execute/continue", ai.HandleExecuteContinue)
-	api.POST("/ai/input/continue", ai.HandleInputContinue)
+	api.POST("/ai/continue", ai.HandleContinue)
 
 	api.Use(middleware.RBACMiddleware())
 	resources.RegisterRoutes(api)

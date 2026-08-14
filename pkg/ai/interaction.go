@@ -197,32 +197,6 @@ func parseInteractionFields(raw interface{}) ([]interactionField, error) {
 	return fields, nil
 }
 
-func buildInteractionEventData(toolName, toolCallID, sessionID string, request interactionRequest) map[string]interface{} {
-	data := map[string]interface{}{
-		"tool":         toolName,
-		"tool_call_id": toolCallID,
-		"session_id":   sessionID,
-		"kind":         request.Kind,
-		"title":        request.Title,
-	}
-	if request.Name != "" {
-		data["name"] = request.Name
-	}
-	if request.Description != "" {
-		data["description"] = request.Description
-	}
-	if request.SubmitLabel != "" {
-		data["submit_label"] = request.SubmitLabel
-	}
-	if len(request.Options) > 0 {
-		data["options"] = request.Options
-	}
-	if len(request.Fields) > 0 {
-		data["fields"] = request.Fields
-	}
-	return data
-}
-
 func buildInteractionToolResult(request interactionRequest, submitted map[string]interface{}) (string, error) {
 	if submitted == nil {
 		submitted = map[string]interface{}{}

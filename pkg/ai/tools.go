@@ -283,8 +283,7 @@ func interactionOptionsSchema(description string) map[string]any {
 	}
 }
 
-func OpenAIToolDefs(cs *cluster.ClientSet) []openai.ChatCompletionToolParam {
-	defs := toolDefinitions(cs)
+func OpenAIToolDefs(defs []agentToolDefinition) []openai.ChatCompletionToolParam {
 	tools := make([]openai.ChatCompletionToolParam, 0, len(defs))
 
 	for _, def := range defs {
@@ -308,8 +307,7 @@ func OpenAIToolDefs(cs *cluster.ClientSet) []openai.ChatCompletionToolParam {
 	return tools
 }
 
-func AnthropicToolDefs(cs *cluster.ClientSet) []anthropic.ToolUnionParam {
-	defs := toolDefinitions(cs)
+func AnthropicToolDefs(defs []agentToolDefinition) []anthropic.ToolUnionParam {
 	tools := make([]anthropic.ToolUnionParam, 0, len(defs))
 
 	for _, def := range defs {

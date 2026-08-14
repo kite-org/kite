@@ -957,11 +957,7 @@ test('backend APIs work end to end against the real test environment', async ({
       400
     )
     await expectJSON(
-      await request.post(`${clusterPath}/ai/execute/continue`, { data: {} }),
-      400
-    )
-    await expectJSON(
-      await request.post(`${clusterPath}/ai/input/continue`, { data: {} }),
+      await request.post(`${clusterPath}/ai/continue`, { data: {} }),
       400
     )
 

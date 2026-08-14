@@ -2,217 +2,65 @@ package ai
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"strings"
 
 	anthropic "github.com/anthropics/anthropic-sdk-go"
-	"github.com/gin-gonic/gin"
 	"k8s.io/klog/v2"
 )
 
-func toAnthropicMessages(chatMessages []ChatMessage) []anthropic.MessageParam {
-	normalized := normalizeChatMessages(chatMessages)
-	messages := make([]anthropic.MessageParam, 0, len(normalized))
-
-	for _, msg := range normalized {
-		switch msg.Role {
-		case "assistant":
-			messages = append(messages, anthropic.NewAssistantMessage(anthropic.NewTextBlock(msg.Content)))
-		default:
-			messages = append(messages, anthropic.NewUserMessage(anthropic.NewTextBlock(msg.Content)))
-		}
-	}
-
-	return messages
+type anthropicProvider struct {
+	client anthropic.Client
 }
 
-func (a *Agent) processChatAnthropic(c *gin.Context, req *ChatRequest, sendEvent func(SSEEvent)) {
-	ctx := c.Request.Context()
-	runtimeCtx := buildRuntimePromptContext(c, a.cs)
-	language := normalizeLanguage(req.Language)
-	if language == "" {
-		language = "en"
-	}
-	sysPrompt := buildContextualSystemPrompt(req.PageContext, runtimeCtx, language)
-	messages := toAnthropicMessages(req.Messages)
-	a.runAnthropicConversation(ctx, c, sysPrompt, messages, sendEvent)
-}
-
-func (a *Agent) continueChatAnthropic(c *gin.Context, session pendingSession, sendEvent func(SSEEvent)) error {
-	ctx := c.Request.Context()
-	result, isError := ExecuteTool(ctx, c, a.cs, session.ToolCall.Name, session.ToolCall.Args)
-	return a.continueChatAnthropicWithToolResult(c, session, result, isError, sendEvent)
-}
-
-func (a *Agent) continueChatAnthropicWithToolResult(c *gin.Context, session pendingSession, result string, isError bool, sendEvent func(SSEEvent)) error {
-	ctx := c.Request.Context()
-	sendEvent(SSEEvent{
-		Event: "tool_result",
-		Data:  buildToolResultEventData(session.ToolCall.ID, session.ToolCall.Name, result, isError),
-	})
-
-	toolResult := result
-	if isError {
-		toolResult = "Tool error: " + result
-	}
-
-	session.AnthropicMessages = append(
-		session.AnthropicMessages,
-		anthropic.NewUserMessage(
-			anthropic.NewToolResultBlock(session.ToolCall.ID, toolResult, isError),
-		),
-	)
-	a.runAnthropicConversation(ctx, c, session.SystemPrompt, session.AnthropicMessages, sendEvent)
-	return nil
-}
-
-func (a *Agent) runAnthropicConversation(
+func (p *anthropicProvider) Stream(
 	ctx context.Context,
-	c *gin.Context,
-	sysPrompt string,
-	messages []anthropic.MessageParam,
-	sendEvent func(SSEEvent),
-) {
-	tools := AnthropicToolDefs(a.cs)
+	request providerRequest,
+	sendEvent func(AgentEvent),
+) (AgentMessage, error) {
+	stream := p.client.Messages.NewStreaming(ctx, anthropic.MessageNewParams{
+		Model:     request.Model,
+		Messages:  toAnthropicMessages(request.Messages),
+		System:    []anthropic.TextBlockParam{{Text: request.SystemPrompt}},
+		Tools:     AnthropicToolDefs(request.Tools),
+		MaxTokens: int64(request.MaxTokens),
+		ToolChoice: anthropic.ToolChoiceUnionParam{
+			OfAuto: &anthropic.ToolChoiceAutoParam{},
+		},
+	})
+	return consumeAnthropicStreamingResponse(stream, sendEvent)
+}
 
-	maxIterations := 100
-	for i := 0; i < maxIterations; i++ {
-		stream := a.anthropicClient.Messages.NewStreaming(ctx, anthropic.MessageNewParams{
-			Model:     a.model,
-			Messages:  messages,
-			System:    []anthropic.TextBlockParam{{Text: sysPrompt}},
-			Tools:     tools,
-			MaxTokens: int64(a.maxTokens),
-			ToolChoice: anthropic.ToolChoiceUnionParam{
-				OfAuto: &anthropic.ToolChoiceAutoParam{},
-			},
-		})
-
-		message, messageContent, thinkingContent, streamedToolCalls, err := consumeAnthropicStreamingResponse(stream, sendEvent)
-		if err != nil {
-			klog.Errorf("AI generation error: %v", err)
-			sendEvent(SSEEvent{Event: "error", Data: map[string]string{"message": fmt.Sprintf("AI error: %v", err)}})
-			return
+func toAnthropicMessages(messages []AgentMessage) []anthropic.MessageParam {
+	params := make([]anthropic.MessageParam, 0, len(messages))
+	for _, message := range messages {
+		blocks := make([]anthropic.ContentBlockParamUnion, 0, len(message.Content))
+		for _, block := range message.Content {
+			switch block.Type {
+			case contentBlockText:
+				blocks = append(blocks, anthropic.NewTextBlock(block.Text))
+			case contentBlockThinking:
+				if block.Signature != "" {
+					blocks = append(blocks, anthropic.NewThinkingBlock(block.Signature, block.Text))
+				}
+			case contentBlockRedactedThinking:
+				blocks = append(blocks, anthropic.NewRedactedThinkingBlock(block.Data))
+			case contentBlockToolCall:
+				blocks = append(blocks, anthropic.NewToolUseBlock(block.ToolCallID, block.Arguments, block.ToolName))
+			case contentBlockToolResult:
+				blocks = append(blocks, anthropic.NewToolResultBlock(block.ToolCallID, block.Text, block.IsError))
+			}
 		}
-
-		if len(streamedToolCalls) == 0 {
-			content := strings.TrimSpace(messageContent)
-			if content == "" && strings.TrimSpace(thinkingContent) == "" {
-				sendEvent(SSEEvent{Event: "error", Data: map[string]string{"message": "AI returned no content"}})
-				return
-			}
-			return
+		if len(blocks) == 0 {
+			continue
 		}
-
-		messages = append(messages, message.ToParam())
-		toolResults := make([]anthropic.ContentBlockParamUnion, 0, len(streamedToolCalls))
-
-		for _, tc := range streamedToolCalls {
-			toolName := tc.Name
-			args, err := parseToolCallArguments(tc.Arguments)
-			if err != nil {
-				klog.Errorf("Failed to parse tool arguments: %v", err)
-				toolError := fmt.Sprintf("Failed to parse arguments: %v", err)
-				toolResults = append(toolResults, anthropic.NewToolResultBlock(tc.ID, "Tool error: "+toolError, true))
-				continue
-			}
-
-			sendEvent(SSEEvent{
-				Event: "tool_call",
-				Data:  buildToolCallEventData(tc, args),
-			})
-
-			if InteractionTools[toolName] {
-				request, err := parseInteractionRequest(toolName, args)
-				if err != nil {
-					result := "Error: " + err.Error()
-					sendEvent(SSEEvent{
-						Event: "tool_result",
-						Data:  buildToolResultEventData(tc.ID, toolName, result, true),
-					})
-					toolResults = append(toolResults, anthropic.NewToolResultBlock(tc.ID, "Tool error: "+result, true))
-					continue
-				}
-				if len(toolResults) > 0 {
-					messages = append(messages, anthropic.NewUserMessage(toolResults...))
-					toolResults = nil
-				}
-				sessionID := agentPendingSessions.save(pendingSession{
-					Provider:          a.provider,
-					SystemPrompt:      sysPrompt,
-					AnthropicMessages: append([]anthropic.MessageParam(nil), messages...),
-					ToolCall: pendingToolCall{
-						ID:   tc.ID,
-						Name: toolName,
-						Args: args,
-					},
-				})
-				if sessionID == "" {
-					errorMsg := "Failed to save pending session"
-					toolResults = append(toolResults, anthropic.NewToolResultBlock(tc.ID, "Tool error: "+errorMsg, true))
-					continue
-				}
-				sendEvent(SSEEvent{
-					Event: "input_required",
-					Data:  buildInteractionEventData(toolName, tc.ID, sessionID, request),
-				})
-				return
-			}
-
-			if MutationTools[toolName] {
-				result, isError := AuthorizeTool(c, a.cs, toolName, args)
-				if isError {
-					sendEvent(SSEEvent{
-						Event: "tool_result",
-						Data:  buildToolResultEventData(tc.ID, toolName, result, true),
-					})
-					toolResults = append(toolResults, anthropic.NewToolResultBlock(tc.ID, "Tool error: "+result, true))
-					continue
-				}
-				if len(toolResults) > 0 {
-					messages = append(messages, anthropic.NewUserMessage(toolResults...))
-				}
-				sessionID := agentPendingSessions.save(pendingSession{
-					Provider:          a.provider,
-					SystemPrompt:      sysPrompt,
-					AnthropicMessages: append([]anthropic.MessageParam(nil), messages...),
-					ToolCall: pendingToolCall{
-						ID:   tc.ID,
-						Name: toolName,
-						Args: args,
-					},
-				})
-				if sessionID == "" {
-					errorMsg := "Failed to save pending session"
-					toolResults = append(toolResults, anthropic.NewToolResultBlock(tc.ID, "Tool error: "+errorMsg, true))
-					continue
-				}
-				sendEvent(SSEEvent{
-					Event: "action_required",
-					Data:  buildActionRequiredEventData(tc, sessionID, args),
-				})
-				return
-			}
-
-			result, isError := ExecuteTool(ctx, c, a.cs, toolName, args)
-
-			sendEvent(SSEEvent{
-				Event: "tool_result",
-				Data:  buildToolResultEventData(tc.ID, toolName, result, isError),
-			})
-
-			if isError {
-				result = "Tool error: " + result
-			}
-			toolResults = append(toolResults, anthropic.NewToolResultBlock(tc.ID, result, isError))
-		}
-
-		if len(toolResults) > 0 {
-			messages = append(messages, anthropic.NewUserMessage(toolResults...))
+		if message.Role == messageRoleAssistant {
+			params = append(params, anthropic.NewAssistantMessage(blocks...))
+		} else {
+			params = append(params, anthropic.NewUserMessage(blocks...))
 		}
 	}
-
-	sendEvent(SSEEvent{Event: "error", Data: map[string]string{"message": "Too many tool calling iterations"}})
+	return params
 }
 
 func consumeAnthropicStreamingResponse(
@@ -222,8 +70,8 @@ func consumeAnthropicStreamingResponse(
 		Err() error
 		Close() error
 	},
-	sendEvent func(SSEEvent),
-) (anthropic.Message, string, string, []streamedToolCall, error) {
+	sendEvent func(AgentEvent),
+) (AgentMessage, error) {
 	defer func() {
 		if err := stream.Close(); err != nil {
 			klog.Warningf("Failed to close AI stream: %v", err)
@@ -231,92 +79,77 @@ func consumeAnthropicStreamingResponse(
 	}()
 
 	var message anthropic.Message
-	var contentBuilder strings.Builder
-	var thinkingBuilder strings.Builder
-
 	for stream.Next() {
 		event := stream.Current()
 		if err := message.Accumulate(event); err != nil {
-			return anthropic.Message{}, "", "", nil, err
+			return AgentMessage{}, err
 		}
 
 		if startEvent, ok := event.AsAny().(anthropic.ContentBlockStartEvent); ok {
 			if thinkingBlock, ok := startEvent.ContentBlock.AsAny().(anthropic.ThinkingBlock); ok && thinkingBlock.Thinking != "" {
-				thinkingBuilder.WriteString(thinkingBlock.Thinking)
-				sendEvent(SSEEvent{Event: "think", Data: map[string]string{"content": thinkingBlock.Thinking}})
+				sendEvent(AgentEvent{Type: "message_delta", Data: MessageDeltaEvent{
+					BlockType: contentBlockThinking,
+					Content:   thinkingBlock.Thinking,
+				}})
 			}
 		}
 
 		if deltaEvent, ok := event.AsAny().(anthropic.ContentBlockDeltaEvent); ok {
 			if textDelta, ok := deltaEvent.Delta.AsAny().(anthropic.TextDelta); ok && textDelta.Text != "" {
-				contentBuilder.WriteString(textDelta.Text)
-				sendEvent(SSEEvent{Event: "message", Data: map[string]string{"content": textDelta.Text}})
+				sendEvent(AgentEvent{Type: "message_delta", Data: MessageDeltaEvent{
+					BlockType: contentBlockText,
+					Content:   textDelta.Text,
+				}})
 			}
 			if thinkingDelta, ok := deltaEvent.Delta.AsAny().(anthropic.ThinkingDelta); ok && thinkingDelta.Thinking != "" {
-				thinkingBuilder.WriteString(thinkingDelta.Thinking)
-				sendEvent(SSEEvent{Event: "think", Data: map[string]string{"content": thinkingDelta.Thinking}})
+				sendEvent(AgentEvent{Type: "message_delta", Data: MessageDeltaEvent{
+					BlockType: contentBlockThinking,
+					Content:   thinkingDelta.Thinking,
+				}})
 			}
 		}
 	}
-
 	if err := stream.Err(); err != nil {
-		return anthropic.Message{}, "", "", nil, err
+		return AgentMessage{}, err
 	}
 
-	toolCalls := anthropicToolCallsToStreamedToolCalls(message)
-	content := contentBuilder.String()
-	if content == "" {
-		content = anthropicMessageText(message)
-	}
-	thinking := thinkingBuilder.String()
-	if thinking == "" {
-		thinking = anthropicMessageThinking(message)
-	}
-
-	return message, content, thinking, toolCalls, nil
-}
-
-func anthropicToolCallsToStreamedToolCalls(message anthropic.Message) []streamedToolCall {
-	toolCalls := make([]streamedToolCall, 0)
-	for idx, block := range message.Content {
-		toolUse, ok := block.AsAny().(anthropic.ToolUseBlock)
-		if !ok {
-			continue
+	blocks := make([]ContentBlock, 0, len(message.Content))
+	for _, content := range message.Content {
+		switch block := content.AsAny().(type) {
+		case anthropic.TextBlock:
+			blocks = append(blocks, ContentBlock{Type: contentBlockText, Text: block.Text})
+		case anthropic.ThinkingBlock:
+			blocks = append(blocks, ContentBlock{
+				Type:      contentBlockThinking,
+				Text:      block.Thinking,
+				Signature: block.Signature,
+			})
+		case anthropic.RedactedThinkingBlock:
+			blocks = append(blocks, ContentBlock{Type: contentBlockRedactedThinking, Data: block.Data})
+		case anthropic.ToolUseBlock:
+			rawArguments := strings.TrimSpace(string(block.Input))
+			if rawArguments == "" || rawArguments == "null" {
+				rawArguments = "{}"
+			}
+			args := map[string]interface{}{}
+			argumentError := ""
+			if err := json.Unmarshal([]byte(rawArguments), &args); err != nil {
+				argumentError = err.Error()
+			}
+			blocks = append(blocks, ContentBlock{
+				Type:          contentBlockToolCall,
+				ToolCallID:    block.ID,
+				ToolName:      block.Name,
+				Arguments:     args,
+				RawArguments:  rawArguments,
+				ArgumentError: argumentError,
+			})
 		}
-		arguments := strings.TrimSpace(string(toolUse.Input))
-		if arguments == "" || arguments == "null" {
-			arguments = "{}"
-		}
-		toolCalls = append(toolCalls, streamedToolCall{
-			Index:     int64(idx),
-			ID:        toolUse.ID,
-			Name:      toolUse.Name,
-			Arguments: arguments,
-		})
 	}
-	return toolCalls
-}
 
-func anthropicMessageText(message anthropic.Message) string {
-	var contentBuilder strings.Builder
-	for _, block := range message.Content {
-		textBlock, ok := block.AsAny().(anthropic.TextBlock)
-		if !ok || textBlock.Text == "" {
-			continue
-		}
-		contentBuilder.WriteString(textBlock.Text)
-	}
-	return contentBuilder.String()
-}
-
-func anthropicMessageThinking(message anthropic.Message) string {
-	var thinkingBuilder strings.Builder
-	for _, block := range message.Content {
-		thinkingBlock, ok := block.AsAny().(anthropic.ThinkingBlock)
-		if !ok || thinkingBlock.Thinking == "" {
-			continue
-		}
-		thinkingBuilder.WriteString(thinkingBlock.Thinking)
-	}
-	return thinkingBuilder.String()
+	return AgentMessage{
+		Role:       messageRoleAssistant,
+		Content:    blocks,
+		StopReason: string(message.StopReason),
+	}, nil
 }

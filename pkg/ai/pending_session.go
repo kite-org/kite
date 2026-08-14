@@ -3,78 +3,66 @@ package ai
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"time"
 
-	anthropic "github.com/anthropics/anthropic-sdk-go"
-	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/packages/param"
 	"github.com/zxh326/kite/pkg/model"
 	"k8s.io/klog/v2"
 )
 
 const pendingSessionTTL = 15 * time.Minute
 
-type pendingToolCall struct {
-	ID   string
-	Name string
-	Args map[string]interface{}
-}
-
 type pendingSession struct {
-	Provider          string
-	SystemPrompt      string
-	OpenAIMessages    []openai.ChatCompletionMessageParamUnion
-	AnthropicMessages []anthropic.MessageParam
-	ToolCall          pendingToolCall
-	ExpiresAt         time.Time
+	Provider      string
+	Model         string
+	SystemPrompt  string
+	Messages      []AgentMessage
+	ToolCalls     []ToolCall
+	ToolResults   []ContentBlock
+	NextToolIndex int
+	Iteration     int
+	UserID        uint
+	ClusterName   string
+	ExpiresAt     time.Time
 }
 
 type pendingSessionStore struct{}
 
 var agentPendingSessions = &pendingSessionStore{}
 
-func (s *pendingSessionStore) save(session pendingSession) string {
+func (s *pendingSessionStore) save(session pendingSession) (string, error) {
 	sessionID := newPendingSessionID()
 	session.ExpiresAt = time.Now().Add(pendingSessionTTL)
-
 	dbSession := &model.PendingSession{
-		SessionID:    sessionID,
-		Provider:     session.Provider,
-		SystemPrompt: session.SystemPrompt,
-		ToolCallID:   session.ToolCall.ID,
-		ToolCallName: session.ToolCall.Name,
-		ExpiresAt:    session.ExpiresAt,
+		SessionID:     sessionID,
+		Provider:      session.Provider,
+		AIModel:       session.Model,
+		SystemPrompt:  session.SystemPrompt,
+		NextToolIndex: session.NextToolIndex,
+		Iteration:     session.Iteration,
+		UserID:        session.UserID,
+		ClusterName:   session.ClusterName,
+		ExpiresAt:     session.ExpiresAt,
 	}
-
-	// Marshal messages and args
-	if err := dbSession.OpenAIMessages.Marshal(session.OpenAIMessages); err != nil {
-		klog.Errorf("Failed to marshal OpenAI messages: %v", err)
-		return ""
+	if err := dbSession.Messages.Marshal(session.Messages); err != nil {
+		return "", fmt.Errorf("failed to marshal pending messages: %w", err)
 	}
-	if err := dbSession.AnthropicMessages.Marshal(session.AnthropicMessages); err != nil {
-		klog.Errorf("Failed to marshal Anthropic messages: %v", err)
-		return ""
+	if err := dbSession.ToolCalls.Marshal(session.ToolCalls); err != nil {
+		return "", fmt.Errorf("failed to marshal pending tool calls: %w", err)
 	}
-	if err := dbSession.ToolCallArgs.Marshal(session.ToolCall.Args); err != nil {
-		klog.Errorf("Failed to marshal tool call args: %v", err)
-		return ""
+	if err := dbSession.ToolResults.Marshal(session.ToolResults); err != nil {
+		return "", fmt.Errorf("failed to marshal pending tool results: %w", err)
 	}
-
 	if err := model.SavePendingSession(dbSession); err != nil {
-		klog.Errorf("Failed to save pending session: %v", err)
-		return ""
+		return "", err
 	}
 
-	// Cleanup expired sessions asynchronously
 	go func() {
 		if err := model.CleanupExpiredPendingSessions(); err != nil {
 			klog.V(4).Infof("Failed to cleanup expired pending sessions: %v", err)
 		}
 	}()
-
-	return sessionID
+	return sessionID, nil
 }
 
 func (s *pendingSessionStore) load(sessionID string) (pendingSession, error) {
@@ -83,54 +71,37 @@ func (s *pendingSessionStore) load(sessionID string) (pendingSession, error) {
 		return pendingSession{}, fmt.Errorf("pending action not found or expired")
 	}
 
-	return pendingSessionFromModel(dbSession)
-}
-
-func (s *pendingSessionStore) delete(sessionID string) {
-	if err := model.DeletePendingSession(sessionID); err != nil {
-		klog.Warningf("Failed to delete pending session %s: %v", sessionID, err)
-	}
-}
-
-func (s *pendingSessionStore) take(sessionID string) (pendingSession, error) {
-	session, err := s.load(sessionID)
-	if err != nil {
-		return pendingSession{}, err
-	}
-	s.delete(sessionID)
-	return session, nil
-}
-
-func pendingSessionFromModel(dbSession *model.PendingSession) (pendingSession, error) {
 	session := pendingSession{
-		Provider:     dbSession.Provider,
-		SystemPrompt: dbSession.SystemPrompt,
-		ExpiresAt:    dbSession.ExpiresAt,
-		ToolCall: pendingToolCall{
-			ID:   dbSession.ToolCallID,
-			Name: dbSession.ToolCallName,
-		},
+		Provider:      dbSession.Provider,
+		Model:         dbSession.AIModel,
+		SystemPrompt:  dbSession.SystemPrompt,
+		NextToolIndex: dbSession.NextToolIndex,
+		Iteration:     dbSession.Iteration,
+		UserID:        dbSession.UserID,
+		ClusterName:   dbSession.ClusterName,
+		ExpiresAt:     dbSession.ExpiresAt,
 	}
-
-	var err error
-
-	// Unmarshal messages and args directly in the AI package
-	var rawOpenAIMessages []json.RawMessage
-	if err = dbSession.OpenAIMessages.Unmarshal(&rawOpenAIMessages); err != nil {
-		return pendingSession{}, fmt.Errorf("failed to unmarshal OpenAI messages: %w", err)
+	if err := dbSession.Messages.Unmarshal(&session.Messages); err != nil {
+		return pendingSession{}, fmt.Errorf("failed to unmarshal pending messages: %w", err)
 	}
-	session.OpenAIMessages = make([]openai.ChatCompletionMessageParamUnion, 0, len(rawOpenAIMessages))
-	for _, rawMessage := range rawOpenAIMessages {
-		session.OpenAIMessages = append(session.OpenAIMessages, param.Override[openai.ChatCompletionMessageParamUnion](rawMessage))
+	if err := dbSession.ToolCalls.Unmarshal(&session.ToolCalls); err != nil {
+		return pendingSession{}, fmt.Errorf("failed to unmarshal pending tool calls: %w", err)
 	}
-	if err = dbSession.AnthropicMessages.Unmarshal(&session.AnthropicMessages); err != nil {
-		return pendingSession{}, fmt.Errorf("failed to unmarshal Anthropic messages: %w", err)
+	if err := dbSession.ToolResults.Unmarshal(&session.ToolResults); err != nil {
+		return pendingSession{}, fmt.Errorf("failed to unmarshal pending tool results: %w", err)
 	}
-	if err = dbSession.ToolCallArgs.Unmarshal(&session.ToolCall.Args); err != nil {
-		return pendingSession{}, fmt.Errorf("failed to unmarshal tool call args: %w", err)
-	}
-
 	return session, nil
+}
+
+func (s *pendingSessionStore) claim(sessionID string) error {
+	deleted, err := model.DeletePendingSession(sessionID)
+	if err != nil {
+		return err
+	}
+	if !deleted {
+		return fmt.Errorf("pending action not found or expired")
+	}
+	return nil
 }
 
 func newPendingSessionID() string {
