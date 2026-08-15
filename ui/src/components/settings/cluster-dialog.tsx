@@ -152,10 +152,7 @@ function ClusterDialogContent({
                     {t('clusterManagement.type.inCluster', 'In-Cluster')}
                   </SelectItem>
                   <SelectItem value="clusterAgent">
-                    {t(
-                      'clusterManagement.type.clusterAgent',
-                      'Kite Cluster Agent'
-                    )}
+                    {t('clusterManagement.type.clusterAgent', 'Cluster Agent')}
                   </SelectItem>
                 </SelectContent>
               </Select>

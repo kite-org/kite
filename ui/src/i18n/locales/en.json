@@ -801,7 +801,7 @@
     },
     "clusterAgent": {
       "title": "Cluster Agent Image",
-      "description": "Container image used when generating the Kite Cluster Agent manifest for Cluster Agent clusters.",
+      "description": "Container image used when generating the Cluster Agent manifest for Cluster Agent clusters.",
       "form": {
         "image": "Image"
       }
@@ -901,14 +901,14 @@
     "type": {
       "inCluster": "In-Cluster",
       "external": "External",
-      "clusterAgent": "Kite Cluster Agent"
+      "clusterAgent": "Cluster Agent"
     },
     "status": {
       "waiting": "Waiting for Cluster Agent",
       "connected": "Connected"
     },
     "clusterAgent": {
-      "title": "Connect Kite Cluster Agent",
+      "title": "Connect Cluster Agent",
       "description": "Choose a command or Kubernetes YAML to run inside the target cluster. This connection information is shown only once.",
       "command": "Command",
       "yaml": "Kubernetes YAML",

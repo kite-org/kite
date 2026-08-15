@@ -19,7 +19,7 @@ Kite 默认支持一些环境变量，来改变一些配置项的默认值。
 
 - **NODE_TERMINAL_IMAGE**: 用于生成 Node Terminal Agent 的 Docker 镜像。
 
-- **CLUSTER_AGENT_IMAGE**: 为 Cluster Agent 类型集群生成 Kite Cluster Agent 部署清单时使用的 Docker 镜像。
+- **CLUSTER_AGENT_IMAGE**: 为 Cluster Agent 类型集群生成 Cluster Agent 部署清单时使用的 Docker 镜像。
 
 - **ENABLE_ANALYTICS**：启用数据分析功能，默认值为 `false`。当启用后，Kite 将收集有限数据以帮助改进产品。
 

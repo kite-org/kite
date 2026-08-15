@@ -86,7 +86,7 @@ export function ClusterManagement() {
             variant="outline"
             className="bg-violet-50 text-violet-700 border-violet-200"
           >
-            {t('clusterManagement.type.clusterAgent', 'Kite Cluster Agent')}
+            {t('clusterManagement.type.clusterAgent', 'Cluster Agent')}
           </Badge>
         )
       }
@@ -508,7 +508,7 @@ export function ClusterManagement() {
             <DialogTitle className="text-balance">
               {t(
                 'clusterManagement.clusterAgent.title',
-                'Connect Kite Cluster Agent'
+                'Connect Cluster Agent'
               )}
             </DialogTitle>
             <DialogDescription className="text-pretty">

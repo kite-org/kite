@@ -22,8 +22,8 @@ func Run(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("kite cluster-agent", flag.ContinueOnError)
 	klog.InitFlags(flags)
 	server := flags.String("server", "", "Kite server URL")
-	token := flags.String("token", "", "Kite cluster agent token")
-	publicKey := flags.String("public-key", "", "Kite cluster agent registration public key")
+	token := flags.String("token", "", "Cluster Agent token")
+	publicKey := flags.String("public-key", "", "Cluster Agent registration public key")
 	kubeconfig := flags.String("kubeconfig", "", "Path to kubeconfig file")
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -100,7 +100,7 @@ func Run(ctx context.Context, args []string) error {
 		return network == "tcp"
 	}
 
-	klog.Info("Kite cluster agent started")
+	klog.Info("Cluster Agent started")
 	for {
 		err := registerClusterAgent(ctx, client, registrationURL.String(), *token, *publicKey, config)
 		if err == nil {
@@ -109,7 +109,7 @@ func Run(ctx context.Context, args []string) error {
 		if ctx.Err() != nil {
 			return nil //nolint:nilerr // Context cancellation is a clean shutdown.
 		}
-		klog.Warningf("Kite cluster agent unavailable: %v; retrying in 5 seconds", err)
+		klog.Warningf("Cluster Agent unavailable: %v; retrying in 5 seconds", err)
 		select {
 		case <-ctx.Done():
 			return nil

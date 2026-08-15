@@ -2,15 +2,15 @@
 outline: deep
 ---
 
-# Kite Cluster Agent
+# Cluster Agent
 
-Kite Cluster Agent 用于接入 Kite Server 无法主动访问的 Kubernetes 集群。Cluster Agent 运行在目标集群一侧，主动连接 Kite，并通过这条连接转发 Kite 发起的 Kubernetes API 请求。
+Cluster Agent 用于接入 Kite Server 无法主动访问的 Kubernetes 集群。Cluster Agent 运行在目标集群一侧，主动连接 Kite，并通过这条连接转发 Kite 发起的 Kubernetes API 请求。
 
 ## 背景
 
 在私有网络、边缘环境或受防火墙限制的场景中，目标集群可能只能访问 Kite，Kite Server 却无法直接访问集群的 kube-apiserver。传统的 kubeconfig 接入方式要求 Kite Server 能够连接 kube-apiserver，因此无法覆盖这种单向网络环境。
 
-Kite Cluster Agent 将连接方向反转：
+Cluster Agent 将连接方向反转：
 
 - Cluster Agent 从集群侧主动连接 Kite Server，不要求 Kite 主动进入集群网络。
 - Kubernetes 凭据使用集群注册公钥加密后再上传到 Kite Server。
@@ -53,7 +53,7 @@ Cluster Agent 代拨 TCP
 进入 Kite 的 **设置 → 集群管理**，选择 **添加集群**，然后：
 
 1. 填写集群名称和描述。
-2. 将集群类型选择为 **Kite Cluster Agent**。
+2. 将集群类型选择为 **Cluster Agent**。
 3. 创建集群。
 
 创建成功后，Kite 会展示仅出现一次的连接信息，可以选择命令行或 Kubernetes YAML。

@@ -812,7 +812,7 @@
     },
     "clusterAgent": {
       "title": "Cluster Agent 镜像",
-      "description": "为 Cluster Agent 类型集群生成 Kite Cluster Agent 部署清单时使用的容器镜像。",
+      "description": "为 Cluster Agent 类型集群生成 Cluster Agent 部署清单时使用的容器镜像。",
       "form": {
         "image": "镜像"
       }
@@ -912,14 +912,14 @@
     "type": {
       "inCluster": "集群内",
       "external": "外部",
-      "clusterAgent": "Kite Cluster Agent"
+      "clusterAgent": "Cluster Agent"
     },
     "status": {
       "waiting": "等待 Cluster Agent",
       "connected": "已连接"
     },
     "clusterAgent": {
-      "title": "连接 Kite Cluster Agent",
+      "title": "连接 Cluster Agent",
       "description": "选择命令行或 Kubernetes YAML 在目标集群中运行。此连接信息仅显示一次。",
       "command": "命令行",
       "yaml": "Kubernetes YAML",

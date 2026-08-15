@@ -2,15 +2,15 @@
 outline: deep
 ---
 
-# Kite Cluster Agent
+# Cluster Agent
 
-Kite Cluster Agent is used to onboard Kubernetes clusters that Kite Server cannot reach directly. The Cluster Agent runs inside the target cluster, initiates the connection to Kite, and forwards Kubernetes API requests issued by Kite over that connection.
+Cluster Agent is used to onboard Kubernetes clusters that Kite Server cannot reach directly. The Cluster Agent runs inside the target cluster, initiates the connection to Kite, and forwards Kubernetes API requests issued by Kite over that connection.
 
 ## Background
 
 In private networks, edge environments, or firewall-restricted scenarios, the target cluster may be able to reach Kite while Kite Server cannot connect to the cluster's kube-apiserver. The traditional kubeconfig onboarding method requires Kite Server to connect to kube-apiserver, so it cannot cover this one-way network topology.
 
-Kite Cluster Agent reverses the connection direction:
+Cluster Agent reverses the connection direction:
 
 - The Cluster Agent dials Kite Server from the cluster side; Kite does not need to enter the cluster network.
 - Kubernetes credentials are encrypted with the cluster's registration public key before they are uploaded to Kite Server.
@@ -53,7 +53,7 @@ The detailed process:
 Go to **Settings → Cluster Management** in Kite, select **Add Cluster**, and then:
 
 1. Fill in the cluster name and description.
-2. Set the cluster type to **Kite Cluster Agent**.
+2. Set the cluster type to **Cluster Agent**.
 3. Create the cluster.
 
 After creation, Kite shows the connection info only once, and you can choose the command-line or Kubernetes YAML option.

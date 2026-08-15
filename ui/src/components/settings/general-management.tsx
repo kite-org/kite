@@ -426,7 +426,7 @@ export function GeneralManagement() {
             <p className="text-xs text-muted-foreground">
               {t(
                 'generalManagement.clusterAgent.description',
-                'Container image used when generating the Kite Cluster Agent manifest for Cluster Agent clusters.'
+                'Container image used when generating the Cluster Agent manifest for Cluster Agent clusters.'
               )}
             </p>
           </div>
