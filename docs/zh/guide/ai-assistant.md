@@ -62,6 +62,7 @@ AI 助手遵循 Kite 现有的权限模型。
 
 - 只会在当前选中的集群内执行操作
 - 会遵循当前用户的 RBAC 权限
+- `describe_resource` 以当前用户对目标资源的 `get` 权限作为授权依据。其输出可能同时包含 Kubernetes describer 查询到的 Events 和关联资源摘要，Kite 不会再对这些附带信息执行独立的 RBAC 检查；这是 describe 操作的既定授权边界
 - 如果当前用户没有日志、执行命令或资源修改权限，AI 也无法绕过这些限制
 - 只有当前集群配置了 Prometheus，AI 才能查询 Prometheus 指标
 

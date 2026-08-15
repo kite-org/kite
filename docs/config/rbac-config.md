@@ -98,3 +98,7 @@ You can select a role and set the username to `*` to assign that role. See the e
 3. **Avoid Wildcard Users**: In production environments, explicitly specify users and avoid using `"*"`
 4. **Regular Auditing**: Regularly check and optimize role mappings
 5. **Test Access**: Verify permission effects promptly after changes
+
+## Common Questions
+
+- The `Describe` action only checks the current user's `get` permission on the target resource. The Kubernetes describer runs queries using the cluster credentials configured in Kite, and its output may include Events and related resource summaries. Kite does not perform separate RBAC checks for this additional information.
