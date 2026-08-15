@@ -64,7 +64,7 @@ export function GeneralManagement() {
     aiApiKey: '',
     aiApiKeyConfigured: false,
     aiBaseUrl: '',
-    aiMaxTokens: 4096,
+    aiMaxTokens: 16384,
     kubectlEnabled: true,
     kubectlImage: DEFAULT_KUBECTL_IMAGE,
     nodeTerminalImage: DEFAULT_NODE_TERMINAL_IMAGE,
@@ -83,7 +83,7 @@ export function GeneralManagement() {
       aiApiKey: '',
       aiApiKeyConfigured: data.aiApiKeyConfigured ?? false,
       aiBaseUrl: data.aiBaseUrl || '',
-      aiMaxTokens: data.aiMaxTokens || 4096,
+      aiMaxTokens: data.aiMaxTokens || 16384,
       kubectlEnabled: data.kubectlEnabled ?? true,
       kubectlImage: data.kubectlImage || DEFAULT_KUBECTL_IMAGE,
       nodeTerminalImage: data.nodeTerminalImage || DEFAULT_NODE_TERMINAL_IMAGE,
@@ -162,7 +162,7 @@ export function GeneralManagement() {
       aiProvider: formData.aiProvider,
       aiModel: formData.aiModel.trim() || defaultModel,
       aiBaseUrl: formData.aiBaseUrl.trim(),
-      aiMaxTokens: formData.aiMaxTokens || 4096,
+      aiMaxTokens: formData.aiMaxTokens || 16384,
       kubectlEnabled: formData.kubectlEnabled,
       kubectlImage: formData.kubectlImage.trim() || DEFAULT_KUBECTL_IMAGE,
       nodeTerminalImage:
@@ -333,10 +333,10 @@ export function GeneralManagement() {
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      aiMaxTokens: parseInt(e.target.value) || 4096,
+                      aiMaxTokens: parseInt(e.target.value) || 16384,
                     }))
                   }
-                  placeholder="4096"
+                  placeholder="16384"
                 />
               </div>
             </div>

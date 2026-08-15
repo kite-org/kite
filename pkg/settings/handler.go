@@ -140,7 +140,7 @@ func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 		aiMaxTokens = *req.AIMaxTokens
 	}
 	if aiMaxTokens <= 0 {
-		aiMaxTokens = 4096
+		aiMaxTokens = 16384
 	}
 
 	updates := map[string]interface{}{}
