@@ -96,6 +96,12 @@ func newClientSet(name string, k8sConfig *rest.Config, prometheusURL string) (*C
 			} else {
 				klog.Infof("Using k8s API proxy for Prometheus in cluster %s", name)
 			}
+		} else if k8sConfig.Dial != nil {
+			transport := http.DefaultTransport.(*http.Transport).Clone()
+			transport.Proxy = nil
+			transport.DialContext = k8sConfig.Dial
+			rt = transport
+			klog.Infof("Using cluster agent TCP proxy for Prometheus in cluster %s", name)
 		}
 		cs.PromClient, err = prometheus.NewClientWithRoundTripper(prometheusURL, rt)
 		if err != nil {

@@ -214,8 +214,8 @@ func TestCreateClusterAgentClusterIgnoresKubeconfig(t *testing.T) {
 	if cluster.InCluster {
 		t.Error("cluster agent cluster InCluster should be false")
 	}
-	if cluster.PrometheusURL != "" {
-		t.Errorf("cluster agent cluster PrometheusURL should be empty, got %q", cluster.PrometheusURL)
+	if cluster.PrometheusURL != "https://prom.example.com" {
+		t.Errorf("cluster agent cluster PrometheusURL = %q, want %q", cluster.PrometheusURL, "https://prom.example.com")
 	}
 }
 

@@ -128,7 +128,6 @@ func (cm *ClusterManager) CreateCluster(c *gin.Context) {
 	if req.ClusterAgent {
 		req.InCluster = false
 		req.Config = ""
-		req.PrometheusURL = ""
 	}
 
 	if _, err := model.GetClusterByName(req.Name); err == nil {
@@ -252,7 +251,6 @@ func (cm *ClusterManager) UpdateCluster(c *gin.Context) {
 	if cluster.ClusterAgent {
 		req.InCluster = false
 		req.Config = ""
-		req.PrometheusURL = ""
 	}
 
 	updates := map[string]interface{}{

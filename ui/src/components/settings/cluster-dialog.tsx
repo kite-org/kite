@@ -210,19 +210,17 @@ function ClusterDialogContent({
           </div>
         )}
 
-        {!formData.clusterAgent && (
-          <div className="space-y-2">
-            <Label htmlFor="prometheus-url">
-              {t('clusterManagement.dialog.prometheusUrl', 'Prometheus URL')}
-            </Label>
-            <Input
-              id="prometheus-url"
-              value={formData.prometheusURL}
-              onChange={(e) => handleChange('prometheusURL', e.target.value)}
-              type="url"
-            />
-          </div>
-        )}
+        <div className="space-y-2">
+          <Label htmlFor="prometheus-url">
+            {t('clusterManagement.dialog.prometheusUrl', 'Prometheus URL')}
+          </Label>
+          <Input
+            id="prometheus-url"
+            value={formData.prometheusURL}
+            onChange={(e) => handleChange('prometheusURL', e.target.value)}
+            type="url"
+          />
+        </div>
 
         {/* Cluster Status Controls */}
         <div className="space-y-4 border-t pt-4">
