@@ -7,15 +7,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
 	semver "github.com/blang/semver/v4"
 	"github.com/zxh326/kite/pkg/model"
-	"helm.sh/helm/v4/pkg/getter"
-	"helm.sh/helm/v4/pkg/registry"
-	repo "helm.sh/helm/v4/pkg/repo/v1"
 )
 
 const (
@@ -63,10 +59,7 @@ func latestRepositoryChartPackage(repositoryName, chartName string) (ChartPackag
 	if err := model.DB.Where("name = ?", repositoryName).First(&repository).Error; err != nil {
 		return ChartPackage{}, err
 	}
-	if registry.IsOCI(repository.URL) {
-		return latestOCIChartPackage(repository, chartName)
-	}
-	indexFile, err := LoadRepositoryIndex(repository)
+	indexFile, err := LoadRepositoryCatalog(repository)
 	if err != nil {
 		return ChartPackage{}, err
 	}
@@ -88,80 +81,6 @@ func latestRepositoryChartPackage(repositoryName, chartName string) (ChartPackag
 		URL:        ResolveURL(repository.URL, latest.URLs[0]),
 		Repository: &repository,
 	}, nil
-}
-
-// latestOCIChartPackage resolves the newest tag of the single chart an oci://
-// repository URL points at, with the same version policy as the classic path.
-func latestOCIChartPackage(repository model.HelmRepository, chartName string) (ChartPackage, error) {
-	tags, err := ListOCIChartVersions(&repository, repository.URL)
-	if err != nil {
-		return ChartPackage{}, err
-	}
-	if len(tags) == 0 {
-		return ChartPackage{}, fmt.Errorf("chart not found")
-	}
-	latest := tags[0]
-	chartURL := OCIChartVersionURL(repository.URL, latest)
-	if err := verifyOCIChartName(repository, chartURL, chartName); err != nil {
-		return ChartPackage{}, err
-	}
-	return ChartPackage{
-		Version:    latest,
-		URL:        chartURL,
-		Repository: &repository,
-	}, nil
-}
-
-// verifyOCIChartName keeps the classic branch's fail-safe: the requested chart
-// must be the one the repository URL points at, matched by registry path or,
-// for charts mirrored under a different path, by the chart's own name.
-func verifyOCIChartName(repository model.HelmRepository, chartURL, chartName string) error {
-	if chartName == "" {
-		return nil
-	}
-	name, err := OCIChartName(repository.URL)
-	if err != nil {
-		return err
-	}
-	if name == chartName {
-		return nil
-	}
-	loadedChart, err := LoadArchive(chartURL, &repository)
-	if err != nil {
-		return err
-	}
-	if loadedChart.Metadata != nil && loadedChart.Metadata.Name == chartName {
-		return nil
-	}
-	return fmt.Errorf("chart not found")
-}
-
-func LoadRepositoryIndex(repository model.HelmRepository) (*repo.IndexFile, error) {
-	if registry.IsOCI(repository.URL) {
-		return nil, fmt.Errorf("oci repositories have no index")
-	}
-	entry := &repo.Entry{
-		Name:     repository.Name,
-		URL:      repository.URL,
-		Username: repository.Username,
-		Password: string(repository.Password),
-	}
-	chartRepository, err := repo.NewChartRepository(entry, getter.Getters())
-	if err != nil {
-		return nil, err
-	}
-	cacheDir, err := os.MkdirTemp("", "kite-helm-repo-*")
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = os.RemoveAll(cacheDir) }()
-	chartRepository.CachePath = cacheDir
-
-	indexPath, err := chartRepository.DownloadIndexFile()
-	if err != nil {
-		return nil, err
-	}
-	return repo.LoadIndexFile(indexPath)
 }
 
 func latestArtifactHubChartPackage(ctx context.Context, repositoryName, chartName string) (ChartPackage, error) {

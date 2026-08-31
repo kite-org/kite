@@ -13,8 +13,6 @@ import (
 	"helm.sh/helm/v4/pkg/registry"
 )
 
-// validateOCIRepositoryURL requires an oci:// repository URL to reference a
-// single chart path without a tag or digest; versions come from registry tags.
 func validateOCIRepositoryURL(repositoryURL *url.URL) error {
 	if _, err := helmutil.OCIChartName(repositoryURL.String()); err != nil {
 		return err
@@ -76,8 +74,6 @@ func (h *HelmChartHandler) CreateRepository(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "repository URL must use http, https, or oci"})
 		return
 	}
-	// Normalize the stored scheme: downstream OCI dispatch is a case-sensitive
-	// "oci://" prefix check.
 	repository.URL = scheme + repository.URL[len(scheme):]
 	if scheme == registry.OCIScheme {
 		repository.URL = strings.TrimRight(repository.URL, "/")
