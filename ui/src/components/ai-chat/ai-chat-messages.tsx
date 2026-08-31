@@ -27,7 +27,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ChatMessage, PageContext } from './ai-chat-types'
 import {
   buildInputDefaults,
-  buildToolYamlPreview,
+  buildToolPreview,
   describeAction,
 } from './ai-chat-utils'
 
@@ -43,9 +43,9 @@ function ToolCallMessage({
   onSubmitInput?: (id: string, values: Record<string, unknown>) => void
 }) {
   const { t } = useTranslation()
-  const toolYamlPreview = buildToolYamlPreview(
-    message.toolName,
-    message.toolArgs
+  const toolPreview = buildToolPreview(
+    message.pendingAction?.tool || message.toolName,
+    message.pendingAction?.args || message.toolArgs
   )
   const [expanded, setExpanded] = useState(false)
   const [formValues, setFormValues] = useState<
@@ -125,13 +125,13 @@ function ToolCallMessage({
           className={`h-3 w-3 transition-transform ${expanded ? 'rotate-90' : ''}`}
         />
       </button>
-      {expanded && toolYamlPreview && (
+      {expanded && toolPreview && (
         <div className="mt-1 rounded border bg-muted/40 p-2">
           <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            YAML
+            {toolPreview.label}
           </div>
           <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all text-xs">
-            {toolYamlPreview}
+            {toolPreview.content}
           </pre>
         </div>
       )}
@@ -368,7 +368,7 @@ function MessageBubble({
       className={`mx-3 my-2 flex ${isUser ? 'justify-end' : 'justify-start'}`}
     >
       <div
-        className={`max-w-[85%] rounded-lg px-3 py-2 text-sm wrap-break-word ${
+        className={`min-w-0 max-w-[85%] overflow-hidden rounded-lg px-3 py-2 text-sm wrap-break-word ${
           isUser
             ? 'bg-primary text-primary-foreground whitespace-pre-wrap'
             : 'bg-muted text-foreground'
@@ -399,7 +399,7 @@ function MessageBubble({
               </div>
             )}
             {hasContent && (
-              <div className="ai-markdown">
+              <div className="ai-markdown min-w-0 overflow-x-auto text-pretty">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {message.content}
                 </ReactMarkdown>

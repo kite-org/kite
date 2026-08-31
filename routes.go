@@ -34,6 +34,9 @@ func setupAPIRouter(r *gin.RouterGroup, cm *cluster.ClusterManager) {
 
 	registerBaseRoutes(r)
 	r.GET("/api/v1/bootstrap", authHandler.Bootstrap)
+	r.GET("/api/v1/cluster-agent/connect", cm.ConnectClusterAgent)
+	r.POST("/api/v1/cluster-agent/register", cm.RegisterClusterAgent)
+	r.GET("/api/v1/cluster-agent/manifest", cm.GetClusterAgentManifest)
 	registerAuthRoutes(r, authHandler)
 	registerUserRoutes(r, authHandler)
 	registerAdminRoutes(r, authHandler, cm, helmChartsHandler)
@@ -185,8 +188,7 @@ func registerClusterProtectedRoutes(api *gin.RouterGroup, helmChartsHandler *hel
 	proxyHandler.RegisterRoutes(api)
 
 	api.POST("/ai/chat", ai.HandleChat)
-	api.POST("/ai/execute/continue", ai.HandleExecuteContinue)
-	api.POST("/ai/input/continue", ai.HandleInputContinue)
+	api.POST("/ai/continue", ai.HandleContinue)
 
 	api.Use(middleware.RBACMiddleware())
 	resources.RegisterRoutes(api)

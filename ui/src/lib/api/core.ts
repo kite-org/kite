@@ -22,6 +22,8 @@ import {
   ResourceTemplate,
   ResourceType,
   ResourceTypeMap,
+  WorkloadRevisionResourceType,
+  WorkloadRevisionsResponse,
 } from '@/types/api'
 import { getResourceQueryKey } from '@/lib/resource-metadata'
 import { useCluster } from '@/hooks/use-cluster'
@@ -1051,6 +1053,42 @@ export const fetchResourceHistory = (
 ): Promise<ResourceHistoryResponse> => {
   const endpoint = `/${resourceType}/${namespace}/${name}/history?page=${page}&pageSize=${pageSize}`
   return fetchAPI<ResourceHistoryResponse>(endpoint)
+}
+
+export const fetchWorkloadRevisions = (
+  resourceType: WorkloadRevisionResourceType,
+  namespace: string,
+  name: string
+): Promise<WorkloadRevisionsResponse> => {
+  return fetchAPI<WorkloadRevisionsResponse>(
+    `/${resourceType}/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/revisions`
+  )
+}
+
+export const useWorkloadRevisions = (
+  resourceType: WorkloadRevisionResourceType,
+  namespace: string,
+  name: string,
+  options?: { enabled?: boolean; staleTime?: number }
+) => {
+  return useQuery({
+    queryKey: ['workload-revisions', resourceType, namespace, name],
+    queryFn: () => fetchWorkloadRevisions(resourceType, namespace, name),
+    enabled: options?.enabled ?? true,
+    staleTime: options?.staleTime ?? 30000,
+  })
+}
+
+export const rollbackWorkload = async (
+  resourceType: WorkloadRevisionResourceType,
+  namespace: string,
+  name: string,
+  revision: number
+): Promise<{ message?: string; revision?: number }> => {
+  return apiClient.put<{ message?: string; revision?: number }>(
+    `/${resourceType}/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/rollback`,
+    { revision }
+  )
 }
 
 export const useResourceHistory = (

@@ -15,6 +15,7 @@ const DefaultGeneralAIModel = "gpt-4o-mini"
 const DefaultGeneralAnthropicModel = "claude-sonnet-4-5"
 const DefaultGeneralKubectlImage = "zzde/kubectl:latest"
 const DefaultGeneralNodeTerminalImage = "busybox:latest"
+const DefaultGeneralClusterAgentImage = "ghcr.io/kite-org/kite:latest"
 
 const GeneralAIProviderOpenAI = "openai"
 const GeneralAIProviderAnthropic = "anthropic"
@@ -28,6 +29,22 @@ func DefaultGeneralNodeTerminalImageValue() string {
 	return image
 }
 
+func DefaultGeneralKubectlImageValue() string {
+	image := strings.TrimSpace(common.KubectlTerminalImage)
+	if image == "" {
+		return DefaultGeneralKubectlImage
+	}
+	return image
+}
+
+func DefaultGeneralClusterAgentImageValue() string {
+	image := strings.TrimSpace(common.ClusterAgentImage)
+	if image == "" {
+		return DefaultGeneralClusterAgentImage
+	}
+	return image
+}
+
 type GeneralSetting struct {
 	Model
 	AIAgentEnabled          bool         `json:"aiAgentEnabled" gorm:"column:ai_agent_enabled;type:boolean;not null;default:false"`
@@ -35,10 +52,11 @@ type GeneralSetting struct {
 	AIModel                 string       `json:"aiModel" gorm:"column:ai_model;type:varchar(255);not null;default:'gpt-4o-mini'"`
 	AIAPIKey                SecretString `json:"aiApiKey" gorm:"column:ai_api_key;type:text"`
 	AIBaseURL               string       `json:"aiBaseUrl" gorm:"column:ai_base_url;type:varchar(500)"`
-	AIMaxTokens             int          `json:"aiMaxTokens" gorm:"column:ai_max_tokens;type:integer;default:4096"`
+	AIMaxTokens             int          `json:"aiMaxTokens" gorm:"column:ai_max_tokens;type:integer;default:16384"`
 	KubectlEnabled          bool         `json:"kubectlEnabled" gorm:"column:kubectl_enabled;type:boolean;not null;default:true"`
 	KubectlImage            string       `json:"kubectlImage" gorm:"column:kubectl_image;type:varchar(255);not null;default:'zzde/kubectl:latest'"`
 	NodeTerminalImage       string       `json:"nodeTerminalImage" gorm:"column:node_terminal_image;type:varchar(255);not null;default:'busybox:latest'"`
+	ClusterAgentImage       string       `json:"clusterAgentImage" gorm:"column:cluster_agent_image;type:varchar(255);not null;default:'ghcr.io/kite-org/kite:latest'"`
 	EnableAnalytics         bool         `json:"enableAnalytics" gorm:"column:enable_analytics;type:boolean;not null;default:false"`
 	EnableVersionCheck      bool         `json:"enableVersionCheck" gorm:"column:enable_version_check;type:boolean;not null;default:true"`
 	PasswordLoginDisabled   bool         `json:"passwordLoginDisabled" gorm:"column:password_login_disabled;type:boolean;not null;default:false"`
@@ -92,13 +110,16 @@ func GetGeneralSetting() (*GeneralSetting, error) {
 			updates["ai_model"] = setting.AIModel
 		}
 		if setting.KubectlImage == "" {
-			setting.KubectlImage = DefaultGeneralKubectlImage
-			updates["kubectl_image"] = DefaultGeneralKubectlImage
+			setting.KubectlImage = DefaultGeneralKubectlImageValue()
+			updates["kubectl_image"] = setting.KubectlImage
 		}
 		if setting.NodeTerminalImage == "" {
-			defaultNodeTerminalImage := DefaultGeneralNodeTerminalImageValue()
-			setting.NodeTerminalImage = defaultNodeTerminalImage
-			updates["node_terminal_image"] = defaultNodeTerminalImage
+			setting.NodeTerminalImage = DefaultGeneralNodeTerminalImageValue()
+			updates["node_terminal_image"] = setting.NodeTerminalImage
+		}
+		if setting.ClusterAgentImage == "" {
+			setting.ClusterAgentImage = DefaultGeneralClusterAgentImageValue()
+			updates["cluster_agent_image"] = setting.ClusterAgentImage
 		}
 		if err := ensureJWTSecret(&setting, updates); err != nil {
 			return nil, err
@@ -120,10 +141,11 @@ func GetGeneralSetting() (*GeneralSetting, error) {
 		AIAgentEnabled:     false,
 		AIProvider:         DefaultGeneralAIProvider,
 		AIModel:            DefaultGeneralAIModel,
-		AIMaxTokens:        4096,
+		AIMaxTokens:        16384,
 		KubectlEnabled:     true,
-		KubectlImage:       DefaultGeneralKubectlImage,
+		KubectlImage:       DefaultGeneralKubectlImageValue(),
 		NodeTerminalImage:  DefaultGeneralNodeTerminalImageValue(),
+		ClusterAgentImage:  DefaultGeneralClusterAgentImageValue(),
 		EnableAnalytics:    common.EnableAnalytics,
 		EnableVersionCheck: common.EnableVersionCheck,
 		EnableMFA:          true,

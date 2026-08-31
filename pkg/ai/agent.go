@@ -1,15 +1,12 @@
 package ai
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
-	anthropic "github.com/anthropics/anthropic-sdk-go"
 	"github.com/gin-gonic/gin"
-	"github.com/openai/openai-go"
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/rbac"
@@ -22,6 +19,7 @@ You have access to tools that let you interact with the user's Kubernetes cluste
 - Get information about specific resources (pods, deployments, services, etc.)
 - List resources across namespaces
 - Read pod logs for debugging
+- Run a one-off non-interactive command in a Pod container when structured tools and logs are insufficient
 - Get cluster-wide status overviews
 - Query Prometheus metrics for monitoring data (requires cluster-wide read access)
 - Create, update, patch or delete resources
@@ -31,6 +29,7 @@ Operating principles:
 - Read before write: before any mutation operation (create/update/patch/delete), inspect current related resources unless the request is an explicit create with complete details.
 - Verify after write: after a mutation, re-check the affected resource(s) and report whether the change actually took effect.
 - Scope safety: prefer the smallest safe scope; avoid broad or destructive actions unless the user explicitly asks for them.
+- Pod exec safety: prefer read-only diagnostic commands. Do not use exec when a structured resource or log tool can answer the question.
 
 Kite RBAC semantics:
 - The verbs in Kite only include get, update, delete, create, log, and exec.
@@ -49,7 +48,7 @@ Creation and mutation guardrails:
 - For create operations, do not assume critical defaults. If missing, ask for required details such as namespace, image/tag, ports/exposure, storage, resource requests/limits, and required config/secrets.
 - When you need the user to choose from a short list, use request_choice instead of asking for a typed reply.
 - When you need a few structured values, especially for resource creation, use request_form instead of asking the user to type the answers free-form.
-- Do not use request_choice or request_form for the final yes/no confirmation of a create/update/patch/delete. After collecting the required inputs, call the mutation tool directly. The system already provides the final confirmation step for mutation tools.
+- Do not use request_choice or request_form for the final confirmation of a create/update/patch/delete/exec action. After collecting the required inputs, call the action tool directly. The system already provides the final confirmation step.
 - Do not output secret values. If sensitive fields are involved, summarize safely.
 
 Failure handling:
@@ -64,13 +63,8 @@ Response style:
 - When analyzing logs or resource status, provide actionable insights.
 - When showing resource details, highlight important fields like status, events, and conditions.
 - If you detect issues (CrashLoopBackOff, OOMKilled, pending pods, etc.), proactively suggest solutions.
+- Use valid GitHub-Flavored Markdown. Put commands and code in fenced code blocks, and close the fence before starting headings, lists, or tables. Do not wrap Markdown structure in a code fence.
 - Feel free to respond with emojis where appropriate.`
-
-// ChatMessage represents a message in the conversation.
-type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
 
 // PageContext provides context about which page the user is viewing.
 type PageContext struct {
@@ -80,27 +74,13 @@ type PageContext struct {
 	ResourceKind string `json:"resource_kind"`
 }
 
-// ChatRequest is the incoming chat request.
-type ChatRequest struct {
-	Messages    []ChatMessage `json:"messages"`
-	Language    string        `json:"language,omitempty"`
-	PageContext *PageContext  `json:"page_context"`
-}
-
-// SSEEvent represents a Server-Sent Event to the client.
-type SSEEvent struct {
-	Event string      `json:"event"`
-	Data  interface{} `json:"data"`
-}
-
 // Agent handles the AI conversation loop with tool calling.
 type Agent struct {
-	provider        string
-	openaiClient    openai.Client
-	anthropicClient anthropic.Client
-	cs              *cluster.ClientSet
-	model           string
-	maxTokens       int
+	providerName string
+	provider     modelProvider
+	cs           *cluster.ClientSet
+	model        string
+	maxTokens    int
 }
 
 type runtimePromptContext struct {
@@ -124,16 +104,16 @@ func NewAgent(cs *cluster.ClientSet, cfg *RuntimeConfig) (*Agent, error) {
 		modelName = cfg.Model
 	}
 
-	maxTokens := 4096
+	maxTokens := 16384
 	if cfg != nil && cfg.MaxTokens > 0 {
 		maxTokens = cfg.MaxTokens
 	}
 
 	agent := &Agent{
-		provider:  provider,
-		cs:        cs,
-		model:     modelName,
-		maxTokens: maxTokens,
+		providerName: provider,
+		cs:           cs,
+		model:        modelName,
+		maxTokens:    maxTokens,
 	}
 
 	switch provider {
@@ -142,43 +122,16 @@ func NewAgent(cs *cluster.ClientSet, cfg *RuntimeConfig) (*Agent, error) {
 		if err != nil {
 			return nil, err
 		}
-		agent.anthropicClient = client
+		agent.provider = &anthropicProvider{client: client}
 	default:
 		client, err := NewOpenAIClient(cfg)
 		if err != nil {
 			return nil, err
 		}
-		agent.openaiClient = client
+		agent.provider = &openAIProvider{client: client}
 	}
 
 	return agent, nil
-}
-func normalizeChatMessages(chatMessages []ChatMessage) []ChatMessage {
-	if len(chatMessages) > maxConversationMessages {
-		chatMessages = chatMessages[len(chatMessages)-maxConversationMessages:]
-	}
-
-	normalized := make([]ChatMessage, 0, len(chatMessages))
-	for _, msg := range chatMessages {
-		content := strings.TrimSpace(msg.Content)
-		if content == "" {
-			continue
-		}
-		if len(content) > maxMessageChars {
-			content = content[:maxMessageChars]
-		}
-
-		role := "user"
-		if msg.Role == "assistant" {
-			role = "assistant"
-		}
-
-		normalized = append(normalized, ChatMessage{
-			Role:    role,
-			Content: content,
-		})
-	}
-	return normalized
 }
 
 func summarizeScope(items []string) string {
@@ -292,83 +245,258 @@ func buildContextualSystemPrompt(pageCtx *PageContext, runtimeCtx runtimePromptC
 	return prompt
 }
 
-// ProcessChat runs the AI conversation loop and sends SSE events via the callback.
-func (a *Agent) ProcessChat(c *gin.Context, req *ChatRequest, sendEvent func(SSEEvent)) {
-	switch a.provider {
-	case model.GeneralAIProviderAnthropic:
-		a.processChatAnthropic(c, req, sendEvent)
-	default:
-		a.processChatOpenAI(c, req, sendEvent)
+const maxAgentIterations = 100
+
+const (
+	continuationConfirm = "confirm"
+	continuationSubmit  = "submit"
+	continuationDeny    = "deny"
+)
+
+func (a *Agent) ProcessChat(c *gin.Context, req *ChatRequest, sendEvent func(AgentEvent)) {
+	runtimeCtx := buildRuntimePromptContext(c, a.cs)
+	language := normalizeLanguage(req.Language)
+	if language == "" {
+		language = "en"
 	}
+	systemPrompt := buildContextualSystemPrompt(req.PageContext, runtimeCtx, language)
+	a.runConversation(c, systemPrompt, normalizeAgentMessages(req.Messages), 0, sendEvent)
 }
 
-func (a *Agent) ContinuePendingAction(c *gin.Context, sessionID string, sendEvent func(SSEEvent)) error {
-	session, err := agentPendingSessions.take(sessionID)
-	if err != nil {
-		return err
-	}
-
-	switch session.Provider {
-	case model.GeneralAIProviderAnthropic:
-		return a.continueChatAnthropic(c, session, sendEvent)
-	default:
-		return a.continueChatOpenAI(c, session, sendEvent)
-	}
-}
-
-func (a *Agent) ContinuePendingInput(c *gin.Context, sessionID string, values map[string]interface{}, sendEvent func(SSEEvent)) error {
+func (a *Agent) ContinuePending(
+	c *gin.Context,
+	sessionID string,
+	action string,
+	values map[string]interface{},
+	sendEvent func(AgentEvent),
+) error {
 	session, err := agentPendingSessions.load(sessionID)
 	if err != nil {
 		return err
 	}
-	if !InteractionTools[session.ToolCall.Name] {
-		return fmt.Errorf("pending input not found or expired")
+
+	user, ok := currentUserFromGin(c)
+	if !ok || user.ID != session.UserID || a.cs.Name != session.ClusterName {
+		return fmt.Errorf("pending action does not belong to the current user and cluster")
+	}
+	if a.providerName != session.Provider || a.model != session.Model {
+		return fmt.Errorf("AI provider or model changed while the action was pending")
+	}
+	if session.NextToolIndex < 0 || session.NextToolIndex >= len(session.ToolCalls) {
+		return fmt.Errorf("pending action is invalid")
 	}
 
-	request, err := parseInteractionRequest(session.ToolCall.Name, session.ToolCall.Args)
-	if err != nil {
-		return err
-	}
-	result, err := buildInteractionToolResult(request, values)
-	if err != nil {
-		return err
-	}
-
-	agentPendingSessions.delete(sessionID)
-
-	switch session.Provider {
-	case model.GeneralAIProviderAnthropic:
-		return a.continueChatAnthropicWithToolResult(c, session, result, false, sendEvent)
+	toolCall := session.ToolCalls[session.NextToolIndex]
+	var result ToolResult
+	executeMutation := false
+	switch {
+	case action == continuationDeny:
+		result = ToolResult{
+			ToolCallID: toolCall.ID,
+			ToolName:   toolCall.Name,
+			Content:    "User denied the requested action",
+			IsError:    true,
+		}
+	case InteractionTools[toolCall.Name]:
+		if action != continuationSubmit {
+			return fmt.Errorf("pending input requires submitted values")
+		}
+		request, err := parseInteractionRequest(toolCall.Name, toolCall.Arguments)
+		if err != nil {
+			return err
+		}
+		content, err := buildInteractionToolResult(request, values)
+		if err != nil {
+			return err
+		}
+		result = ToolResult{ToolCallID: toolCall.ID, ToolName: toolCall.Name, Content: content}
+	case MutationTools[toolCall.Name]:
+		if action != continuationConfirm {
+			return fmt.Errorf("pending action requires confirmation")
+		}
+		executeMutation = true
 	default:
-		return a.continueChatOpenAIWithToolResult(c, session, result, false, sendEvent)
+		return fmt.Errorf("pending action is invalid")
 	}
+
+	if err := agentPendingSessions.claim(sessionID); err != nil {
+		return err
+	}
+	if executeMutation {
+		content, isError := ExecuteTool(c.Request.Context(), c, a.cs, toolCall.Name, toolCall.Arguments)
+		result = ToolResult{
+			ToolCallID: toolCall.ID,
+			ToolName:   toolCall.Name,
+			Content:    content,
+			IsError:    isError,
+		}
+	}
+
+	sendEvent(AgentEvent{Type: "tool_result", Data: ToolResultEvent{ToolResult: result}})
+	session.ToolResults = append(session.ToolResults, toolResultBlock(result))
+	session.NextToolIndex++
+
+	messages, paused := a.processToolBatch(c, session, false, sendEvent)
+	if !paused {
+		a.runConversation(c, session.SystemPrompt, messages, session.Iteration, sendEvent)
+	}
+	return nil
 }
 
-func parseToolCallArguments(raw string) (map[string]interface{}, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return map[string]interface{}{}, nil
+func (a *Agent) runConversation(
+	c *gin.Context,
+	systemPrompt string,
+	messages []AgentMessage,
+	startIteration int,
+	sendEvent func(AgentEvent),
+) {
+	tools := toolDefinitions(a.cs)
+	for iteration := startIteration; iteration < maxAgentIterations; iteration++ {
+		message, err := a.provider.Stream(c.Request.Context(), providerRequest{
+			SystemPrompt: systemPrompt,
+			Messages:     messages,
+			Tools:        tools,
+			Model:        a.model,
+			MaxTokens:    a.maxTokens,
+		}, sendEvent)
+		if err != nil {
+			klog.Errorf("AI generation error: %v", err)
+			sendEvent(AgentEvent{Type: "error", Data: ErrorEvent{Message: fmt.Sprintf("AI error: %v", err)}})
+			return
+		}
+		if !message.hasContent() {
+			sendEvent(AgentEvent{Type: "error", Data: ErrorEvent{Message: "AI returned no content"}})
+			return
+		}
+
+		messages = append(messages, message)
+		sendEvent(AgentEvent{Type: "message_end", Data: MessageEndEvent{Message: message}})
+		toolCalls := message.toolCalls()
+		if len(toolCalls) == 0 {
+			return
+		}
+
+		for _, toolCall := range toolCalls {
+			sendEvent(AgentEvent{Type: "tool_call", Data: ToolCallEvent{ToolCall: toolCall}})
+		}
+
+		var paused bool
+		messages, paused = a.processToolBatch(c, pendingSession{
+			Provider:      a.providerName,
+			Model:         a.model,
+			SystemPrompt:  systemPrompt,
+			Messages:      messages,
+			ToolCalls:     toolCalls,
+			NextToolIndex: 0,
+			Iteration:     iteration + 1,
+		}, true, sendEvent)
+		if paused {
+			return
+		}
 	}
 
-	args := map[string]interface{}{}
-	if err := json.Unmarshal([]byte(raw), &args); err != nil {
-		return nil, err
-	}
-	return args, nil
+	sendEvent(AgentEvent{Type: "error", Data: ErrorEvent{Message: "Too many tool calling iterations"}})
 }
 
-type streamedToolCall struct {
-	Index     int64
-	ID        string
-	Name      string
-	Arguments string
-}
-
-// MarshalSSEEvent marshals an SSE event to JSON for sending.
-func MarshalSSEEvent(event SSEEvent) string {
-	data, err := json.Marshal(event.Data)
-	if err != nil {
-		return "event: error\ndata: {\"message\":\"marshal error\"}\n\n"
+func (a *Agent) processToolBatch(
+	c *gin.Context,
+	session pendingSession,
+	bindSession bool,
+	sendEvent func(AgentEvent),
+) ([]AgentMessage, bool) {
+	if bindSession {
+		user, _ := currentUserFromGin(c)
+		session.UserID = user.ID
+		session.ClusterName = a.cs.Name
 	}
-	return fmt.Sprintf("event: %s\ndata: %s\n\n", event.Event, string(data))
+
+	for session.NextToolIndex < len(session.ToolCalls) {
+		toolCall := session.ToolCalls[session.NextToolIndex]
+		if toolCall.ArgumentError != "" {
+			result := ToolResult{
+				ToolCallID: toolCall.ID,
+				ToolName:   toolCall.Name,
+				Content:    "Failed to parse arguments: " + toolCall.ArgumentError,
+				IsError:    true,
+			}
+			sendEvent(AgentEvent{Type: "tool_result", Data: ToolResultEvent{ToolResult: result}})
+			session.ToolResults = append(session.ToolResults, toolResultBlock(result))
+			session.NextToolIndex++
+			continue
+		}
+
+		if InteractionTools[toolCall.Name] {
+			request, err := parseInteractionRequest(toolCall.Name, toolCall.Arguments)
+			if err != nil {
+				result := ToolResult{
+					ToolCallID: toolCall.ID,
+					ToolName:   toolCall.Name,
+					Content:    "Error: " + err.Error(),
+					IsError:    true,
+				}
+				sendEvent(AgentEvent{Type: "tool_result", Data: ToolResultEvent{ToolResult: result}})
+				session.ToolResults = append(session.ToolResults, toolResultBlock(result))
+				session.NextToolIndex++
+				continue
+			}
+
+			sessionID, err := agentPendingSessions.save(session)
+			if err != nil {
+				sendEvent(AgentEvent{Type: "error", Data: ErrorEvent{Message: "Failed to save pending session"}})
+				return session.Messages, true
+			}
+			sendEvent(AgentEvent{Type: "input_required", Data: InputRequiredEvent{
+				SessionID: sessionID,
+				ToolCall:  toolCall,
+				Input:     request,
+			}})
+			return session.Messages, true
+		}
+
+		if MutationTools[toolCall.Name] {
+			content, isError := AuthorizeTool(c, a.cs, toolCall.Name, toolCall.Arguments)
+			if isError {
+				result := ToolResult{
+					ToolCallID: toolCall.ID,
+					ToolName:   toolCall.Name,
+					Content:    content,
+					IsError:    true,
+				}
+				sendEvent(AgentEvent{Type: "tool_result", Data: ToolResultEvent{ToolResult: result}})
+				session.ToolResults = append(session.ToolResults, toolResultBlock(result))
+				session.NextToolIndex++
+				continue
+			}
+
+			sessionID, err := agentPendingSessions.save(session)
+			if err != nil {
+				sendEvent(AgentEvent{Type: "error", Data: ErrorEvent{Message: "Failed to save pending session"}})
+				return session.Messages, true
+			}
+			sendEvent(AgentEvent{Type: "confirmation_required", Data: ConfirmationRequiredEvent{
+				SessionID: sessionID,
+				ToolCall:  toolCall,
+			}})
+			return session.Messages, true
+		}
+
+		content, isError := ExecuteTool(c.Request.Context(), c, a.cs, toolCall.Name, toolCall.Arguments)
+		result := ToolResult{
+			ToolCallID: toolCall.ID,
+			ToolName:   toolCall.Name,
+			Content:    content,
+			IsError:    isError,
+		}
+		sendEvent(AgentEvent{Type: "tool_result", Data: ToolResultEvent{ToolResult: result}})
+		session.ToolResults = append(session.ToolResults, toolResultBlock(result))
+		session.NextToolIndex++
+	}
+
+	if len(session.ToolResults) > 0 {
+		session.Messages = append(session.Messages, AgentMessage{
+			Role:    messageRoleTool,
+			Content: session.ToolResults,
+		})
+	}
+	return session.Messages, false
 }

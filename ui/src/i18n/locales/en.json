@@ -502,6 +502,26 @@
     "exposeInvalidPort": "Port must be between 1 and 65535",
     "exposeNoSelector": "No Deployment selector labels found to expose"
   },
+  "workloads": {
+    "actions": {
+      "rollback": "Rollback"
+    },
+    "fields": {
+      "replicaSet": "ReplicaSet",
+      "controllerRevision": "ControllerRevision",
+      "changeCause": "Change Cause"
+    },
+    "messages": {
+      "noRevisions": "No revision history found",
+      "rollbackStarted": "Rollback requested",
+      "rollbackConfirmTitle": "Rollback?",
+      "rollbackConfirmDescription": "Rollback {{namespace}}/{{name}} to revision {{revision}}."
+    },
+    "tabs": {
+      "rolloutRevisions": "Rollout Revisions",
+      "kiteAudit": "Kite Audit"
+    }
+  },
   "daemonsets": {
     "title": "DaemonSets"
   },
@@ -779,6 +799,13 @@
         "image": "Image"
       }
     },
+    "clusterAgent": {
+      "title": "Cluster Agent Image",
+      "description": "Container image used when generating the Cluster Agent manifest for Cluster Agent clusters.",
+      "form": {
+        "image": "Image"
+      }
+    },
     "runtime": {
       "title": "Runtime",
       "description": "Configure analytics and version checking behavior.",
@@ -873,7 +900,26 @@
     },
     "type": {
       "inCluster": "In-Cluster",
-      "external": "External"
+      "external": "External",
+      "clusterAgent": "Cluster Agent"
+    },
+    "status": {
+      "waiting": "Waiting for Cluster Agent",
+      "connected": "Connected"
+    },
+    "clusterAgent": {
+      "title": "Connect Cluster Agent",
+      "version": "Version: {{version}}",
+      "description": "Choose a command or Kubernetes YAML to run inside the target cluster. This connection information is shown only once.",
+      "command": "Command",
+      "yaml": "Kubernetes YAML",
+      "copyCommand": "Copy command",
+      "copyYaml": "Copy YAML",
+      "applyUrl": "Apply directly with URL",
+      "copyApplyCommand": "Copy apply command",
+      "orUseYaml": "Or deploy with YAML",
+      "loadYamlError": "Failed to load YAML from the manifest URL.",
+      "copyError": "Failed to copy. Copy the content manually."
     },
     "empty": {
       "title": "No clusters configured",
@@ -909,6 +955,7 @@
       "configPlaceholder": "Paste kubeconfig content here...",
       "prometheusUrl": "Prometheus URL",
       "prometheusUrlPlaceholder": "https://prometheus.example.com",
+      "clusterAgentDescription": "Create the cluster first, then run the generated command inside the target cluster.",
       "enabled": "Enabled",
       "isDefault": "Set as Default"
     }

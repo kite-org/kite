@@ -59,7 +59,7 @@ func LoadRuntimeConfig() (*RuntimeConfig, error) {
 		cfg.Model = defaultModelForProvider(cfg.Provider)
 	}
 	if cfg.MaxTokens <= 0 {
-		cfg.MaxTokens = 4096
+		cfg.MaxTokens = 16384
 	}
 	if !cfg.Enabled {
 		return cfg, nil

@@ -40,6 +40,7 @@ function createClusterFormData(cluster?: Cluster | null) {
     enabled: cluster?.enabled ?? true,
     isDefault: cluster?.isDefault ?? false,
     inCluster: cluster?.inCluster ?? false,
+    clusterAgent: cluster?.clusterAgent ?? false,
   }
 }
 
@@ -124,10 +125,21 @@ function ClusterDialogContent({
                 {t('clusterManagement.dialog.type', 'Cluster Type')}
               </Label>
               <Select
-                value={formData.inCluster ? 'inCluster' : 'external'}
-                onValueChange={(value) =>
-                  handleChange('inCluster', value === 'inCluster')
+                value={
+                  formData.clusterAgent
+                    ? 'clusterAgent'
+                    : formData.inCluster
+                      ? 'inCluster'
+                      : 'external'
                 }
+                onValueChange={(value) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    clusterAgent: value === 'clusterAgent',
+                    inCluster: value === 'inCluster',
+                    config: value === 'external' ? prev.config : '',
+                  }))
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -138,6 +150,9 @@ function ClusterDialogContent({
                   </SelectItem>
                   <SelectItem value="inCluster">
                     {t('clusterManagement.type.inCluster', 'In-Cluster')}
+                  </SelectItem>
+                  <SelectItem value="clusterAgent">
+                    {t('clusterManagement.type.clusterAgent', 'Cluster Agent')}
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -161,7 +176,7 @@ function ClusterDialogContent({
           />
         </div>
 
-        {!formData.inCluster && (
+        {!formData.inCluster && !formData.clusterAgent && (
           <div className="space-y-2">
             <Label htmlFor="cluster-config">
               {t('clusterManagement.dialog.config', 'Kubeconfig')}
@@ -185,7 +200,9 @@ function ClusterDialogContent({
               )}
               rows={8}
               className="text-sm"
-              required={!isEditMode && !formData.inCluster}
+              required={
+                !isEditMode && !formData.inCluster && !formData.clusterAgent
+              }
             />
           </div>
         )}
@@ -249,6 +266,16 @@ function ClusterDialogContent({
             </p>
           </div>
         )}
+        {formData.clusterAgent && (
+          <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              {t(
+                'clusterManagement.dialog.clusterAgentDescription',
+                'Create the cluster first, then run the generated command inside the target cluster.'
+              )}
+            </p>
+          </div>
+        )}
         <DialogFooter>
           <Button
             type="button"
@@ -261,7 +288,10 @@ function ClusterDialogContent({
             type="submit"
             disabled={
               !formData.name ||
-              (!isEditMode && !formData.inCluster && !formData.config)
+              (!isEditMode &&
+                !formData.inCluster &&
+                !formData.clusterAgent &&
+                !formData.config)
             }
           >
             {isEditMode

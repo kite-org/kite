@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zxh326/kite/pkg/clusteragent"
 	"github.com/zxh326/kite/pkg/kube"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/prometheus"
@@ -29,14 +30,16 @@ type ClientSet struct {
 	DiscoveredPrometheusURL string
 	config                  string
 	prometheusURL           string
+	clusterAgentGeneration  uint64
 }
 
 type ClusterManager struct {
-	mu             sync.RWMutex
-	syncMu         sync.Mutex
-	clusters       map[string]*ClientSet
-	errors         map[string]string
-	defaultContext string
+	mu                  sync.RWMutex
+	syncMu              sync.Mutex
+	clusters            map[string]*ClientSet
+	errors              map[string]string
+	defaultContext      string
+	clusterAgentManager *clusteragent.Manager
 }
 
 const clusterStartupSyncTimeout = 10 * time.Second
@@ -93,6 +96,12 @@ func newClientSet(name string, k8sConfig *rest.Config, prometheusURL string) (*C
 			} else {
 				klog.Infof("Using k8s API proxy for Prometheus in cluster %s", name)
 			}
+		} else if k8sConfig.Dial != nil {
+			transport := http.DefaultTransport.(*http.Transport).Clone()
+			transport.Proxy = nil
+			transport.DialContext = k8sConfig.Dial
+			rt = transport
+			klog.Infof("Using cluster agent TCP proxy for Prometheus in cluster %s", name)
 		}
 		cs.PromClient, err = prometheus.NewClientWithRoundTripper(prometheusURL, rt)
 		if err != nil {
@@ -233,6 +242,9 @@ func ImportClustersFromKubeconfig(kubeconfig *clientcmdapi.Config, setDefault bo
 			}
 			continue
 		}
+		if existingCluster.ClusterAgent {
+			continue
+		}
 		if err := model.UpdateCluster(existingCluster, map[string]interface{}{
 			"config": model.SecretString(configStr),
 		}); err != nil {
@@ -288,7 +300,30 @@ func syncClusters(cm *ClusterManager, readyCh chan<- struct{}) error {
 		cm.mu.RLock()
 		current, currentExist := cm.clusters[cluster.Name]
 		cm.mu.RUnlock()
-		if shouldUpdateCluster(current, cluster) {
+		if cluster.ClusterAgent && !cluster.Enable {
+			cm.clusterAgentManager.Disconnect(cluster.ID)
+		}
+		if cluster.ClusterAgent && !cm.clusterAgentManager.Connected(cluster.ID) {
+			if currentExist {
+				cm.mu.Lock()
+				delete(cm.clusters, cluster.Name)
+				cm.mu.Unlock()
+				current.K8sClient.Stop(cluster.Name)
+			}
+			cm.mu.Lock()
+			if cluster.Enable {
+				cm.errors[cluster.Name] = "waiting for cluster agent connection"
+			} else {
+				delete(cm.errors, cluster.Name)
+			}
+			cm.mu.Unlock()
+			continue
+		}
+		clusterAgentConfigChanged := cluster.ClusterAgent && currentExist && current.clusterAgentGeneration != cm.clusterAgentManager.Generation(cluster.ID)
+		if clusterAgentConfigChanged {
+			klog.Infof("Cluster Agent transport configuration changed for cluster %s, updating", cluster.Name)
+		}
+		if clusterAgentConfigChanged || shouldUpdateCluster(current, cluster) {
 			if currentExist {
 				cm.mu.Lock()
 				delete(cm.clusters, cluster.Name)
@@ -310,7 +345,7 @@ func syncClusters(cm *ClusterManager, readyCh chan<- struct{}) error {
 		wg.Add(1)
 		go func(cluster *model.Cluster) {
 			defer wg.Done()
-			clientSet, err := buildClientSet(cluster)
+			clientSet, err := cm.buildClientSet(cluster)
 			results <- buildResult{
 				cluster:   cluster,
 				clientSet: clientSet,
@@ -401,6 +436,22 @@ func buildClientSet(cluster *model.Cluster) (*ClientSet, error) {
 	return createClientSetFromConfig(cluster.Name, string(cluster.Config), cluster.PrometheusURL)
 }
 
+func (cm *ClusterManager) buildClientSet(cluster *model.Cluster) (*ClientSet, error) {
+	if !cluster.ClusterAgent {
+		return buildClientSet(cluster)
+	}
+	config, generation, err := cm.clusterAgentManager.RESTConfig(cluster.ID)
+	if err != nil {
+		return nil, err
+	}
+	clientSet, err := newClientSet(cluster.Name, config, cluster.PrometheusURL)
+	if err != nil {
+		return nil, err
+	}
+	clientSet.clusterAgentGeneration = generation
+	return clientSet, nil
+}
+
 func (cm *ClusterManager) syncClusters() error {
 	cm.syncMu.Lock()
 	defer cm.syncMu.Unlock()
@@ -432,6 +483,7 @@ func NewClusterManager() (*ClusterManager, error) {
 	cm := new(ClusterManager)
 	cm.clusters = make(map[string]*ClientSet)
 	cm.errors = make(map[string]string)
+	cm.clusterAgentManager = clusteragent.NewManager(TriggerClusterSync)
 
 	initialReady := make(chan struct{}, 1)
 	go func() {

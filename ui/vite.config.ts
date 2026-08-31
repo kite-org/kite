@@ -4,8 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 
-import monacoEditorFeatures from './plugins/vite-plugin-monaco-editor'
-import { normalizeBasePath } from './src/lib/base-path'
+import monacoEditorFeatures from './plugins/vite-plugin-monaco-editor.ts'
+import { normalizeBasePath } from './src/lib/base-path.ts'
 
 const devSubPath = normalizeBasePath(process.env.KITE_BASE)
 const runtimeBasePlaceholder = '__KITE_BASE__'
@@ -129,7 +129,7 @@ export default defineConfig(({ command }) => ({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(import.meta.dirname, './src'),
     },
   },
   worker: {

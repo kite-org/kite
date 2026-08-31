@@ -47,9 +47,9 @@ import { LogViewer } from '@/components/log-viewer'
 import { PodMonitoring } from '@/components/pod-monitoring'
 import { PodTable } from '@/components/pod-table'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
-import { ResourceHistoryTable } from '@/components/resource-history-table'
 import { Terminal } from '@/components/terminal'
 import { VolumeTable } from '@/components/volume-table'
+import { WorkloadHistoryTabs } from '@/components/workload-history-tabs'
 
 import {
   ResourceDetailShell,
@@ -389,11 +389,12 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
         value: 'history',
         label: t('common.tabs.history'),
         content: deployment ? (
-          <ResourceHistoryTable
+          <WorkloadHistoryTabs
             resourceType="deployments"
-            name={name}
             namespace={namespace}
-            currentResource={deployment}
+            name={name}
+            resource={deployment}
+            onRollbackComplete={refetch}
           />
         ) : null,
       }
@@ -460,6 +461,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
     handleContainerUpdate,
     name,
     namespace,
+    refetch,
     relatedPods,
     t,
   ])

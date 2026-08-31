@@ -16,7 +16,7 @@ import {
 } from '@/components/ai-chat/ai-chat-state'
 import { readAIChatSSEStream } from '@/components/ai-chat/ai-chat-stream'
 import {
-  APIChatMessage,
+  APIAgentMessage,
   ChatMessage,
   ChatSession,
   PageContext,
@@ -213,23 +213,24 @@ export function useAIChat() {
   const handleSSEEvent = useCallback(
     (eventType: string, data: Record<string, unknown>) => {
       switch (eventType) {
-        case 'message':
+        case 'message_delta': {
+          const { block_type, content } = data as {
+            block_type: 'text' | 'thinking'
+            content: string
+          }
           appendToAssistantStream(
-            'content',
-            (data as { content: string }).content
+            block_type === 'thinking' ? 'thinking' : 'content',
+            content
           )
           break
-        case 'think':
-          appendToAssistantStream(
-            'thinking',
-            (data as { content: string }).content
-          )
-          break
+        }
         case 'tool_call': {
-          const { tool, tool_call_id, args } = data as {
-            tool: string
-            tool_call_id?: string
-            args: Record<string, unknown>
+          const { tool_call } = data as {
+            tool_call: {
+              id: string
+              name: string
+              arguments?: Record<string, unknown>
+            }
           }
           startNewAssistantSegmentRef.current = true
           commitMessages((prev) => [
@@ -237,129 +238,136 @@ export function useAIChat() {
             {
               id: generateId(),
               role: 'tool' as const,
-              content: `Calling ${tool}...`,
-              toolCallId:
-                typeof tool_call_id === 'string' ? tool_call_id : undefined,
-              toolName: tool,
-              toolArgs: args,
+              content: `Calling ${tool_call.name}...`,
+              toolCallId: tool_call.id,
+              toolName: tool_call.name,
+              toolArgs: tool_call.arguments || {},
             },
           ])
           break
         }
         case 'tool_result': {
-          const { tool, tool_call_id, result, is_error } = data as {
-            tool: string
-            tool_call_id?: string
-            result: unknown
-            is_error?: boolean
+          const { tool_result } = data as {
+            tool_result: {
+              tool_call_id: string
+              tool_name: string
+              content: string
+              is_error?: boolean
+            }
           }
-          const toolResult =
-            typeof result === 'string' ? result : JSON.stringify(result ?? '')
-          const inferredError =
-            typeof is_error === 'boolean'
-              ? is_error
-              : /^(error:|forbidden:|tool error:)/i.test(toolResult.trim())
-          updateToolMessage(tool_call_id, tool, (message) => ({
-            ...message,
-            content: `${tool} ${inferredError ? 'failed' : 'completed'}`,
-            toolResult,
-            actionStatus: inferredError ? 'error' : 'confirmed',
-          }))
+          const denied = /^User denied\b/i.test(tool_result.content.trim())
+          updateToolMessage(
+            tool_result.tool_call_id,
+            tool_result.tool_name,
+            (message) => ({
+              ...message,
+              content: `${tool_result.tool_name} ${denied ? 'cancelled' : tool_result.is_error ? 'failed' : 'completed'}`,
+              toolResult: tool_result.content,
+              actionStatus: denied
+                ? 'denied'
+                : tool_result.is_error
+                  ? 'error'
+                  : 'confirmed',
+            })
+          )
           break
         }
-        case 'action_required': {
-          const { tool, tool_call_id, args, session_id } = data as {
-            tool: string
-            tool_call_id?: string
-            args: Record<string, unknown>
+        case 'confirmation_required': {
+          const { tool_call, session_id } = data as {
             session_id: string
+            tool_call: {
+              id: string
+              name: string
+              arguments?: Record<string, unknown>
+            }
           }
           if (!session_id) {
             appendAssistantError(
-              `Missing session id for pending action ${tool}`
+              `Missing session id for pending action ${tool_call.name}`
             )
             break
           }
-          updateToolMessage(tool_call_id, tool, (message) => ({
+          updateToolMessage(tool_call.id, tool_call.name, (message) => ({
             ...message,
-            content: `${tool} requires confirmation`,
-            pendingAction: { tool, args, sessionId: session_id },
+            content: `${tool_call.name} requires confirmation`,
+            pendingAction: {
+              tool: tool_call.name,
+              args: tool_call.arguments || {},
+              sessionId: session_id,
+            },
             actionStatus: 'pending' as const,
           }))
           break
         }
         case 'input_required': {
-          const {
-            tool,
-            tool_call_id,
-            session_id,
-            kind,
-            name,
-            title,
-            description,
-            submit_label,
-            options,
-            fields,
-          } = data as {
-            tool: string
-            tool_call_id?: string
+          const { tool_call, session_id, input } = data as {
             session_id: string
-            kind: string
-            name?: string
-            title?: string
-            description?: string
-            submit_label?: string
-            options?: Array<{
-              label: string
-              value: string
+            tool_call: { id: string; name: string }
+            input: {
+              kind: string
+              name?: string
+              title?: string
               description?: string
-            }>
-            fields?: Array<{
-              name: string
-              label: string
-              type: 'text' | 'number' | 'textarea' | 'select' | 'switch'
-              required?: boolean
-              placeholder?: string
-              description?: string
-              default_value?: string
+              submit_label?: string
               options?: Array<{
                 label: string
                 value: string
                 description?: string
               }>
-            }>
+              fields?: Array<{
+                name: string
+                label: string
+                type: 'text' | 'number' | 'textarea' | 'select' | 'switch'
+                required?: boolean
+                placeholder?: string
+                description?: string
+                default_value?: string
+                options?: Array<{
+                  label: string
+                  value: string
+                  description?: string
+                }>
+              }>
+            }
           }
           if (!session_id) {
-            appendAssistantError(`Missing session id for input request ${tool}`)
+            appendAssistantError(
+              `Missing session id for input request ${tool_call.name}`
+            )
             break
           }
-          if (kind !== 'choice' && kind !== 'form') {
-            appendAssistantError(`Unsupported input request type ${kind}`)
+          const inputKind = input.kind
+          if (inputKind !== 'choice' && inputKind !== 'form') {
+            appendAssistantError(`Unsupported input request type ${inputKind}`)
             break
           }
 
-          updateToolMessage(tool_call_id, tool, (message) => ({
+          updateToolMessage(tool_call.id, tool_call.name, (message) => ({
             ...message,
-            content: `${tool} requires input`,
+            content: `${tool_call.name} requires input`,
             inputRequest: {
               sessionId: session_id,
-              kind,
+              kind: inputKind,
               name:
-                typeof name === 'string' && name.trim()
-                  ? name.trim()
+                typeof input.name === 'string' && input.name.trim()
+                  ? input.name.trim()
                   : undefined,
               title:
-                typeof title === 'string' && title.trim() ? title.trim() : tool,
+                typeof input.title === 'string' && input.title.trim()
+                  ? input.title.trim()
+                  : tool_call.name,
               description:
-                typeof description === 'string' && description.trim()
-                  ? description.trim()
+                typeof input.description === 'string' &&
+                input.description.trim()
+                  ? input.description.trim()
                   : undefined,
               submitLabel:
-                typeof submit_label === 'string' && submit_label.trim()
-                  ? submit_label.trim()
+                typeof input.submit_label === 'string' &&
+                input.submit_label.trim()
+                  ? input.submit_label.trim()
                   : undefined,
-              options: Array.isArray(options)
-                ? options
+              options: Array.isArray(input.options)
+                ? input.options
                     .filter(
                       (option) =>
                         option != null &&
@@ -375,8 +383,8 @@ export function useAIChat() {
                           : undefined,
                     }))
                 : undefined,
-              fields: Array.isArray(fields)
-                ? fields
+              fields: Array.isArray(input.fields)
+                ? input.fields
                     .filter(
                       (field) =>
                         field != null &&
@@ -449,7 +457,7 @@ export function useAIChat() {
 
   const streamChat = useCallback(
     async (
-      apiMessages: APIChatMessage[],
+      apiMessages: APIAgentMessage[],
       pageContext: PageContext,
       language: string,
       abortSignal?: AbortSignal
@@ -491,15 +499,48 @@ export function useAIChat() {
   )
 
   const buildAPIMessagesFromCurrentState = useCallback(
-    (extra: APIChatMessage[] = []) => {
-      const history: APIChatMessage[] = []
+    (extra: APIAgentMessage[] = []) => {
+      const history: APIAgentMessage[] = []
 
       for (const message of messagesRef.current) {
         if (message.role === 'user' || message.role === 'assistant') {
-          history.push({ role: message.role, content: message.content })
-        } else if (message.role === 'tool' && message.toolResult) {
-          const toolSummary = `[Tool: ${message.toolName}]\nResult: ${message.toolResult}`
-          history.push({ role: 'assistant', content: toolSummary })
+          if (message.content.trim()) {
+            history.push({
+              role: message.role,
+              content: [{ type: 'text', text: message.content }],
+            })
+          }
+        } else if (
+          message.role === 'tool' &&
+          message.toolCallId &&
+          message.toolName &&
+          message.toolResult !== undefined
+        ) {
+          history.push({
+            role: 'assistant',
+            content: [
+              {
+                type: 'tool_call',
+                tool_call_id: message.toolCallId,
+                tool_name: message.toolName,
+                arguments: message.toolArgs || {},
+              },
+            ],
+          })
+          history.push({
+            role: 'tool',
+            content: [
+              {
+                type: 'tool_result',
+                tool_call_id: message.toolCallId,
+                tool_name: message.toolName,
+                text: message.toolResult,
+                is_error:
+                  message.actionStatus === 'error' ||
+                  message.actionStatus === 'denied',
+              },
+            ],
+          })
         }
       }
 
@@ -543,19 +584,24 @@ export function useAIChat() {
 
       const sessionId = ensureSessionId()
       const requestLanguage = (language || '').trim() || 'en'
-      const baseMessages = buildAPIMessagesFromCurrentState()
 
-      commitMessages((prev) => [
-        ...prev.map((message) =>
-          message.inputRequest
+      commitMessages((prev) =>
+        prev.map((message) =>
+          message.inputRequest || message.pendingAction
             ? {
                 ...message,
                 actionStatus: 'denied' as const,
                 inputRequest: undefined,
+                pendingAction: undefined,
+                toolResult: 'User denied the requested action',
                 content: `${message.toolName || 'input request'} cancelled`,
               }
             : message
-        ),
+        )
+      )
+      const baseMessages = buildAPIMessagesFromCurrentState()
+      commitMessages((prev) => [
+        ...prev,
         {
           id: generateId(),
           role: 'user',
@@ -566,7 +612,10 @@ export function useAIChat() {
 
       const apiMessages = [
         ...baseMessages,
-        { role: 'user' as const, content: trimmed },
+        {
+          role: 'user' as const,
+          content: [{ type: 'text' as const, text: trimmed }],
+        },
       ]
 
       activeAssistantMsgIdRef.current = generateId()
@@ -607,7 +656,6 @@ export function useAIChat() {
     async (opts: {
       messageId: string
       sessionId: string
-      url: string
       body: Record<string, unknown>
       statusText: string
       clearFields: Partial<ChatMessage>
@@ -631,7 +679,7 @@ export function useAIChat() {
           'Content-Type': 'application/json',
         }
         appendCurrentClusterHeader(headers)
-        const response = await fetch(withSubPath(opts.url), {
+        const response = await fetch(withSubPath('/api/v1/ai/continue'), {
           method: 'POST',
           credentials: 'include',
           headers,
@@ -705,8 +753,7 @@ export function useAIChat() {
       await continueSession({
         messageId,
         sessionId,
-        url: '/api/v1/ai/execute/continue',
-        body: { sessionId },
+        body: { sessionId, action: 'confirm' },
         statusText: 'executing',
         clearFields: { pendingAction: undefined },
         errorFields: {},
@@ -738,8 +785,7 @@ export function useAIChat() {
       await continueSession({
         messageId,
         sessionId,
-        url: '/api/v1/ai/input/continue',
-        body: { sessionId, values },
+        body: { sessionId, action: 'submit', values },
         statusText: 'submitting',
         clearFields: { inputRequest: undefined },
         errorFields: { inputRequest },
@@ -750,16 +796,26 @@ export function useAIChat() {
   )
 
   const denyAction = useCallback(
-    (messageId: string) => {
-      updateMessageById(messageId, (m) => ({
-        ...m,
-        actionStatus: 'denied' as const,
-        pendingAction: undefined,
-        inputRequest: undefined,
-        content: `${m.toolName || 'request'} cancelled`,
-      }))
+    async (messageId: string) => {
+      const message = messagesRef.current.find((item) => item.id === messageId)
+      const sessionId =
+        message?.pendingAction?.sessionId || message?.inputRequest?.sessionId
+      if (!message || !sessionId) return
+
+      await continueSession({
+        messageId,
+        sessionId,
+        body: { sessionId, action: 'deny' },
+        statusText: 'cancelling',
+        clearFields: {
+          pendingAction: undefined,
+          inputRequest: undefined,
+        },
+        errorFields: {},
+        toolName: message.toolName,
+      })
     },
-    [updateMessageById]
+    [continueSession]
   )
 
   const clearMessages = useCallback(() => {

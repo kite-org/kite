@@ -5,6 +5,7 @@
     "docs:preview": "vitepress preview ."
   },
   "devDependencies": {
+    "@tabler/icons-vue": "^3.46.0",
     "vitepress": "^1.6.3"
   }
 }

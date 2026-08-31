@@ -633,6 +633,9 @@ export interface Cluster {
   config?: string
   enabled: boolean
   inCluster: boolean
+  clusterAgent: boolean
+  clusterAgentVersion?: string
+  connected: boolean
   isDefault: boolean
   createdAt: string
   updatedAt: string
@@ -743,6 +746,23 @@ export interface ResourceHistoryResponse {
     hasNextPage: boolean
     hasPrevPage: boolean
   }
+}
+
+export type WorkloadRevisionResourceType =
+  'deployments' | 'statefulsets' | 'daemonsets'
+
+export interface WorkloadRevisionItem {
+  revision: number
+  revisionObject: string
+  changeCause?: string
+  images: string[]
+  replicas?: number
+  createdAt: string
+  current: boolean
+}
+
+export interface WorkloadRevisionsResponse {
+  items: WorkloadRevisionItem[]
 }
 
 export interface AuditLogResponse {

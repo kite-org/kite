@@ -89,21 +89,14 @@ func executeInstantQuery(ctx context.Context, cs *cluster.ClientSet, query strin
 }
 
 func executeRangeQuery(ctx context.Context, cs *cluster.ClientSet, query string, duration string) (string, error) {
-	var timeRange time.Duration
-	var step time.Duration
-
-	switch duration {
-	case "30m":
-		timeRange = 30 * time.Minute
-		step = 1 * time.Minute
-	case "1h":
-		timeRange = 1 * time.Hour
-		step = 2 * time.Minute
-	case "24h":
-		timeRange = 24 * time.Hour
-		step = 30 * time.Minute
-	default:
-		return "", fmt.Errorf("unsupported duration: %s. Use '30m', '1h', or '24h'", duration)
+	parsedDuration, err := model.ParseDuration(duration)
+	if err != nil || parsedDuration <= 0 {
+		return "", fmt.Errorf("invalid duration %q; use a positive Prometheus duration such as 30m, 6h, or 7d", duration)
+	}
+	timeRange := time.Duration(parsedDuration)
+	step := timeRange / 60
+	if step < 15*time.Second {
+		step = 15 * time.Second
 	}
 
 	now := time.Now()

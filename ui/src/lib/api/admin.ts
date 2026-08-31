@@ -19,6 +19,7 @@ export interface ClusterCreateRequest {
   config?: string
   prometheusURL?: string
   inCluster?: boolean
+  clusterAgent?: boolean
   isDefault?: boolean
 }
 
@@ -31,22 +32,37 @@ export const fetchClusterList = (): Promise<Cluster[]> => {
   return fetchAPI<Cluster[]>('/admin/clusters/')
 }
 
-export const useClusterList = (options?: { staleTime?: number }) => {
+export const useClusterList = (options?: {
+  staleTime?: number
+  refetchInterval?: number | false
+}) => {
   return useQuery({
     queryKey: ['cluster-list'],
     queryFn: fetchClusterList,
-    staleTime: options?.staleTime || 30000, // 30 seconds cache
+    staleTime: options?.staleTime ?? 30000, // 30 seconds cache
+    refetchInterval: options?.refetchInterval,
   })
 }
 
 // Create cluster
 export const createCluster = async (
   clusterData: ClusterCreateRequest
-): Promise<{ id: number; message: string }> => {
-  return await apiClient.post<{ id: number; message: string }>(
-    '/admin/clusters/',
-    clusterData
-  )
+): Promise<{
+  id: number
+  message: string
+  clusterAgentServer?: string
+  clusterAgentToken?: string
+  clusterAgentPublicKey?: string
+  clusterAgentManifestURL?: string
+}> => {
+  return await apiClient.post<{
+    id: number
+    message: string
+    clusterAgentServer?: string
+    clusterAgentToken?: string
+    clusterAgentPublicKey?: string
+    clusterAgentManifestURL?: string
+  }>('/admin/clusters/', clusterData)
 }
 
 // Update cluster
@@ -352,6 +368,7 @@ export interface GeneralSetting {
   kubectlEnabled: boolean
   kubectlImage: string
   nodeTerminalImage: string
+  clusterAgentImage: string
   enableAnalytics: boolean
   enableVersionCheck: boolean
   passwordLoginDisabled: boolean
@@ -370,6 +387,7 @@ export interface GeneralSettingUpdateRequest {
   kubectlEnabled?: boolean
   kubectlImage?: string
   nodeTerminalImage?: string
+  clusterAgentImage?: string
   enableAnalytics?: boolean
   enableVersionCheck?: boolean
   passwordLoginDisabled?: boolean

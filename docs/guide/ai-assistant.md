@@ -61,6 +61,7 @@ The AI assistant works within Kite's existing access model.
 
 - It only operates on the currently selected cluster.
 - It respects the current user's RBAC permissions.
+- `describe_resource` is authorized by the user's `get` permission on the target resource. Its output may also include Events and related resource summaries fetched by the Kubernetes describer; Kite does not perform separate RBAC checks for those included details. This is the intended authorization boundary for describe operations.
 - If the user cannot read logs, exec into pods, or modify a resource, the assistant cannot bypass that restriction.
 - Prometheus queries are only available when Prometheus is configured for the current cluster.
 

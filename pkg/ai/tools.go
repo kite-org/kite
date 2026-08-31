@@ -97,134 +97,175 @@ func toolDefinitions(cs *cluster.ClientSet) []agentToolDefinition {
 		},
 		{
 			Name:        "get_resource",
-			Description: "Get a specific Kubernetes resource by kind, name, and optionally namespace. Returns the resource details in YAML format.",
+			Description: "Get one Kubernetes resource as YAML. Pass kind, name, and namespace as separate fields; never put namespace in name.",
 			Properties: map[string]any{
 				"kind": map[string]any{
 					"type":        "string",
-					"description": "The resource kind, e.g. Pod, Deployment, Service, ConfigMap, Secret, Node, Namespace, StatefulSet, DaemonSet, Job, CronJob, Ingress, PersistentVolumeClaim, etc.",
+					"description": "Resource kind, such as Pod, Deployment, Service, Node, or widgets.example.com.",
 				},
 				"name": map[string]any{
 					"type":        "string",
-					"description": "The name of the resource.",
+					"description": "Resource name without a namespace prefix.",
 				},
 				"namespace": map[string]any{
 					"type":        "string",
-					"description": "The namespace of the resource. Leave empty for cluster-scoped resources like Node, Namespace.",
+					"description": "Namespace for a namespaced resource. Omit for cluster-scoped resources.",
 				},
 			},
 			Required: []string{"kind", "name"},
 		},
 		{
 			Name:        "list_resources",
-			Description: "List Kubernetes resources of a given kind, optionally filtered by namespace and label selector. Returns a summary of matching resources.",
+			Description: "List Kubernetes resources and return a compact diagnostic summary. Use get_resource when the full YAML of one resource is needed.",
 			Properties: map[string]any{
 				"kind": map[string]any{
 					"type":        "string",
-					"description": "The resource kind, e.g. Pod, Deployment, Service, ConfigMap, Node, Namespace, etc.",
+					"description": "Resource kind, such as Pod, Deployment, Service, Node, Event, or widgets.example.com.",
 				},
 				"namespace": map[string]any{
 					"type":        "string",
-					"description": "The namespace to list resources in. Leave empty for all namespaces or cluster-scoped resources.",
+					"description": "Namespace to list. Omit to list all namespaces or for cluster-scoped resources.",
 				},
 				"label_selector": map[string]any{
 					"type":        "string",
-					"description": "Optional label selector to filter resources, e.g. 'app=nginx' or 'environment=production'.",
+					"description": "Optional Kubernetes label selector, such as app=nginx.",
 				},
 			},
 			Required: []string{"kind"},
 		},
 		{
-			Name:        "get_pod_logs",
-			Description: "Get recent logs from a pod. Useful for debugging issues or analyzing application behavior.",
+			Name:        "describe_resource",
+			Description: "Describe one Kubernetes resource, including related events when supported. Pass kind, name, and namespace as separate fields; never put namespace in name.",
 			Properties: map[string]any{
+				"kind": map[string]any{
+					"type":        "string",
+					"description": "Resource kind, such as Pod, Deployment, Service, or Node.",
+				},
 				"name": map[string]any{
 					"type":        "string",
-					"description": "The name of the pod.",
+					"description": "Resource name without a namespace prefix.",
 				},
 				"namespace": map[string]any{
 					"type":        "string",
-					"description": "The namespace of the pod.",
+					"description": "Namespace for a namespaced resource. Omit for cluster-scoped resources.",
+				},
+			},
+			Required: []string{"kind", "name"},
+		},
+		{
+			Name:        "get_pod_logs",
+			Description: "Get recent logs from one Pod. The pod name and namespace are separate required fields.",
+			Properties: map[string]any{
+				"name": map[string]any{
+					"type":        "string",
+					"description": "Pod name without a namespace prefix.",
+				},
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "Pod namespace.",
 				},
 				"container": map[string]any{
 					"type":        "string",
-					"description": "The container name. Leave empty for the default container.",
+					"description": "Optional container name.",
 				},
 				"tail_lines": map[string]any{
 					"type":        "integer",
-					"description": "Number of recent log lines to retrieve. Defaults to 100.",
+					"description": "Number of recent lines. Defaults to 100.",
 				},
 				"previous": map[string]any{
 					"type":        "boolean",
-					"description": "If true, return logs from the previous terminated container instance.",
+					"description": "Return logs from the previous terminated container instance.",
 				},
 			},
 			Required: []string{"name", "namespace"},
 		},
 		{
+			Name:        "exec_in_pod",
+			Description: "Run one non-interactive command in a Pod container and return stdout and stderr. Pass the executable and arguments as an array. Shell syntax is not interpreted unless the command explicitly invokes a shell. The command has no stdin or TTY and requires user confirmation.",
+			Properties: map[string]any{
+				"name": map[string]any{
+					"type":        "string",
+					"description": "Pod name without a namespace prefix.",
+				},
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "Pod namespace.",
+				},
+				"container": map[string]any{
+					"type":        "string",
+					"description": "Optional container name.",
+				},
+				"command": map[string]any{
+					"type":        "array",
+					"description": "Executable and arguments, one item per argument. Example: [\"cat\", \"/etc/os-release\"].",
+					"items":       map[string]any{"type": "string"},
+				},
+				"timeout_seconds": map[string]any{
+					"type":        "integer",
+					"description": "Positive command timeout in seconds. Choose a duration appropriate for the command.",
+				},
+			},
+			Required: []string{"name", "namespace", "command", "timeout_seconds"},
+		},
+		{
 			Name:        "get_cluster_overview",
-			Description: "Get an overview of the cluster status including node count, pod count, namespaces, and resource usage summary.",
+			Description: "Get a compact overview of cluster nodes, pods, namespaces, and services. Use this as the first step for a broad cluster health check.",
 			Properties:  map[string]any{},
 		},
 		{
-			Name:        "create_resource",
-			Description: "Create a Kubernetes resource from a YAML definition.",
+			Name:        "apply_resource",
+			Description: "Create or update one Kubernetes resource with Server-Side Apply. Pass one complete YAML document. This is a mutation and requires user confirmation.",
 			Properties: map[string]any{
 				"yaml": map[string]any{
 					"type":        "string",
-					"description": "The YAML definition of the resource to create.",
-				},
-			},
-			Required: []string{"yaml"},
-		},
-		{
-			Name:        "update_resource",
-			Description: "Update an existing Kubernetes resource with a new YAML definition.",
-			Properties: map[string]any{
-				"yaml": map[string]any{
-					"type":        "string",
-					"description": "The updated YAML definition of the resource.",
+					"description": "One complete Kubernetes YAML document containing apiVersion, kind, metadata.name, and metadata.namespace when namespaced.",
 				},
 			},
 			Required: []string{"yaml"},
 		},
 		{
 			Name:        "patch_resource",
-			Description: "Patch a Kubernetes resource using strategic merge patch. Useful for partial updates like scaling replicas, updating labels/annotations, restarting deployments (by patching pod template annotations), changing image versions, etc.",
+			Description: "Patch one Kubernetes resource. Use this for focused changes such as scaling, restarting a workload, or changing an image. This is a mutation and requires user confirmation.",
 			Properties: map[string]any{
 				"kind": map[string]any{
 					"type":        "string",
-					"description": "The resource kind (e.g. Deployment, StatefulSet, Service).",
+					"description": "Resource kind, such as Deployment, StatefulSet, or Service.",
 				},
 				"name": map[string]any{
 					"type":        "string",
-					"description": "The name of the resource.",
+					"description": "Resource name without a namespace prefix.",
 				},
 				"namespace": map[string]any{
 					"type":        "string",
-					"description": "The namespace of the resource. Leave empty for cluster-scoped resources.",
+					"description": "Namespace for a namespaced resource. Omit for cluster-scoped resources.",
 				},
 				"patch": map[string]any{
 					"type":        "string",
-					"description": "The JSON patch content (strategic merge patch). Example: {\"spec\":{\"replicas\":3}} to scale, or {\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"2024-01-01T00:00:00Z\"}}}}} to restart.",
+					"description": "JSON-encoded patch document.",
+				},
+				"patch_type": map[string]any{
+					"type":        "string",
+					"description": "Patch format. Defaults to strategic.",
+					"enum":        []string{"strategic", "merge", "json"},
 				},
 			},
 			Required: []string{"kind", "name", "patch"},
 		},
 		{
 			Name:        "delete_resource",
-			Description: "Delete a Kubernetes resource.",
+			Description: "Delete one Kubernetes resource. This is a mutation and requires user confirmation.",
 			Properties: map[string]any{
 				"kind": map[string]any{
 					"type":        "string",
-					"description": "The resource kind.",
+					"description": "Resource kind.",
 				},
 				"name": map[string]any{
 					"type":        "string",
-					"description": "The name of the resource.",
+					"description": "Resource name without a namespace prefix.",
 				},
 				"namespace": map[string]any{
 					"type":        "string",
-					"description": "The namespace of the resource. Leave empty for cluster-scoped resources.",
+					"description": "Namespace for a namespaced resource. Omit for cluster-scoped resources.",
 				},
 			},
 			Required: []string{"kind", "name"},
@@ -248,7 +289,7 @@ func toolDefinitions(cs *cluster.ClientSet) []agentToolDefinition {
 				},
 				"duration": map[string]any{
 					"type":        "string",
-					"description": "Time range for range queries. Examples: '30m', '1h', '24h'. Only used when query_type is 'range'. Defaults to '1h'.",
+					"description": "Positive Prometheus duration for range queries, such as '30m', '6h', '24h', or '7d'. Defaults to '1h'.",
 				},
 			},
 			Required: []string{"query"},
@@ -283,8 +324,7 @@ func interactionOptionsSchema(description string) map[string]any {
 	}
 }
 
-func OpenAIToolDefs(cs *cluster.ClientSet) []openai.ChatCompletionToolParam {
-	defs := toolDefinitions(cs)
+func OpenAIToolDefs(defs []agentToolDefinition) []openai.ChatCompletionToolParam {
 	tools := make([]openai.ChatCompletionToolParam, 0, len(defs))
 
 	for _, def := range defs {
@@ -308,8 +348,7 @@ func OpenAIToolDefs(cs *cluster.ClientSet) []openai.ChatCompletionToolParam {
 	return tools
 }
 
-func AnthropicToolDefs(cs *cluster.ClientSet) []anthropic.ToolUnionParam {
-	defs := toolDefinitions(cs)
+func AnthropicToolDefs(defs []agentToolDefinition) []anthropic.ToolUnionParam {
 	tools := make([]anthropic.ToolUnionParam, 0, len(defs))
 
 	for _, def := range defs {

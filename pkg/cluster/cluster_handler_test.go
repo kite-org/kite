@@ -155,7 +155,7 @@ func setupClusterHandlerTestDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("opening test database: %v", err)
 	}
-	if err := db.AutoMigrate(&model.Cluster{}); err != nil {
+	if err := db.AutoMigrate(&model.Cluster{}, &model.GeneralSetting{}); err != nil {
 		t.Fatalf("migrating test database: %v", err)
 	}
 	model.DB = db

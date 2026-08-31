@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
+  IconLink,
   IconMessage,
   IconRobot,
   IconSettings,
@@ -33,6 +34,7 @@ const DEFAULT_MODEL = 'gpt-4o-mini'
 const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-5'
 const DEFAULT_KUBECTL_IMAGE = 'zzde/kubectl:latest'
 const DEFAULT_NODE_TERMINAL_IMAGE = 'busybox:latest'
+const DEFAULT_CLUSTER_AGENT_IMAGE = 'ghcr.io/kite-org/kite:latest'
 
 interface GeneralSettingsFormData {
   aiAgentEnabled: boolean
@@ -45,6 +47,7 @@ interface GeneralSettingsFormData {
   kubectlEnabled: boolean
   kubectlImage: string
   nodeTerminalImage: string
+  clusterAgentImage: string
   enableAnalytics: boolean
   enableVersionCheck: boolean
   loginPrompt: string
@@ -61,10 +64,11 @@ export function GeneralManagement() {
     aiApiKey: '',
     aiApiKeyConfigured: false,
     aiBaseUrl: '',
-    aiMaxTokens: 4096,
+    aiMaxTokens: 16384,
     kubectlEnabled: true,
     kubectlImage: DEFAULT_KUBECTL_IMAGE,
     nodeTerminalImage: DEFAULT_NODE_TERMINAL_IMAGE,
+    clusterAgentImage: DEFAULT_CLUSTER_AGENT_IMAGE,
     enableAnalytics: true,
     enableVersionCheck: true,
     loginPrompt: '',
@@ -79,10 +83,11 @@ export function GeneralManagement() {
       aiApiKey: '',
       aiApiKeyConfigured: data.aiApiKeyConfigured ?? false,
       aiBaseUrl: data.aiBaseUrl || '',
-      aiMaxTokens: data.aiMaxTokens || 4096,
+      aiMaxTokens: data.aiMaxTokens || 16384,
       kubectlEnabled: data.kubectlEnabled ?? true,
       kubectlImage: data.kubectlImage || DEFAULT_KUBECTL_IMAGE,
       nodeTerminalImage: data.nodeTerminalImage || DEFAULT_NODE_TERMINAL_IMAGE,
+      clusterAgentImage: data.clusterAgentImage || DEFAULT_CLUSTER_AGENT_IMAGE,
       enableAnalytics: data.enableAnalytics ?? false,
       enableVersionCheck: data.enableVersionCheck ?? true,
       loginPrompt: data.loginPrompt || '',
@@ -157,11 +162,13 @@ export function GeneralManagement() {
       aiProvider: formData.aiProvider,
       aiModel: formData.aiModel.trim() || defaultModel,
       aiBaseUrl: formData.aiBaseUrl.trim(),
-      aiMaxTokens: formData.aiMaxTokens || 4096,
+      aiMaxTokens: formData.aiMaxTokens || 16384,
       kubectlEnabled: formData.kubectlEnabled,
       kubectlImage: formData.kubectlImage.trim() || DEFAULT_KUBECTL_IMAGE,
       nodeTerminalImage:
         formData.nodeTerminalImage.trim() || DEFAULT_NODE_TERMINAL_IMAGE,
+      clusterAgentImage:
+        formData.clusterAgentImage.trim() || DEFAULT_CLUSTER_AGENT_IMAGE,
       enableAnalytics: formData.enableAnalytics,
       enableVersionCheck: formData.enableVersionCheck,
       loginPrompt: formData.loginPrompt.trim(),
@@ -326,10 +333,10 @@ export function GeneralManagement() {
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      aiMaxTokens: parseInt(e.target.value) || 4096,
+                      aiMaxTokens: parseInt(e.target.value) || 16384,
                     }))
                   }
-                  placeholder="4096"
+                  placeholder="16384"
                 />
               </div>
             </div>
@@ -406,6 +413,38 @@ export function GeneralManagement() {
                 }))
               }
               placeholder={DEFAULT_NODE_TERMINAL_IMAGE}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-lg border p-3">
+          <div className="space-y-1">
+            <Label className="flex items-center gap-2 text-sm font-medium">
+              <IconLink className="h-4 w-4" />
+              {t('generalManagement.clusterAgent.title', 'Cluster Agent Image')}
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              {t(
+                'generalManagement.clusterAgent.description',
+                'Container image used when generating the Cluster Agent manifest for Cluster Agent clusters.'
+              )}
+            </p>
+          </div>
+
+          <div className="mt-3 space-y-2">
+            <Label htmlFor="general-cluster-agent-image">
+              {t('generalManagement.clusterAgent.form.image', 'Image')}
+            </Label>
+            <Input
+              id="general-cluster-agent-image"
+              value={formData.clusterAgentImage}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  clusterAgentImage: e.target.value,
+                }))
+              }
+              placeholder={DEFAULT_CLUSTER_AGENT_IMAGE}
             />
           </div>
         </div>

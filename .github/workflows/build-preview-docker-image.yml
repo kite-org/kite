@@ -73,7 +73,8 @@ jobs:
       - name: Generate tags
         id: tags
         run: |
-          echo "tags=ghcr.io/${{ github.repository_owner }}/kite:main" >> $GITHUB_OUTPUT
+          OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "tags=ghcr.io/${OWNER_LC}/kite:main" >> $GITHUB_OUTPUT
           echo "image_tag=main" >> $GITHUB_OUTPUT
 
       - name: Build

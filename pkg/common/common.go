@@ -33,6 +33,7 @@ var (
 
 	NodeTerminalImage    = "busybox:latest"
 	KubectlTerminalImage = "zzde/kubectl:latest"
+	ClusterAgentImage    = "ghcr.io/kite-org/kite:latest"
 	DBType               = "sqlite"
 	DBDSN                = "dev.db"
 
@@ -119,6 +120,10 @@ func LoadEnvs() {
 
 	if kubectlTerminalImage := os.Getenv("KUBECTL_TERMINAL_IMAGE"); kubectlTerminalImage != "" {
 		KubectlTerminalImage = kubectlTerminalImage
+	}
+
+	if clusterAgentImage := os.Getenv("CLUSTER_AGENT_IMAGE"); clusterAgentImage != "" {
+		ClusterAgentImage = clusterAgentImage
 	}
 
 	if dbDSN := os.Getenv("DB_DSN"); dbDSN != "" {

@@ -6,15 +6,18 @@ import (
 
 type PendingSession struct {
 	Model
-	SessionID         string    `json:"session_id" gorm:"type:varchar(64);uniqueIndex;not null"`
-	Provider          string    `json:"provider" gorm:"type:varchar(32);not null"`
-	SystemPrompt      string    `json:"system_prompt" gorm:"type:text"`
-	OpenAIMessages    JSONField `json:"openai_messages" gorm:"type:text"`
-	AnthropicMessages JSONField `json:"anthropic_messages" gorm:"type:text"`
-	ToolCallID        string    `json:"tool_call_id" gorm:"type:varchar(255)"`
-	ToolCallName      string    `json:"tool_call_name" gorm:"type:varchar(255)"`
-	ToolCallArgs      JSONField `json:"tool_call_args" gorm:"type:text"`
-	ExpiresAt         time.Time `json:"expires_at" gorm:"index;not null"`
+	SessionID     string    `json:"session_id" gorm:"type:varchar(64);uniqueIndex;not null"`
+	Provider      string    `json:"provider" gorm:"type:varchar(32);not null"`
+	AIModel       string    `json:"ai_model" gorm:"type:varchar(255);not null;default:''"`
+	SystemPrompt  string    `json:"system_prompt" gorm:"type:text"`
+	Messages      JSONField `json:"messages" gorm:"type:text"`
+	ToolCalls     JSONField `json:"tool_calls" gorm:"type:text"`
+	ToolResults   JSONField `json:"tool_results" gorm:"type:text"`
+	NextToolIndex int       `json:"next_tool_index" gorm:"not null;default:0"`
+	Iteration     int       `json:"iteration" gorm:"not null;default:0"`
+	UserID        uint      `json:"user_id" gorm:"index;not null;default:0"`
+	ClusterName   string    `json:"cluster_name" gorm:"type:varchar(255);index;not null;default:''"`
+	ExpiresAt     time.Time `json:"expires_at" gorm:"index;not null"`
 }
 
 func SavePendingSession(session *PendingSession) error {
@@ -29,8 +32,9 @@ func GetPendingSession(sessionID string) (*PendingSession, error) {
 	return &session, nil
 }
 
-func DeletePendingSession(sessionID string) error {
-	return DB.Where("session_id = ?", sessionID).Delete(&PendingSession{}).Error
+func DeletePendingSession(sessionID string) (bool, error) {
+	result := DB.Where("session_id = ?", sessionID).Delete(&PendingSession{})
+	return result.RowsAffected == 1, result.Error
 }
 
 func CleanupExpiredPendingSessions() error {

@@ -41,7 +41,7 @@ func (c *K8sClient) ExecCommand(ctx context.Context, opts ExecOptions) error {
 		TTY:       opts.TTY,
 	}, scheme.ParameterCodec)
 
-	exec, err := remotecommand.NewSPDYExecutor(c.Configuration, "POST", req.URL())
+	exec, err := newRemoteCommandExecutor(c.Configuration, req.URL())
 	if err != nil {
 		return fmt.Errorf("failed to create executor: %w", err)
 	}

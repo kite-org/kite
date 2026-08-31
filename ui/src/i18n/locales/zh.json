@@ -507,6 +507,26 @@
     "exposeInvalidPort": "端口必须在 1 到 65535 之间",
     "exposeNoSelector": "Deployment 没有可用于暴露的 selector 标签"
   },
+  "workloads": {
+    "actions": {
+      "rollback": "回滚"
+    },
+    "fields": {
+      "replicaSet": "ReplicaSet",
+      "controllerRevision": "ControllerRevision",
+      "changeCause": "变更原因"
+    },
+    "messages": {
+      "noRevisions": "未找到版本历史",
+      "rollbackStarted": "已发起回滚",
+      "rollbackConfirmTitle": "回滚？",
+      "rollbackConfirmDescription": "将 {{namespace}}/{{name}} 回滚到版本 {{revision}}。"
+    },
+    "tabs": {
+      "rolloutRevisions": "发布版本历史",
+      "kiteAudit": "Kite 审计记录"
+    }
+  },
   "daemonsets": {
     "title": "DaemonSets"
   },
@@ -790,6 +810,13 @@
         "image": "镜像"
       }
     },
+    "clusterAgent": {
+      "title": "Cluster Agent 镜像",
+      "description": "为 Cluster Agent 类型集群生成 Cluster Agent 部署清单时使用的容器镜像。",
+      "form": {
+        "image": "镜像"
+      }
+    },
     "runtime": {
       "title": "运行时",
       "description": "配置数据统计和版本检查。",
@@ -884,7 +911,26 @@
     },
     "type": {
       "inCluster": "集群内",
-      "external": "外部"
+      "external": "外部",
+      "clusterAgent": "Cluster Agent"
+    },
+    "status": {
+      "waiting": "等待 Cluster Agent",
+      "connected": "已连接"
+    },
+    "clusterAgent": {
+      "title": "连接 Cluster Agent",
+      "version": "版本：{{version}}",
+      "description": "选择命令行或 Kubernetes YAML 在目标集群中运行。此连接信息仅显示一次。",
+      "command": "命令行",
+      "yaml": "Kubernetes YAML",
+      "copyCommand": "复制命令行",
+      "copyYaml": "复制 YAML",
+      "applyUrl": "通过 URL 直接部署",
+      "copyApplyCommand": "复制部署命令",
+      "orUseYaml": "或使用 YAML 部署",
+      "loadYamlError": "无法通过 Manifest URL 加载 YAML。",
+      "copyError": "复制失败，请手动复制内容。"
     },
     "empty": {
       "title": "暂无集群",
@@ -920,6 +966,7 @@
       "configPlaceholder": "粘贴 kubeconfig 内容...",
       "prometheusUrl": "Prometheus URL",
       "prometheusUrlPlaceholder": "https://prometheus.example.com",
+      "clusterAgentDescription": "先创建集群，然后在目标集群内运行生成的命令。",
       "enabled": "启用",
       "isDefault": "设为默认"
     }

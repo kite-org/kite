@@ -12,6 +12,7 @@ import (
 
 	_ "net/http/pprof"
 
+	"github.com/zxh326/kite/pkg/clusteragent"
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/version"
 	"k8s.io/klog/v2"
@@ -19,6 +20,15 @@ import (
 
 func main() {
 	klog.InitFlags(nil)
+	if len(os.Args) > 1 && os.Args[1] == "cluster-agent" {
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		err := clusteragent.Run(ctx, os.Args[2:])
+		stop()
+		if err != nil {
+			log.Fatalf("Failed to run cluster agent: %v", err)
+		}
+		return
+	}
 	flag.Parse()
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))

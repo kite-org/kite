@@ -64,7 +64,19 @@ export interface ChatSession {
   clusterName?: string
 }
 
-export type APIChatMessage = { role: 'user' | 'assistant'; content: string }
+export interface APIAgentContentBlock {
+  type: 'text' | 'tool_call' | 'tool_result'
+  text?: string
+  tool_call_id?: string
+  tool_name?: string
+  arguments?: Record<string, unknown>
+  is_error?: boolean
+}
+
+export interface APIAgentMessage {
+  role: 'user' | 'assistant' | 'tool'
+  content: APIAgentContentBlock[]
+}
 
 export interface AIChatState {
   messages: ChatMessage[]
