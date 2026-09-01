@@ -274,6 +274,108 @@ func toolDefinitions(cs *cluster.ClientSet) []agentToolDefinition {
 			},
 			Required: []string{"kind", "name"},
 		},
+		{
+			Name:        "list_helm_releases",
+			Description: fmt.Sprintf("List Helm releases, optionally filtered by namespace. Returns name, namespace, chart, app version, status, revision, and last update time, capped at %d items. Listing without a namespace requires access to all namespaces.", maxListedHelmReleases),
+			Properties: map[string]any{
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "The namespace to list releases in. Leave empty for all namespaces.",
+				},
+			},
+		},
+		{
+			Name:        "get_helm_release",
+			Description: fmt.Sprintf("Get details of a Helm release: chart info, status, revision, managed resources, and the user-supplied values (overrides). Set include_default_values to true to also return the chart's default values. Sensitive-looking values (passwords, tokens, keys) are masked as %q.", redactedValuePlaceholder),
+			Properties: map[string]any{
+				"name": map[string]any{
+					"type":        "string",
+					"description": "The release name.",
+				},
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "The namespace of the release.",
+				},
+				"include_default_values": map[string]any{
+					"type":        "boolean",
+					"description": "If true, also return the chart's default values. Defaults to false.",
+				},
+			},
+			Required: []string{"name", "namespace"},
+		},
+		{
+			Name:        "get_helm_release_history",
+			Description: fmt.Sprintf("Get the revision history of a Helm release, newest first, capped at %d revisions. Useful before rollback_helm_release to pick the target revision.", maxHelmHistoryItems),
+			Properties: map[string]any{
+				"name": map[string]any{
+					"type":        "string",
+					"description": "The release name.",
+				},
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "The namespace of the release.",
+				},
+			},
+			Required: []string{"name", "namespace"},
+		},
+		{
+			Name:        "update_helm_release_values",
+			Description: fmt.Sprintf("Update the values of a Helm release and redeploy it with its current chart version. By default values_yaml is MERGED over the existing user-supplied values (like helm upgrade --reuse-values), so pass only the fields to change. Set replace to true to instead replace the entire set of user-supplied values with values_yaml. Does not change the chart version. Values masked as %q in get_helm_release output are rejected and must not be written back.", redactedValuePlaceholder),
+			Properties: map[string]any{
+				"name": map[string]any{
+					"type":        "string",
+					"description": "The release name.",
+				},
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "The namespace of the release.",
+				},
+				"values_yaml": map[string]any{
+					"type":        "string",
+					"description": "The values to apply as YAML. By default merged over the existing user-supplied values; with replace=true it becomes the complete new set of user-supplied values.",
+				},
+				"replace": map[string]any{
+					"type":        "boolean",
+					"description": "If true, replace all user-supplied values with values_yaml instead of merging; omitted fields are removed from the release. Defaults to false.",
+				},
+			},
+			Required: []string{"name", "namespace", "values_yaml"},
+		},
+		{
+			Name:        "rollback_helm_release",
+			Description: "Roll back a Helm release to a previous revision. When revision is omitted, rolls back to the immediately previous revision.",
+			Properties: map[string]any{
+				"name": map[string]any{
+					"type":        "string",
+					"description": "The release name.",
+				},
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "The namespace of the release.",
+				},
+				"revision": map[string]any{
+					"type":        "integer",
+					"minimum":     1,
+					"description": "The target revision to roll back to. Defaults to the previous revision.",
+				},
+			},
+			Required: []string{"name", "namespace"},
+		},
+		{
+			Name:        "uninstall_helm_release",
+			Description: "Uninstall a Helm release and delete all resources it manages.",
+			Properties: map[string]any{
+				"name": map[string]any{
+					"type":        "string",
+					"description": "The release name.",
+				},
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "The namespace of the release.",
+				},
+			},
+			Required: []string{"name", "namespace"},
+		},
 	}
 
 	// Only add Prometheus tool if Prometheus client is available

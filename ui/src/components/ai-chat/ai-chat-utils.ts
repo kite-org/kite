@@ -14,6 +14,7 @@ export function describeAction(
   const name = (args.name as string) || ''
   const ns = (args.namespace as string) || ''
   const target = ns ? `${kind} ${ns}/${name}` : `${kind} ${name}`
+  const release = ns ? `${ns}/${name}` : name
 
   switch (tool) {
     case 'exec_in_pod': {
@@ -78,6 +79,21 @@ export function describeAction(
       }
       return 'Update resource'
     }
+    case 'update_helm_release_values': {
+      const action = args.replace === true ? 'Replace' : 'Update'
+      return `${action} values of Helm release ${release}`
+    }
+    case 'rollback_helm_release': {
+      const revision =
+        typeof args.revision === 'number' && args.revision > 0
+          ? args.revision
+          : null
+      return revision
+        ? `Rollback Helm release ${release} to revision ${revision}`
+        : `Rollback Helm release ${release} to the previous revision`
+    }
+    case 'uninstall_helm_release':
+      return `Uninstall Helm release ${release}`
     default:
       return tool
   }
@@ -144,6 +160,12 @@ export function buildToolPreview(
       } catch {
         return { label: 'Patch', content: patch.trim() }
       }
+    }
+    case 'update_helm_release_values': {
+      const valuesYaml = args.values_yaml
+      return typeof valuesYaml === 'string' && valuesYaml.trim()
+        ? { label: 'YAML', content: valuesYaml.trim() }
+        : null
     }
     default:
       return null
