@@ -252,6 +252,16 @@ service:
 ingress:
   enabled: false
   className: "nginx"
+  # ingress-nginx defaults will cut off AI chat and terminal streams: it closes a
+  # connection after 60s with no bytes from the backend, and rejects bodies over
+  # 1m. An SSE agent turn is legitimately silent while a tool runs, and the chat
+  # request carries the whole transcript. When enabling ingress, replace the
+  # empty map below with these annotations:
+  #   annotations:
+  #     nginx.ingress.kubernetes.io/proxy-read-timeout: "900"
+  #     nginx.ingress.kubernetes.io/proxy-send-timeout: "900"
+  #     nginx.ingress.kubernetes.io/proxy-body-size: "32m"
+  #     nginx.ingress.kubernetes.io/proxy-buffering: "off"
   annotations: {}
   hosts:
     - host: kite.zzde.me
@@ -317,7 +327,10 @@ gateway:
                 type: PathPrefix
                 value: /
           timeouts:
-            request: "120s"
+            # An AI agent turn streams over SSE for as long as the model keeps
+            # calling tools, which routinely exceeds two minutes. A shorter
+            # timeout cuts the stream mid-answer with no error the user can act on.
+            request: "900s"
     # Example: additional route for different hostname/path
     # - name: kite-api
     #   annotations: {}

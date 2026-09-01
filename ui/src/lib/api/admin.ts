@@ -357,6 +357,8 @@ export interface APIKeyCreateRequest {
   name: string
 }
 
+export type AIEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+
 export interface GeneralSetting {
   aiAgentEnabled: boolean
   aiProvider: 'openai' | 'anthropic'
@@ -365,6 +367,7 @@ export interface GeneralSetting {
   aiApiKeyConfigured: boolean
   aiBaseUrl: string
   aiMaxTokens: number
+  aiEffort: AIEffort
   kubectlEnabled: boolean
   kubectlImage: string
   nodeTerminalImage: string
@@ -384,6 +387,7 @@ export interface GeneralSettingUpdateRequest {
   aiApiKey?: string
   aiBaseUrl?: string
   aiMaxTokens?: number
+  aiEffort?: AIEffort
   kubectlEnabled?: boolean
   kubectlImage?: string
   nodeTerminalImage?: string

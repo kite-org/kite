@@ -782,7 +782,10 @@
         "apiKey": "API Key",
         "apiKeyPlaceholder": "Leave empty to keep current API Key",
         "baseUrl": "Base URL",
-        "maxTokens": "Max Tokens"
+        "maxTokens": "Max Tokens",
+        "maxTokensHint": "Ceiling on a single response. On Claude models thinking and answer share this budget, so a small value truncates the answer.",
+        "effort": "Reasoning Effort",
+        "effortHint": "How much the model reasons and how many tools it uses. Higher costs more tokens; xhigh suits cluster troubleshooting."
       }
     },
     "kubectl": {

@@ -793,7 +793,10 @@
         "apiKey": "API Key",
         "apiKeyPlaceholder": "留空则保持当前 API Key 不变",
         "baseUrl": "Base URL",
-        "maxTokens": "最大 Token 数"
+        "maxTokens": "最大 Token 数",
+        "maxTokensHint": "单次回复的上限。Claude 模型的思考与回答共用这个预算，设得太小会让回答中途截断。",
+        "effort": "推理强度",
+        "effortHint": "决定模型思考多深、调用多少工具。越高消耗的 Token 越多；集群排障场景建议 xhigh。"
       }
     },
     "kubectl": {
