@@ -18,6 +18,7 @@ type RuntimeConfig struct {
 	APIKey    string
 	BaseURL   string
 	MaxTokens int
+	Effort    string
 }
 
 func normalizeProvider(provider string) string {
@@ -54,12 +55,13 @@ func LoadRuntimeConfig() (*RuntimeConfig, error) {
 		APIKey:    strings.TrimSpace(string(setting.AIAPIKey)),
 		BaseURL:   strings.TrimSpace(setting.AIBaseURL),
 		MaxTokens: setting.AIMaxTokens,
+		Effort:    model.NormalizeGeneralAIEffort(setting.AIEffort),
 	}
 	if cfg.Model == "" {
 		cfg.Model = defaultModelForProvider(cfg.Provider)
 	}
 	if cfg.MaxTokens <= 0 {
-		cfg.MaxTokens = 16384
+		cfg.MaxTokens = model.DefaultGeneralAIMaxTokensByProvider(cfg.Provider)
 	}
 	if !cfg.Enabled {
 		return cfg, nil
