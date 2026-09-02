@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { IconLoader2 } from '@tabler/icons-react'
+import * as yaml from 'js-yaml'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -22,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { NamespaceSelector } from '@/components/selector/namespace-selector'
 import { SimpleYamlEditor } from '@/components/simple-yaml-editor'
 
 interface CreateResourceDialogProps {
@@ -48,8 +50,28 @@ function CreateResourceDialogContent({
   const { t } = useTranslation()
   const { data: templates = [] } = useTemplates()
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
+  const [selectedNamespace, setSelectedNamespace] = useState<string>()
   const [yamlContent, setYamlContent] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const hasNamespaceConflict = useMemo(() => {
+    if (!selectedNamespace) return false
+
+    try {
+      let conflict = false
+      yaml.loadAll(yamlContent, (document) => {
+        if (!document || typeof document !== 'object') return
+
+        const namespace = (document as { metadata?: { namespace?: unknown } })
+          .metadata?.namespace
+        if (typeof namespace === 'string' && namespace !== selectedNamespace) {
+          conflict = true
+        }
+      })
+      return conflict
+    } catch {
+      return false
+    }
+  }, [selectedNamespace, yamlContent])
 
   const handleTemplateChange = (templateName: string) => {
     if (templateName === 'empty') {
@@ -70,7 +92,7 @@ function CreateResourceDialogContent({
 
     setIsLoading(true)
     try {
-      await applyResource(yamlContent)
+      await applyResource(yamlContent, selectedNamespace)
       toast.success(t('common.messages.applied', 'Applied successfully'))
       onOpenChange(false)
     } catch (err) {
@@ -98,31 +120,51 @@ function CreateResourceDialogContent({
       </DialogHeader>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-        <div className="space-y-2">
-          <Label htmlFor="template">Template</Label>
-          <Select
-            value={selectedTemplateId || 'empty'}
-            onValueChange={handleTemplateChange}
-          >
-            <SelectTrigger>
-              <SelectValue
-                placeholder={t(
-                  'common.placeholders.selectTemplate',
-                  'Select a template'
-                )}
-              />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="empty">
-                {t('common.values.emptyTemplate', 'Empty Template')}
-              </SelectItem>
-              {templates.map((template) => (
-                <SelectItem key={template.name} value={template.name}>
-                  {template.name}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="template">Template</Label>
+            <Select
+              value={selectedTemplateId || 'empty'}
+              onValueChange={handleTemplateChange}
+            >
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={t(
+                    'common.placeholders.selectTemplate',
+                    'Select a template'
+                  )}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="empty">
+                  {t('common.values.emptyTemplate', 'Empty Template')}
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                {templates.map((template) => (
+                  <SelectItem key={template.name} value={template.name}>
+                    {template.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>{t('common.fields.namespace', 'Namespace')}</Label>
+            <NamespaceSelector
+              selectedNamespace={selectedNamespace}
+              handleNamespaceChange={setSelectedNamespace}
+              triggerClassName="sm:w-full sm:max-w-none"
+              modal
+            />
+            {hasNamespaceConflict ? (
+              <p className="text-xs text-muted-foreground">
+                {t('common.messages.namespaceOverride', {
+                  namespace: selectedNamespace,
+                  defaultValue:
+                    'The selected namespace will override different namespaces in the YAML when applying.',
+                })}
+              </p>
+            ) : null}
+          </div>
         </div>
         <div className="space-y-2">
           <Label htmlFor="yaml">

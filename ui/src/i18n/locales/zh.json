@@ -253,6 +253,7 @@
       "manageTemplatesDescription": "管理用于创建资源的 YAML 模板。",
       "nameAndYamlRequired": "名称和 YAML 为必填项",
       "nameImmutable": "创建后名称不可修改",
+      "namespaceOverride": "应用时，选择的 Namespace 将覆盖 YAML 中不同的 Namespace。",
       "neverUsed": "从未使用",
       "noChatHistory": "暂无对话历史",
       "noData": "暂无数据",

@@ -611,6 +611,7 @@ export const deleteResource = async <T extends ResourceType>(
 // Apply resource from YAML
 export interface ApplyResourceRequest {
   yaml: string
+  namespace?: string
 }
 
 export interface ApplyResourceResponse {
@@ -627,10 +628,12 @@ export interface ApplyResourceResponse {
 }
 
 export const applyResource = async (
-  yaml: string
+  yaml: string,
+  namespace?: string
 ): Promise<ApplyResourceResponse> => {
   return await apiClient.post<ApplyResourceResponse>('/resources/apply', {
     yaml,
+    namespace,
   })
 }
 

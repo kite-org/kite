@@ -253,6 +253,7 @@
       "manageTemplatesDescription": "Manage resource templates for creating new resources.",
       "nameAndYamlRequired": "Name and YAML are required",
       "nameImmutable": "Name cannot be changed after creation",
+      "namespaceOverride": "The selected namespace will override different namespaces in the YAML when applying.",
       "neverUsed": "Never",
       "noChatHistory": "No chat history yet",
       "noData": "No data",

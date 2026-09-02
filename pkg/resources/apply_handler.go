@@ -30,7 +30,8 @@ func NewResourceApplyHandler() *ResourceApplyHandler {
 }
 
 type ApplyResourceRequest struct {
-	YAML string `json:"yaml" binding:"required"`
+	YAML      string `json:"yaml" binding:"required"`
+	Namespace string `json:"namespace"`
 }
 
 // ApplyResource applies one or more YAML resources to the cluster
@@ -87,6 +88,9 @@ func (h *ResourceApplyHandler) ApplyResource(c *gin.Context) {
 		if mapping.Scope.Name() == meta.RESTScopeNameRoot {
 			authorizationNamespace = common.AllNamespaces
 			obj.SetNamespace("")
+		} else if req.Namespace != "" {
+			authorizationNamespace = req.Namespace
+			obj.SetNamespace(req.Namespace)
 		}
 		resource := common.HistoryResourceType(mapping.Resource.Resource, mapping.Resource.Group)
 		canCreate := rbac.CanAccess(user, resource, string(common.VerbCreate), cs.Name, authorizationNamespace)
