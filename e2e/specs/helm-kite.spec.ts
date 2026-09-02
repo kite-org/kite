@@ -16,24 +16,51 @@ podLabels:
   e2e-mode: upgraded
 `
 
-async function fillMonacoEditor(
+// Both the install and upgrade dialogs render a single kubeapps-style inline
+// diff editor; the editable pane is the diff editor's "modified" editor.
+function valuesEditorText(root: Locator) {
+  return root.locator(
+    '.monaco-diff-editor .editor.modified .monaco-editor .view-lines'
+  )
+}
+
+// Synthetic clicks/keyboard are unreliable against monaco (virtualized
+// scrolling + EditContext input), so set the value through the monaco API
+// exposed on window by ui/src/lib/monaco-runtime.ts.
+async function fillValuesEditor(
   page: Page,
   root: Locator,
-  editorIndex: number,
-  value: string
+  value: string,
+  waitForText?: string
 ) {
-  const editor = root.locator('.monaco-editor').nth(editorIndex)
-  const editorText = editor.locator('.view-lines')
+  const editorText = valuesEditorText(root)
 
-  await expect(editor).toBeVisible({ timeout: 60_000 })
+  await expect(editorText).toBeVisible({ timeout: 60_000 })
+  if (waitForText) {
+    // Wait for async prefill (chart default values) so it cannot race the fill.
+    await expect(editorText).toContainText(waitForText, { timeout: 60_000 })
+  }
   const firstLine = value.trim().split('\n')[0]
 
-  await editorText.click({ position: { x: 10, y: 10 } })
-  await page.keyboard.press('Control+A')
-  await page.keyboard.press('Backspace')
-  await page.keyboard.press('Meta+A')
-  await page.keyboard.press('Backspace')
-  await page.keyboard.insertText(value)
+  await page.evaluate((newValue) => {
+    type DiffEditorLike = {
+      getContainerDomNode: () => HTMLElement
+      getModifiedEditor: () => { setValue: (value: string) => void }
+    }
+    const monaco = (
+      window as unknown as {
+        monaco?: { editor: { getDiffEditors: () => DiffEditorLike[] } }
+      }
+    ).monaco
+    const dialog = document.querySelector('[role="dialog"]')
+    const diffEditor = monaco?.editor
+      .getDiffEditors()
+      .find((editor) => dialog?.contains(editor.getContainerDomNode()))
+    if (!diffEditor) {
+      throw new Error('No monaco diff editor found in the open dialog')
+    }
+    diffEditor.getModifiedEditor().setValue(newValue)
+  }, value)
   await expect(editorText).toContainText(firstLine)
 }
 
@@ -114,7 +141,11 @@ async function expectReleaseValues(
 ) {
   await page.getByRole('tab', { name: 'Values' }).click()
   const editorText = page.locator('.monaco-editor .view-lines').first()
-  await expect(editorText).toContainText('replicaCount:', { timeout: 60_000 })
+  // Stored values are pruned to the minimal override set, so keys equal to the
+  // chart defaults (like replicaCount: 1) are absent — anchor on a real override.
+  await expect(editorText).toContainText('anonymousUserEnabled:', {
+    timeout: 60_000,
+  })
   await expect(editorText).toContainText(expectedText)
   if (absentText) {
     await expect(editorText).not.toContainText(absentText)
@@ -312,7 +343,7 @@ test.describe('helm kite lifecycle', () => {
       const installDialog = page.getByRole('dialog', { name: 'Install' })
       await expect(installDialog).toBeVisible()
       await installDialog.getByLabel('Release Name').fill(releaseName)
-      await fillMonacoEditor(page, installDialog, 1, baseValues)
+      await fillValuesEditor(page, installDialog, baseValues, 'replicaCount:')
       await expect(
         installDialog.getByRole('button', { name: 'Dry Run' })
       ).toBeEnabled({ timeout: 60_000 })
@@ -336,7 +367,7 @@ test.describe('helm kite lifecycle', () => {
         name: 'Upgrade',
       })
       await expect(customValuesUpgradeDialog).toBeVisible()
-      await fillMonacoEditor(page, customValuesUpgradeDialog, 1, upgradedValues)
+      await fillValuesEditor(page, customValuesUpgradeDialog, upgradedValues)
       await expect(
         customValuesUpgradeDialog.getByRole('button', { name: 'Dry Run' })
       ).toBeEnabled({ timeout: 60_000 })
@@ -389,10 +420,12 @@ test.describe('helm kite lifecycle', () => {
         versionUpgradeDialog,
         specifiedUpgradeVersion
       )
-      await fillMonacoEditor(page, versionUpgradeDialog, 1, upgradedValues)
+      await fillValuesEditor(page, versionUpgradeDialog, upgradedValues)
+      // Resolving the chart package URL for a specific version can exceed 60s
+      // on slow networks; keep in line with the 120s/180s waits around it.
       await expect(
         versionUpgradeDialog.getByRole('button', { name: 'Upgrade' })
-      ).toBeEnabled({ timeout: 60_000 })
+      ).toBeEnabled({ timeout: 120_000 })
       await versionUpgradeDialog
         .getByRole('button', { name: 'Upgrade' })
         .click()

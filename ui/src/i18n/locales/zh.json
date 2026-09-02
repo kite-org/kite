@@ -1286,7 +1286,6 @@
       "sources": "源码",
       "keywords": "关键词",
       "versions": "版本",
-      "defaultValues": "默认 Values",
       "customValues": "自定义 Values",
       "updatedAt": "更新时间"
     },
@@ -1333,7 +1332,9 @@
       "dryRun": "Dry Run",
       "upgrade": "升级",
       "rollback": "回滚",
-      "autoUpgrade": "自动升级"
+      "autoUpgrade": "自动升级",
+      "view": "查看",
+      "compareValues": "对比 Values"
     },
     "fields": {
       "chart": "Chart",
@@ -1344,6 +1345,11 @@
       "releaseName": "Release 名称",
       "createNamespace": "创建 Namespace",
       "dryRunPreview": "Dry Run 预览",
+      "compareAgainst": "对比基准",
+      "deployedValues": "已部署的值",
+      "packageValues": "Chart 默认值",
+      "highlightChanges": "高亮差异",
+      "sideBySide": "左右分屏",
       "ignoreLabelsAnnotationsChanges": "忽略标签/注解变更（仅 Diff）",
       "forceConflicts": "force-conflicts",
       "wait": "wait",
@@ -1405,7 +1411,8 @@
       "invalidAutoUpgradeInterval": "间隔至少为 1 分钟。",
       "invalidAutoUpgradeScheduleTime": "请输入有效时间。",
       "invalidAutoUpgradeTimeout": "超时至少为 1 分钟。",
-      "autoUpgradeChartRequired": "请选择用于自动升级的 Chart。"
+      "autoUpgradeChartRequired": "请选择用于自动升级的 Chart。",
+      "noValueChanges": "与当前部署的 Values 相比没有变化。"
     },
     "placeholders": {
       "selectChart": "选择 Chart..."

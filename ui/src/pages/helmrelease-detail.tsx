@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   IconCircleCheckFilled,
   IconExclamationCircle,
@@ -32,6 +32,14 @@ import {
   useResource,
   useResourcesWatch,
 } from '@/lib/api'
+import {
+  dumpSortedYaml,
+  isRecord,
+  mergeValuesDeep,
+  mergeValuesIntoYamlText,
+  parseRecordYaml,
+  pruneDefaultsDeep,
+} from '@/lib/helm-values'
 import { getCRDResourcePath } from '@/lib/k8s'
 import {
   getResourceDetailPath,
@@ -65,6 +73,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { HelmChartIcon } from '@/components/helm-chart-icon'
 import { LogViewer } from '@/components/log-viewer'
 import {
@@ -75,6 +84,7 @@ import { PodStatusIcon } from '@/components/pod-status-icon'
 import { ResourceIframeDialogContent } from '@/components/resource-iframe-dialog-content'
 import { SimpleTable } from '@/components/simple-table'
 import { SimpleYamlEditor } from '@/components/simple-yaml-editor'
+import { ValuesDiffEditor } from '@/components/values-diff-editor'
 import { WorkloadSummaryCard } from '@/components/workload-overview-parts'
 import { WorkloadPodsCard } from '@/components/workload-pods-card'
 import { YamlEditor } from '@/components/yaml-editor'
@@ -343,10 +353,6 @@ function stripMetadataLabelsAndAnnotations(value: unknown): unknown {
   return next
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 function toManifestFiles(
   manifest: string,
   defaultNamespace: string,
@@ -474,6 +480,45 @@ function HelmReleaseHistoryValuesDialog({
   )
 }
 
+function HelmReleaseHistoryDiffDialog({
+  base,
+  target,
+  open,
+  onOpenChange,
+}: {
+  base: HelmReleaseHistoryItem
+  target: HelmReleaseHistoryItem
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const { t } = useTranslation()
+  const [older, newer] =
+    base.revision <= target.revision ? [base, target] : [target, base]
+  const originalYaml = yaml.dump(older.values || {}, { indent: 2 })
+  const modifiedYaml = yaml.dump(newer.values || {}, { indent: 2 })
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex h-[calc(100dvh-4rem)] w-[calc(100vw-4rem)] !max-w-4xl flex-col overflow-hidden sm:!max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>{t('helm.actions.compareValues')}</DialogTitle>
+          <DialogDescription>
+            {t('common.fields.revision')} {older.revision} →{' '}
+            {t('common.fields.revision')} {newer.revision}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="min-h-0 flex-1">
+          <ValuesDiffEditor
+            original={originalYaml}
+            modified={modifiedYaml}
+            height="calc(100dvh - 14rem)"
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function HelmReleaseRollbackButton({
   item,
   namespace,
@@ -556,6 +601,8 @@ function HelmReleaseHistoryTable({
   const [rollingBackRevision, setRollingBackRevision] = useState<number | null>(
     null
   )
+  const [selectedRevisions, setSelectedRevisions] = useState<number[]>([])
+  const [compareOpen, setCompareOpen] = useState(false)
   const {
     data,
     isLoading,
@@ -563,6 +610,24 @@ function HelmReleaseHistoryTable({
     error,
     refetch: refetchHistory,
   } = useHelmReleaseHistory(namespace, name)
+  const itemByRevision = useMemo(
+    () =>
+      new Map(
+        (data?.items || []).map((item): [number, HelmReleaseHistoryItem] => [
+          item.revision,
+          item,
+        ])
+      ),
+    [data?.items]
+  )
+  // Toggle a revision in the compare selection, capped at 2 — picking a third drops the oldest.
+  const toggleRevision = (revision: number) => {
+    setSelectedRevisions((prev) =>
+      prev.includes(revision)
+        ? prev.filter((r) => r !== revision)
+        : [...prev, revision].slice(-2)
+    )
+  }
 
   const handleRollback = async (revision: number) => {
     setRollingBackRevision(revision)
@@ -599,14 +664,42 @@ function HelmReleaseHistoryTable({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle>{t('common.tabs.history')}</CardTitle>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {selectedRevisions.length}/2
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={selectedRevisions.length !== 2}
+            onClick={() => setCompareOpen(true)}
+          >
+            {t('helm.actions.compareValues')}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <SimpleTable
           data={data?.items || []}
           emptyMessage={t('helm.messages.noHistory', 'No history found')}
           columns={[
+            {
+              header: '',
+              accessor: (item) => item,
+              cell: (value) => {
+                const item = value as HelmReleaseHistoryItem
+                return (
+                  <Checkbox
+                    checked={selectedRevisions.includes(item.revision)}
+                    onCheckedChange={() => toggleRevision(item.revision)}
+                    aria-label={`Select revision ${item.revision}`}
+                  />
+                )
+              },
+              align: 'center',
+            },
             {
               header: t('common.fields.revision'),
               accessor: (item) => item.revision,
@@ -707,6 +800,14 @@ function HelmReleaseHistoryTable({
           pagination={{ enabled: true, pageSize: 10 }}
         />
       </CardContent>
+      {compareOpen && selectedRevisions.length === 2 ? (
+        <HelmReleaseHistoryDiffDialog
+          base={itemByRevision.get(selectedRevisions[0])!}
+          target={itemByRevision.get(selectedRevisions[1])!}
+          open={compareOpen}
+          onOpenChange={setCompareOpen}
+        />
+      ) : null}
     </Card>
   )
 }
@@ -968,15 +1069,24 @@ function UpgradeHelmReleaseDialog({
   const [selectedRepository, setSelectedRepository] = useState('')
   const [selectedVersion, setSelectedVersion] = useState('')
   const [valuesYaml, setValuesYaml] = useState(() =>
-    yaml.dump(release.spec?.values || {}, { indent: 2 })
+    dumpSortedYaml(
+      mergeValuesDeep(release.spec?.defaultValues, release.spec?.values || {})
+    )
   )
+  const [sideBySide, setSideBySide] = useState(false)
+  // Distinguishes real user edits from programmatic prefills: the diff editor
+  // echoes prop-driven updates through onModifiedChange, so only a value that
+  // differs from the last state we set counts as "touched" (kubeapps'
+  // valuesModified flag).
+  const [valuesTouched, setValuesTouched] = useState(false)
+  const valuesYamlRef = useRef(valuesYaml)
   const [forceConflicts, setForceConflicts] = useState(false)
   const [wait, setWait] = useState(false)
   const [rollbackOnFailure, setRollbackOnFailure] = useState(false)
   const [ignoreMetadataChanges, setIgnoreMetadataChanges] = useState(false)
-  const releaseDefaultValues = useMemo(
-    () => yaml.dump(release.spec?.defaultValues || {}, { indent: 2 }),
-    [release.spec?.defaultValues]
+  const [highlightDiff, setHighlightDiff] = useState(true)
+  const [compareAgainst, setCompareAgainst] = useState<'deployed' | 'package'>(
+    'deployed'
   )
   const [error, setError] = useState('')
   const [isUpgrading, setIsUpgrading] = useState(false)
@@ -1030,6 +1140,16 @@ function UpgradeHelmReleaseDialog({
     activeChartSource,
     open && !!activeChart && !!activeVersion
   )
+  // Raw values.yaml of the installed version — the comment-preserving source
+  // for the "deployed values" diff baseline.
+  const currentDefaultsQuery = useHelmChartContent(
+    activeRepository || undefined,
+    chartName,
+    'values',
+    currentVersion || undefined,
+    activeChartSource,
+    open && !!activeChart && !!currentVersion
+  )
   const versionOptions = useMemo<HelmChartVersion[]>(() => {
     if (latestChartQuery.data?.versions?.length) {
       return latestChartQuery.data.versions
@@ -1058,11 +1178,76 @@ function UpgradeHelmReleaseDialog({
     !!activeChart && !canUseCurrentChart && selectedChartQuery.isLoading
   const isDefaultValuesLoading = defaultValuesQuery.isLoading
   const readableError = error.replace(/\s&&\s/g, '\n')
-  const defaultValues = isDefaultValuesLoading
-    ? t('helm.messages.loadingValues', {
-        defaultValue: 'Loading values...',
-      })
-    : defaultValuesQuery.data?.content || releaseDefaultValues
+  // Default values of the currently selected chart version (falls back to the
+  // installed version's defaults until the query resolves).
+  const selectedVersionDefaultsObj = useMemo(
+    () =>
+      parseRecordYaml(
+        defaultValuesQuery.data?.content,
+        release.spec?.defaultValues || {}
+      ),
+    [defaultValuesQuery.data?.content, release.spec?.defaultValues]
+  )
+  // Prefill and both diff baselines, always built from the same source shape
+  // so the diff never shows phantom changes. Preferred: comment-preserving
+  // YAML AST surgery on the raw values.yaml texts (needs both the selected and
+  // the installed version's text); fallback: normalized object-level merge.
+  const selectedDefaultsText = defaultValuesQuery.data?.content
+  const currentDefaultsText = currentDefaultsQuery.data?.content
+  const valuesModel = useMemo(() => {
+    const userValues = release.spec?.values || {}
+    if (selectedDefaultsText && currentDefaultsText) {
+      const prefill = mergeValuesIntoYamlText(selectedDefaultsText, userValues)
+      const deployedBaseline = mergeValuesIntoYamlText(
+        currentDefaultsText,
+        userValues
+      )
+      if (prefill !== null && deployedBaseline !== null) {
+        return {
+          prefill,
+          deployedBaseline,
+          packageBaseline: selectedDefaultsText,
+        }
+      }
+    }
+    return {
+      prefill: dumpSortedYaml(
+        mergeValuesDeep(selectedVersionDefaultsObj, userValues)
+      ),
+      deployedBaseline: dumpSortedYaml(
+        mergeValuesDeep(release.spec?.defaultValues, userValues)
+      ),
+      // selectedVersionDefaultsObj already resolves to the installed version's
+      // defaults when the selected version's text hasn't loaded, so a single
+      // sorted dump covers both the loaded and fallback cases.
+      packageBaseline: dumpSortedYaml(selectedVersionDefaultsObj),
+    }
+  }, [
+    currentDefaultsText,
+    release.spec?.defaultValues,
+    release.spec?.values,
+    selectedDefaultsText,
+    selectedVersionDefaultsObj,
+  ])
+  // kubeapps-style: disabling the diff keeps the same editor but diffs the
+  // value against itself, so no highlights are rendered.
+  const diffOriginal = highlightDiff
+    ? compareAgainst === 'package'
+      ? valuesModel.packageBaseline
+      : valuesModel.deployedBaseline
+    : valuesYaml
+
+  // Prefill: until the user edits the values themselves, follow the selected
+  // version — its full default values with the user's deployed overrides
+  // merged on top (same keys auto-overridden). The diff against the deployed
+  // baseline then shows exactly what the upgrade changes.
+  useEffect(() => {
+    if (valuesTouched) {
+      return
+    }
+    valuesYamlRef.current = valuesModel.prefill
+    setValuesYaml(valuesModel.prefill)
+  }, [valuesModel.prefill, valuesTouched])
   const dryRunDiffFiles = useMemo(
     () =>
       dryRunPreview
@@ -1089,7 +1274,13 @@ function UpgradeHelmReleaseDialog({
           setError(t('helmCharts.messages.invalidValues'))
           return null
         }
-        values = (parsed || {}) as Record<string, unknown>
+        // The editor shows the full merged configuration; submit only the
+        // minimal override set so chart defaults keep evolving on upgrades.
+        const pruned = pruneDefaultsDeep(
+          parsed || {},
+          selectedVersionDefaultsObj
+        )
+        values = (pruned || {}) as Record<string, unknown>
       } catch (err) {
         setError(translateError(err, t))
         return null
@@ -1329,39 +1520,87 @@ function UpgradeHelmReleaseDialog({
                 />
               </div>
             ) : (
-              <div className="grid min-h-0 gap-4 lg:grid-cols-2">
-                <div className="grid min-h-0 gap-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <Label>{t('helmCharts.fields.defaultValues')}</Label>
-                    {isDefaultValuesLoading ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <Loader2 className="size-3 animate-spin" />
-                        {t('helm.messages.loadingValues', {
-                          defaultValue: 'Loading values...',
-                        })}
-                      </span>
+              <div className="grid min-h-0 gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label>{t('helm.tabs.values')}</Label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {highlightDiff ? (
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">
+                          {t('helm.fields.compareAgainst')}
+                        </span>
+                        <ToggleGroup
+                          type="single"
+                          size="sm"
+                          variant="outline"
+                          value={compareAgainst}
+                          onValueChange={(value) =>
+                            value &&
+                            setCompareAgainst(value as 'deployed' | 'package')
+                          }
+                        >
+                          <ToggleGroupItem
+                            value="deployed"
+                            className="flex-none px-2"
+                          >
+                            {t('helm.fields.deployedValues')}
+                          </ToggleGroupItem>
+                          <ToggleGroupItem
+                            value="package"
+                            className="flex-none px-2"
+                          >
+                            {t('helm.fields.packageValues')}
+                          </ToggleGroupItem>
+                        </ToggleGroup>
+                        {compareAgainst === 'package' &&
+                        isDefaultValuesLoading ? (
+                          <Loader2 className="size-3 animate-spin text-muted-foreground" />
+                        ) : null}
+                      </div>
                     ) : null}
+                    <Label
+                      htmlFor="helm-upgrade-highlight-diff"
+                      className="flex items-center gap-2 font-normal text-muted-foreground"
+                    >
+                      <Checkbox
+                        id="helm-upgrade-highlight-diff"
+                        checked={highlightDiff}
+                        onCheckedChange={(value) =>
+                          setHighlightDiff(value === true)
+                        }
+                      />
+                      {t('helm.fields.highlightChanges')}
+                    </Label>
+                    <Label
+                      htmlFor="helm-upgrade-side-by-side"
+                      className="flex items-center gap-2 font-normal text-muted-foreground"
+                    >
+                      <Checkbox
+                        id="helm-upgrade-side-by-side"
+                        checked={sideBySide}
+                        onCheckedChange={(value) =>
+                          setSideBySide(value === true)
+                        }
+                      />
+                      {t('helm.fields.sideBySide')}
+                    </Label>
                   </div>
-                  <SimpleYamlEditor
-                    value={defaultValues}
-                    onChange={() => undefined}
-                    disabled
-                    height="calc(100dvh - 20rem)"
-                  />
                 </div>
-
-                <div className="grid min-h-0 gap-2">
-                  <Label>{t('helmCharts.fields.customValues')}</Label>
-                  <SimpleYamlEditor
-                    value={valuesYaml}
-                    onChange={(value) => {
-                      setValuesYaml(value || '')
-                      setDryRunPreview(null)
-                    }}
-                    disabled={isUpgrading || isDryRunning}
-                    height="calc(100dvh - 20rem)"
-                  />
-                </div>
+                <ValuesDiffEditor
+                  original={diffOriginal}
+                  modified={valuesYaml}
+                  renderSideBySide={sideBySide}
+                  onModifiedChange={(value) => {
+                    if (value !== valuesYamlRef.current) {
+                      setValuesTouched(true)
+                    }
+                    valuesYamlRef.current = value
+                    setValuesYaml(value)
+                    setDryRunPreview(null)
+                  }}
+                  readOnly={isUpgrading || isDryRunning}
+                  height="calc(100dvh - 20rem)"
+                />
               </div>
             )}
 

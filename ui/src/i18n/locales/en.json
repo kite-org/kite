@@ -1199,7 +1199,6 @@
       "sources": "Sources",
       "keywords": "Keywords",
       "versions": "Versions",
-      "defaultValues": "Default values",
       "customValues": "Custom values",
       "updatedAt": "Updated"
     },
@@ -1246,7 +1245,9 @@
       "dryRun": "Dry Run",
       "upgrade": "Upgrade",
       "rollback": "Rollback",
-      "autoUpgrade": "Auto upgrade"
+      "autoUpgrade": "Auto upgrade",
+      "view": "View",
+      "compareValues": "Compare values"
     },
     "fields": {
       "chart": "Chart",
@@ -1257,6 +1258,11 @@
       "releaseName": "Release Name",
       "createNamespace": "Create namespace",
       "dryRunPreview": "Dry run preview",
+      "compareAgainst": "Compare against",
+      "deployedValues": "Deployed values",
+      "packageValues": "Package values",
+      "highlightChanges": "Highlight changes",
+      "sideBySide": "Side-by-side",
       "ignoreLabelsAnnotationsChanges": "Ignore labels/annotations changes (diff only)",
       "forceConflicts": "force-conflicts",
       "wait": "wait",
@@ -1318,7 +1324,8 @@
       "invalidAutoUpgradeInterval": "Interval must be at least 1 minute.",
       "invalidAutoUpgradeScheduleTime": "Enter a valid time.",
       "invalidAutoUpgradeTimeout": "Timeout must be at least 1 minute.",
-      "autoUpgradeChartRequired": "Select a chart for auto upgrade."
+      "autoUpgradeChartRequired": "Select a chart for auto upgrade.",
+      "noValueChanges": "No changes from the currently deployed values."
     },
     "placeholders": {
       "selectChart": "Select a chart..."
