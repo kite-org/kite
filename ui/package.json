@@ -58,7 +58,7 @@
     "react-i18next": "^16.6.6",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.3",
-    "recharts": "3.9.2",
+    "recharts": "3.10.1",
     "remark-gfm": "^4.0.1",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.6.0",
