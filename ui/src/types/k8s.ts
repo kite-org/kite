@@ -19,6 +19,7 @@ export type SimpleContainer = Array<{
   name: string
   image: string
   init?: boolean
+  ephemeral?: boolean
 }>
 
 /**

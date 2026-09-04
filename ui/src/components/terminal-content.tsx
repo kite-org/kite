@@ -11,7 +11,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Terminal as XTerm } from '@xterm/xterm'
-import { Container, Pod } from 'kubernetes-types/core/v1'
+import { Container, EphemeralContainer, Pod } from 'kubernetes-types/core/v1'
 
 import '@xterm/xterm/css/xterm.css'
 
@@ -52,6 +52,8 @@ export interface TerminalProps {
   pods?: Pod[]
   containers?: Container[]
   initContainers?: Container[]
+  ephemeralContainers?: EphemeralContainer[]
+  attachContainerName?: string
   selectedContainerName?: string
   /** When true, hides the internal toolbar and fills parent container */
   embedded?: boolean
@@ -64,15 +66,22 @@ export function Terminal({
   nodeName,
   containers: _containers = [],
   initContainers = [],
+  ephemeralContainers,
+  attachContainerName,
   selectedContainerName,
   type = 'pod',
   embedded = false,
 }: TerminalProps) {
   const containers = useMemo(() => {
-    return toSimpleContainer(initContainers, _containers)
-  }, [_containers, initContainers])
+    return toSimpleContainer(initContainers, _containers, ephemeralContainers)
+  }, [_containers, initContainers, ephemeralContainers])
   const [selectedPod, setSelectedPod] = useState<string>('')
   const [selectedContainer, setSelectedContainer] = useState<string>('')
+  const shouldAttach =
+    selectedContainer === attachContainerName ||
+    containers.some(
+      (container) => container.name === selectedContainer && container.ephemeral
+    )
   const [isConnected, setIsConnected] = useState(false)
   const [reconnectFlag, setReconnectFlag] = useState(false)
   const [networkSpeed, setNetworkSpeed] = useState({ upload: 0, download: 0 })
@@ -331,6 +340,9 @@ export function Terminal({
     appendCurrentClusterParam(clusterParams, currentCluster)
     const podParams = new URLSearchParams(clusterParams)
     podParams.set('container', selectedContainer)
+    if (shouldAttach) {
+      podParams.set('attach', 'true')
+    }
     const wsPath =
       type === 'pod'
         ? `/api/v1/terminal/${namespace}/${selectedPod}/ws?${podParams.toString()}`
@@ -494,6 +506,7 @@ export function Terminal({
   }, [
     selectedPod,
     selectedContainer,
+    shouldAttach,
     namespace,
     nodeName,
     type,

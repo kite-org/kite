@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { IconAdjustments } from '@tabler/icons-react'
+import { IconAdjustments, IconBug } from '@tabler/icons-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Container, Pod } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import {
@@ -11,6 +12,10 @@ import {
   useResource,
   useResourcesEvents,
 } from '@/lib/api'
+import {
+  getResourceDetailPath,
+  getResourceQueryKey,
+} from '@/lib/resource-metadata'
 import { isVersionAtLeast, translateError } from '@/lib/utils'
 import { useCluster } from '@/hooks/use-cluster'
 import { Badge } from '@/components/ui/badge'
@@ -29,6 +34,7 @@ import { ContainerInfoCard } from '@/components/container-info-card'
 import { ResourceEditor } from '@/components/editors/resource-editor'
 import { EventTable } from '@/components/event-table'
 import { LogViewer } from '@/components/log-viewer'
+import { PodDebugDialog } from '@/components/pod-debug-dialog'
 import { PodFileBrowser } from '@/components/pod-file-browser'
 import { PodMonitoring } from '@/components/pod-monitoring'
 import { PodOverview } from '@/components/pod-overview'
@@ -44,11 +50,14 @@ import {
 
 export function PodDetail(props: { namespace: string; name: string }) {
   const { namespace, name } = props
+  const [isDebugDialogOpen, setIsDebugDialogOpen] = useState(false)
   const [isResizeDialogOpen, setIsResizeDialogOpen] = useState(false)
   const [selectedContainerName, setSelectedContainerName] = useState<string>()
   const [resizeContainer, setResizeContainer] = useState<Container | null>(null)
   const [isResizing, setIsResizing] = useState(false)
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const tabContainerName = searchParams.get('container') || undefined
 
   const { t } = useTranslation()
@@ -66,6 +75,8 @@ export function PodDetail(props: { namespace: string; name: string }) {
     name,
     namespace
   )
+  const attachContainerName =
+    pod?.metadata?.annotations?.['kite.io/debug-container']
 
   useEffect(() => {
     if (!pod || !pod?.spec?.containers?.length) {
@@ -93,6 +104,25 @@ export function PodDetail(props: { namespace: string; name: string }) {
     await updateResource('pods', name, namespace, content)
     toast.success(t('common.messages.yamlSaved'))
     await refetch()
+  }
+
+  const handleDebugCreated = (updatedPod: Pod, containerName: string) => {
+    const updatedNamespace = updatedPod.metadata!.namespace!
+    const updatedName = updatedPod.metadata!.name!
+    const queryKey = getResourceQueryKey('pods', updatedNamespace, updatedName)
+    queryClient.setQueryData(queryKey, updatedPod)
+    setIsDebugDialogOpen(false)
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.set('tab', 'terminal')
+    nextParams.set('container', containerName)
+    if (updatedNamespace === namespace && updatedName === name) {
+      setSearchParams(nextParams, { replace: true })
+    } else {
+      navigate({
+        pathname: getResourceDetailPath('pods', updatedName, updatedNamespace),
+        search: `?${nextParams.toString()}`,
+      })
+    }
   }
 
   const handleResizeSave = async () => {
@@ -129,6 +159,18 @@ export function PodDetail(props: { namespace: string; name: string }) {
   )
   const resizeAvailable =
     resizeSupported && (pod?.spec?.containers?.length ?? 0) > 0
+  const debugAvailable =
+    !!pod &&
+    !pod.metadata?.deletionTimestamp &&
+    pod.spec?.os?.name !== 'windows' &&
+    pod.spec?.nodeSelector?.['kubernetes.io/os'] !== 'windows' &&
+    (pod.spec?.containers.length ?? 0) > 0
+  const ephemeralAvailable =
+    debugAvailable &&
+    isVersionAtLeast(clusterVersion, '1.25.0') &&
+    pod.status?.phase !== 'Succeeded' &&
+    pod.status?.phase !== 'Failed' &&
+    !pod.metadata?.annotations?.['kubernetes.io/config.mirror']
   const extraTabs = useMemo<ResourceDetailShellTab<Pod>[]>(
     () => [
       {
@@ -138,7 +180,8 @@ export function PodDetail(props: { namespace: string; name: string }) {
             {t('common.tabs.containers')}
             <Badge variant="secondary">
               {(pod?.spec?.containers?.length || 0) +
-                (pod?.spec?.initContainers?.length || 0)}
+                (pod?.spec?.initContainers?.length || 0) +
+                (pod?.spec?.ephemeralContainers?.length || 0)}
             </Badge>
           </>
         ),
@@ -174,6 +217,22 @@ export function PodDetail(props: { namespace: string; name: string }) {
                 ))}
               </CardContent>
             </Card>
+            {!!pod?.spec?.ephemeralContainers?.length && (
+              <Card>
+                <CardContent className="space-y-3 pt-4">
+                  {pod.spec.ephemeralContainers.map((container) => (
+                    <ContainerInfoCard
+                      key={container.name}
+                      container={container}
+                      status={pod.status?.ephemeralContainerStatuses?.find(
+                        (status) => status.name === container.name
+                      )}
+                      ephemeral
+                    />
+                  ))}
+                </CardContent>
+              </Card>
+            )}
           </div>
         ),
       },
@@ -186,6 +245,7 @@ export function PodDetail(props: { namespace: string; name: string }) {
             podName={name}
             containers={pod?.spec?.containers}
             initContainers={pod?.spec?.initContainers}
+            ephemeralContainers={pod?.spec?.ephemeralContainers}
             selectedContainerName={tabContainerName}
           />
         ),
@@ -199,6 +259,8 @@ export function PodDetail(props: { namespace: string; name: string }) {
             podName={name}
             containers={pod?.spec?.containers}
             initContainers={pod?.spec?.initContainers}
+            ephemeralContainers={pod?.spec?.ephemeralContainers}
+            attachContainerName={attachContainerName}
             selectedContainerName={tabContainerName}
           />
         ),
@@ -265,7 +327,7 @@ export function PodDetail(props: { namespace: string; name: string }) {
         ),
       },
     ],
-    [isLoading, name, namespace, pod, t, tabContainerName]
+    [attachContainerName, isLoading, name, namespace, pod, t, tabContainerName]
   )
   return (
     <>
@@ -291,20 +353,45 @@ export function PodDetail(props: { namespace: string; name: string }) {
           ) : null
         }
         headerActions={
-          resizeAvailable ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsResizeDialogOpen(true)}
-            >
-              <IconAdjustments className="w-4 h-4" />
-              {t('pods.resizeResources')}
-            </Button>
-          ) : null
+          <>
+            {debugAvailable && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsDebugDialogOpen(true)}
+              >
+                <IconBug className="size-4" />
+                {t('pods.debug')}
+              </Button>
+            )}
+            {resizeAvailable && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsResizeDialogOpen(true)}
+              >
+                <IconAdjustments className="w-4 h-4" />
+                {t('pods.resizeResources')}
+              </Button>
+            )}
+          </>
         }
         preYamlTabs={extraTabs.filter((tab) => tab.value === 'containers')}
         extraTabs={extraTabs.filter((tab) => tab.value !== 'containers')}
       />
+      {isDebugDialogOpen && debugAvailable && (
+        <PodDebugDialog
+          namespace={namespace}
+          name={name}
+          containers={[
+            ...(pod.spec?.containers || []),
+            ...(pod.spec?.initContainers || []),
+          ]}
+          ephemeralAvailable={ephemeralAvailable}
+          onClose={() => setIsDebugDialogOpen(false)}
+          onCreated={handleDebugCreated}
+        />
+      )}
       <Dialog open={isResizeDialogOpen} onOpenChange={setIsResizeDialogOpen}>
         <DialogContent className="!max-w-3xl max-h-[90vh] overflow-y-auto sm:!max-w-3xl">
           <DialogHeader>

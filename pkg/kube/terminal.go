@@ -31,6 +31,7 @@ type TerminalSession struct {
 	namespace string
 	podName   string
 	container string
+	cancel    context.CancelFunc
 }
 
 func NewTerminalSession(client *K8sClient, conn *wsutil.Conn, namespace, podName, container string) *TerminalSession {
@@ -45,21 +46,35 @@ func NewTerminalSession(client *K8sClient, conn *wsutil.Conn, namespace, podName
 }
 
 func (session *TerminalSession) Start(ctx context.Context, subResource string) error {
+	attach := subResource == "attach"
+	if attach {
+		ctx, session.cancel = context.WithCancel(ctx)
+		defer session.cancel()
+	}
 	req := session.k8sClient.ClientSet.CoreV1().RESTClient().Post().
 		Resource(string(common.Pods)).
 		Name(session.podName).
 		Namespace(session.namespace).
 		SubResource(subResource)
 
-	// Set up exec parameters
-	req.VersionedParams(&corev1.PodExecOptions{
-		Container: session.container,
-		Command:   []string{"sh", "-c", "bash || sh"},
-		Stdin:     true,
-		Stdout:    true,
-		Stderr:    true,
-		TTY:       true,
-	}, scheme.ParameterCodec)
+	if attach {
+		req.VersionedParams(&corev1.PodAttachOptions{
+			Container: session.container,
+			Stdin:     true,
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       true,
+		}, scheme.ParameterCodec)
+	} else {
+		req.VersionedParams(&corev1.PodExecOptions{
+			Container: session.container,
+			Command:   []string{"sh", "-c", "bash || sh"},
+			Stdin:     true,
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       true,
+		}, scheme.ParameterCodec)
+	}
 
 	exec, err := newRemoteCommandExecutor(session.k8sClient.Configuration, req.URL())
 	if err != nil {
@@ -96,6 +111,10 @@ func (session *TerminalSession) Read(p []byte) (int, error) {
 	var msg TerminalMessage
 	err := session.conn.ReadJSON(&msg)
 	if err != nil {
+		if session.cancel != nil {
+			session.cancel()
+			return 0, err
+		}
 		return copy(p, EndOfTransmission), err
 	}
 

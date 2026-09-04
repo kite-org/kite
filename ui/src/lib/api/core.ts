@@ -545,6 +545,27 @@ export const resizePod = async (
   await apiClient.patch(`${endpoint}`, body)
 }
 
+export const debugPod = async (
+  namespace: string,
+  name: string,
+  body: { image: string; targetContainerName: string; command?: string[] }
+): Promise<{ pod: Pod; containerName: string }> => {
+  return apiClient.patch(`/pods/${namespace}/${name}/debug`, body)
+}
+
+export const copyDebugPod = async (
+  namespace: string,
+  name: string,
+  body: {
+    copyTo: string
+    targetContainerName: string
+    image?: string
+    command: string[]
+  }
+): Promise<{ pod: Pod; containerName: string }> => {
+  return apiClient.post(`/pods/${namespace}/${name}/debug-copy`, body)
+}
+
 type DeepPartial<T> = T extends object
   ? {
       [P in keyof T]?: DeepPartial<T[P]>

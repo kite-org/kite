@@ -127,7 +127,7 @@ function PodOverviewContainerRow({
   ) => void
 }) {
   const { t } = useTranslation()
-  const { container, init, status } = item
+  const { container, init, ephemeral, status } = item
   const { data: metrics } = usePodMetrics(namespace, podName, '30m', {
     container: container.name,
   })
@@ -188,6 +188,11 @@ function PodOverviewContainerRow({
                 {container.restartPolicy === 'Always' ? 'Sidecar' : 'Init'}
               </Badge>
             ) : null}
+            {ephemeral ? (
+              <Badge variant="secondary" className="text-xs">
+                {t('pods.debug')}
+              </Badge>
+            ) : null}
           </div>
           <div
             className="w-full truncate font-mono text-xs text-muted-foreground"
@@ -227,7 +232,7 @@ function PodOverviewContainerRow({
         </div>
       </TableCell>
       <TableCell className="px-1 text-center tabular-nums">
-        {status?.restartCount ?? 0}
+        {ephemeral ? '-' : (status?.restartCount ?? 0)}
       </TableCell>
       <TableCell className="px-1 text-center">
         <UsageSummary

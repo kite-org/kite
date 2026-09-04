@@ -10,7 +10,7 @@ import {
   IconSettings,
   IconX,
 } from '@tabler/icons-react'
-import { Container, Pod } from 'kubernetes-types/core/v1'
+import { Container, EphemeralContainer, Pod } from 'kubernetes-types/core/v1'
 import type { editor } from 'monaco-editor'
 import { useTranslation } from 'react-i18next'
 
@@ -61,6 +61,7 @@ export interface LogViewerProps {
   labelSelector?: string
   containers?: Container[]
   initContainers?: Container[]
+  ephemeralContainers?: EphemeralContainer[]
   selectedContainerName?: string
   onClose?: () => void
 }
@@ -79,6 +80,7 @@ export function LogViewer({
   pods,
   containers: _containers,
   initContainers,
+  ephemeralContainers,
   selectedContainerName,
   onClose,
   labelSelector,
@@ -88,11 +90,14 @@ export function LogViewer({
     return (saved as TerminalTheme) || 'classic'
   })
   const containers = useMemo(() => {
-    return toSimpleContainer(initContainers, _containers)
-  }, [_containers, initContainers])
+    return toSimpleContainer(initContainers, _containers, ephemeralContainers)
+  }, [_containers, initContainers, ephemeralContainers])
   const [selectedContainer, setSelectedContainer] = useState<
     string | undefined
   >(containers.length > 0 ? containers[0].name : '')
+  const selectedContainerIsEphemeral = containers.some(
+    (container) => container.name === selectedContainer && container.ephemeral
+  )
   const [tailLines, setTailLines] = useState(() => {
     const saved = localStorage.getItem('log-viewer-tail-lines')
     return saved ? parseInt(saved, 10) : 100
@@ -365,7 +370,7 @@ export function LogViewer({
       container: selectedContainer,
       tailLines,
       timestamps,
-      previous,
+      previous: previous && !selectedContainerIsEphemeral,
       enabled: !!selectPodName,
       labelSelector,
       onNewLog: appendLog,
@@ -376,6 +381,7 @@ export function LogViewer({
       tailLines,
       timestamps,
       previous,
+      selectedContainerIsEphemeral,
       selectPodName,
       labelSelector,
       appendLog,
@@ -634,7 +640,8 @@ export function LogViewer({
                     <Label htmlFor="previous">Previous Container</Label>
                     <Switch
                       id="previous"
-                      checked={previous}
+                      checked={previous && !selectedContainerIsEphemeral}
+                      disabled={selectedContainerIsEphemeral}
                       onCheckedChange={setPrevious}
                     />
                   </div>

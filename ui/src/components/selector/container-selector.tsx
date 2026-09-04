@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Check, ChevronsUpDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { SimpleContainer } from '@/types/k8s'
 import { cn } from '@/lib/utils'
@@ -34,8 +35,13 @@ export function ContainerSelector({
   placeholder = 'Select container...',
 }: ContainerSelectorProps) {
   const [open, setOpen] = useState(false)
+  const { t } = useTranslation()
 
-  const allOption = { name: 'All Containers', image: '', init: false }
+  const allOption: SimpleContainer[number] = {
+    name: 'All Containers',
+    image: '',
+    init: false,
+  }
   const options = showAllOption ? [allOption, ...containers] : containers
 
   const selectedOption = selectedContainer
@@ -53,6 +59,7 @@ export function ContainerSelector({
         >
           <span className="truncate">
             {selectedOption ? selectedOption.name : placeholder}
+            {selectedOption?.ephemeral && ` (${t('pods.debug')})`}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -90,6 +97,11 @@ export function ContainerSelector({
                       {container.init && (
                         <span className="text-xs text-muted-foreground ml-1">
                           (init)
+                        </span>
+                      )}
+                      {container.ephemeral && (
+                        <span className="text-xs text-muted-foreground ml-1">
+                          ({t('pods.debug')})
                         </span>
                       )}
                     </span>

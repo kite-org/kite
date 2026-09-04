@@ -5,6 +5,7 @@ import {
   ContainerStatus,
 } from 'kubernetes-types/core/v1'
 import { ChevronDown, ChevronRight, Edit3 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { cn, formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -74,15 +75,18 @@ export function ContainerInfoCard({
   container,
   status,
   init,
+  ephemeral,
   defaultExpanded = false,
   onContainerUpdate,
 }: {
   container: Container
   status?: ContainerStatus
   init?: boolean
+  ephemeral?: boolean
   defaultExpanded?: boolean
   onContainerUpdate?: (updatedContainer: Container) => void
 }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
 
@@ -117,19 +121,24 @@ export function ContainerInfoCard({
               Sidecar
             </Badge>
           )}
+          {ephemeral && (
+            <Badge variant="secondary" className="text-xs">
+              {t('pods.debug')}
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-2">
-          {status && (
+          {status && !ephemeral && (
             <Badge variant={status.ready ? 'default' : 'secondary'}>
               {status.ready ? 'Ready' : 'Not Ready'}
             </Badge>
           )}
-          {status && status.restartCount > 0 && (
+          {status && !ephemeral && status.restartCount > 0 && (
             <Badge variant="destructive" className="tabular-nums">
               {status.restartCount} restarts
             </Badge>
           )}
-          {onContainerUpdate && (
+          {onContainerUpdate && !ephemeral && (
             <Button
               type="button"
               variant="ghost"
@@ -537,7 +546,7 @@ export function ContainerInfoCard({
         )}
       </div>
 
-      {onContainerUpdate ? (
+      {onContainerUpdate && !ephemeral ? (
         <ContainerEditDialog
           open={editDialogOpen}
           onOpenChange={setEditDialogOpen}

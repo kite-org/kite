@@ -37,7 +37,7 @@ export function ContainerDetailDialog({
     return null
   }
 
-  const { container, init, status } = item
+  const { container, init, ephemeral, status } = item
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[calc(100dvh-2rem)] !max-w-5xl flex-col overflow-hidden sm:!max-w-5xl">
@@ -52,6 +52,11 @@ export function ContainerDetailDialog({
             {init ? (
               <Badge variant="secondary" className="text-xs">
                 {container.restartPolicy === 'Always' ? 'Sidecar' : 'Init'}
+              </Badge>
+            ) : null}
+            {ephemeral ? (
+              <Badge variant="secondary" className="text-xs">
+                {t('pods.debug')}
               </Badge>
             ) : null}
           </DialogTitle>
@@ -81,6 +86,7 @@ export function ContainerDetailDialog({
               container={container}
               status={status}
               init={init}
+              ephemeral={ephemeral}
               defaultExpanded
             />
           </TabsContent>

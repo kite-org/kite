@@ -3,6 +3,7 @@ import { Deployment } from 'kubernetes-types/apps/v1'
 import {
   Container,
   ContainerStatus,
+  EphemeralContainer,
   Event as KubernetesEvent,
   Pod,
   Service,
@@ -531,7 +532,8 @@ function isRestartableInitContainer(container: {
 
 export function toSimpleContainer(
   initContainers?: Container[],
-  containers?: Container[]
+  containers?: Container[],
+  ephemeralContainers?: EphemeralContainer[]
 ): SimpleContainer {
   return [
     ...(containers || []).map((container) => ({
@@ -542,6 +544,11 @@ export function toSimpleContainer(
       name: container.name,
       image: container.image || '',
       init: true,
+    })),
+    ...(ephemeralContainers || []).map((container) => ({
+      name: container.name,
+      image: container.image || '',
+      ephemeral: true,
     })),
   ]
 }

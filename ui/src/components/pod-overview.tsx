@@ -56,6 +56,14 @@ export function PodOverview({
           (item) => item.name === container.name
         ),
       })),
+      ...(pod.spec?.ephemeralContainers || []).map((container) => ({
+        container,
+        init: false,
+        ephemeral: true,
+        status: pod.status?.ephemeralContainerStatuses?.find(
+          (item) => item.name === container.name
+        ),
+      })),
     ]
   }, [pod])
 

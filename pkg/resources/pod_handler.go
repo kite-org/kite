@@ -255,6 +255,8 @@ func (h *PodHandler) registerCustomRoutes(group *gin.RouterGroup) {
 	// watch pods in namespace (or _all)
 	group.GET("/:namespace/watch", h.Watch)
 	group.PATCH("/:namespace/:name/resize", h.Resize)
+	group.PATCH("/:namespace/:name/debug", h.Debug)
+	group.POST("/:namespace/:name/debug-copy", h.DebugCopy)
 	filesGroup := group.Group("/:namespace/:name/files")
 	filesGroup.Use(func(c *gin.Context) {
 		user := c.MustGet("user").(model.User)
