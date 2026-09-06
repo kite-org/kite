@@ -12,14 +12,76 @@ import (
 )
 
 const DefaultGeneralAIModel = "gpt-4o-mini"
-const DefaultGeneralAnthropicModel = "claude-sonnet-4-5"
+const DefaultGeneralAnthropicModel = "claude-opus-5"
 const DefaultGeneralKubectlImage = "zzde/kubectl:latest"
 const DefaultGeneralNodeTerminalImage = "busybox:latest"
 const DefaultGeneralClusterAgentImage = "ghcr.io/kite-org/kite:latest"
 
+// Default max_tokens per provider. On current Claude models max_tokens is a
+// ceiling on thinking + answer combined, and adaptive thinking spends from the
+// same budget, so a small value truncates the answer mid-sentence. It is a
+// ceiling, not an allocation — an unused ceiling costs nothing. gpt-4o-mini
+// caps output at 16384, so the two providers cannot share one default.
+//
+// Depth is controlled by AIEffort (output_config.effort), not by max_tokens.
+const (
+	DefaultGeneralOpenAIMaxTokens    = 8192
+	DefaultGeneralAnthropicMaxTokens = 64000
+	// DefaultGeneralAIMaxTokens is the provider-agnostic fallback, kept at the
+	// smaller value so an unknown provider never overshoots its model's cap.
+	DefaultGeneralAIMaxTokens = DefaultGeneralOpenAIMaxTokens
+)
+
+// AI output effort levels, passed straight through as output_config.effort.
+// This is the depth knob on current Claude models: budget_tokens was removed
+// and returns 400, so effort is the only way to ask for more thinking.
+const (
+	GeneralAIEffortLow    = "low"
+	GeneralAIEffortMedium = "medium"
+	GeneralAIEffortHigh   = "high"
+	GeneralAIEffortXHigh  = "xhigh"
+	GeneralAIEffortMax    = "max"
+
+	// DefaultGeneralAIEffort follows the guidance for agentic and coding work on
+	// current Claude models, which is what the Kubernetes agent loop is.
+	DefaultGeneralAIEffort = GeneralAIEffortXHigh
+)
+
+// GeneralAIEfforts lists the accepted effort levels, weakest first.
+var GeneralAIEfforts = []string{
+	GeneralAIEffortLow,
+	GeneralAIEffortMedium,
+	GeneralAIEffortHigh,
+	GeneralAIEffortXHigh,
+	GeneralAIEffortMax,
+}
+
+// NormalizeGeneralAIEffort maps an operator-supplied value onto a known level,
+// falling back to the default rather than rejecting the save.
+func NormalizeGeneralAIEffort(effort string) string {
+	normalized := strings.ToLower(strings.TrimSpace(effort))
+	for _, valid := range GeneralAIEfforts {
+		if normalized == valid {
+			return normalized
+		}
+	}
+	return DefaultGeneralAIEffort
+}
+
 const GeneralAIProviderOpenAI = "openai"
 const GeneralAIProviderAnthropic = "anthropic"
 const DefaultGeneralAIProvider = GeneralAIProviderOpenAI
+
+// DefaultGeneralAIMaxTokensByProvider mirrors DefaultGeneralAIModelByProvider:
+// the default token budget follows the default model of the same provider.
+func DefaultGeneralAIMaxTokensByProvider(provider string) int {
+	switch NormalizeGeneralAIProvider(provider) {
+	case GeneralAIProviderAnthropic:
+		return DefaultGeneralAnthropicMaxTokens
+	default:
+		return DefaultGeneralOpenAIMaxTokens
+	}
+}
 
 func DefaultGeneralNodeTerminalImageValue() string {
 	image := strings.TrimSpace(common.NodeTerminalImage)
@@ -52,7 +114,8 @@ type GeneralSetting struct {
 	AIModel                 string       `json:"aiModel" gorm:"column:ai_model;type:varchar(255);not null;default:'gpt-4o-mini'"`
 	AIAPIKey                SecretString `json:"aiApiKey" gorm:"column:ai_api_key;type:text"`
 	AIBaseURL               string       `json:"aiBaseUrl" gorm:"column:ai_base_url;type:varchar(500)"`
-	AIMaxTokens             int          `json:"aiMaxTokens" gorm:"column:ai_max_tokens;type:integer;default:16384"`
+	AIMaxTokens             int          `json:"aiMaxTokens" gorm:"column:ai_max_tokens;type:integer;default:64000"`
+	AIEffort                string       `json:"aiEffort" gorm:"column:ai_effort;type:varchar(20);not null;default:'xhigh'"`
 	KubectlEnabled          bool         `json:"kubectlEnabled" gorm:"column:kubectl_enabled;type:boolean;not null;default:true"`
 	KubectlImage            string       `json:"kubectlImage" gorm:"column:kubectl_image;type:varchar(255);not null;default:'zzde/kubectl:latest'"`
 	NodeTerminalImage       string       `json:"nodeTerminalImage" gorm:"column:node_terminal_image;type:varchar(255);not null;default:'busybox:latest'"`
@@ -109,6 +172,11 @@ func GetGeneralSetting() (*GeneralSetting, error) {
 			setting.AIModel = DefaultGeneralAIModelByProvider(setting.AIProvider)
 			updates["ai_model"] = setting.AIModel
 		}
+		if normalizedEffort := NormalizeGeneralAIEffort(setting.AIEffort); setting.AIEffort != normalizedEffort {
+			// Covers both an upgraded install (empty column) and a stale value.
+			setting.AIEffort = normalizedEffort
+			updates["ai_effort"] = normalizedEffort
+		}
 		if setting.KubectlImage == "" {
 			setting.KubectlImage = DefaultGeneralKubectlImageValue()
 			updates["kubectl_image"] = setting.KubectlImage
@@ -141,7 +209,8 @@ func GetGeneralSetting() (*GeneralSetting, error) {
 		AIAgentEnabled:     false,
 		AIProvider:         DefaultGeneralAIProvider,
 		AIModel:            DefaultGeneralAIModel,
-		AIMaxTokens:        16384,
+		AIMaxTokens:        DefaultGeneralAIMaxTokensByProvider(DefaultGeneralAIProvider),
+		AIEffort:           DefaultGeneralAIEffort,
 		KubectlEnabled:     true,
 		KubectlImage:       DefaultGeneralKubectlImageValue(),
 		NodeTerminalImage:  DefaultGeneralNodeTerminalImageValue(),
