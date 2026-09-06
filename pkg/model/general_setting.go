@@ -65,6 +65,16 @@ type GeneralSetting struct {
 	LoginPrompt             string       `json:"loginPrompt" gorm:"column:login_prompt;type:text"`
 	JWTSecret               SecretString `json:"-" gorm:"column:jwt_secret;type:text"`
 	GlobalSidebarPreference string       `json:"-" gorm:"column:global_sidebar_preference;type:text"`
+	SMTPEnabled             bool         `json:"smtpEnabled" gorm:"column:smtp_enabled;type:boolean;not null;default:false"`
+	SMTPHost                string       `json:"smtpHost" gorm:"column:smtp_host;type:varchar(255)"`
+	SMTPPort                int          `json:"smtpPort" gorm:"column:smtp_port;type:integer"`
+	SMTPUsername            string       `json:"smtpUsername" gorm:"column:smtp_username;type:varchar(255)"`
+	SMTPPassword            SecretString `json:"-" gorm:"column:smtp_password;type:text"`
+	SMTPFromEmail           string       `json:"smtpFromEmail" gorm:"column:smtp_from_email;type:varchar(255)"`
+	SMTPFromName            string       `json:"smtpFromName" gorm:"column:smtp_from_name;type:varchar(255)"`
+	SMTPEncryption          string       `json:"smtpEncryption" gorm:"column:smtp_encryption;type:varchar(20)"`
+	SMTPSkipTLSVerify       bool         `json:"smtpSkipTlsVerify" gorm:"column:smtp_skip_tls_verify;type:boolean;not null;default:false"`
+	SMTPTimeoutSeconds      int          `json:"smtpTimeoutSeconds" gorm:"column:smtp_timeout_seconds;type:integer"`
 }
 
 func NormalizeGeneralAIProvider(provider string) string {

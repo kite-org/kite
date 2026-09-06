@@ -2,6 +2,7 @@ package settings
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -56,6 +57,125 @@ func TestGeneralSettingHandlersDoNotExposeOrEraseAPIKey(t *testing.T) {
 	}
 	if stored.AIAPIKey != model.SecretString("existing-secret") {
 		t.Fatalf("stored API key = %q, want preserved value", stored.AIAPIKey)
+	}
+}
+
+func TestGeneralSettingHandlersDoNotExposeOrEraseSMTPPassword(t *testing.T) {
+	setupGeneralSettingTestDB(t, "")
+	if err := model.DB.Model(&model.GeneralSetting{}).Where("id = ?", 1).Updates(map[string]interface{}{
+		"smtp_password": model.SecretString("existing-smtp-password"),
+	}).Error; err != nil {
+		t.Fatalf("storing SMTP password: %v", err)
+	}
+	router := generalSettingTestRouter()
+
+	getResponse := performGeneralSettingRequest(t, router, http.MethodGet, "")
+	if getResponse.Code != http.StatusOK {
+		t.Fatalf("GET status = %d, want %d: %s", getResponse.Code, http.StatusOK, getResponse.Body.String())
+	}
+	getBody := decodeGeneralSettingResponse(t, getResponse)
+	if _, ok := getBody["smtpPassword"]; ok || getBody["smtpPasswordConfigured"] != true {
+		t.Fatalf("GET SMTP password fields = %#v", getBody)
+	}
+	if getBody["smtpSkipTLSVerify"] != false {
+		t.Fatalf("GET smtpSkipTLSVerify = %#v, want false", getBody["smtpSkipTLSVerify"])
+	}
+	if _, ok := getBody["smtpSkipTlsVerify"]; ok {
+		t.Fatalf("GET response has deprecated smtpSkipTlsVerify field = %#v", getBody)
+	}
+	if strings.Contains(getResponse.Body.String(), "existing-smtp-password") {
+		t.Fatal("GET response exposed the stored SMTP password")
+	}
+
+	updateResponse := performGeneralSettingRequest(t, router, http.MethodPut, `{"smtpPassword":"  ","smtpSkipTLSVerify":true}`)
+	if updateResponse.Code != http.StatusOK {
+		t.Fatalf("PUT status = %d, want %d: %s", updateResponse.Code, http.StatusOK, updateResponse.Body.String())
+	}
+	if strings.Contains(updateResponse.Body.String(), "existing-smtp-password") {
+		t.Fatal("PUT response exposed the stored SMTP password")
+	}
+	var stored model.GeneralSetting
+	if err := model.DB.First(&stored, 1).Error; err != nil {
+		t.Fatalf("loading stored setting: %v", err)
+	}
+	if stored.SMTPPassword != model.SecretString("existing-smtp-password") {
+		t.Fatalf("stored SMTP password = %q, want preserved value", stored.SMTPPassword)
+	}
+	if !stored.SMTPSkipTLSVerify {
+		t.Fatal("stored SMTPSkipTLSVerify = false, want true")
+	}
+}
+
+func TestHandleUpdateGeneralSettingRejectsManagedSMTP(t *testing.T) {
+	setupGeneralSettingTestDB(t, "")
+	originalManagedSections := common.ManagedSections
+	common.SetManagedSections(map[string]bool{"smtp": true})
+	t.Cleanup(func() { common.ManagedSections = originalManagedSections })
+
+	response := performGeneralSettingRequest(t, generalSettingTestRouter(), http.MethodPut, `{"smtpClearPassword":true}`)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d: %s", response.Code, http.StatusForbidden, response.Body.String())
+	}
+	body := decodeGeneralSettingResponse(t, response)
+	if body["error"] != common.ManagedSectionError {
+		t.Fatalf("error = %q, want %q", body["error"], common.ManagedSectionError)
+	}
+}
+
+func TestHandleUpdateGeneralSettingValidatesEnabledSMTPConfiguration(t *testing.T) {
+	setupGeneralSettingTestDB(t, "")
+	response := performGeneralSettingRequest(t, generalSettingTestRouter(), http.MethodPut, `{"smtpEnabled":true,"smtpHost":" ","smtpPort":0,"smtpFromEmail":"not-an-email","smtpEncryption":"invalid"}`)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d: %s", response.Code, http.StatusBadRequest, response.Body.String())
+	}
+	body := decodeGeneralSettingResponse(t, response)
+	if body["error"] != "smtpHost is required when smtpEnabled is true" {
+		t.Fatalf("error = %q", body["error"])
+	}
+}
+
+func TestHandleTestSMTPRejectsWhenDisabled(t *testing.T) {
+	setupGeneralSettingTestDB(t, "")
+	response := performGeneralSettingRequest(t, generalSettingTestRouter(), http.MethodPost, `{"recipient":"recipient@example.com"}`)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d: %s", response.Code, http.StatusBadRequest, response.Body.String())
+	}
+	body := decodeGeneralSettingResponse(t, response)
+	if body["error"] != "SMTP is not enabled" {
+		t.Fatalf("error = %q", body["error"])
+	}
+}
+
+func TestHandleTestSMTPUsesTemporaryOverrideWithoutPersisting(t *testing.T) {
+	setupGeneralSettingTestDB(t, "")
+	server := newFakeSMTPServer(t, false, false)
+	setting := server.setting()
+	if err := model.DB.Model(&model.GeneralSetting{}).Where("id = ?", 1).Updates(map[string]interface{}{
+		"smtp_password": model.SecretString("stored-password"),
+		"smtp_host":     "stored.example.com",
+	}).Error; err != nil {
+		t.Fatalf("storing SMTP setting: %v", err)
+	}
+
+	body := fmt.Sprintf(`{"recipient":"recipient@example.com","smtpEnabled":true,"smtpHost":"%s","smtpPort":%d,"smtpUsername":"temporary-user","smtpPassword":"temporary-password","smtpFromEmail":"%s","smtpFromName":"Temporary Sender","smtpEncryption":"none","smtpSkipTLSVerify":false,"smtpTimeoutSeconds":1}`,
+		setting.SMTPHost, setting.SMTPPort, setting.SMTPFromEmail)
+	response := performGeneralSettingRequest(t, generalSettingTestRouter(), http.MethodPost, body)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", response.Code, http.StatusOK, response.Body.String())
+	}
+
+	server.mu.Lock()
+	received := server.message
+	server.mu.Unlock()
+	if received == "" {
+		t.Fatal("temporary SMTP configuration did not send an email")
+	}
+	var stored model.GeneralSetting
+	if err := model.DB.First(&stored, 1).Error; err != nil {
+		t.Fatalf("loading stored setting: %v", err)
+	}
+	if stored.SMTPHost != "stored.example.com" || stored.SMTPPassword != model.SecretString("stored-password") {
+		t.Fatalf("SMTP test persisted temporary configuration: %#v", stored)
 	}
 }
 
@@ -152,6 +272,7 @@ func generalSettingTestRouter() *gin.Engine {
 	router := gin.New()
 	router.GET("/settings", HandleGetGeneralSetting)
 	router.PUT("/settings", HandleUpdateGeneralSetting)
+	router.POST("/settings", HandleTestSMTP)
 	return router
 }
 

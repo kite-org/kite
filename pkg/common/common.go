@@ -25,11 +25,13 @@ const (
 )
 
 var (
-	Port            = "8080"
-	JwtSecret       = DefaultJWTSecret
-	EnableAnalytics = false
-	Host            = ""
-	Base            = ""
+	Port                = "8080"
+	JwtSecret           = DefaultJWTSecret
+	KubeconfigJWTSecret = DefaultJWTSecret
+	KubeconfigJWTKID    = "default"
+	EnableAnalytics     = false
+	Host                = ""
+	Base                = ""
 
 	NodeTerminalImage    = "busybox:latest"
 	KubectlTerminalImage = "zzde/kubectl:latest"
@@ -73,7 +75,7 @@ var (
 	ConfigFilePath = ""
 
 	// ManagedSections tracks which configuration sections are managed by the config file.
-	// Keys: "clusters", "oauth", "ldap", "rbac", "superUser"
+	// Keys: "clusters", "oauth", "ldap", "smtp", "rbac", "superUser"
 	ManagedSections = map[string]bool{}
 	managedMu       sync.RWMutex
 )
@@ -101,6 +103,12 @@ func SetManagedSections(sections map[string]bool) {
 func LoadEnvs() {
 	if secret := os.Getenv("JWT_SECRET"); secret != "" {
 		JwtSecret = secret
+	}
+	if secret := os.Getenv("KUBECONFIG_JWT_SECRET"); secret != "" {
+		KubeconfigJWTSecret = secret
+	}
+	if kid := os.Getenv("KUBECONFIG_JWT_KID"); kid != "" {
+		KubeconfigJWTKID = kid
 	}
 
 	if port := os.Getenv("PORT"); port != "" {

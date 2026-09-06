@@ -1,6 +1,6 @@
 # 配置文件
 
-Kite 支持通过 YAML 配置文件来管理集群、OAuth/LDAP 和 RBAC 配置。通过配置文件管理的部分在 UI 中将变为**只读**——用户可以查看配置但无法通过界面修改。
+Kite 支持通过 YAML 配置文件来管理集群、OAuth/LDAP、SMTP 和 RBAC 配置。通过配置文件管理的部分在 UI 中将变为**只读**——用户可以查看配置但无法通过界面修改。
 
 这对于 GitOps 工作流非常有用，配置可以版本控制并通过 Helm 部署。
 
@@ -70,6 +70,18 @@ ldap:
   groupFilter: "(member=%s)"
   groupNameAttribute: "cn"
 
+smtp:
+  enabled: true
+  host: "smtp.example.com"
+  port: 587
+  username: "kite"
+  password: "smtp-password"
+  fromEmail: "kite@example.com"
+  fromName: "Kite"
+  encryption: "starttls" # 可选值：none、starttls、tls
+  skipTLSVerify: false
+  timeoutSeconds: 30
+
 rbac:
   roles:
     - name: admin
@@ -100,7 +112,7 @@ rbac:
       oidcGroups: ["developers"]
 ```
 
-你只需包含想要管理的部分。例如，如果只想通过配置文件管理集群，只需包含 `clusters` 部分——OAuth、LDAP 和 RBAC 仍然可以通过 UI 编辑。
+你只需包含想要管理的部分。例如，如果只想通过配置文件管理集群，只需包含 `clusters` 部分——OAuth、LDAP、SMTP 和 RBAC 仍然可以通过 UI 编辑。
 
 ## 通过 Helm 使用
 
@@ -226,71 +238,88 @@ config:
 
 ### 集群配置
 
-| 字段            | 类型    | 描述                    | 必填   |
-| --------------- | ------- | ----------------------- | ------ |
-| `name`          | string  | 唯一集群名称            | 是     |
-| `description`   | string  | 集群描述                | 否     |
-| `config`        | string  | Kubeconfig YAML 内容    | 否 *   |
-| `prometheusURL` | string  | Prometheus 端点 URL     | 否     |
-| `inCluster`     | boolean | 使用集群内服务账号      | 否     |
-| `default`       | boolean | 设为默认集群            | 否     |
+| 字段            | 类型    | 描述                 | 必填 |
+| --------------- | ------- | -------------------- | ---- |
+| `name`          | string  | 唯一集群名称         | 是   |
+| `description`   | string  | 集群描述             | 否   |
+| `config`        | string  | Kubeconfig YAML 内容 | 否 * |
+| `prometheusURL` | string  | Prometheus 端点 URL  | 否   |
+| `inCluster`     | boolean | 使用集群内服务账号   | 否   |
+| `default`       | boolean | 设为默认集群         | 否   |
 
 \* 必须提供 `config` 或 `inCluster: true`。
 
 ### OAuth 提供者配置
 
-| 字段            | 类型    | 描述                                    | 必填 |
-| --------------- | ------- | --------------------------------------- | ---- |
-| `name`          | string  | 提供者名称（如 "google"、"github"）     | 是   |
-| `clientId`      | string  | OAuth Client ID                         | 是   |
-| `clientSecret`  | string  | OAuth Client Secret                     | 是   |
-| `issuer`        | string  | OIDC Issuer URL（启用自动发现）         | 否   |
-| `authUrl`       | string  | 授权端点（无 issuer 时）                | 否   |
-| `tokenUrl`      | string  | Token 端点（无 issuer 时）              | 否   |
-| `userInfoUrl`   | string  | 用户信息端点（无 issuer 时）            | 否   |
-| `scopes`        | string  | 逗号分隔的 scopes                       | 否   |
-| `usernameClaim` | string  | 用于用户名的 JWT claim                  | 否   |
-| `groupsClaim`   | string  | 用于组的 JWT claim                      | 否   |
-| `allowedGroups` | string  | 逗号分隔的允许组列表                    | 否   |
-| `enabled`       | boolean | 启用此提供者                            | 否   |
+| 字段            | 类型    | 描述                                | 必填 |
+| --------------- | ------- | ----------------------------------- | ---- |
+| `name`          | string  | 提供者名称（如 "google"、"github"） | 是   |
+| `clientId`      | string  | OAuth Client ID                     | 是   |
+| `clientSecret`  | string  | OAuth Client Secret                 | 是   |
+| `issuer`        | string  | OIDC Issuer URL（启用自动发现）     | 否   |
+| `authUrl`       | string  | 授权端点（无 issuer 时）            | 否   |
+| `tokenUrl`      | string  | Token 端点（无 issuer 时）          | 否   |
+| `userInfoUrl`   | string  | 用户信息端点（无 issuer 时）        | 否   |
+| `scopes`        | string  | 逗号分隔的 scopes                   | 否   |
+| `usernameClaim` | string  | 用于用户名的 JWT claim              | 否   |
+| `groupsClaim`   | string  | 用于组的 JWT claim                  | 否   |
+| `allowedGroups` | string  | 逗号分隔的允许组列表                | 否   |
+| `enabled`       | boolean | 启用此提供者                        | 否   |
 
 ### LDAP 配置
 
-| 字段                   | 类型    | 描述                | 默认值         |
-| ---------------------- | ------- | ------------------- | -------------- |
-| `enabled`              | boolean | 启用 LDAP 认证      | `false`        |
-| `serverUrl`            | string  | LDAP 服务器 URL     |                |
-| `useStartTLS`          | boolean | 对 `ldap://` 使用 StartTLS | `false` |
-| `bindDn`               | string  | 服务账号 DN         |                |
-| `bindPassword`         | string  | 服务账号密码        |                |
-| `userBaseDn`           | string  | 用户搜索 Base DN    |                |
-| `userFilter`           | string  | 用户搜索过滤器      | `(uid=%s)`     |
-| `usernameAttribute`    | string  | 用户名属性          | `uid`          |
-| `displayNameAttribute` | string  | 显示名属性          | `cn`           |
-| `groupBaseDn`          | string  | 组搜索 Base DN      |                |
-| `groupFilter`          | string  | 组成员过滤器        | `(member=%s)`  |
-| `groupNameAttribute`   | string  | 组名属性            | `cn`           |
+| 字段                   | 类型    | 描述                       | 默认值        |
+| ---------------------- | ------- | -------------------------- | ------------- |
+| `enabled`              | boolean | 启用 LDAP 认证             | `false`       |
+| `serverUrl`            | string  | LDAP 服务器 URL            |               |
+| `useStartTLS`          | boolean | 对 `ldap://` 使用 StartTLS | `false`       |
+| `bindDn`               | string  | 服务账号 DN                |               |
+| `bindPassword`         | string  | 服务账号密码               |               |
+| `userBaseDn`           | string  | 用户搜索 Base DN           |               |
+| `userFilter`           | string  | 用户搜索过滤器             | `(uid=%s)`    |
+| `usernameAttribute`    | string  | 用户名属性                 | `uid`         |
+| `displayNameAttribute` | string  | 显示名属性                 | `cn`          |
+| `groupBaseDn`          | string  | 组搜索 Base DN             |               |
+| `groupFilter`          | string  | 组成员过滤器               | `(member=%s)` |
+| `groupNameAttribute`   | string  | 组名属性                   | `cn`          |
+
+### SMTP 配置
+
+| 字段             | 类型    | 描述                                      | 必填   |
+| ---------------- | ------- | ----------------------------------------- | ------ |
+| `enabled`        | boolean | 启用 SMTP 邮件投递                        | 是     |
+| `host`           | string  | SMTP 服务器主机名或地址                   | 启用时 |
+| `port`           | integer | SMTP 服务器端口（`1`–`65535`）            | 启用时 |
+| `username`       | string  | 可选的 SMTP 认证用户名                    | 否     |
+| `password`       | string  | 可选的 SMTP 认证密码                      | 否     |
+| `fromEmail`      | string  | 发件人邮箱地址                            | 启用时 |
+| `fromName`       | string  | 可选的发件人显示名称                      | 否     |
+| `encryption`     | string  | 传输安全模式：`none`、`starttls` 或 `tls` | 启用时 |
+| `skipTLSVerify`  | boolean | 跳过 TLS 证书校验                         | 否     |
+| `timeoutSeconds` | integer | 连接和邮件操作超时时间（秒）              | 否     |
+
+仅在 SMTP 启用时显示和提供测试功能。SMTP 未由配置文件管理时，测试邮件使用当前页面表单中的配置，不会保存；测试成功后需点击**设置 → 通用设置**页面底部的**保存**按钮才会持久化。SMTP 由配置文件管理时，表单为只读，测试使用展示的托管配置。
 
 ### RBAC 配置
 
 #### 角色
 
-| 字段          | 类型     | 描述                                     | 必填 |
-| ------------- | -------- | ---------------------------------------- | ---- |
-| `name`        | string   | 角色名称                                 | 是   |
-| `description` | string   | 角色描述                                 | 否   |
-| `clusters`    | string[] | 集群匹配模式（`*`、`prod-*`、`!dev`）   | 是   |
-| `namespaces`  | string[] | 命名空间匹配模式                         | 是   |
-| `resources`   | string[] | 资源类型（`pods`、`*` 等）               | 是   |
-| `verbs`       | string[] | 允许的操作（`get`、`create`、`*`）       | 是   |
+| 字段          | 类型     | 描述                                  | 必填 |
+| ------------- | -------- | ------------------------------------- | ---- |
+| `name`        | string   | 角色名称                              | 是   |
+| `description` | string   | 角色描述                              | 否   |
+| `clusters`    | string[] | 集群匹配模式（`*`、`prod-*`、`!dev`） | 是   |
+| `namespaces`  | string[] | 命名空间匹配模式                      | 是   |
+| `resources`   | string[] | 资源类型（`pods`、`*` 等）            | 是   |
+| `verbs`       | string[] | 允许的操作（`get`、`create`、`*`）    | 是   |
 
 #### 角色映射
 
-| 字段         | 类型     | 描述                          | 必填 |
-| ------------ | -------- | ----------------------------- | ---- |
-| `name`       | string   | 要映射的角色名称              | 是   |
-| `users`      | string[] | 用户名（`*` 表示所有用户）    | 否   |
-| `oidcGroups` | string[] | OIDC/LDAP 组名                | 否   |
+| 字段         | 类型     | 描述                       | 必填 |
+| ------------ | -------- | -------------------------- | ---- |
+| `name`       | string   | 要映射的角色名称           | 是   |
+| `users`      | string[] | 用户名（`*` 表示所有用户） | 否   |
+| `oidcGroups` | string[] | OIDC/LDAP 组名             | 否   |
 
 ## 行为说明
 

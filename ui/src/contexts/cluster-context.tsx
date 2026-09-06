@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useEffect, useState } from 'react'
+import React, { createContext, useCallback, useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
@@ -18,6 +18,7 @@ interface ClusterContextType {
   isLoading: boolean
   isSwitching?: boolean
   error: Error | null
+  refreshClusters: () => Promise<void>
 }
 
 export const ClusterContext = createContext<ClusterContextType | undefined>(
@@ -47,32 +48,21 @@ export const ClusterProvider: React.FC<{ children: React.ReactNode }> = ({
     clearCurrentCluster()
   }, [currentCluster])
 
-  useEffect(() => {
-    let cancelled = false
-
-    const bootstrap = async () => {
-      setIsLoading(true)
-      const result = await refetchClusters()
-      if (cancelled) {
-        return
-      }
-
-      if (result.data) {
-        setClusters(result.data)
-        setError(null)
-      } else {
-        setClusters([])
-        setError(result.error instanceof Error ? result.error : null)
-      }
-      setIsLoading(false)
+  const refreshClusters = useCallback(async () => {
+    const result = await refetchClusters()
+    if (result.data) {
+      setClusters(result.data)
+      setError(null)
+    } else {
+      setClusters([])
+      setError(result.error instanceof Error ? result.error : null)
     }
-
-    void bootstrap()
-
-    return () => {
-      cancelled = true
-    }
+    setIsLoading(false)
   }, [refetchClusters])
+
+  useEffect(() => {
+    void refreshClusters()
+  }, [refreshClusters])
 
   useEffect(() => {
     if (clusters.length > 0 && !currentCluster) {
@@ -130,6 +120,7 @@ export const ClusterProvider: React.FC<{ children: React.ReactNode }> = ({
     isLoading,
     isSwitching,
     error,
+    refreshClusters,
   }
 
   return (

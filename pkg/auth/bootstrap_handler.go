@@ -34,6 +34,7 @@ type bootstrapResponse struct {
 	Setup                      bootstrapSetupState   `json:"setup"`
 	Auth                       bootstrapAuthOptions  `json:"auth"`
 	Capabilities               bootstrapCapabilities `json:"capabilities"`
+	ManagedSections            map[string]bool       `json:"managedSections"`
 	User                       *model.User           `json:"user"`
 	HasGlobalSidebarPreference bool                  `json:"hasGlobalSidebarPreference"`
 	GlobalSidebarPreference    string                `json:"globalSidebarPreference"`
@@ -65,6 +66,9 @@ func (h *AuthHandler) Bootstrap(c *gin.Context) {
 		Capabilities: bootstrapCapabilities{
 			AIEnabled:      setting.AIAgentEnabled && strings.TrimSpace(string(setting.AIAPIKey)) != "",
 			KubectlEnabled: setting.KubectlEnabled,
+		},
+		ManagedSections: map[string]bool{
+			"smtp": common.IsSectionManaged("smtp"),
 		},
 		User:                       user,
 		HasGlobalSidebarPreference: globalSidebarPreference != "",

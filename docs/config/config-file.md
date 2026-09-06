@@ -1,6 +1,6 @@
 # Configuration File
 
-Kite supports loading cluster, OAuth/LDAP, and RBAC configuration from a YAML file. When a section is configured this way, it becomes **read-only** in the UI — users can view the settings but cannot modify them through the dashboard.
+Kite supports loading cluster, OAuth/LDAP, SMTP, and RBAC configuration from a YAML file. When a section is configured this way, it becomes **read-only** in the UI — users can view the settings but cannot modify them through the dashboard.
 
 This is useful for GitOps workflows where configuration is version-controlled and applied via Helm.
 
@@ -70,6 +70,18 @@ ldap:
   groupFilter: "(member=%s)"
   groupNameAttribute: "cn"
 
+smtp:
+  enabled: true
+  host: "smtp.example.com"
+  port: 587
+  username: "kite"
+  password: "smtp-password"
+  fromEmail: "kite@example.com"
+  fromName: "Kite"
+  encryption: "starttls" # Options: none, starttls, tls
+  skipTLSVerify: false
+  timeoutSeconds: 30
+
 rbac:
   roles:
     - name: admin
@@ -100,7 +112,7 @@ rbac:
       oidcGroups: ["developers"]
 ```
 
-You only need to include the sections you want to manage. For example, if you only want to manage clusters via config file, just include the `clusters` section — OAuth, LDAP, and RBAC will remain editable through the UI.
+You only need to include the sections you want to manage. For example, if you only want to manage clusters via config file, just include the `clusters` section — OAuth, LDAP, SMTP, and RBAC will remain editable through the UI.
 
 ## Using with Helm
 
@@ -217,59 +229,76 @@ config:
 
 ### Super User Configuration
 
-| Field      | Type   | Description                           | Required |
-| ---------- | ------ | ------------------------------------- | -------- |
-| `username` | string | Super user username                   | Yes      |
-| `password` | string | Super user password                   | Yes      |
+| Field      | Type   | Description         | Required |
+| ---------- | ------ | ------------------- | -------- |
+| `username` | string | Super user username | Yes      |
+| `password` | string | Super user password | Yes      |
 
 The super user is created on first startup if it doesn't exist. On subsequent startups, the password is updated to match the config file.
 
 ### Cluster Configuration
 
-| Field           | Type    | Description                     | Required |
-| --------------- | ------- | ------------------------------- | -------- |
-| `name`          | string  | Unique cluster name             | Yes      |
-| `description`   | string  | Cluster description             | No       |
-| `config`        | string  | Kubeconfig YAML content         | No *     |
-| `prometheusURL` | string  | Prometheus endpoint URL         | No       |
-| `inCluster`     | boolean | Use in-cluster service account  | No       |
-| `default`       | boolean | Set as default cluster          | No       |
+| Field           | Type    | Description                    | Required |
+| --------------- | ------- | ------------------------------ | -------- |
+| `name`          | string  | Unique cluster name            | Yes      |
+| `description`   | string  | Cluster description            | No       |
+| `config`        | string  | Kubeconfig YAML content        | No *     |
+| `prometheusURL` | string  | Prometheus endpoint URL        | No       |
+| `inCluster`     | boolean | Use in-cluster service account | No       |
+| `default`       | boolean | Set as default cluster         | No       |
 
 \* Either `config` or `inCluster: true` must be provided.
 
 ### OAuth Provider Configuration
 
-| Field           | Type    | Description                                 | Required |
-| --------------- | ------- | ------------------------------------------- | -------- |
-| `name`          | string  | Provider name (e.g., "google", "github")    | Yes      |
-| `clientId`      | string  | OAuth client ID                             | Yes      |
-| `clientSecret`  | string  | OAuth client secret                         | Yes      |
-| `issuer`        | string  | OIDC issuer URL (enables auto-discovery)    | No       |
-| `authUrl`       | string  | Authorization endpoint (if no issuer)       | No       |
-| `tokenUrl`      | string  | Token endpoint (if no issuer)               | No       |
-| `userInfoUrl`   | string  | User info endpoint (if no issuer)           | No       |
-| `scopes`        | string  | Comma-separated scopes                      | No       |
-| `usernameClaim` | string  | JWT claim for username                      | No       |
-| `groupsClaim`   | string  | JWT claim for groups                        | No       |
-| `allowedGroups` | string  | Comma-separated list of allowed groups      | No       |
-| `enabled`       | boolean | Enable this provider                        | No       |
+| Field           | Type    | Description                              | Required |
+| --------------- | ------- | ---------------------------------------- | -------- |
+| `name`          | string  | Provider name (e.g., "google", "github") | Yes      |
+| `clientId`      | string  | OAuth client ID                          | Yes      |
+| `clientSecret`  | string  | OAuth client secret                      | Yes      |
+| `issuer`        | string  | OIDC issuer URL (enables auto-discovery) | No       |
+| `authUrl`       | string  | Authorization endpoint (if no issuer)    | No       |
+| `tokenUrl`      | string  | Token endpoint (if no issuer)            | No       |
+| `userInfoUrl`   | string  | User info endpoint (if no issuer)        | No       |
+| `scopes`        | string  | Comma-separated scopes                   | No       |
+| `usernameClaim` | string  | JWT claim for username                   | No       |
+| `groupsClaim`   | string  | JWT claim for groups                     | No       |
+| `allowedGroups` | string  | Comma-separated list of allowed groups   | No       |
+| `enabled`       | boolean | Enable this provider                     | No       |
 
 ### LDAP Configuration
 
-| Field                  | Type    | Description                          | Default        |
-| ---------------------- | ------- | ------------------------------------ | -------------- |
-| `enabled`              | boolean | Enable LDAP authentication           | `false`        |
-| `serverUrl`            | string  | LDAP server URL                      |                |
-| `useStartTLS`          | boolean | Use StartTLS for `ldap://`           | `false`        |
-| `bindDn`               | string  | Service account DN                   |                |
-| `bindPassword`         | string  | Service account password             |                |
-| `userBaseDn`           | string  | Base DN for user searches            |                |
-| `userFilter`           | string  | User search filter                   | `(uid=%s)`     |
-| `usernameAttribute`    | string  | Username attribute                   | `uid`          |
-| `displayNameAttribute` | string  | Display name attribute               | `cn`           |
-| `groupBaseDn`          | string  | Base DN for group searches           |                |
-| `groupFilter`          | string  | Group membership filter              | `(member=%s)`  |
-| `groupNameAttribute`   | string  | Group name attribute                 | `cn`           |
+| Field                  | Type    | Description                | Default       |
+| ---------------------- | ------- | -------------------------- | ------------- |
+| `enabled`              | boolean | Enable LDAP authentication | `false`       |
+| `serverUrl`            | string  | LDAP server URL            |               |
+| `useStartTLS`          | boolean | Use StartTLS for `ldap://` | `false`       |
+| `bindDn`               | string  | Service account DN         |               |
+| `bindPassword`         | string  | Service account password   |               |
+| `userBaseDn`           | string  | Base DN for user searches  |               |
+| `userFilter`           | string  | User search filter         | `(uid=%s)`    |
+| `usernameAttribute`    | string  | Username attribute         | `uid`         |
+| `displayNameAttribute` | string  | Display name attribute     | `cn`          |
+| `groupBaseDn`          | string  | Base DN for group searches |               |
+| `groupFilter`          | string  | Group membership filter    | `(member=%s)` |
+| `groupNameAttribute`   | string  | Group name attribute       | `cn`          |
+
+### SMTP Configuration
+
+| Field            | Type    | Description                                           | Required     |
+| ---------------- | ------- | ----------------------------------------------------- | ------------ |
+| `enabled`        | boolean | Enable SMTP email delivery                            | Yes          |
+| `host`           | string  | SMTP server hostname or address                       | When enabled |
+| `port`           | integer | SMTP server port (`1`–`65535`)                        | When enabled |
+| `username`       | string  | Optional SMTP authentication username                 | No           |
+| `password`       | string  | Optional SMTP authentication password                 | No           |
+| `fromEmail`      | string  | Sender email address                                  | When enabled |
+| `fromName`       | string  | Optional sender display name                          | No           |
+| `encryption`     | string  | Transport security mode: `none`, `starttls`, or `tls` | When enabled |
+| `skipTLSVerify`  | boolean | Skip TLS certificate verification                     | No           |
+| `timeoutSeconds` | integer | Connection and mail-operation timeout in seconds      | No           |
+
+SMTP testing is shown and available only when SMTP is enabled. When SMTP is not managed by the configuration file, a test email uses the current SMTP form values without saving them; after a successful test, click **Save** at the bottom of **Settings → General Settings** to persist them. When SMTP is managed by the configuration file, the form is read-only and tests use the displayed managed configuration.
 
 ### RBAC Configuration
 
@@ -286,11 +315,11 @@ The super user is created on first startup if it doesn't exist. On subsequent st
 
 #### Role Mapping
 
-| Field        | Type     | Description                     | Required |
-| ------------ | -------- | ------------------------------- | -------- |
-| `name`       | string   | Role name to map to             | Yes      |
-| `users`      | string[] | Usernames (`*` for all users)   | No       |
-| `oidcGroups` | string[] | OIDC/LDAP group names           | No       |
+| Field        | Type     | Description                   | Required |
+| ------------ | -------- | ----------------------------- | -------- |
+| `name`       | string   | Role name to map to           | Yes      |
+| `users`      | string[] | Usernames (`*` for all users) | No       |
+| `oidcGroups` | string[] | OIDC/LDAP group names         | No       |
 
 ## Behavior Notes
 

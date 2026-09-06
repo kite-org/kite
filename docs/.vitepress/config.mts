@@ -112,6 +112,7 @@ export default defineConfig({
             { text: "Resource History", link: "/guide/resource-history" },
             { text: "Custom Sidebar", link: "/guide/custom-sidebar" },
             { text: "Kube Proxy", link: "/guide/kube-proxy" },
+            { text: "Download a kubeconfig", link: "/guide/kubeconfig-download" },
           ],
         },
         {
@@ -139,6 +140,10 @@ export default defineConfig({
         {
           text: "User Management",
           link: "/api/user-management",
+        },
+        {
+          text: "Kubeconfig",
+          link: "/api/kubeconfig",
         },
       ],
       "/zh/": [
@@ -176,6 +181,7 @@ export default defineConfig({
             { text: "资源历史", link: "/zh/guide/resource-history" },
             { text: "自定义侧边栏", link: "/zh/guide/custom-sidebar" },
             { text: "Kube Proxy", link: "/zh/guide/kube-proxy" },
+            { text: "下载 kubeconfig", link: "/zh/guide/kubeconfig-download" },
           ],
         },
         {
@@ -203,6 +209,10 @@ export default defineConfig({
         {
           text: "用户管理",
           link: "/zh/api/user-management",
+        },
+        {
+          text: "Kubeconfig",
+          link: "/zh/api/kubeconfig",
         },
       ],
     },

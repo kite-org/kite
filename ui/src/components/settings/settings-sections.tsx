@@ -6,6 +6,7 @@ import { AuditLog } from './audit-log'
 import { AuthenticationManagement } from './authentication-management'
 import { ClusterManagement } from './cluster-management'
 import { GeneralManagement } from './general-management'
+import { KubeconfigTokenManagement } from './kubeconfig-token-management'
 import { RBACManagement } from './rbac-management'
 import { TemplateManagement } from './template-management'
 import { UserManagement } from './user-management'
@@ -67,6 +68,12 @@ export const settingsSectionRegistry: SettingsSectionDefinition[] = [
     'settings.tabs.apikeys',
     'API Keys',
     APIKeyManagement
+  ),
+  createSettingsSectionDefinition(
+    'kubeconfig-tokens',
+    'settings.tabs.kubeconfigTokens',
+    'Kubeconfig Tokens',
+    KubeconfigTokenManagement
   ),
   createSettingsSectionDefinition(
     'templates',
