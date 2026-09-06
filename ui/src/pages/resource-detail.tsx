@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom'
+import { Navigate, useParams } from 'react-router-dom'
 
 import { ResourceType } from '@/types/api'
 import { usePageTitle } from '@/hooks/use-page-title'
@@ -33,6 +33,10 @@ export function ResourceDetail() {
 
   if (resourceDefinition?.detailPage) {
     return resourceDefinition.detailPage({ name, namespace })
+  }
+
+  if (resourceDefinition?.synthetic) {
+    return <Navigate to={`/${resource}`} replace />
   }
 
   return (
