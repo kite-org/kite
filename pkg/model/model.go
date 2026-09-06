@@ -104,12 +104,16 @@ func InitDB() {
 		PendingSession{},
 		HelmRepository{},
 		ScheduledTask{},
+		KubeconfigToken{},
 	}
 	for _, model := range models {
 		err = DB.AutoMigrate(model)
 		if err != nil {
 			panic("failed to migrate database: " + err.Error())
 		}
+	}
+	if err := BackfillClusterUUIDs(); err != nil {
+		panic("failed to backfill cluster UUIDs: " + err.Error())
 	}
 	sqldb, err := DB.DB()
 	if err == nil {

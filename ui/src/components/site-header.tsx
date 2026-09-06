@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { useTerminal } from '@/contexts/terminal-context'
-import { Plus, Settings, TerminalSquare } from 'lucide-react'
+import { Download, Plus, Settings, TerminalSquare } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
+import { useCluster } from '@/hooks/use-cluster'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -11,6 +12,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar'
 
 import { CreateResourceDialog } from './create-resource-dialog'
 import { DynamicBreadcrumb } from './dynamic-breadcrumb'
+import { KubeconfigDownloadDialog } from './kubeconfig-download-dialog'
 import { LanguageToggle } from './language-toggle'
 import { ModeToggle } from './mode-toggle'
 import { Search } from './search'
@@ -20,8 +22,10 @@ export function SiteHeader() {
   const isMobile = useIsMobile()
   const navigate = useNavigate()
   const { user, capabilities } = useAuth()
+  const { clusters } = useCluster()
   const { toggleTerminal, isOpen } = useTerminal()
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [kubeconfigDialogOpen, setKubeconfigDialogOpen] = useState(false)
   const isAdmin = user?.isAdmin() ?? false
   const kubectlEnabled = capabilities.kubectlEnabled
 
@@ -56,6 +60,16 @@ export function SiteHeader() {
                 <TerminalSquare className="h-5 w-5" />
               </button>
             )}
+            {user && clusters.some((cluster) => cluster.enabled && cluster.uuid) && (
+              <button
+                onClick={() => setKubeconfigDialogOpen(true)}
+                title="Download Kubeconfig"
+                aria-label="Download Kubeconfig"
+                className="flex items-center justify-center rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <Download className="h-5 w-5" />
+              </button>
+            )}
             {!isMobile && (
               <>
                 <Separator
@@ -88,6 +102,10 @@ export function SiteHeader() {
           onOpenChange={setCreateDialogOpen}
         />
       ) : null}
+      <KubeconfigDownloadDialog
+        open={kubeconfigDialogOpen}
+        onOpenChange={setKubeconfigDialogOpen}
+      />
     </>
   )
 }

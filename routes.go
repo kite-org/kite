@@ -79,6 +79,8 @@ func registerUserRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler) {
 	userGroup.POST("/me/passkeys/begin", authHandler.RequireAuth(), users.BeginCurrentUserPasskeyRegistration)
 	userGroup.POST("/me/passkeys/finish", authHandler.RequireAuth(), users.FinishCurrentUserPasskeyRegistration)
 	userGroup.DELETE("/me/passkeys/:id", authHandler.RequireAuth(), users.DeleteCurrentUserPasskey)
+	userGroup.GET("/me/kubeconfig-tokens", authHandler.RequireAuth(), cluster.ListCurrentUserKubeconfigTokens)
+	userGroup.DELETE("/me/kubeconfig-tokens/:id", authHandler.RequireAuth(), cluster.DeleteCurrentUserKubeconfigToken)
 	userGroup.POST("/sidebar_preference", authHandler.RequireAuth(), users.UpdateSidebarPreference)
 }
 
@@ -129,6 +131,8 @@ func registerAdminRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, cm *
 	apiKeyAPI.GET("/", apikeys.ListAPIKeys)
 	apiKeyAPI.POST("/", apikeys.CreateAPIKey)
 	apiKeyAPI.DELETE("/:id", apikeys.DeleteAPIKey)
+	adminAPI.GET("/kubeconfig-tokens", cluster.ListAllKubeconfigTokens)
+	adminAPI.DELETE("/kubeconfig-tokens/:id", cluster.DeleteAnyKubeconfigToken)
 
 	generalSettingAPI := adminAPI.Group("/general-setting")
 	generalSettingAPI.GET("/", settings.HandleGetGeneralSetting)
@@ -144,6 +148,8 @@ func registerAdminRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, cm *
 
 func registerProtectedRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, cm *cluster.ClusterManager, helmChartsHandler *helm.HelmChartHandler) {
 	api := r.Group("/api/v1")
+	api.POST("/kubeconfig", authHandler.RequireAuth(), cm.DownloadKubeconfig)
+	api.Any("/clusters/:clusterUUID/k8s-proxy/*path", cm.HandleK8sProxy)
 	api.GET("/clusters", authHandler.RequireAuth(), cm.GetClusters)
 	defaultAPI := api.Group("")
 	defaultAPI.Use(authHandler.RequireAuth(), middleware.ClusterMiddleware(cm))

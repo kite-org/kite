@@ -44,7 +44,9 @@ type ImportClustersRequest struct {
 
 type ClusterInfo struct {
 	Name      string `json:"name"`
+	UUID      string `json:"uuid"`
 	Version   string `json:"version"`
+	Enabled   bool   `json:"enabled"`
 	IsDefault bool   `json:"isDefault"`
 	Error     string `json:"error,omitempty"`
 }

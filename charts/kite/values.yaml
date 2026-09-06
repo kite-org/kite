@@ -49,27 +49,21 @@ basePath: ""
 # Be careful with this setting in production
 anonymousUserEnabled: false
 
-# Secret key for signing JWT tokens. Auto-generated if empty.
-# Ignored if using existingSecret
+# Optional explicit secrets. Leave empty to have Helm generate a cryptographically random value during installation.
+# Ignored when secret.existingSecret is set.
 jwtSecret: ""
-
-# This is the key used for encrypting sensitive data
-# Change this in production
-# Ignored if using existingSecret
-encryptKey: "kite-default-encryption-key-change-in-production"
+encryptKey: ""
+kubeconfigJwtSecret: ""
+# This is an identifier, not secret material. Keep it stable while downloaded kubeconfigs are valid.
+kubeconfigJwtKid: "primary"
 
 # Secret handling
-# By default the chart will create a Kubernetes Secret containing sensitive values.
 secret:
-  # Create the Secret from chart values (true) or reference an existing Secret (false)
+  # Create a pre-install hook Secret. It is kept when the release is uninstalled and is not changed by upgrades.
   create: true
-  # If set, the deployment will use this existing secret name instead of the generated one (ignored when `create: true`).
-  # must contain all required keys.
-  #  JWT_SECRET
-  #  KITE_ENCRYPT_KEY
-  #  DB_TYPE supported values: sqlite, postgres, mysql (defaults to sqlite if not set)
-  #  DB_DSN (not required for sqlite)
-  # if set, the db.dsn and db.type values from the chart will be ignored.
+  # Name of a Secret managed outside this chart. When set, the hook is skipped and this Secret must contain:
+  # JWT_SECRET, KITE_ENCRYPT_KEY, KUBECONFIG_JWT_SECRET, KUBECONFIG_JWT_KID.
+  # For external databases it must also contain DB_TYPE and DB_DSN.
   existingSecret: ""
 
 # Database configuration

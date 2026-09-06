@@ -122,6 +122,9 @@ func TestGetClustersFiltersByAccessAndSortsFailures(t *testing.T) {
 	if result[0].Error != "invalid kubeconfig" || !result[1].IsDefault {
 		t.Fatalf("cluster metadata = %#v", result)
 	}
+	if !result[0].Enabled || !result[1].Enabled {
+		t.Fatalf("clusters without database metadata must remain enabled: %#v", result)
+	}
 }
 
 func TestClusterMutationsHonorManagedConfiguration(t *testing.T) {
