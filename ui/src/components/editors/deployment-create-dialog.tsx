@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { createResource } from '@/lib/api'
+import { getClusterScopedStorageKey } from '@/lib/current-cluster'
 import { translateError } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -33,17 +34,45 @@ import { NamespaceSelector } from '../selector/namespace-selector'
 import { PVCSelector } from '../selector/pvc-selector'
 import { SecretSelector } from '../selector/secret-selector'
 import { SimpleYamlEditor } from '../simple-yaml-editor'
+import { ContainerProbesEditor } from './container-probes-editor'
+import { ContainerRuntimeEditor } from './container-runtime-editor'
 import {
   ContainerConfig,
   createDefaultContainer,
   DeploymentFormData,
   generateDeploymentYaml,
   initialFormData,
+  validateContainerProbes,
+  validateContainerResources,
+  validateContainerRuntime,
   validateStep,
   VolumeForm,
 } from './deployment-form'
+import { DeploymentSchedulingEditor } from './deployment-scheduling-editor'
 import { EnvironmentEditor } from './environment-editor'
 import { ImageEditor } from './image-editor'
+import { ImagePullSecretsEditor } from './image-pull-secrets-editor'
+import { KeyValueEditor } from './key-value-editor'
+
+function getInitialNamespace(defaultNamespace?: string) {
+  if (defaultNamespace) {
+    return defaultNamespace
+  }
+
+  const storageKey = getClusterScopedStorageKey('selectedNamespace')
+  const storedNamespace =
+    sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey)
+
+  if (
+    storedNamespace &&
+    storedNamespace !== '_all' &&
+    !storedNamespace.includes(',')
+  ) {
+    return storedNamespace
+  }
+
+  return 'default'
+}
 
 interface DeploymentCreateDialogProps {
   open: boolean
@@ -60,7 +89,7 @@ export function DeploymentCreateDialog({
 }: DeploymentCreateDialogProps) {
   const [formData, setFormData] = useState<DeploymentFormData>({
     ...initialFormData,
-    namespace: defaultNamespace || 'default',
+    namespace: getInitialNamespace(defaultNamespace),
   })
   const [isCreating, setIsCreating] = useState(false)
   const [step, setStep] = useState(1)
@@ -70,33 +99,6 @@ export function DeploymentCreateDialog({
 
   const updateFormData = (updates: Partial<DeploymentFormData>) => {
     setFormData((prev) => ({ ...prev, ...updates }))
-  }
-
-  const addLabel = () => {
-    setFormData((prev) => ({
-      ...prev,
-      labels: [...prev.labels, { key: '', value: '' }],
-    }))
-  }
-
-  const updateLabel = (
-    index: number,
-    field: 'key' | 'value',
-    value: string
-  ) => {
-    setFormData((prev) => ({
-      ...prev,
-      labels: prev.labels.map((label, i) =>
-        i === index ? { ...label, [field]: value } : label
-      ),
-    }))
-  }
-
-  const removeLabel = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      labels: prev.labels.filter((_, i) => i !== index),
-    }))
   }
 
   const addVolume = () => {
@@ -193,11 +195,78 @@ export function DeploymentCreateDialog({
   }
 
   const isStepValid = (stepNum: number) => validateStep(formData, stepNum)
+  let canAdvance = isStepValid(step)
+  if (step === 1) {
+    canAdvance = !!(
+      formData.name &&
+      formData.namespace &&
+      formData.replicas > 0 &&
+      formData.labels.length > 0 &&
+      formData.labels.every((label) => label.key && label.value)
+    )
+  } else if (step === 2) {
+    canAdvance =
+      formData.podLabels.length > 0 &&
+      formData.podLabels.every((label) => !!(label.key && label.value))
+  } else if (step === 3) {
+    canAdvance = formData.containers.every(
+      (container) => !!(container.image && container.name)
+    )
+  }
+
+  const getStepValidationMessage = (stepNum: number) => {
+    switch (stepNum) {
+      case 1:
+        return t('deployments.createValidation.basic')
+      case 2:
+        return t('deployments.createValidation.volume')
+      case 3: {
+        const invalidContainerIndex = formData.containers.findIndex(
+          (container) => !container.image || !container.name
+        )
+        if (invalidContainerIndex !== -1) {
+          return t('deployments.createValidation.container', {
+            index: invalidContainerIndex + 1,
+          })
+        }
+
+        const invalidRuntimeIndex = formData.containers.findIndex(
+          (container) => !validateContainerRuntime(container)
+        )
+        if (invalidRuntimeIndex !== -1) {
+          return t('deployments.createValidation.runtime', {
+            index: invalidRuntimeIndex + 1,
+          })
+        }
+
+        const invalidResourcesIndex = formData.containers.findIndex(
+          (container) => !validateContainerResources(container)
+        )
+        if (invalidResourcesIndex !== -1) {
+          return t('deployments.createValidation.resources', {
+            index: invalidResourcesIndex + 1,
+          })
+        }
+
+        const invalidProbeIndex = formData.containers.findIndex(
+          (container) => !validateContainerProbes(container)
+        )
+        return t('deployments.createValidation.probe', {
+          index: invalidProbeIndex + 1,
+        })
+      }
+      default:
+        return t('common.messages.somethingWentWrong')
+    }
+  }
 
   const handleNext = () => {
-    if (isStepValid(step)) {
-      setStep((prev) => Math.min(prev + 1, totalSteps))
+    if (!isStepValid(step)) {
+      toast.error(getStepValidationMessage(step))
+      return
     }
+
+    setStep((prev) => Math.min(prev + 1, totalSteps))
   }
 
   const handlePrevious = () => {
@@ -242,7 +311,7 @@ export function DeploymentCreateDialog({
       // Reset form and close dialog
       setFormData({
         ...initialFormData,
-        namespace: defaultNamespace || 'default',
+        namespace: getInitialNamespace(defaultNamespace),
       })
       setStep(1)
       setEditedYaml('')
@@ -263,7 +332,7 @@ export function DeploymentCreateDialog({
       // Reset form when dialog closes
       setFormData({
         ...initialFormData,
-        namespace: defaultNamespace || 'default',
+        namespace: getInitialNamespace(defaultNamespace),
       })
       setStep(1)
       setEditedYaml('')
@@ -285,14 +354,13 @@ export function DeploymentCreateDialog({
                   const value = e.target.value
                   updateFormData({
                     name: value,
+                    labels: formData.labels.map((label) =>
+                      label.key === 'app' ? { ...label, value } : label
+                    ),
+                    podLabels: formData.podLabels.map((label) =>
+                      label.key === 'app' ? { ...label, value } : label
+                    ),
                   })
-                  // Update app label with full name value
-                  const appLabelIndex = formData.labels.findIndex(
-                    (l) => l.key === 'app'
-                  )
-                  if (appLabelIndex !== -1) {
-                    updateLabel(appLabelIndex, 'value', value)
-                  }
                 }}
                 placeholder="my-app"
                 required
@@ -307,50 +375,19 @@ export function DeploymentCreateDialog({
                 }
               />
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Labels *</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addLabel}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Label
-                </Button>
-              </div>
-              <div className="space-y-2">
-                {formData.labels.map((label, index) => (
-                  <div key={index} className="flex gap-2 items-center">
-                    <Input
-                      placeholder="key"
-                      value={label.key}
-                      onChange={(e) =>
-                        updateLabel(index, 'key', e.target.value)
-                      }
-                    />
-                    <Input
-                      placeholder="value"
-                      value={label.value}
-                      onChange={(e) =>
-                        updateLabel(index, 'value', e.target.value)
-                      }
-                    />
-                    {formData.labels.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeLabel(index)}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <KeyValueEditor
+              title={t('deployments.podConfiguration.deploymentLabels')}
+              addLabel={t('deployments.podConfiguration.addLabel')}
+              entries={formData.labels}
+              minItems={1}
+              onChange={(labels) => updateFormData({ labels })}
+            />
+            <KeyValueEditor
+              title={t('deployments.podConfiguration.deploymentAnnotations')}
+              addLabel={t('deployments.podConfiguration.addAnnotation')}
+              entries={formData.annotations}
+              onChange={(annotations) => updateFormData({ annotations })}
+            />
             <div className="space-y-2">
               <Label htmlFor="replicas">Replicas *</Label>
               <Input
@@ -368,115 +405,171 @@ export function DeploymentCreateDialog({
         )
       case 2:
         return (
-          <div className="space-y-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <Label>Volume</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addVolume}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Volume
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {(formData.podSpec?.volumes || []).map((volume, index) => (
-                <div key={index} className="flex gap-2 items-center">
-                  <Input
-                    className="flex-1"
-                    placeholder="name"
-                    value={volume.name}
-                    onChange={(e) =>
-                      updateVolume(index, 'name', e.target.value)
-                    }
-                  />
-                  <Select
-                    value={volume.sourceType}
-                    onValueChange={(val) =>
-                      updateVolume(index, 'sourceType', val)
-                    }
-                  >
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Select Volume Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="emptyDir">emptyDir</SelectItem>
-                      <SelectItem value="hostPath">hostPath</SelectItem>
-                      <SelectItem value="configMap">configMap</SelectItem>
-                      <SelectItem value="secret">secret</SelectItem>
-                      <SelectItem value="pvc">pvc</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {volume.sourceType === 'emptyDir' && (
-                    <Input
-                      className="flex-1 select-none cursor-default text-muted-foreground bg-muted"
-                      readOnly
-                      onFocus={(e) => e.target.blur()}
-                      tabIndex={-1}
-                    />
-                  )}
-                  {volume.sourceType === 'hostPath' && (
-                    <Input
-                      className="flex-1"
-                      placeholder="host path"
-                      value={volume.options?.path || ''}
-                      onChange={(e) =>
-                        updateVolume(index, 'path', e.target.value)
-                      }
-                    />
-                  )}
+          <div className="flex flex-col gap-5">
+            <section className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <h4 className="text-base font-medium">
+                  {t('deployments.podConfiguration.podMetadata')}
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  {t('deployments.podConfiguration.podMetadataDescription')}
+                </p>
+              </div>
+              <KeyValueEditor
+                title={t('deployments.podConfiguration.podLabels')}
+                addLabel={t('deployments.podConfiguration.addLabel')}
+                entries={formData.podLabels}
+                minItems={1}
+                onChange={(podLabels) => updateFormData({ podLabels })}
+              />
+              <KeyValueEditor
+                title={t('deployments.podConfiguration.podAnnotations')}
+                addLabel={t('deployments.podConfiguration.addAnnotation')}
+                entries={formData.podAnnotations}
+                onChange={(podAnnotations) =>
+                  updateFormData({ podAnnotations })
+                }
+              />
+            </section>
 
-                  {volume.sourceType === 'configMap' && (
-                    <ConfigMapSelector
-                      className="flex-1"
-                      selectedConfigMap={volume.options?.configMapName || ''}
-                      onConfigMapChange={(val) =>
-                        updateVolume(index, 'configMapName', val)
-                      }
-                      namespace={formData.namespace}
-                      placeholder="Select configmap"
-                    />
-                  )}
+            <Separator />
 
-                  {volume.sourceType === 'secret' && (
-                    <SecretSelector
-                      className="flex-1"
-                      selectedSecret={volume.options?.secretName || ''}
-                      onSecretChange={(val) =>
-                        updateVolume(index, 'secretName', val)
-                      }
-                      namespace={formData.namespace}
-                      placeholder="Select secret"
-                    />
-                  )}
+            <ImagePullSecretsEditor
+              namespace={formData.namespace}
+              secrets={formData.podSpec.imagePullSecrets}
+              onChange={(imagePullSecrets) =>
+                updateFormData({
+                  podSpec: { ...formData.podSpec, imagePullSecrets },
+                })
+              }
+            />
 
-                  {volume.sourceType === 'pvc' && (
-                    <PVCSelector
-                      className="flex-1"
-                      selectedPVC={volume.options?.claimName || ''}
-                      onPVCChange={(val) =>
-                        updateVolume(index, 'claimName', val)
-                      }
-                      namespace={formData.namespace}
-                      placeholder="Select PVC"
-                    />
-                  )}
+            <Separator />
 
-                  {(formData.podSpec?.volumes?.length || 0) > 0 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => removeVolume(index)}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  )}
+            <DeploymentSchedulingEditor
+              formData={formData}
+              onUpdate={updateFormData}
+            />
+
+            <Separator />
+
+            <section className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-1">
+                  <h4 className="text-base font-medium">
+                    {t('deployments.podConfiguration.volumes')}
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    {t('deployments.podConfiguration.volumesDescription')}
+                  </p>
                 </div>
-              ))}
-            </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addVolume}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Volume
+                </Button>
+              </div>
+              <div className="flex flex-col gap-2">
+                {(formData.podSpec?.volumes || []).map((volume, index) => (
+                  <div key={index} className="flex gap-2 items-center">
+                    <Input
+                      className="flex-1"
+                      placeholder="name"
+                      value={volume.name}
+                      onChange={(e) =>
+                        updateVolume(index, 'name', e.target.value)
+                      }
+                    />
+                    <Select
+                      value={volume.sourceType}
+                      onValueChange={(val) =>
+                        updateVolume(index, 'sourceType', val)
+                      }
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select Volume Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="emptyDir">emptyDir</SelectItem>
+                        <SelectItem value="hostPath">hostPath</SelectItem>
+                        <SelectItem value="configMap">configMap</SelectItem>
+                        <SelectItem value="secret">secret</SelectItem>
+                        <SelectItem value="pvc">pvc</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {volume.sourceType === 'emptyDir' && (
+                      <Input
+                        className="flex-1 select-none cursor-default text-muted-foreground bg-muted"
+                        readOnly
+                        onFocus={(e) => e.target.blur()}
+                        tabIndex={-1}
+                      />
+                    )}
+                    {volume.sourceType === 'hostPath' && (
+                      <Input
+                        className="flex-1"
+                        placeholder="host path"
+                        value={volume.options?.path || ''}
+                        onChange={(e) =>
+                          updateVolume(index, 'path', e.target.value)
+                        }
+                      />
+                    )}
+
+                    {volume.sourceType === 'configMap' && (
+                      <ConfigMapSelector
+                        className="flex-1"
+                        selectedConfigMap={volume.options?.configMapName || ''}
+                        onConfigMapChange={(val) =>
+                          updateVolume(index, 'configMapName', val)
+                        }
+                        namespace={formData.namespace}
+                        placeholder="Select configmap"
+                      />
+                    )}
+
+                    {volume.sourceType === 'secret' && (
+                      <SecretSelector
+                        className="flex-1"
+                        selectedSecret={volume.options?.secretName || ''}
+                        onSecretChange={(val) =>
+                          updateVolume(index, 'secretName', val)
+                        }
+                        namespace={formData.namespace}
+                        placeholder="Select secret"
+                      />
+                    )}
+
+                    {volume.sourceType === 'pvc' && (
+                      <PVCSelector
+                        className="flex-1"
+                        selectedPVC={volume.options?.claimName || ''}
+                        onPVCChange={(val) =>
+                          updateVolume(index, 'claimName', val)
+                        }
+                        namespace={formData.namespace}
+                        placeholder="Select PVC"
+                      />
+                    )}
+
+                    {(formData.podSpec?.volumes?.length || 0) > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeVolume(index)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
           </div>
         )
       case 3:
@@ -518,16 +611,27 @@ export function DeploymentCreateDialog({
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <ImageEditor
-                        container={containerConfig.container}
-                        onUpdate={(updates) =>
+                        container={{
+                          name: containerConfig.name,
+                          image: containerConfig.image,
+                          imagePullPolicy: containerConfig.pullPolicy,
+                        }}
+                        onUpdate={(updates) => {
+                          const { image, imagePullPolicy } = updates
+                          const hasPullPolicyUpdate =
+                            Object.prototype.hasOwnProperty.call(
+                              updates,
+                              'imagePullPolicy'
+                            )
+
                           updateContainer(containerIndex, {
-                            image: updates.image,
-                            container: {
-                              ...containerConfig.container,
-                              ...updates,
-                            },
+                            ...(image !== undefined && { image }),
+                            ...(hasPullPolicyUpdate && {
+                              pullPolicy:
+                                imagePullPolicy as ContainerConfig['pullPolicy'],
+                            }),
                           })
-                        }
+                        }}
                       />
                     </div>
                     <div className="space-y-2">
@@ -540,10 +644,6 @@ export function DeploymentCreateDialog({
                         onChange={(e) =>
                           updateContainer(containerIndex, {
                             name: e.target.value,
-                            container: {
-                              ...containerConfig.container,
-                              name: e.target.value,
-                            },
                           })
                         }
                         placeholder="container-name"
@@ -630,20 +730,48 @@ export function DeploymentCreateDialog({
                         </div>
                       </div>
                     </div>
+                    <KeyValueEditor
+                      title={t(
+                        'deployments.containerResources.customResources'
+                      )}
+                      addLabel={t(
+                        'deployments.containerResources.addCustomResource'
+                      )}
+                      entries={containerConfig.resources.customResources}
+                      keyPlaceholder="nvidia.com/gpu"
+                      valuePlaceholder={t(
+                        'deployments.containerResources.quantity'
+                      )}
+                      onChange={(customResources) =>
+                        updateContainer(containerIndex, {
+                          resources: {
+                            ...containerConfig.resources,
+                            customResources,
+                          },
+                        })
+                      }
+                    />
                   </div>
 
                   <div className="space-y-2">
                     <EnvironmentEditor
-                      container={containerConfig.container}
+                      container={{
+                        name: containerConfig.name,
+                        image: containerConfig.image,
+                        env: containerConfig.env,
+                        envFrom: containerConfig.envFrom,
+                      }}
                       namespace={formData.namespace}
-                      onUpdate={(updates) =>
+                      onUpdate={(updates) => {
                         updateContainer(containerIndex, {
-                          container: {
-                            ...containerConfig.container,
-                            ...updates,
-                          },
+                          ...(updates.env !== undefined && {
+                            env: updates.env,
+                          }),
+                          ...(updates.envFrom !== undefined && {
+                            envFrom: updates.envFrom,
+                          }),
                         })
-                      }
+                      }}
                     />
                   </div>
 
@@ -668,32 +796,22 @@ export function DeploymentCreateDialog({
                         placeholder="8080"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor={`pullPolicy-${containerIndex}`}>
-                        Image Pull Policy
-                      </Label>
-                      <Select
-                        value={containerConfig.pullPolicy}
-                        onValueChange={(value) =>
-                          updateContainer(containerIndex, {
-                            pullPolicy: value as
-                              'Always' | 'IfNotPresent' | 'Never',
-                          })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="IfNotPresent">
-                            IfNotPresent
-                          </SelectItem>
-                          <SelectItem value="Always">Always</SelectItem>
-                          <SelectItem value="Never">Never</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
+
+                  <ContainerProbesEditor
+                    container={containerConfig}
+                    onUpdate={(updates) =>
+                      updateContainer(containerIndex, updates)
+                    }
+                  />
+
+                  <ContainerRuntimeEditor
+                    container={containerConfig}
+                    onUpdate={(updates) =>
+                      updateContainer(containerIndex, updates)
+                    }
+                  />
+
                   {(formData.podSpec?.volumes?.length || 0) > 0 && (
                     <div className="space-y-2">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -879,7 +997,7 @@ export function DeploymentCreateDialog({
   const getStepTitle = () => {
     switch (step) {
       case 1:
-        return 'Basic Configuration'
+        return 'Deployment Metadata'
       case 2:
         return 'Pod Configuration'
       case 3:
@@ -961,7 +1079,7 @@ export function DeploymentCreateDialog({
                 Cancel
               </Button>
               {step < totalSteps ? (
-                <Button onClick={handleNext} disabled={!isStepValid(step)}>
+                <Button onClick={handleNext} disabled={!canAdvance}>
                   Next
                 </Button>
               ) : (
