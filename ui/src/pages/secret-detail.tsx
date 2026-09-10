@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { ResourceDetailShellTab } from '@kite-dev/plugin-sdk/ui'
 import * as yaml from 'js-yaml'
 import { Secret } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
@@ -13,10 +14,7 @@ import { RelatedResourcesTable } from '@/components/related-resource-table'
 import { ResourceHistoryTable } from '@/components/resource-history-table'
 import { ResourceOverview } from '@/components/resource-overview'
 
-import {
-  ResourceDetailShell,
-  type ResourceDetailShellTab,
-} from './resource-detail-shell'
+import { ResourceDetailShell } from './resource-detail-shell'
 
 function getDecodedYamlContent(secret: Secret, showDecodedYaml: boolean) {
   const showSecret = { ...secret } as Secret

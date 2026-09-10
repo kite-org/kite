@@ -1,22 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  ColumnDef,
-  getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
+import type { ResourceTableProps as SDKResourceTableProps } from '@kite-dev/plugin-sdk/ui'
+import { ColumnDef } from '@tanstack/react-table'
 import { Box, Database } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { ResourceType } from '@/types/api'
 import { deleteResource } from '@/lib/api'
+import { getClusterScopedStorageKey } from '@/lib/current-cluster'
 import { getResourceMetadata } from '@/lib/resource-catalog'
 import { useCluster } from '@/hooks/use-cluster'
+import { useResourceTable } from '@/hooks/use-resource-table'
 import { useResourceTableData } from '@/hooks/use-resource-table-data'
 import { useResourceTableState } from '@/hooks/use-resource-table-state'
 import { Badge } from '@/components/ui/badge'
@@ -40,18 +34,20 @@ import { ResourceTableView } from './resource-table-view'
 
 export type { ResourceTableBatchAction } from './resource-table-toolbar'
 
-export interface ResourceTableProps<T> {
-  resourceName: string
+export interface ResourceTableProps<T> extends Pick<
+  SDKResourceTableProps<T>,
+  | 'resourceName'
+  | 'searchQueryFilter'
+  | 'onCreateClick'
+  | 'extraToolbars'
+  | 'defaultHiddenColumns'
+> {
   resourceType?: ResourceType // Optional, used for fetching resources
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   columns: ColumnDef<T, any>[]
   clusterScope?: boolean // If true, don't show namespace selector
-  searchQueryFilter?: (item: T, query: string) => boolean // Custom filter function
   showCreateButton?: boolean // If true, show create button
-  onCreateClick?: () => void // Callback for create button click
-  extraToolbars?: React.ReactNode[] // Additional toolbar components
   batchActions?: ResourceTableBatchAction<T>[]
-  defaultHiddenColumns?: string[] // Columns to hide by default
 }
 
 export function ResourceTable<T>(props: ResourceTableProps<T>) {
@@ -75,35 +71,64 @@ function ResourceTableContent<T>({
   defaultHiddenColumns = [],
 }: ResourceTableProps<T>) {
   const { t } = useTranslation()
+  const tableState = useResourceTableState({
+    storageKey: resourceName,
+    defaultHiddenColumns,
+  })
   const {
-    sorting,
-    setSorting,
     columnFilters,
-    setColumnFilters,
-    rowSelection,
     setRowSelection,
-    deleteDialogOpen,
-    setDeleteDialogOpen,
     searchQuery,
     setSearchQuery,
     debouncedSearchQuery,
-    columnVisibility,
-    setColumnVisibility,
     pagination,
     setPagination,
-    refreshInterval,
-    setRefreshInterval,
-    selectedNamespace,
-    effectiveNamespace,
-    useSSE,
-    handleNamespaceChange,
-    handleUseSSEChange,
-    handleRefreshIntervalChange,
-  } = useResourceTableState({
-    resourceName,
-    clusterScope,
-    defaultHiddenColumns,
+  } = tableState
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [refreshInterval, setRefreshInterval] = useState(5000)
+  const [selectedNamespace, setSelectedNamespace] = useState<
+    string | undefined
+  >(() => {
+    const storageKey = getClusterScopedStorageKey('selectedNamespace')
+    return clusterScope
+      ? undefined
+      : sessionStorage.getItem(storageKey) ||
+          localStorage.getItem(storageKey) ||
+          'default'
   })
+  const [useSSE, setUseSSE] = useState(false)
+  const effectiveNamespace = clusterScope
+    ? undefined
+    : selectedNamespace?.includes(',')
+      ? '_all'
+      : selectedNamespace
+
+  useEffect(() => {
+    if (clusterScope || selectedNamespace !== undefined) return
+    const storageKey = getClusterScopedStorageKey('selectedNamespace')
+    setSelectedNamespace(
+      sessionStorage.getItem(storageKey) ||
+        localStorage.getItem(storageKey) ||
+        'default'
+    )
+  }, [clusterScope, selectedNamespace])
+
+  const handleNamespaceChange = (value: string) => {
+    const storageKey = getClusterScopedStorageKey('selectedNamespace')
+    sessionStorage.setItem(storageKey, value)
+    localStorage.setItem(storageKey, value)
+    setSelectedNamespace(value)
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+    setSearchQuery('')
+  }
+  const handleUseSSEChange = (pressed: boolean) => {
+    setUseSSE(pressed)
+    setRefreshInterval((current) => (pressed ? 0 : current || 5000))
+  }
+  const handleRefreshIntervalChange = (value: number) => {
+    setRefreshInterval(value)
+    if (value > 0) setUseSSE(false)
+  }
 
   // When the query looks like a label selector, route it to the backend API
   // instead of the client-side name filter.
@@ -251,20 +276,12 @@ function ResourceTableContent<T>({
     }
   }, [useSSE, error, effectiveLabelSelector, setRefreshInterval])
 
-  // Create table instance using TanStack Table
-  const table = useReactTable<T>({
+  const table = useResourceTable({
     data: memoizedData,
     columns: enhancedColumns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    onRowSelectionChange: setRowSelection,
-    onColumnVisibilityChange: setColumnVisibility,
+    state: tableState,
+    searchQueryFilter,
+    filterOnServer: isLabelSelector,
     getRowId: (row) => {
       const metadata = (
         row as {
@@ -281,33 +298,6 @@ function ResourceTableContent<T>({
           : metadata.name)
       )
     },
-    state: {
-      sorting,
-      columnFilters,
-      globalFilter: isLabelSelector ? '' : searchQuery,
-      pagination,
-      rowSelection,
-      columnVisibility,
-    },
-    onPaginationChange: setPagination,
-    // Let TanStack Table handle pagination automatically based on filtered data
-    manualPagination: false,
-    // Improve filtering performance and consistency
-    globalFilterFn: (row, _columnId, value) => {
-      if (searchQueryFilter) {
-        return searchQueryFilter(row.original as T, String(value).toLowerCase())
-      }
-      const searchValue = String(value).toLowerCase()
-
-      // Search across all visible columns
-      return row.getVisibleCells().some((cell) => {
-        const cellValue = String(cell.getValue() || '').toLowerCase()
-        return cellValue.includes(searchValue)
-      })
-    },
-    // Add this to prevent unnecessary pagination resets
-    autoResetPageIndex: false,
-    enableRowSelection: true,
   })
 
   // Handle batch delete - must be after table is defined
@@ -464,21 +454,30 @@ function ResourceTableContent<T>({
       <ResourceTableToolbar
         table={table}
         resourceName={displayResourceName}
-        resourceType={resolvedResourceType}
-        clusterScope={clusterScope}
         extraToolbars={extraToolbars}
-        showCreateButton={showCreateButton}
-        onCreateClick={onCreateClick}
+        onCreateClick={showCreateButton ? onCreateClick : undefined}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        selectedNamespace={selectedNamespace}
-        handleNamespaceChange={handleNamespaceChange}
-        useSSE={useSSE}
-        isConnected={isConnected}
+        searchPlaceholder={`Search ${displayResourceName} or app=nginx...`}
+        namespace={
+          clusterScope
+            ? undefined
+            : {
+                value: selectedNamespace,
+                onChange: handleNamespaceChange,
+              }
+        }
+        watch={
+          resolvedResourceType === 'pods'
+            ? {
+                enabled: useSSE,
+                connected: isConnected,
+                onChange: handleUseSSEChange,
+              }
+            : undefined
+        }
         refreshInterval={refreshInterval}
-        onUseSSEChange={handleUseSSEChange}
         onRefreshIntervalChange={handleRefreshIntervalChange}
-        selectedRowCount={table.getSelectedRowModel().rows.length}
         onOpenDeleteDialog={() => setDeleteDialogOpen(true)}
         batchActions={batchActions}
       />

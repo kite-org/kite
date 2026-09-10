@@ -44,21 +44,23 @@ class ApiClient {
   ): Promise<Response> {
     const fullUrl = withSubPath(this.baseUrl + url)
 
-    const headers: Record<string, string> = {
-      ...(options.headers as Record<string, string>),
-    }
+    const defaultHeaders: Record<string, string> = {}
+    appendCurrentClusterHeader(defaultHeaders)
+
+    const headers = new Headers(defaultHeaders)
+    new Headers(options.headers).forEach((value, name) => {
+      headers.set(name, value)
+    })
 
     // Only set default Content-Type to application/json if not already set and body is not FormData
-    if (!headers['Content-Type'] && !(options.body instanceof FormData)) {
-      headers['Content-Type'] = 'application/json'
+    if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
+      headers.set('Content-Type', 'application/json')
     }
-
-    appendCurrentClusterHeader(headers)
 
     const defaultOptions: RequestInit = {
       credentials: 'include',
-      headers,
       ...options,
+      headers,
     }
 
     try {
@@ -77,7 +79,9 @@ class ApiClient {
 
       return response
     } catch (error) {
-      console.error('API request failed:', error)
+      if (!options.signal?.aborted) {
+        console.error('API request failed:', error)
+      }
       throw error
     }
   }

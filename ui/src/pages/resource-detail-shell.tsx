@@ -1,4 +1,9 @@
-import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import type {
+  ResourceDetailShellContext,
+  ResourceDetailShellProps,
+  ResourceDetailShellTab,
+} from '@kite-dev/plugin-sdk/ui'
 import {
   IconCopy,
   IconLoader,
@@ -22,43 +27,12 @@ import { ErrorMessage } from '@/components/error-message'
 import { ResourceDeleteConfirmationDialog } from '@/components/resource-delete-confirmation-dialog'
 import { YamlEditor } from '@/components/yaml-editor'
 
-export interface ResourceDetailShellContext<T> {
-  resource: T
-  yamlContent: string
-  setYamlContent: (value: string) => void
-  refreshKey: number
-  isSavingYaml: boolean
-  onRefresh: () => Promise<unknown>
-}
-
-export interface ResourceDetailShellTab<T> {
-  value: string
-  label: ReactNode
-  content: ReactNode | ((context: ResourceDetailShellContext<T>) => ReactNode)
-}
-
-interface ResourceDetailShellProps<T> {
+interface HostResourceDetailShellProps<T> extends Omit<
+  ResourceDetailShellProps<T>,
+  'resource'
+> {
   resourceType: ResourceType
-  resourceLabel: string
-  name: string
-  namespace?: string
-  data: T | undefined
-  isLoading: boolean
-  error: Error | unknown | null
-  onRefresh: () => Promise<unknown>
-  onSaveYaml?: (content: T) => Promise<unknown>
-  overview: ReactNode | ((context: ResourceDetailShellContext<T>) => ReactNode)
-  preYamlTabs?: ResourceDetailShellTab<T>[]
-  extraTabs?: ResourceDetailShellTab<T>[]
-  headerActions?: ReactNode
-  titleIcon?: ReactNode
-  yamlToolbar?:
-    ReactNode | ((context: ResourceDetailShellContext<T>) => ReactNode)
-  loadingMessage?: string
-  yamlTabLabel?: ReactNode
-  showDescribe?: boolean
-  showDelete?: boolean
-  showClone?: boolean
+  showYaml?: boolean
 }
 
 export function ResourceDetailShell<T>({
@@ -71,6 +45,7 @@ export function ResourceDetailShell<T>({
   error,
   onRefresh,
   onSaveYaml,
+  onDeleted,
   overview,
   preYamlTabs = [],
   extraTabs = [],
@@ -79,10 +54,11 @@ export function ResourceDetailShell<T>({
   yamlToolbar,
   loadingMessage,
   yamlTabLabel,
+  showYaml = !!onSaveYaml,
   showDescribe = true,
   showDelete = true,
   showClone = true,
-}: ResourceDetailShellProps<T>) {
+}: HostResourceDetailShellProps<T>) {
   const { t } = useTranslation()
   const [yamlContent, setYamlContent] = useState('')
   const [isSavingYaml, setIsSavingYaml] = useState(false)
@@ -96,10 +72,10 @@ export function ResourceDetailShell<T>({
   usePageTitle(name ? `${name} (${resourceLabel})` : resourceLabel)
 
   useEffect(() => {
-    if (data) {
+    if (data && showYaml) {
       setYamlContent(yaml.dump(data, { indent: 2 }))
     }
-  }, [data])
+  }, [data, showYaml])
 
   const handleRefresh = useCallback(async () => {
     setRefreshKey((prev) => prev + 1)
@@ -152,7 +128,7 @@ export function ResourceDetailShell<T>({
 
     resolvedTabs.push(...preYamlTabs)
 
-    if (onSaveYaml) {
+    if (showYaml) {
       resolvedTabs.push({
         value: 'yaml',
         label: yamlTabLabel || t('common.tabs.yaml'),
@@ -174,6 +150,8 @@ export function ResourceDetailShell<T>({
               }}
               onChange={setYamlContent}
               isSaving={isSavingYaml}
+              readOnly={!onSaveYaml}
+              showControls={!!onSaveYaml}
               fillHeight
             />
           </div>
@@ -190,6 +168,7 @@ export function ResourceDetailShell<T>({
     onSaveYaml,
     overview,
     shellContext,
+    showYaml,
     t,
     refreshKey,
     yamlContent,
@@ -330,6 +309,7 @@ export function ResourceDetailShell<T>({
           resourceName={name}
           resourceType={resourceType}
           namespace={namespace}
+          onDeleted={onDeleted}
         />
       )}
 

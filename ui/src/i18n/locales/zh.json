@@ -730,6 +730,11 @@
     "error403": "你没有权限访问此集群，请联系管理员。"
   },
   "resourceTable": {
+    "searchResources": "搜索{{resource}}…",
+    "toggleColumns": "显示列",
+    "refreshInterval": "刷新间隔",
+    "refreshOff": "关闭",
+    "clearFilters": "清除筛选",
     "errorLoading": "加载 {{resourceName}} 失败",
     "tryAgain": "重试",
     "delete": "删除",
@@ -838,6 +843,11 @@
       "form": {
         "image": "镜像"
       }
+    },
+    "pluginCatalog": {
+      "title": "Plugin catalog",
+      "description": "用于浏览和安装插件的 Catalog 地址。留空时使用 Kite 官方 Catalog。",
+      "url": "Catalog URL"
     },
     "runtime": {
       "title": "运行时",
@@ -1049,23 +1059,33 @@
   },
   "initialization": {
     "title": "初始化设置",
-    "welcome": "欢迎使用 Kite！",
-    "subtitle": "完成以下步骤开始使用",
+    "welcome": "欢迎使用 Kite",
+    "subtitle": "创建你的账号。\n连接第一个集群。",
     "description": "创建管理员账号并连接集群",
+    "stepCounter": "第 {{current}} 步，共 {{total}} 步",
+    "documentation": "文档",
+    "anonymousTitle": "需要匿名访问？",
+    "anonymousDescription": "请设置环境变量 <code>ANONYMOUS_USER_ENABLED=true</code>。",
     "step1": {
       "title": "创建管理员账号",
-      "description": "如需匿名访问，请设置环境变量 `ANONYMOUS_USER_ENABLED=true`",
+      "description": "设置管理员信息",
+      "heading": "创建你的管理员账号",
+      "headingDescription": "此账号将拥有 Kite 控制台的全部访问权限。",
       "username": "用户名",
       "usernameRequired": "用户名 *",
       "usernamePlaceholder": "输入管理员用户名",
       "displayName": "显示名称",
-      "displayNamePlaceholder": "输入显示名称（可选）",
+      "displayNamePlaceholder": "输入显示名称",
+      "optional": "可选",
       "password": "密码",
       "passwordRequired": "密码 *",
       "passwordPlaceholder": "输入密码",
       "confirmPassword": "确认密码",
       "confirmPasswordRequired": "确认密码 *",
       "confirmPasswordPlaceholder": "再次输入密码",
+      "showPassword": "显示密码",
+      "hidePassword": "隐藏密码",
+      "nextStep": "下一步：连接 Kubernetes 集群",
       "creating": "创建中...",
       "createButton": "创建管理员账号",
       "passwordMismatch": "两次密码不一致",
@@ -1073,8 +1093,10 @@
       "createError": "创建账号失败"
     },
     "step2": {
-      "title": "导入集群",
-      "description": "从 kubeconfig 导入 Kubernetes 集群",
+      "title": "连接集群",
+      "description": "导入 Kubernetes 集群",
+      "heading": "连接第一个集群",
+      "headingDescription": "导入 kubeconfig，或使用 Kite 所在的集群。",
       "kubeconfig": "Kubeconfig",
       "kubeconfigRequired": "Kubeconfig *",
       "kubeconfigPlaceholder": "粘贴 kubeconfig 内容...",
@@ -1083,7 +1105,7 @@
       "fileMode": "上传文件",
       "fileHint": "选择 kubeconfig 文件（通常位于 ~/.kube/config）",
       "importing": "导入中...",
-      "importButton": "导入集群",
+      "importButton": "连接集群",
       "importSuccess": "集群导入成功",
       "importError": "导入集群失败",
       "configRequired": "请提供 kubeconfig 文件"
@@ -1433,5 +1455,44 @@
     "placeholders": {
       "selectChart": "选择 Chart..."
     }
+  },
+  "plugins": {
+    "previewReadme": "预览 {{name}} README",
+    "loadingReadme": "正在加载 README…",
+    "readmeFailed": "无法加载 README",
+    "noReadme": "此插件尚未提供 README。",
+    "clearFilters": "清除筛选",
+    "title": "插件管理",
+    "plugin": "插件",
+    "installed": "已安装插件",
+    "catalog": "插件目录",
+    "upload": "从文件安装",
+    "emptyInstalled": "尚未安装插件。",
+    "emptyCatalog": "Catalog 中暂无可用插件。",
+    "search": "搜索插件",
+    "alreadyInstalled": "已安装",
+    "enable": "启用",
+    "disable": "停用",
+    "enabled": "已启用",
+    "disabled": "已停用",
+    "uninstall": "卸载",
+    "saved": "插件配置已更新",
+    "adminOnly": "只有管理员可以管理插件。",
+    "trust": "插件在浏览器中使用你的 Kite 访问权限运行，请仅安装来自可信作者的插件。",
+    "unavailable": "此插件尚未安装或已停用。",
+    "notFound": "此插件页面不存在。",
+    "loadFailed": "插件加载失败",
+    "back": "返回概览",
+    "retry": "重试",
+    "noResults": "暂无数据。",
+    "requestFailed": "资源加载失败。",
+    "refreshCatalog": "刷新目录",
+    "working": "正在应用插件变更…",
+    "noSearchResults": "没有符合搜索条件的插件。",
+    "update": "更新",
+    "install": "安装",
+    "browseCatalog": "浏览插件目录",
+    "availableVersion": "可更新至：{{version}}",
+    "configureCatalog": "配置 Catalog"
   }
 }

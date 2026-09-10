@@ -121,15 +121,30 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       .filter((group) => group.items.length > 0)
   }, [config, isCRDItemAvailable])
 
-  const isActive = (url: string) => {
-    if (url === '/') {
-      return location.pathname === '/'
+  const activeURL = useMemo(() => {
+    let active = location.pathname === '/' ? '/' : undefined
+    const visit = (items: SidebarItem[]) => {
+      for (const item of items) {
+        if (item.type === 'apiGroup') {
+          visit(apiGroupItems.get(item.apiGroup) ?? [])
+        } else if (item.type === 'link' && item.children) {
+          visit(item.children)
+        } else {
+          const { url } = item
+          const matches =
+            location.pathname === url ||
+            (url !== '/' &&
+              url !== '/crds' &&
+              location.pathname.startsWith(`${url}/`))
+          if (matches && (!active || url.length > active.length)) active = url
+        }
+      }
     }
-    if (url === '/crds') {
-      return location.pathname == '/crds'
-    }
-    return location.pathname.startsWith(url)
-  }
+    visit(config?.groups.flatMap((group) => group.items) ?? [])
+    return active
+  }, [apiGroupItems, config, location.pathname])
+
+  const isActive = (url: string) => url === activeURL
 
   // Handle menu item click on mobile - close sidebar
   const handleMenuItemClick = () => {
@@ -138,14 +153,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
   }
 
-  const renderSidebarItem = (item: SidebarItem) => {
+  const isSidebarItemActive = (item: SidebarItem): boolean =>
+    item.type === 'apiGroup'
+      ? (apiGroupItems.get(item.apiGroup) ?? []).some(isSidebarItemActive)
+      : item.type === 'link' && item.children
+        ? item.children.some(isSidebarItemActive)
+        : isActive(item.url)
+
+  const renderSidebarItem = (item: SidebarItem): React.ReactNode => {
     const IconComponent = getIconComponent(item.icon)
     const title = item.titleKey
       ? t(item.titleKey, { defaultValue: item.titleKey })
       : ''
-    if (item.type === 'apiGroup') {
-      const children = apiGroupItems.get(item.apiGroup) || []
-      const hasActiveChild = children.some((child) => isActive(child.url))
+    if (item.type === 'apiGroup' || (item.type === 'link' && item.children)) {
+      const children =
+        item.type === 'apiGroup'
+          ? apiGroupItems.get(item.apiGroup) || []
+          : item.children || []
+      const hasActiveChild = children.some(isSidebarItemActive)
 
       return (
         <Collapsible
@@ -171,6 +196,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <CollapsibleContent>
               <SidebarMenuSub>
                 {children.map((child) => {
+                  if (child.type === 'link' && child.children)
+                    return renderSidebarItem(child)
                   const childTitle = child.titleKey
                     ? t(child.titleKey, { defaultValue: child.titleKey })
                     : ''

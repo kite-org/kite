@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { ResourceDetailShellTab } from '@kite-dev/plugin-sdk/ui'
 import { IconReload, IconScale } from '@tabler/icons-react'
 import { StatefulSet } from 'kubernetes-types/apps/v1'
 import type { Container } from 'kubernetes-types/core/v1'
@@ -32,10 +33,7 @@ import { Terminal } from '@/components/terminal'
 import { VolumeTable } from '@/components/volume-table'
 import { WorkloadHistoryTabs } from '@/components/workload-history-tabs'
 
-import {
-  ResourceDetailShell,
-  type ResourceDetailShellTab,
-} from './resource-detail-shell'
+import { ResourceDetailShell } from './resource-detail-shell'
 
 export function StatefulSetDetail(props: { namespace: string; name: string }) {
   const { namespace, name } = props

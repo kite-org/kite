@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { ResourceDetailShellTab } from '@kite-dev/plugin-sdk/ui'
 import {
   IconBan,
   IconCircleCheckFilled,
@@ -64,10 +65,7 @@ import {
   WorkloadSummaryCard,
 } from '@/components/workload-overview-parts'
 
-import {
-  ResourceDetailShell,
-  type ResourceDetailShellTab,
-} from './resource-detail-shell'
+import { ResourceDetailShell } from './resource-detail-shell'
 
 export function NodeDetail(props: { name: string }) {
   const { name } = props

@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import type { ResourceDetailShellTab } from '@kite-dev/plugin-sdk/ui'
 import { Service } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -15,10 +16,7 @@ import { RelatedResourcesTable } from '@/components/related-resource-table'
 import { ResourceHistoryTable } from '@/components/resource-history-table'
 import { ServiceOverview } from '@/components/service-overview'
 
-import {
-  ResourceDetailShell,
-  type ResourceDetailShellTab,
-} from './resource-detail-shell'
+import { ResourceDetailShell } from './resource-detail-shell'
 
 export function ServiceDetail(props: { name: string; namespace?: string }) {
   const { namespace, name } = props

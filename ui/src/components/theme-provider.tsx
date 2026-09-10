@@ -11,7 +11,7 @@ type ThemeProviderProps = {
 
 type ThemeProviderState = {
   theme: Theme
-  actualTheme: Omit<Theme, 'system'>
+  actualTheme: Exclude<Theme, 'system'>
   setTheme: (theme: Theme) => void
 }
 
@@ -32,7 +32,7 @@ export function ThemeProvider({
   const [theme, setTheme] = useState<Theme>(
     () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
   )
-  const [actualTheme, setActualTheme] = useState<Omit<Theme, 'system'>>(
+  const [actualTheme, setActualTheme] = useState<Exclude<Theme, 'system'>>(
     theme === 'system'
       ? window.matchMedia('(prefers-color-scheme: dark)').matches
         ? 'dark'
