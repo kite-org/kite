@@ -1,0 +1,112 @@
+package telemetry
+
+import (
+	"bytes"
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/zxh326/kite/pkg/cluster"
+	"github.com/zxh326/kite/pkg/model"
+	"github.com/zxh326/kite/pkg/version"
+)
+
+const endpoint = "https://kite-plugins.zzde.me/telemetry"
+
+func Start(ctx context.Context, cm *cluster.ClusterManager) {
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for {
+			_ = reportIfDue(ctx, cm)
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
+		}
+	}()
+}
+
+func reportIfDue(ctx context.Context, cm *cluster.ClusterManager) error {
+	db := model.DB.WithContext(ctx)
+	var setting model.GeneralSetting
+	if err := db.Select("id", "enable_analytics", "analytics_installation_id", "analytics_last_attempt_at").First(&setting, 1).Error; err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	cutoff := now.Add(-24 * time.Hour)
+	if !setting.EnableAnalytics || (setting.AnalyticsLastAttemptAt != nil && setting.AnalyticsLastAttemptAt.After(cutoff)) {
+		return nil
+	}
+	if setting.AnalyticsInstallationID == "" {
+		var id [16]byte
+		if _, err := rand.Read(id[:]); err != nil {
+			return err
+		}
+		setting.AnalyticsInstallationID = hex.EncodeToString(id[:])
+	}
+	// Claim the daily attempt before sending, including failures and concurrent replicas.
+	claimed := db.Model(&model.GeneralSetting{}).
+		Where("id = ? AND enable_analytics = ? AND (analytics_last_attempt_at IS NULL OR analytics_last_attempt_at <= ?)", setting.ID, true, cutoff).
+		Updates(map[string]interface{}{
+			"analytics_installation_id": setting.AnalyticsInstallationID,
+			"analytics_last_attempt_at": now,
+		})
+	if claimed.Error != nil {
+		return claimed.Error
+	}
+	if claimed.RowsAffected == 0 {
+		return nil
+	}
+
+	var clusterNames []string
+	if err := db.Model(&model.Cluster{}).Where("enable = ?", true).Pluck("name", &clusterNames).Error; err != nil {
+		return err
+	}
+	versions := make([]string, 0, len(clusterNames))
+	for _, name := range clusterNames {
+		client, err := cm.GetClientSet(name)
+		if err == nil {
+			versions = append(versions, client.Version)
+		}
+	}
+	body, err := json.Marshal(struct {
+		InstallationID     string   `json:"installationId"`
+		KiteVersion        string   `json:"kiteVersion"`
+		KubernetesVersions []string `json:"kubernetesVersions"`
+	}{setting.AnalyticsInstallationID, version.Version, versions})
+	if err != nil {
+		return err
+	}
+	if err := db.Select("enable_analytics").First(&setting, 1).Error; err != nil {
+		return err
+	}
+	if !setting.EnableAnalytics {
+		return nil
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "application/json")
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return fmt.Errorf("collector returned HTTP %d", response.StatusCode)
+	}
+	return nil
+}

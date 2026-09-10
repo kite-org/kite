@@ -124,17 +124,10 @@ export const scaleDeployment = async (
   namespace: string,
   name: string,
   replicas: number
-): Promise<{ message: string; deployment: unknown; replicas: number }> => {
-  const endpoint = `/deployments/${namespace}/${name}/scale`
-  const response = await apiClient.put<{
-    message: string
-    deployment: unknown
-    replicas: number
-  }>(endpoint, {
-    replicas,
+): Promise<void> => {
+  await patchResource('deployments', name, namespace, {
+    spec: { replicas },
   })
-
-  return response
 }
 
 export const upgradeHelmRelease = async (
@@ -934,14 +927,15 @@ export const podListFiles = async (
   podName: string,
   container: string,
   path: string,
-  options?: RequestInit
+  options?: RequestInit,
+  cluster?: string | null
 ): Promise<FileInfo[]> => {
   const params = new URLSearchParams({
     container,
     path,
   })
   return apiClient.get<FileInfo[]>(
-    `${withCurrentClusterPath(`/pods/${namespace}/${podName}/files`)}?${params.toString()}`,
+    `${withCurrentClusterPath(`/pods/${namespace}/${podName}/files`, cluster)}?${params.toString()}`,
     options
   )
 }
@@ -1028,10 +1022,10 @@ export const useTemplates = (options?: { staleTime?: number }) => {
 }
 export async function getImageTags(image: string): Promise<ImageTagInfo[]> {
   if (!image) return []
-  const resp = await apiClient.get<ImageTagInfo[]>(
+  const resp = await apiClient.get<ImageTagInfo[] | null>(
     `/image/tags?image=${encodeURIComponent(image)}`
   )
-  return resp
+  return resp ?? []
 }
 
 export function useImageTags(image: string, options?: { enabled?: boolean }) {
@@ -1082,10 +1076,14 @@ export const fetchResourceHistory = (
 export const fetchWorkloadRevisions = (
   resourceType: WorkloadRevisionResourceType,
   namespace: string,
-  name: string
+  name: string,
+  cluster?: string | null
 ): Promise<WorkloadRevisionsResponse> => {
   return fetchAPI<WorkloadRevisionsResponse>(
-    `/${resourceType}/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/revisions`
+    withCurrentClusterPath(
+      `/${resourceType}/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/revisions`,
+      cluster
+    )
   )
 }
 
@@ -1095,10 +1093,18 @@ export const useWorkloadRevisions = (
   name: string,
   options?: { enabled?: boolean; staleTime?: number }
 ) => {
+  const { currentCluster } = useCluster()
   return useQuery({
-    queryKey: ['workload-revisions', resourceType, namespace, name],
-    queryFn: () => fetchWorkloadRevisions(resourceType, namespace, name),
-    enabled: options?.enabled ?? true,
+    queryKey: [
+      'workload-revisions',
+      resourceType,
+      namespace,
+      name,
+      currentCluster,
+    ],
+    queryFn: () =>
+      fetchWorkloadRevisions(resourceType, namespace, name, currentCluster),
+    enabled: (options?.enabled ?? true) && !!currentCluster,
     staleTime: options?.staleTime ?? 30000,
   })
 }
@@ -1145,10 +1151,26 @@ export const usePodFiles = (
   path: string,
   options?: { enabled?: boolean }
 ) => {
+  const { currentCluster } = useCluster()
   return useQuery({
-    queryKey: ['pod-files', namespace, podName, container, path],
-    queryFn: () => podListFiles(namespace, podName, container, path),
-    enabled: options?.enabled !== false,
+    queryKey: [
+      'pod-files',
+      namespace,
+      podName,
+      container,
+      path,
+      currentCluster,
+    ],
+    queryFn: ({ signal }) =>
+      podListFiles(
+        namespace,
+        podName,
+        container,
+        path,
+        { signal },
+        currentCluster
+      ),
+    enabled: options?.enabled !== false && !!currentCluster,
     staleTime: 10000, // 10 seconds cache
   })
 }

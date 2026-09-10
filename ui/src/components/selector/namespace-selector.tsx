@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { NamespaceSelectorProps } from '@kite-dev/plugin-sdk/ui'
 import { Namespace } from 'kubernetes-types/core/v1'
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 
@@ -28,15 +29,7 @@ export function NamespaceSelector({
   triggerClassName,
   multiple = false,
   modal = false,
-}: {
-  selectedNamespace?: string
-  handleNamespaceChange: (namespace: string) => void
-  showAll?: boolean
-  disabled?: boolean
-  triggerClassName?: string
-  multiple?: boolean
-  modal?: boolean
-}) {
+}: NamespaceSelectorProps) {
   const [open, setOpen] = useState(false)
   const { data, isLoading } = useResources('namespaces')
   const selectedNamespaces = useMemo(() => {

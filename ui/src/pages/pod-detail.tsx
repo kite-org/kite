@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { ResourceDetailShellTab } from '@kite-dev/plugin-sdk/ui'
 import { IconAdjustments, IconBug } from '@tabler/icons-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Container, Pod } from 'kubernetes-types/core/v1'
@@ -43,10 +44,7 @@ import { ContainerSelector } from '@/components/selector/container-selector'
 import { Terminal } from '@/components/terminal'
 import { VolumeTable } from '@/components/volume-table'
 
-import {
-  ResourceDetailShell,
-  type ResourceDetailShellTab,
-} from './resource-detail-shell'
+import { ResourceDetailShell } from './resource-detail-shell'
 
 export function PodDetail(props: { namespace: string; name: string }) {
   const { namespace, name } = props

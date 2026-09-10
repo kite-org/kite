@@ -1,5 +1,5 @@
-import { useMemo, type ReactNode } from 'react'
-import type { ObjectMeta } from 'kubernetes-types/meta/v1'
+import { useMemo } from 'react'
+import type { ResourceOverviewProps } from '@kite-dev/plugin-sdk/ui'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
@@ -19,13 +19,6 @@ import {
   MetadataListCard,
 } from './pod-overview-sidebar'
 
-export interface ResourceOverviewField {
-  label: ReactNode
-  value: ReactNode
-  mono?: boolean
-  truncate?: boolean
-}
-
 export function ResourceOverview({
   resourceType,
   name,
@@ -33,13 +26,9 @@ export function ResourceOverview({
   metadata,
   fields,
   children,
-}: {
+  relatedResources,
+}: Omit<ResourceOverviewProps, 'resource'> & {
   resourceType: ResourceType
-  name: string
-  namespace?: string
-  metadata?: ObjectMeta
-  fields?: ResourceOverviewField[]
-  children?: ReactNode
 }) {
   const { t } = useTranslation()
   const labels = metadata?.labels || {}
@@ -49,8 +38,6 @@ export function ResourceOverview({
     name,
     namespace
   )
-  const { data: relatedResources, isLoading: isRelatedLoading } =
-    useRelatedResources(resourceType, name, namespace)
   const sortedEvents = useMemo(() => {
     return (events || []).slice().sort((a, b) => {
       const timeDiff = getEventTime(b).getTime() - getEventTime(a).getTime()
@@ -143,10 +130,15 @@ export function ResourceOverview({
             events={sortedEvents}
             isLoading={isEventsLoading}
           />
-          <CompactRelatedResourcesCard
-            resources={relatedResources || []}
-            isLoading={isRelatedLoading}
-          />
+          {relatedResources === undefined ? (
+            <RelatedResourcesCard
+              resourceType={resourceType}
+              name={name}
+              namespace={namespace}
+            />
+          ) : (
+            relatedResources
+          )}
           {Object.keys(labels).length > 0 ? (
             <MetadataListCard title="common.fields.labels" entries={labels} />
           ) : null}
@@ -159,5 +151,20 @@ export function ResourceOverview({
         </div>
       </div>
     </div>
+  )
+}
+
+function RelatedResourcesCard({
+  resourceType,
+  name,
+  namespace,
+}: {
+  resourceType: ResourceType
+  name: string
+  namespace?: string
+}) {
+  const { data, isLoading } = useRelatedResources(resourceType, name, namespace)
+  return (
+    <CompactRelatedResourcesCard resources={data ?? []} isLoading={isLoading} />
   )
 }
