@@ -36,6 +36,7 @@ var (
 	ClusterAgentImage    = "ghcr.io/kite-org/kite:latest"
 	DBType               = "sqlite"
 	DBDSN                = "dev.db"
+	PluginDir            = "data/plugins"
 
 	KiteEncryptKey = "kite-default-encryption-key-change-in-production"
 
@@ -128,6 +129,9 @@ func LoadEnvs() {
 
 	if dbDSN := os.Getenv("DB_DSN"); dbDSN != "" {
 		DBDSN = dbDSN
+	}
+	if v := os.Getenv("PLUGIN_DIR"); v != "" {
+		PluginDir = v
 	}
 
 	if dbType := os.Getenv("DB_TYPE"); dbType != "" {

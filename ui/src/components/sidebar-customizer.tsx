@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { useSidebarConfig } from '@/contexts/sidebar-config-context'
+import { persistPluginPreferences } from '@/plugins/sidebar'
 import {
   ArrowDown,
   ArrowUp,
@@ -235,7 +236,7 @@ export function SidebarCustomizer({
     if (!config) {
       return ''
     }
-    return JSON.stringify(config)
+    return JSON.stringify(persistPluginPreferences(config))
   }, [config])
 
   const normalizedGlobalSidebarPreference = useMemo(() => {

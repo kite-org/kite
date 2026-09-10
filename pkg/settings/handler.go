@@ -3,6 +3,7 @@ package settings
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -28,6 +29,7 @@ func HandleGetGeneralSetting(c *gin.Context) {
 		"kubectlImage":          setting.KubectlImage,
 		"nodeTerminalImage":     setting.NodeTerminalImage,
 		"clusterAgentImage":     setting.ClusterAgentImage,
+		"pluginCatalogUrl":      setting.PluginCatalogURL,
 		"enableAnalytics":       setting.EnableAnalytics,
 		"enableVersionCheck":    setting.EnableVersionCheck,
 		"passwordLoginDisabled": setting.PasswordLoginDisabled,
@@ -48,6 +50,7 @@ type UpdateGeneralSettingRequest struct {
 	KubectlImage          *string `json:"kubectlImage"`
 	NodeTerminalImage     *string `json:"nodeTerminalImage"`
 	ClusterAgentImage     *string `json:"clusterAgentImage"`
+	PluginCatalogURL      *string `json:"pluginCatalogUrl"`
 	EnableAnalytics       *bool   `json:"enableAnalytics"`
 	EnableVersionCheck    *bool   `json:"enableVersionCheck"`
 	PasswordLoginDisabled *bool   `json:"passwordLoginDisabled"`
@@ -171,6 +174,17 @@ func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 	if req.ClusterAgentImage != nil {
 		updates["cluster_agent_image"] = clusterAgentImage
 	}
+	if req.PluginCatalogURL != nil {
+		address := strings.TrimSpace(*req.PluginCatalogURL)
+		if address != "" {
+			u, err := url.Parse(address)
+			if err != nil || u.Hostname() == "" || (u.Scheme != "https" && u.Scheme != "http") || u.User != nil || u.Fragment != "" || len(address) > 2048 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "pluginCatalogUrl must be an HTTP or HTTPS URL without credentials or fragments, at most 2048 characters"})
+				return
+			}
+		}
+		updates["plugin_catalog_url"] = address
+	}
 	if req.EnableAnalytics != nil {
 		updates["enable_analytics"] = *req.EnableAnalytics
 	}
@@ -212,6 +226,7 @@ func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 		"kubectlImage":          updated.KubectlImage,
 		"nodeTerminalImage":     updated.NodeTerminalImage,
 		"clusterAgentImage":     updated.ClusterAgentImage,
+		"pluginCatalogUrl":      updated.PluginCatalogURL,
 		"enableAnalytics":       updated.EnableAnalytics,
 		"enableVersionCheck":    updated.EnableVersionCheck,
 		"passwordLoginDisabled": updated.PasswordLoginDisabled,

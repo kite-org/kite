@@ -28,7 +28,7 @@ export const useCurrentClusterList = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ['clusters'],
     queryFn: fetchCurrentClusters,
-    enabled: options?.enabled ?? false,
+    enabled: options?.enabled ?? true,
     retry: false,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,

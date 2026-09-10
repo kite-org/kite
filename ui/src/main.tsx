@@ -9,6 +9,7 @@ import { AppearanceProvider } from './components/appearance-provider'
 import { AuthProvider } from './contexts/auth-context'
 import { SidebarConfigProvider } from './contexts/sidebar-config-context'
 import { QueryProvider } from './lib/query-provider'
+import { PluginRuntime } from './plugins/plugin-runtime'
 import { router } from './routes'
 
 createRoot(document.getElementById('root')!).render(
@@ -20,9 +21,11 @@ createRoot(document.getElementById('root')!).render(
         defaultFont="maple"
       >
         <AuthProvider>
-          <SidebarConfigProvider>
-            <RouterProvider router={router} />
-          </SidebarConfigProvider>
+          <PluginRuntime>
+            <SidebarConfigProvider>
+              <RouterProvider router={router} />
+            </SidebarConfigProvider>
+          </PluginRuntime>
         </AuthProvider>
       </AppearanceProvider>
     </QueryProvider>

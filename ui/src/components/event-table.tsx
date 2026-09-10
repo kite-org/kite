@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import type { ResourceEventsProps } from '@kite-dev/plugin-sdk/ui'
 import { IconLoader } from '@tabler/icons-react'
 import { Event } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
@@ -11,11 +12,11 @@ import { cn, getAge } from '@/lib/utils'
 import { Column, SimpleTable } from './simple-table'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 
-export function EventTable(props: {
-  resource: ResourceType
-  name: string
-  namespace?: string
-}) {
+export function EventTable(
+  props: Omit<ResourceEventsProps, 'resource'> & {
+    resource: ResourceType
+  }
+) {
   const { t } = useTranslation()
   const { data: events, isLoading } = useResourcesEvents(
     props.resource,
