@@ -12,6 +12,7 @@ import {
 const languages = [
   { code: 'en', name: 'English' },
   { code: 'zh', name: '中文' },
+  { code: 'ko', name: '한국어' },
 ]
 
 export function LanguageToggle() {
