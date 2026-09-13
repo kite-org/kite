@@ -33,6 +33,7 @@ export default defineConfig({
           { text: "首页", link: "/zh/" },
           { text: "指南", link: "/zh/guide/" },
           { text: "配置", link: "/zh/config/" },
+          { text: "插件", link: "/zh/plugins/" },
           { text: "API", link: "/zh/api/authentication" },
           { text: "常见问题", link: "/zh/faq" },
         ],
@@ -206,6 +207,19 @@ export default defineConfig({
         {
           text: "用户管理",
           link: "/zh/api/user-management",
+        },
+      ],
+      "/zh/plugins/": [
+        {
+          text: "插件",
+          items: [
+            { text: "插件简介", link: "/zh/plugins/" },
+            { text: "快速开始", link: "/zh/plugins/quick-start" },
+            { text: "API 参考", link: "/zh/plugins/api" },
+            { text: "国际化", link: "/zh/plugins/i18n" },
+            { text: "调试", link: "/zh/plugins/debugging" },
+            { text: "发布插件", link: "/zh/plugins/publishing" },
+          ],
         },
       ],
     },
