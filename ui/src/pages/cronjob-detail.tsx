@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import type { ResourceDetailShellTab } from '@kite-dev/plugin-sdk/ui'
 import {
   IconPlayerPause,
   IconPlayerPlay,
@@ -33,7 +32,10 @@ import { ResourceHistoryTable } from '@/components/resource-history-table'
 import { Column, SimpleTable } from '@/components/simple-table'
 import { VolumeTable } from '@/components/volume-table'
 
-import { ResourceDetailShell } from './resource-detail-shell'
+import {
+  ResourceDetailShell,
+  type ResourceDetailShellTab,
+} from './resource-detail-shell'
 
 export function CronJobDetail(props: { namespace: string; name: string }) {
   const { namespace, name } = props

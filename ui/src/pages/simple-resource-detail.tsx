@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import type { ResourceDetailShellTab } from '@kite-dev/plugin-sdk/ui'
 import { useTranslation } from 'react-i18next'
 
 import { ResourceType, ResourceTypeMap } from '@/types/api'
@@ -10,7 +9,10 @@ import { ResourceHistoryTable } from '@/components/resource-history-table'
 import { ResourceOverview } from '@/components/resource-overview'
 
 import { getResourceLabel } from './resource-definitions'
-import { ResourceDetailShell } from './resource-detail-shell'
+import {
+  ResourceDetailShell,
+  type ResourceDetailShellTab,
+} from './resource-detail-shell'
 
 export function SimpleResourceDetail<T extends ResourceType>(props: {
   resourceType: T

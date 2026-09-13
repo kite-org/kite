@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { ResourceDetailShellTab } from '@kite-dev/plugin-sdk/ui'
 import { IconNetwork, IconReload, IconScale } from '@tabler/icons-react'
 import { Deployment } from 'kubernetes-types/apps/v1'
 import type { Container, Service } from 'kubernetes-types/core/v1'
@@ -52,7 +51,10 @@ import { Terminal } from '@/components/terminal'
 import { VolumeTable } from '@/components/volume-table'
 import { WorkloadHistoryTabs } from '@/components/workload-history-tabs'
 
-import { ResourceDetailShell } from './resource-detail-shell'
+import {
+  ResourceDetailShell,
+  type ResourceDetailShellTab,
+} from './resource-detail-shell'
 
 type ExposeServiceType = 'ClusterIP' | 'NodePort' | 'LoadBalancer'
 

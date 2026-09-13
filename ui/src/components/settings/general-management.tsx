@@ -486,7 +486,7 @@ export function GeneralManagement() {
                   pluginCatalogUrl: e.target.value,
                 }))
               }
-              placeholder="https://kite-plugins.zzde.me/catalog.json"
+              placeholder="https://kite-org.github.io/kite-plugins/catalog.json"
               aria-describedby="general-plugin-catalog-description"
             />
           </div>

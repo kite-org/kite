@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { PodMetricsHistory } from '@kite-dev/plugin-sdk/observability'
 import { useQuery } from '@tanstack/react-query'
 
-import { OverviewData, ResourceUsageHistory } from '@/types/api'
+import { OverviewData, PodMetrics, ResourceUsageHistory } from '@/types/api'
 import { useCluster } from '@/hooks/use-cluster'
 
 import { API_BASE_URL } from '../api-client'
@@ -81,7 +80,7 @@ export const fetchPodMetrics = (
   container?: string,
   labelSelector?: string,
   cluster?: string | null
-): Promise<PodMetricsHistory> => {
+): Promise<PodMetrics> => {
   let endpoint = `/prometheus/pods/${namespace}/${podName}/metrics?duration=${duration}`
   if (container) {
     endpoint += `&container=${encodeURIComponent(container)}`
@@ -89,7 +88,7 @@ export const fetchPodMetrics = (
   if (labelSelector) {
     endpoint += `&labelSelector=${encodeURIComponent(labelSelector)}`
   }
-  return fetchAPI<PodMetricsHistory>(withCurrentClusterPath(endpoint, cluster))
+  return fetchAPI<PodMetrics>(withCurrentClusterPath(endpoint, cluster))
 }
 
 export const usePodMetrics = (

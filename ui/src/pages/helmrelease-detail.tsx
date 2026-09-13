@@ -1,5 +1,4 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import type { ResourceDetailShellTab } from '@kite-dev/plugin-sdk/ui'
 import {
   IconCircleCheckFilled,
   IconExclamationCircle,
@@ -92,7 +91,10 @@ import {
   useHelmReleaseChartSelection,
 } from './helmrelease-chart-selection'
 import { HelmReleaseChartSelector } from './helmrelease-chart-selector'
-import { ResourceDetailShell } from './resource-detail-shell'
+import {
+  ResourceDetailShell,
+  type ResourceDetailShellTab,
+} from './resource-detail-shell'
 
 const helmResourceMetadataByAlias = new Map<string, ResourceMetadata>(
   resourceMetadataList.flatMap((item) =>

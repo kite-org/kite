@@ -1,5 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import type { ResourceTableProps as SDKResourceTableProps } from '@kite-dev/plugin-sdk/ui'
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import { ColumnDef } from '@tanstack/react-table'
 import { Box, Database } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -34,14 +39,12 @@ import { ResourceTableView } from './resource-table-view'
 
 export type { ResourceTableBatchAction } from './resource-table-toolbar'
 
-export interface ResourceTableProps<T> extends Pick<
-  SDKResourceTableProps<T>,
-  | 'resourceName'
-  | 'searchQueryFilter'
-  | 'onCreateClick'
-  | 'extraToolbars'
-  | 'defaultHiddenColumns'
-> {
+export interface ResourceTableProps<T> {
+  resourceName: string
+  searchQueryFilter?: (item: T, query: string) => boolean
+  onCreateClick?: () => void
+  extraToolbars?: ReactNode[]
+  defaultHiddenColumns?: string[]
   resourceType?: ResourceType // Optional, used for fetching resources
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   columns: ColumnDef<T, any>[]

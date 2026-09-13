@@ -9,7 +9,7 @@ outline: deep
 ## 前置要求
 
 - Node.js `^20.19.0 || >=22.12.0`，pnpm 10.x
-- 一个可以访问的 Kite 实例（版本需满足插件的 `engines.kite` 范围，当前默认 `^0.16.0`）
+- 一个可以访问的 Kite 实例（版本需满足插件的 `engines.kite` 范围，当前默认 `>=0.16.0`）
 - 管理员权限（用于安装插件）
 
 ## 创建项目
@@ -60,7 +60,7 @@ my-plugin/
   "author": "Your Team",
   "license": "Apache-2.0",
   "engines": {
-    "kite": "^0.16.0"
+    "kite": ">=0.16.0"
   }
 }
 ```
@@ -70,7 +70,7 @@ my-plugin/
 | `name` | 插件 ID，也是 URL 的一部分。1–64 个小写字母、数字或连字符，以字母或数字开头结尾；不使用 npm scope |
 | `displayName` | 插件管理中显示的名称，1–128 个字符 |
 | `version` | 语义化版本，不带 `v` 前缀。内容变更时必须递增版本 |
-| `engines.kite` | 支持的 Kite 版本范围，省略时默认 `^0.16.0`，构建时写入 `plugin.json` 的 `requires.kite` |
+| `engines.kite` | 支持的 Kite 版本范围，省略时默认 `>=0.16.0`，构建时写入 `plugin.json` 的 `requires.kite` |
 | `description` / `author` / `homepage` / `license` | 可选元数据 |
 
 ## 编写页面和菜单
