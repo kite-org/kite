@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/version"
 )
 
@@ -61,7 +62,7 @@ func fetch(ctx context.Context, address string) (*http.Response, error) {
 func readCatalog(ctx context.Context, address string) ([]CatalogPlugin, error) {
 	plugins := []CatalogPlugin{}
 	if address == "" {
-		address = "https://kite-plugins.zzde.me/catalog.json"
+		address = common.DefaultPluginCatalogURL
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()

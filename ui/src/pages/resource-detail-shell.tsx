@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import type {
-  ResourceDetailShellContext,
-  ResourceDetailShellProps,
-  ResourceDetailShellTab,
-} from '@kite-dev/plugin-sdk/ui'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import {
   IconCopy,
   IconLoader,
@@ -27,12 +28,45 @@ import { ErrorMessage } from '@/components/error-message'
 import { ResourceDeleteConfirmationDialog } from '@/components/resource-delete-confirmation-dialog'
 import { YamlEditor } from '@/components/yaml-editor'
 
-interface HostResourceDetailShellProps<T> extends Omit<
-  ResourceDetailShellProps<T>,
-  'resource'
-> {
+export interface ResourceDetailShellContext<T> {
+  resource: T
+  yamlContent: string
+  setYamlContent: (value: string) => void
+  refreshKey: number
+  isSavingYaml: boolean
+  onRefresh: () => Promise<unknown>
+}
+
+export interface ResourceDetailShellTab<T> {
+  value: string
+  label: ReactNode
+  content: ReactNode | ((context: ResourceDetailShellContext<T>) => ReactNode)
+}
+
+export interface ResourceDetailShellProps<T> {
   resourceType: ResourceType
+  resourceLabel: string
+  name: string
+  namespace?: string
+  data: T | undefined
+  isLoading: boolean
+  error: unknown
+  onRefresh: () => Promise<unknown>
+  onSaveYaml?: (content: T) => Promise<unknown>
+  onDeleted?: () => void
+  overview: ReactNode | ((context: ResourceDetailShellContext<T>) => ReactNode)
+  preYamlTabs?: ResourceDetailShellTab<T>[]
+  extraTabs?: ResourceDetailShellTab<T>[]
+  headerActions?: ReactNode
+  titleIcon?: ReactNode
+  yamlToolbar?:
+    ReactNode | ((context: ResourceDetailShellContext<T>) => ReactNode)
+  loadingMessage?: string
+  yamlTabLabel?: ReactNode
   showYaml?: boolean
+  showDescribe?: boolean
+  showDelete?: boolean
+  showClone?: boolean
 }
 
 export function ResourceDetailShell<T>({
@@ -58,7 +92,7 @@ export function ResourceDetailShell<T>({
   showDescribe = true,
   showDelete = true,
   showClone = true,
-}: HostResourceDetailShellProps<T>) {
+}: ResourceDetailShellProps<T>) {
   const { t } = useTranslation()
   const [yamlContent, setYamlContent] = useState('')
   const [isSavingYaml, setIsSavingYaml] = useState(false)

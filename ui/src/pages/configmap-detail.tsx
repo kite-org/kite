@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import type { ResourceDetailShellTab } from '@kite-dev/plugin-sdk/ui'
 import { ConfigMap } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -9,7 +8,10 @@ import { Badge } from '@/components/ui/badge'
 import { KeyValueDataViewer } from '@/components/key-value-data-viewer'
 import { ResourceOverview } from '@/components/resource-overview'
 
-import { ResourceDetailShell } from './resource-detail-shell'
+import {
+  ResourceDetailShell,
+  type ResourceDetailShellTab,
+} from './resource-detail-shell'
 
 export function ConfigMapDetail(props: { namespace: string; name: string }) {
   const { namespace, name } = props

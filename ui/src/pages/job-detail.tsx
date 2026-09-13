@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import type { ResourceDetailShellTab } from '@kite-dev/plugin-sdk/ui'
 import { Job } from 'kubernetes-types/batch/v1'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -22,7 +21,10 @@ import { ResourceHistoryTable } from '@/components/resource-history-table'
 import { Terminal } from '@/components/terminal'
 import { VolumeTable } from '@/components/volume-table'
 
-import { ResourceDetailShell } from './resource-detail-shell'
+import {
+  ResourceDetailShell,
+  type ResourceDetailShellTab,
+} from './resource-detail-shell'
 
 export function JobDetail(props: { namespace: string; name: string }) {
   const { namespace, name } = props
