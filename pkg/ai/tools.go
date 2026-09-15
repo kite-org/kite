@@ -1,6 +1,8 @@
 package ai
 
 import (
+	"fmt"
+
 	anthropic "github.com/anthropics/anthropic-sdk-go"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/shared"
@@ -116,7 +118,7 @@ func toolDefinitions(cs *cluster.ClientSet) []agentToolDefinition {
 		},
 		{
 			Name:        "list_resources",
-			Description: "List Kubernetes resources and return a compact diagnostic summary. Use get_resource when the full YAML of one resource is needed.",
+			Description: fmt.Sprintf("List Kubernetes resources of a given kind, optionally filtered by namespace and label selector. Returns a summary of matching resources, capped at %d items — narrow the query with namespace or label_selector when more are expected.", maxListedResourceItems),
 			Properties: map[string]any{
 				"kind": map[string]any{
 					"type":        "string",
@@ -170,7 +172,9 @@ func toolDefinitions(cs *cluster.ClientSet) []agentToolDefinition {
 				},
 				"tail_lines": map[string]any{
 					"type":        "integer",
-					"description": "Number of recent lines. Defaults to 100.",
+					"minimum":     1,
+					"maximum":     maxPodLogTailLines,
+					"description": fmt.Sprintf("Number of recent log lines to retrieve. Defaults to 100, maximum %d. Output is additionally capped at %d KB; request a smaller window to read a specific section.", maxPodLogTailLines, maxPodLogBytes/1024),
 				},
 				"previous": map[string]any{
 					"type":        "boolean",
@@ -270,6 +274,108 @@ func toolDefinitions(cs *cluster.ClientSet) []agentToolDefinition {
 			},
 			Required: []string{"kind", "name"},
 		},
+		{
+			Name:        "list_helm_releases",
+			Description: fmt.Sprintf("List Helm releases, optionally filtered by namespace. Returns name, namespace, chart, app version, status, revision, and last update time, capped at %d items. Listing without a namespace requires access to all namespaces.", maxListedHelmReleases),
+			Properties: map[string]any{
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "The namespace to list releases in. Leave empty for all namespaces.",
+				},
+			},
+		},
+		{
+			Name:        "get_helm_release",
+			Description: fmt.Sprintf("Get details of a Helm release: chart info, status, revision, managed resources, and the user-supplied values (overrides). Set include_default_values to true to also return the chart's default values. Sensitive-looking values (passwords, tokens, keys) are masked as %q.", redactedValuePlaceholder),
+			Properties: map[string]any{
+				"name": map[string]any{
+					"type":        "string",
+					"description": "The release name.",
+				},
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "The namespace of the release.",
+				},
+				"include_default_values": map[string]any{
+					"type":        "boolean",
+					"description": "If true, also return the chart's default values. Defaults to false.",
+				},
+			},
+			Required: []string{"name", "namespace"},
+		},
+		{
+			Name:        "get_helm_release_history",
+			Description: fmt.Sprintf("Get the revision history of a Helm release, newest first, capped at %d revisions. Useful before rollback_helm_release to pick the target revision.", maxHelmHistoryItems),
+			Properties: map[string]any{
+				"name": map[string]any{
+					"type":        "string",
+					"description": "The release name.",
+				},
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "The namespace of the release.",
+				},
+			},
+			Required: []string{"name", "namespace"},
+		},
+		{
+			Name:        "update_helm_release_values",
+			Description: fmt.Sprintf("Update the values of a Helm release and redeploy it with its current chart version. By default values_yaml is MERGED over the existing user-supplied values (like helm upgrade --reuse-values), so pass only the fields to change. Set replace to true to instead replace the entire set of user-supplied values with values_yaml. Does not change the chart version. Values masked as %q in get_helm_release output are rejected and must not be written back.", redactedValuePlaceholder),
+			Properties: map[string]any{
+				"name": map[string]any{
+					"type":        "string",
+					"description": "The release name.",
+				},
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "The namespace of the release.",
+				},
+				"values_yaml": map[string]any{
+					"type":        "string",
+					"description": "The values to apply as YAML. By default merged over the existing user-supplied values; with replace=true it becomes the complete new set of user-supplied values.",
+				},
+				"replace": map[string]any{
+					"type":        "boolean",
+					"description": "If true, replace all user-supplied values with values_yaml instead of merging; omitted fields are removed from the release. Defaults to false.",
+				},
+			},
+			Required: []string{"name", "namespace", "values_yaml"},
+		},
+		{
+			Name:        "rollback_helm_release",
+			Description: "Roll back a Helm release to a previous revision. When revision is omitted, rolls back to the immediately previous revision.",
+			Properties: map[string]any{
+				"name": map[string]any{
+					"type":        "string",
+					"description": "The release name.",
+				},
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "The namespace of the release.",
+				},
+				"revision": map[string]any{
+					"type":        "integer",
+					"minimum":     1,
+					"description": "The target revision to roll back to. Defaults to the previous revision.",
+				},
+			},
+			Required: []string{"name", "namespace"},
+		},
+		{
+			Name:        "uninstall_helm_release",
+			Description: "Uninstall a Helm release and delete all resources it manages.",
+			Properties: map[string]any{
+				"name": map[string]any{
+					"type":        "string",
+					"description": "The release name.",
+				},
+				"namespace": map[string]any{
+					"type":        "string",
+					"description": "The namespace of the release.",
+				},
+			},
+			Required: []string{"name", "namespace"},
+		},
 	}
 
 	// Only add Prometheus tool if Prometheus client is available
@@ -348,20 +454,22 @@ func OpenAIToolDefs(defs []agentToolDefinition) []openai.ChatCompletionToolParam
 	return tools
 }
 
-func AnthropicToolDefs(defs []agentToolDefinition) []anthropic.ToolUnionParam {
-	tools := make([]anthropic.ToolUnionParam, 0, len(defs))
+// AnthropicToolDefs builds tool definitions for the Beta Messages API, which the
+// Anthropic path uses so it can enable context management (context editing)
+// alongside tool use.
+func AnthropicToolDefs(defs []agentToolDefinition) []anthropic.BetaToolUnionParam {
+	tools := make([]anthropic.BetaToolUnionParam, 0, len(defs))
 
 	for _, def := range defs {
-		tool := anthropic.ToolParam{
+		tool := anthropic.BetaToolParam{
 			Name:        def.Name,
 			Description: anthropic.String(def.Description),
-			InputSchema: anthropic.ToolInputSchemaParam{
-				Type:       "object",
+			InputSchema: anthropic.BetaToolInputSchemaParam{
 				Properties: def.Properties,
 				Required:   def.Required,
 			},
 		}
-		tools = append(tools, anthropic.ToolUnionParam{OfTool: &tool})
+		tools = append(tools, anthropic.BetaToolUnionParam{OfTool: &tool})
 	}
 
 	return tools
