@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ColumnFiltersState,
   PaginationState,
@@ -9,8 +9,7 @@ import {
 import { getClusterScopedStorageKey } from '@/lib/current-cluster'
 
 interface UseResourceTableStateOptions {
-  resourceName: string
-  clusterScope: boolean
+  storageKey: string
   defaultHiddenColumns: string[]
 }
 
@@ -28,24 +27,22 @@ function readStoredJSON<T>(storage: Storage, key: string, fallback: T): T {
 }
 
 export function useResourceTableState({
-  resourceName,
-  clusterScope,
+  storageKey,
   defaultHiddenColumns,
 }: UseResourceTableStateOptions) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() =>
     readStoredJSON(
       sessionStorage,
-      getClusterScopedStorageKey(`-${resourceName}-columnFilters`),
+      getClusterScopedStorageKey(`-${storageKey}-columnFilters`),
       []
     )
   )
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState<string>(() => {
     return (
       sessionStorage.getItem(
-        getClusterScopedStorageKey(`-${resourceName}-searchQuery`)
+        getClusterScopedStorageKey(`-${storageKey}-searchQuery`)
       ) || ''
     )
   })
@@ -56,7 +53,7 @@ export function useResourceTableState({
   >(() => {
     const savedVisibility = readStoredJSON<Record<string, boolean> | null>(
       localStorage,
-      getClusterScopedStorageKey(`-${resourceName}-columnVisibility`),
+      getClusterScopedStorageKey(`-${storageKey}-columnVisibility`),
       null
     )
     if (savedVisibility) {
@@ -71,63 +68,22 @@ export function useResourceTableState({
   })
   const [pagination, setPagination] = useState<PaginationState>(() => {
     const savedPageSize = localStorage.getItem(
-      getClusterScopedStorageKey(`-${resourceName}-pageSize`)
+      getClusterScopedStorageKey(`-${storageKey}-pageSize`)
     )
     return {
       pageIndex: 0,
       pageSize: savedPageSize ? Number(savedPageSize) : 20,
     }
   })
-  const [refreshInterval, setRefreshInterval] = useState(5000)
-  const [selectedNamespace, setSelectedNamespace] = useState<
-    string | undefined
-  >(() => {
-    // Prefer tab-scoped sessionStorage to isolate namespace selection across tabs
-    const tabNamespace = sessionStorage.getItem(
-      getClusterScopedStorageKey('selectedNamespace')
-    )
-    if (tabNamespace) {
-      return clusterScope ? undefined : tabNamespace
-    }
-    // Fall back to localStorage for global preference (new tabs inherit last choice)
-    const globalNamespace = localStorage.getItem(
-      getClusterScopedStorageKey('selectedNamespace')
-    )
-    return clusterScope ? undefined : globalNamespace || 'default'
-  })
-  const [useSSE, setUseSSE] = useState(false)
-
-  const effectiveNamespace = clusterScope
-    ? undefined
-    : selectedNamespace?.includes(',')
-      ? '_all'
-      : selectedNamespace
-
   useEffect(() => {
-    if (clusterScope || selectedNamespace !== undefined) {
-      return
-    }
-
-    const tabNamespace = sessionStorage.getItem(
-      getClusterScopedStorageKey('selectedNamespace')
-    )
-    const storedNamespace =
-      tabNamespace ||
-      localStorage.getItem(getClusterScopedStorageKey('selectedNamespace'))
-    setSelectedNamespace(storedNamespace || 'default')
-  }, [clusterScope, selectedNamespace])
-
-  useEffect(() => {
-    const storageKey = getClusterScopedStorageKey(
-      `-${resourceName}-searchQuery`
-    )
+    const key = getClusterScopedStorageKey(`-${storageKey}-searchQuery`)
     if (searchQuery) {
-      sessionStorage.setItem(storageKey, searchQuery)
+      sessionStorage.setItem(key, searchQuery)
       return
     }
 
-    sessionStorage.removeItem(storageKey)
-  }, [resourceName, searchQuery])
+    sessionStorage.removeItem(key)
+  }, [storageKey, searchQuery])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -141,66 +97,31 @@ export function useResourceTableState({
 
   useEffect(() => {
     localStorage.setItem(
-      getClusterScopedStorageKey(`-${resourceName}-columnVisibility`),
+      getClusterScopedStorageKey(`-${storageKey}-columnVisibility`),
       JSON.stringify(columnVisibility)
     )
-  }, [columnVisibility, resourceName])
+  }, [columnVisibility, storageKey])
 
   useEffect(() => {
     localStorage.setItem(
-      getClusterScopedStorageKey(`-${resourceName}-pageSize`),
+      getClusterScopedStorageKey(`-${storageKey}-pageSize`),
       pagination.pageSize.toString()
     )
-  }, [pagination.pageSize, resourceName])
+  }, [pagination.pageSize, storageKey])
 
   useEffect(() => {
-    const storageKey = getClusterScopedStorageKey(
-      `-${resourceName}-columnFilters`
-    )
+    const key = getClusterScopedStorageKey(`-${storageKey}-columnFilters`)
     if (columnFilters.length > 0) {
-      sessionStorage.setItem(storageKey, JSON.stringify(columnFilters))
+      sessionStorage.setItem(key, JSON.stringify(columnFilters))
       return
     }
 
-    sessionStorage.removeItem(storageKey)
-  }, [columnFilters, resourceName])
+    sessionStorage.removeItem(key)
+  }, [columnFilters, storageKey])
 
   useEffect(() => {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }))
   }, [columnFilters, searchQuery])
-
-  const handleNamespaceChange = useCallback((value: string) => {
-    // Persist to sessionStorage for tab-level isolation
-    sessionStorage.setItem(
-      getClusterScopedStorageKey('selectedNamespace'),
-      value
-    )
-    // Also update localStorage as global preference for new tabs
-    localStorage.setItem(getClusterScopedStorageKey('selectedNamespace'), value)
-    setSelectedNamespace(value)
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-    setSearchQuery('')
-  }, [])
-
-  const handleUseSSEChange = useCallback((pressed: boolean) => {
-    setUseSSE(pressed)
-    setRefreshInterval((current) => {
-      if (pressed) {
-        return 0
-      }
-      if (current === 0) {
-        return 5000
-      }
-      return current
-    })
-  }, [])
-
-  const handleRefreshIntervalChange = useCallback((value: number) => {
-    setRefreshInterval(value)
-    if (value > 0) {
-      setUseSSE(false)
-    }
-  }, [])
 
   return {
     sorting,
@@ -209,8 +130,6 @@ export function useResourceTableState({
     setColumnFilters,
     rowSelection,
     setRowSelection,
-    deleteDialogOpen,
-    setDeleteDialogOpen,
     searchQuery,
     setSearchQuery,
     debouncedSearchQuery,
@@ -218,13 +137,5 @@ export function useResourceTableState({
     setColumnVisibility,
     pagination,
     setPagination,
-    refreshInterval,
-    setRefreshInterval,
-    selectedNamespace,
-    effectiveNamespace,
-    useSSE,
-    handleNamespaceChange,
-    handleUseSSEChange,
-    handleRefreshIntervalChange,
   }
 }

@@ -20,6 +20,7 @@ interface ResourceDeleteConfirmationDialogProps {
   resourceType: ResourceType
   namespace?: string
   additionalNote?: string
+  onDeleted?: () => void
 }
 
 export function ResourceDeleteConfirmationDialog({
@@ -29,6 +30,7 @@ export function ResourceDeleteConfirmationDialog({
   resourceType,
   namespace,
   additionalNote,
+  onDeleted,
 }: ResourceDeleteConfirmationDialogProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const navigate = useNavigate()
@@ -44,7 +46,8 @@ export function ResourceDeleteConfirmationDialog({
       toast.success(
         `${getResourceSingularLabel(resourceType) || resourceType} deleted successfully`
       )
-      navigate(getResourceListPath(resourceType))
+      if (onDeleted) onDeleted()
+      else navigate(getResourceListPath(resourceType))
     } catch (error) {
       toast.error(translateError(error, t))
     } finally {

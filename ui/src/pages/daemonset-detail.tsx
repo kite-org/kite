@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { IconReload } from '@tabler/icons-react'
 import { DaemonSet } from 'kubernetes-types/apps/v1'
 import type { Container } from 'kubernetes-types/core/v1'
@@ -26,14 +26,12 @@ import { LogViewer } from '@/components/log-viewer'
 import { PodMonitoring } from '@/components/pod-monitoring'
 import { PodTable } from '@/components/pod-table'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
+import { ResourceYaml } from '@/components/resource-yaml'
 import { Terminal } from '@/components/terminal'
 import { VolumeTable } from '@/components/volume-table'
 import { WorkloadHistoryTabs } from '@/components/workload-history-tabs'
 
-import {
-  ResourceDetailShell,
-  type ResourceDetailShellTab,
-} from './resource-detail-shell'
+import { ResourceDetailShell } from './resource-detail-shell'
 
 export function DaemonSetDetail(props: { namespace: string; name: string }) {
   const { namespace, name } = props
@@ -139,179 +137,10 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
     [daemonset, name, namespace, t]
   )
 
-  const extraTabs = useMemo<ResourceDetailShellTab<DaemonSet>[]>(() => {
-    const tabs: ResourceDetailShellTab<DaemonSet>[] = []
-    const pods = relatedPods || []
-    const templateSpec = daemonset?.spec?.template.spec
-    const containers = templateSpec?.containers || []
-    const initContainers = templateSpec?.initContainers || []
-
-    tabs.push(
-      {
-        value: 'pods',
-        label: (
-          <>
-            {t('common.tabs.pods', { defaultValue: 'Pods' })}
-            <Badge variant="secondary">{pods.length}</Badge>
-          </>
-        ),
-        content: (
-          <PodTable
-            pods={pods}
-            isLoading={isLoadingPods}
-            labelSelector={labelSelector}
-          />
-        ),
-      },
-      {
-        value: 'containers',
-        label: (
-          <>
-            {t('common.tabs.containers', { defaultValue: 'Containers' })}
-            <Badge variant="secondary">
-              {containers.length + initContainers.length}
-            </Badge>
-          </>
-        ),
-        content: (
-          <div className="space-y-4">
-            {initContainers.length > 0 ? (
-              <div className="space-y-3">
-                {initContainers.map((container) => (
-                  <ContainerInfoCard
-                    key={container.name}
-                    container={container}
-                    init
-                    onContainerUpdate={(updatedContainer) =>
-                      handleContainerUpdate(updatedContainer, true)
-                    }
-                  />
-                ))}
-              </div>
-            ) : null}
-            <div className="space-y-3">
-              {containers.map((container) => (
-                <ContainerInfoCard
-                  key={container.name}
-                  container={container}
-                  onContainerUpdate={(updatedContainer) =>
-                    handleContainerUpdate(updatedContainer, false)
-                  }
-                />
-              ))}
-            </div>
-          </div>
-        ),
-      },
-      {
-        value: 'logs',
-        label: t('common.tabs.logs', { defaultValue: 'Logs' }),
-        content: (
-          <LogViewer
-            namespace={namespace}
-            pods={pods}
-            containers={containers}
-            initContainers={initContainers}
-            labelSelector={labelSelector}
-          />
-        ),
-      },
-      {
-        value: 'terminal',
-        label: t('common.tabs.terminal', { defaultValue: 'Terminal' }),
-        content:
-          pods.length > 0 ? (
-            <Terminal
-              namespace={namespace}
-              pods={pods}
-              containers={containers}
-              initContainers={initContainers}
-            />
-          ) : null,
-      }
-    )
-
-    if (templateSpec?.volumes) {
-      tabs.push({
-        value: 'volumes',
-        label: (
-          <>
-            {t('common.tabs.volumes', { defaultValue: 'Volumes' })}
-            <Badge variant="secondary">{templateSpec.volumes.length}</Badge>
-          </>
-        ),
-        content: (
-          <VolumeTable
-            namespace={namespace}
-            volumes={templateSpec.volumes}
-            containers={[...initContainers, ...containers]}
-            isLoading={isLoading}
-          />
-        ),
-      })
-    }
-
-    tabs.push(
-      {
-        value: 'related',
-        label: t('common.tabs.related', { defaultValue: 'Related' }),
-        content: (
-          <RelatedResourcesTable
-            resource="daemonsets"
-            name={name}
-            namespace={namespace}
-          />
-        ),
-      },
-      {
-        value: 'history',
-        label: t('common.tabs.history', { defaultValue: 'History' }),
-        content: daemonset ? (
-          <WorkloadHistoryTabs
-            resourceType="daemonsets"
-            namespace={namespace}
-            name={name}
-            resource={daemonset}
-            onRollbackComplete={refetch}
-          />
-        ) : null,
-      },
-      {
-        value: 'events',
-        label: t('common.tabs.events', { defaultValue: 'Events' }),
-        content: (
-          <EventTable resource="daemonsets" name={name} namespace={namespace} />
-        ),
-      },
-      {
-        value: 'monitor',
-        label: t('common.tabs.monitor', { defaultValue: 'Monitor' }),
-        content: (
-          <PodMonitoring
-            namespace={namespace}
-            pods={pods}
-            containers={containers}
-            initContainers={initContainers}
-            defaultQueryName={pods[0]?.metadata?.generateName}
-            labelSelector={labelSelector}
-          />
-        ),
-      }
-    )
-
-    return tabs
-  }, [
-    daemonset,
-    handleContainerUpdate,
-    isLoading,
-    isLoadingPods,
-    labelSelector,
-    name,
-    namespace,
-    refetch,
-    relatedPods,
-    t,
-  ])
+  const pods = relatedPods || []
+  const templateSpec = daemonset?.spec?.template.spec
+  const containers = templateSpec?.containers || []
+  const initContainers = templateSpec?.initContainers || []
 
   return (
     <ResourceDetailShell
@@ -323,20 +152,189 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
       isLoading={isLoading}
       error={isError ? error : null}
       onRefresh={refetch}
-      onSaveYaml={handleSaveYaml}
-      overview={
-        daemonset ? (
-          <DaemonSetOverview
-            daemonset={daemonset}
-            namespace={namespace}
-            name={name}
-            pods={relatedPods}
-            isPodsLoading={isLoadingPods}
-            events={daemonsetEvents}
-            isEventsLoading={isEventsLoading}
-          />
-        ) : null
-      }
+      tabs={[
+        {
+          value: 'overview',
+          label: t('common.tabs.overview'),
+          content: daemonset ? (
+            <DaemonSetOverview
+              daemonset={daemonset}
+              namespace={namespace}
+              name={name}
+              pods={relatedPods}
+              isPodsLoading={isLoadingPods}
+              events={daemonsetEvents}
+              isEventsLoading={isEventsLoading}
+            />
+          ) : null,
+        },
+        {
+          value: 'pods',
+          label: (
+            <>
+              {t('common.tabs.pods', { defaultValue: 'Pods' })}
+              <Badge variant="secondary">{pods.length}</Badge>
+            </>
+          ),
+          content: (
+            <PodTable
+              pods={pods}
+              isLoading={isLoadingPods}
+              labelSelector={labelSelector}
+            />
+          ),
+        },
+        {
+          value: 'containers',
+          label: (
+            <>
+              {t('common.tabs.containers', { defaultValue: 'Containers' })}
+              <Badge variant="secondary">
+                {containers.length + initContainers.length}
+              </Badge>
+            </>
+          ),
+          content: (
+            <div className="space-y-4">
+              {initContainers.length > 0 ? (
+                <div className="space-y-3">
+                  {initContainers.map((container) => (
+                    <ContainerInfoCard
+                      key={container.name}
+                      container={container}
+                      init
+                      onContainerUpdate={(updatedContainer) =>
+                        handleContainerUpdate(updatedContainer, true)
+                      }
+                    />
+                  ))}
+                </div>
+              ) : null}
+              <div className="space-y-3">
+                {containers.map((container) => (
+                  <ContainerInfoCard
+                    key={container.name}
+                    container={container}
+                    onContainerUpdate={(updatedContainer) =>
+                      handleContainerUpdate(updatedContainer, false)
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          ),
+        },
+        {
+          value: 'yaml',
+          label: t('common.tabs.yaml'),
+          content: ({ resource, refreshKey }) => (
+            <ResourceYaml
+              key={refreshKey}
+              value={resource}
+              onSave={handleSaveYaml}
+              fillHeight
+            />
+          ),
+        },
+        {
+          value: 'logs',
+          label: t('common.tabs.logs', { defaultValue: 'Logs' }),
+          content: (
+            <LogViewer
+              namespace={namespace}
+              pods={pods}
+              containers={containers}
+              initContainers={initContainers}
+              labelSelector={labelSelector}
+            />
+          ),
+        },
+        {
+          value: 'terminal',
+          label: t('common.tabs.terminal', { defaultValue: 'Terminal' }),
+          content:
+            pods.length > 0 ? (
+              <Terminal
+                namespace={namespace}
+                pods={pods}
+                containers={containers}
+                initContainers={initContainers}
+              />
+            ) : null,
+        },
+        ...(templateSpec?.volumes
+          ? [
+              {
+                value: 'volumes',
+                label: (
+                  <>
+                    {t('common.tabs.volumes', { defaultValue: 'Volumes' })}
+                    <Badge variant="secondary">
+                      {templateSpec.volumes.length}
+                    </Badge>
+                  </>
+                ),
+                content: (
+                  <VolumeTable
+                    namespace={namespace}
+                    volumes={templateSpec.volumes}
+                    containers={[...initContainers, ...containers]}
+                    isLoading={isLoading}
+                  />
+                ),
+              },
+            ]
+          : []),
+        {
+          value: 'related',
+          label: t('common.tabs.related', { defaultValue: 'Related' }),
+          content: (
+            <RelatedResourcesTable
+              resource="daemonsets"
+              name={name}
+              namespace={namespace}
+            />
+          ),
+        },
+        {
+          value: 'history',
+          label: t('common.tabs.history', { defaultValue: 'History' }),
+          content: daemonset ? (
+            <WorkloadHistoryTabs
+              resourceType="daemonsets"
+              namespace={namespace}
+              name={name}
+              resource={daemonset}
+              onRollbackComplete={refetch}
+            />
+          ) : null,
+        },
+        {
+          value: 'events',
+          label: t('common.tabs.events', { defaultValue: 'Events' }),
+          content: (
+            <EventTable
+              resource="daemonsets"
+              name={name}
+              namespace={namespace}
+            />
+          ),
+        },
+        {
+          value: 'monitor',
+          label: t('common.tabs.monitor', { defaultValue: 'Monitor' }),
+          content: (
+            <PodMonitoring
+              namespace={namespace}
+              pods={pods}
+              containers={containers}
+              initContainers={initContainers}
+              defaultQueryName={pods[0]?.metadata?.generateName}
+              labelSelector={labelSelector}
+            />
+          ),
+        },
+      ]}
       headerActions={
         <Popover
           open={isRestartPopoverOpen}
@@ -380,12 +378,6 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
           </PopoverContent>
         </Popover>
       }
-      preYamlTabs={extraTabs.filter((tab) =>
-        ['pods', 'containers'].includes(tab.value)
-      )}
-      extraTabs={extraTabs.filter(
-        (tab) => !['pods', 'containers'].includes(tab.value)
-      )}
     />
   )
 }

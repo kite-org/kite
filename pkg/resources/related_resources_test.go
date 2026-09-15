@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func TestDiscoverIngressServices(t *testing.T) {
@@ -251,71 +250,6 @@ func TestCheckInUsedConfigs(t *testing.T) {
 				t.Fatalf("checkInUsedConfigs() = %v, want %v", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestGetHTTPRouteRelatedResources(t *testing.T) {
-	parentKind := gatewayapiv1.Kind("Gateway")
-	backendKind := gatewayapiv1.Kind("ConfigMap")
-	customKind := gatewayapiv1.Kind("Pod")
-	customGroup := gatewayapiv1.Group("example.com")
-	parentNamespace := gatewayapiv1.Namespace("edge")
-	backendNamespace := gatewayapiv1.Namespace("apps")
-
-	route := &gatewayapiv1.HTTPRoute{
-		Spec: gatewayapiv1.HTTPRouteSpec{
-			CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-				ParentRefs: []gatewayapiv1.ParentReference{
-					{Name: gatewayapiv1.ObjectName("gw-a")},
-					{Name: gatewayapiv1.ObjectName("gw-b"), Kind: &parentKind, Namespace: &parentNamespace},
-					{Name: gatewayapiv1.ObjectName("custom-parent"), Group: &customGroup, Kind: &customKind},
-				},
-			},
-			Rules: []gatewayapiv1.HTTPRouteRule{
-				{
-					BackendRefs: []gatewayapiv1.HTTPBackendRef{
-						{
-							BackendRef: gatewayapiv1.BackendRef{
-								BackendObjectReference: gatewayapiv1.BackendObjectReference{
-									Name: gatewayapiv1.ObjectName("svc-a"),
-								},
-							},
-						},
-						{
-							BackendRef: gatewayapiv1.BackendRef{
-								BackendObjectReference: gatewayapiv1.BackendObjectReference{
-									Name:  gatewayapiv1.ObjectName("custom-backend"),
-									Group: &customGroup,
-									Kind:  &customKind,
-								},
-							},
-						},
-						{
-							BackendRef: gatewayapiv1.BackendRef{
-								BackendObjectReference: gatewayapiv1.BackendObjectReference{
-									Name:      gatewayapiv1.ObjectName("cfg"),
-									Kind:      &backendKind,
-									Namespace: &backendNamespace,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	got := getHTTPRouteRelatedResouces(route, "default")
-	want := []common.RelatedResource{
-		{Type: "gateways", Name: "gw-a", Namespace: "default", APIVersion: gatewayapiv1.GroupVersion.String()},
-		{Type: "gateways", Name: "gw-b", Namespace: "edge", APIVersion: gatewayapiv1.GroupVersion.String()},
-		{Type: "pods", Name: "custom-parent", Namespace: "default", APIVersion: "example.com/v1"},
-		{Type: "services", Name: "svc-a", Namespace: "default", APIVersion: corev1.SchemeGroupVersion.String()},
-		{Type: "pods", Name: "custom-backend", Namespace: "default", APIVersion: "example.com/v1"},
-		{Type: "configmaps", Name: "cfg", Namespace: "apps"},
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("getHTTPRouteRelatedResouces() = %#v, want %#v", got, want)
 	}
 }
 

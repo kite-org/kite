@@ -10,9 +10,11 @@ import { HelmChartListPage } from './pages/helm-chart-list-page'
 import { InitializationPage } from './pages/initialization'
 import { LoginPage } from './pages/login'
 import { Overview } from './pages/overview'
+import { PluginManagementPage } from './pages/plugins'
 import { ResourceDetail } from './pages/resource-detail'
 import { ResourceList } from './pages/resource-list'
 import { SettingsPage } from './pages/settings'
+import { PluginPage } from './plugins/plugin-page'
 
 const subPath = getSubPath()
 
@@ -57,6 +59,14 @@ export const router = createBrowserRouter(
         {
           path: 'dashboard',
           element: <Overview />,
+        },
+        {
+          path: 'plugins',
+          element: <PluginManagementPage />,
+        },
+        {
+          path: 'plugins/:pluginId/*',
+          element: <PluginPage />,
         },
         {
           path: 'settings',

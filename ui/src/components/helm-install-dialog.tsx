@@ -253,8 +253,8 @@ export function HelmInstallDialog({
                 </Label>
                 <div className="flex flex-wrap items-center gap-2">
                   <NamespaceSelector
-                    selectedNamespace={namespace}
-                    handleNamespaceChange={(value) => {
+                    value={namespace}
+                    onChange={(value) => {
                       setNamespace(value)
                       setIsNamespaceManual(false)
                       setDryRunPreview(null)

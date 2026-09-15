@@ -73,11 +73,11 @@ import {
 } from '@/components/pod-overview-sidebar'
 import { PodStatusIcon } from '@/components/pod-status-icon'
 import { ResourceIframeDialogContent } from '@/components/resource-iframe-dialog-content'
+import { ResourceYaml } from '@/components/resource-yaml'
 import { SimpleTable } from '@/components/simple-table'
 import { SimpleYamlEditor } from '@/components/simple-yaml-editor'
 import { WorkloadSummaryCard } from '@/components/workload-overview-parts'
 import { WorkloadPodsCard } from '@/components/workload-pods-card'
-import { YamlEditor } from '@/components/yaml-editor'
 import {
   YamlFileTreeDiffViewerNative as YamlFileTreeDiffViewer,
   YamlFileTreeViewerNative as YamlFileTreeViewer,
@@ -91,10 +91,7 @@ import {
   useHelmReleaseChartSelection,
 } from './helmrelease-chart-selection'
 import { HelmReleaseChartSelector } from './helmrelease-chart-selector'
-import {
-  ResourceDetailShell,
-  type ResourceDetailShellTab,
-} from './resource-detail-shell'
+import { ResourceDetailShell } from './resource-detail-shell'
 
 const helmResourceMetadataByAlias = new Map<string, ResourceMetadata>(
   resourceMetadataList.flatMap((item) =>
@@ -246,8 +243,6 @@ function getHelmRelatedResourceGroupOrder(resource: RelatedResources) {
       return 1.5
     case 'services':
     case 'ingresses':
-    case 'gateways':
-    case 'httproutes':
       return 2
     default:
       return 3
@@ -1550,76 +1545,6 @@ export function HelmReleaseDetail(props: { namespace: string; name: string }) {
     ]
   )
 
-  const tabs = useMemo<ResourceDetailShellTab<HelmRelease>[]>(
-    () => [
-      {
-        value: 'values',
-        label: t('helm.tabs.values'),
-        content: data ? (
-          <YamlEditor
-            value={yaml.dump(data.spec?.values || {}, { indent: 2 })}
-            title={t('helm.tabs.values')}
-            readOnly
-            showControls={false}
-          />
-        ) : null,
-      },
-      {
-        value: 'resources',
-        label: t('common.fields.resources'),
-        content: <ResourcesTable resources={data?.status?.resources} />,
-      },
-      {
-        value: 'history',
-        label: t('common.tabs.history'),
-        content: (
-          <HelmReleaseHistoryTable
-            namespace={namespace}
-            name={name}
-            currentRevision={data?.spec?.revision}
-            onRollbackComplete={refetch}
-          />
-        ),
-      },
-      {
-        value: 'logs',
-        label: t('common.tabs.logs'),
-        content: (
-          <LogViewer
-            namespace={namespace}
-            pods={releasePods || []}
-            containers={containers}
-            initContainers={initContainers}
-            labelSelector={labelSelector}
-          />
-        ),
-      },
-      {
-        value: 'manifest',
-        label: t('helm.tabs.manifest'),
-        content: data ? (
-          <YamlFileTreeViewer
-            files={manifestFiles}
-            title={t('helm.tabs.manifest')}
-            emptyMessage={t('helm.messages.noResources')}
-          />
-        ) : null,
-      },
-    ],
-    [
-      containers,
-      data,
-      initContainers,
-      labelSelector,
-      manifestFiles,
-      name,
-      namespace,
-      refetch,
-      releasePods,
-      t,
-    ]
-  )
-
   return (
     <ResourceDetailShell
       resourceType="helmrelease"
@@ -1640,16 +1565,70 @@ export function HelmReleaseDetail(props: { namespace: string; name: string }) {
           />
         ) : null
       }
-      overview={
-        data ? (
-          <HelmReleaseOverview
-            release={data}
-            pods={releasePods}
-            isPodsLoading={isPodsLoading}
-          />
-        ) : null
-      }
-      preYamlTabs={tabs}
+      tabs={[
+        {
+          value: 'overview',
+          label: t('common.tabs.overview'),
+          content: data ? (
+            <HelmReleaseOverview
+              release={data}
+              pods={releasePods}
+              isPodsLoading={isPodsLoading}
+            />
+          ) : null,
+        },
+        {
+          value: 'values',
+          label: t('helm.tabs.values'),
+          content: data ? (
+            <ResourceYaml
+              value={data.spec?.values || {}}
+              title={t('helm.tabs.values')}
+            />
+          ) : null,
+        },
+        {
+          value: 'resources',
+          label: t('common.fields.resources'),
+          content: <ResourcesTable resources={data?.status?.resources} />,
+        },
+        {
+          value: 'history',
+          label: t('common.tabs.history'),
+          content: (
+            <HelmReleaseHistoryTable
+              namespace={namespace}
+              name={name}
+              currentRevision={data?.spec?.revision}
+              onRollbackComplete={refetch}
+            />
+          ),
+        },
+        {
+          value: 'logs',
+          label: t('common.tabs.logs'),
+          content: (
+            <LogViewer
+              namespace={namespace}
+              pods={releasePods || []}
+              containers={containers}
+              initContainers={initContainers}
+              labelSelector={labelSelector}
+            />
+          ),
+        },
+        {
+          value: 'manifest',
+          label: t('helm.tabs.manifest'),
+          content: data ? (
+            <YamlFileTreeViewer
+              files={manifestFiles}
+              title={t('helm.tabs.manifest')}
+              emptyMessage={t('helm.messages.noResources')}
+            />
+          ) : null,
+        },
+      ]}
       showDescribe={false}
       showDelete
       headerActions={
