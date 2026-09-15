@@ -33,6 +33,7 @@ import { NodeDetail } from './node-detail'
 import { NodeListPage } from './node-list-page'
 import { PodDetail } from './pod-detail'
 import { PodListPage } from './pod-list-page'
+import { PoliciesListPage } from './policies-list-page'
 import { PVListPage } from './pv-list-page'
 import { PVCListPage } from './pvc-list-page'
 import { SecretDetail } from './secret-detail'
@@ -133,6 +134,10 @@ function getResourceViews(resourceType: ResourceType): ResourceViewDefinition {
     case 'crds':
       return {
         listPage: () => <CRDListPage />,
+      }
+    case 'policies':
+      return {
+        listPage: () => <PoliciesListPage />,
       }
     case 'nodes':
       return {
