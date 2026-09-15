@@ -397,8 +397,6 @@
     "services": "Services",
     "ingresses": "Ingresses",
     "networkpolicies": "NetworkPolicies",
-    "gateways": "Gateways",
-    "httproutes": "HTTPRoutes",
     "configMaps": "ConfigMaps",
     "secrets": "Secrets",
     "persistentvolumeclaims": "PVCs",
@@ -1457,6 +1455,7 @@
     }
   },
   "plugins": {
+    "providedBy": "由 {{name}} 插件提供",
     "previewReadme": "预览 {{name}} README",
     "loadingReadme": "正在加载 README…",
     "readmeFailed": "无法加载 README",
@@ -1494,5 +1493,9 @@
     "browseCatalog": "浏览插件目录",
     "availableVersion": "可更新至：{{version}}",
     "configureCatalog": "配置 Catalog"
+  },
+  "secret": {
+    "showBase64": "显示 Base64",
+    "decodeValues": "解码值"
   }
 }

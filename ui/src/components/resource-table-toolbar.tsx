@@ -148,8 +148,8 @@ export function ResourceTableToolbar<T>({
           )}
           {namespace && (
             <NamespaceSelector
-              selectedNamespace={namespace.value}
-              handleNamespaceChange={namespace.onChange}
+              value={namespace.value}
+              onChange={namespace.onChange}
               showAll={true}
               multiple={true}
             />

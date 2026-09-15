@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { NamespaceSelectorProps } from '@kite-dev/plugin-sdk/ui'
 import { Namespace } from 'kubernetes-types/core/v1'
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 
@@ -20,19 +21,9 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 
-export interface NamespaceSelectorProps {
-  selectedNamespace?: string
-  handleNamespaceChange: (namespace: string) => void
-  showAll?: boolean
-  disabled?: boolean
-  triggerClassName?: string
-  multiple?: boolean
-  modal?: boolean
-}
-
 export function NamespaceSelector({
-  selectedNamespace,
-  handleNamespaceChange,
+  value,
+  onChange,
   showAll = false,
   disabled = false,
   triggerClassName,
@@ -42,9 +33,9 @@ export function NamespaceSelector({
   const [open, setOpen] = useState(false)
   const { data, isLoading } = useResources('namespaces')
   const selectedNamespaces = useMemo(() => {
-    if (!selectedNamespace || selectedNamespace === '_all') return []
-    return selectedNamespace.split(',').filter(Boolean)
-  }, [selectedNamespace])
+    if (!value || value === '_all') return []
+    return value.split(',').filter(Boolean)
+  }, [value])
 
   const sortedNamespaces = useMemo(() => {
     if (!data) return []
@@ -56,20 +47,20 @@ export function NamespaceSelector({
   }, [data])
 
   const triggerLabel =
-    selectedNamespace === '_all'
+    value === '_all'
       ? 'All Namespaces'
       : multiple && selectedNamespaces.length > 1
         ? `${selectedNamespaces.length} Namespaces`
-        : selectedNamespace || `Select namespace${multiple ? 's' : ''}...`
+        : value || `Select namespace${multiple ? 's' : ''}...`
 
   const selectNamespace = (namespace: string) => {
-    handleNamespaceChange(namespace)
+    onChange(namespace)
     setOpen(false)
   }
 
   const toggleNamespace = (namespace: string) => {
-    if (selectedNamespace === '_all') {
-      handleNamespaceChange(namespace)
+    if (value === '_all') {
+      onChange(namespace)
       return
     }
 
@@ -77,9 +68,7 @@ export function NamespaceSelector({
       ? selectedNamespaces.filter((name) => name !== namespace)
       : [...selectedNamespaces, namespace]
 
-    handleNamespaceChange(
-      nextNamespaces.length > 0 ? nextNamespaces.join(',') : '_all'
-    )
+    onChange(nextNamespaces.length > 0 ? nextNamespaces.join(',') : '_all')
   }
 
   const handleNamespaceSelect = (namespace: string) => {
@@ -129,16 +118,14 @@ export function NamespaceSelector({
                     <CommandItem
                       value="_all"
                       onSelect={() => {
-                        handleNamespaceChange('_all')
+                        onChange('_all')
                         setOpen(false)
                       }}
                     >
                       <Check
                         className={cn(
                           'mr-2 h-4 w-4 shrink-0',
-                          selectedNamespace === '_all'
-                            ? 'opacity-100'
-                            : 'opacity-0'
+                          value === '_all' ? 'opacity-100' : 'opacity-0'
                         )}
                       />
                       <span className="truncate">All Namespaces</span>
@@ -149,7 +136,7 @@ export function NamespaceSelector({
                     const name = ns.metadata?.name || ''
                     const selected = multiple
                       ? selectedNamespaces.includes(name)
-                      : selectedNamespace === name
+                      : value === name
 
                     return (
                       <CommandItem

@@ -392,8 +392,6 @@
     "services": "Services",
     "ingresses": "Ingresses",
     "networkpolicies": "Network Policies",
-    "gateways": "Gateways",
-    "httproutes": "HTTP Routes",
     "configMaps": "ConfigMaps",
     "secrets": "Secrets",
     "persistentvolumeclaims": "Persistent Volume Claims",
@@ -1370,6 +1368,7 @@
     }
   },
   "plugins": {
+    "providedBy": "Provided by {{name}} plugin",
     "previewReadme": "Preview {{name}} README",
     "loadingReadme": "Loading README…",
     "readmeFailed": "Could not load README",
@@ -1407,5 +1406,9 @@
     "browseCatalog": "Browse catalog",
     "availableVersion": "Available update: {{version}}",
     "configureCatalog": "Configure catalog"
+  },
+  "secret": {
+    "showBase64": "Show Base64",
+    "decodeValues": "Decode Values"
   }
 }

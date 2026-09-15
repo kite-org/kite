@@ -6,15 +6,19 @@ outline: deep
 
 Kite 插件是一个运行在 Kite 内部的 React 前端模块。它可以在不重新编译 Kite 的前提下，为 Kite 增加页面、侧边栏菜单和针对自定义资源的专属管理界面。
 
-插件通过 [`@kite-dev/plugin-sdk`](https://github.com/kite-org/plugin-sdk) 编写和构建，打包为 `.tar.gz` 归档，由 Kite 管理员在 **插件管理** 页面安装。安装后，供所有登录用户使用。
+插件通过 [`@kite-dev/plugin-sdk`](https://github.com/kite-org/kite-plugins/tree/main/packages/plugin-sdk) 编写和构建，打包为 `.tar.gz` 归档，由 Kite 管理员在 **插件管理** 页面安装。安装后，供所有登录用户使用。
 
 ## 插件能做什么
 
-- **注册页面和路由**：每个插件拥有 `/plugins/<插件 ID>/` 下的独立路由空间，页面内容完全由插件决定，支持路径参数和嵌套路由。
-- **注册侧边栏菜单**：可以创建插件自己的菜单分组，也可以把菜单项挂进 Kite 内置的分组（工作负载、流量、存储、配置、安全等）。
+- **注册页面和路由**：可按需在 `/plugins/<插件 ID>/` 下注册独立页面，展示单种或多种资源，支持路径参数和嵌套路由。
+- **注册侧边栏菜单**：可以创建插件自己的菜单分组，也可以把菜单项挂进 Kite 内置的分组（工作负载、流量、存储、配置、安全等）。菜单既能指向插件路由，也能直接打开 CRD 列表。
+- **扩展资源列表和详情**：为原生资源和通用 CR 页追加列表列、详情 Tab，直接读取当前资源数据，参与表格搜索、排序和列显隐。
+- **接管自定义资源页面**：为 CRD 提供完整的列表页、详情页，沿用 Kite 的 CRD URL，无需额外注册路由或菜单。可以只替换其中一页；原生资源整页不支持替换。
 - **浏览和管理任意 Kubernetes 资源**：包括 CRD 自定义资源。通过 SDK 的资源 Hook 查询列表和详情，执行创建、更新、删除、YAML 应用等写操作。
 - **复用宿主能力**：插件直接使用 Kite 的认证、集群切换、命名空间选择、查询缓存、UI 组件（表格、详情页骨架、YAML 编辑器、对话框等）以及可观测性接口（指标、日志流）。
 - **调用既有 Kite API**：通过 `apiClient` 以当前用户身份访问 Kite 已有的全部后端接口。
+
+路由、菜单和资源扩展可以独立使用或组合。配置和接口用法见 [API 参考](./api)。
 
 一个典型的插件例子是 [cert-manager 插件](https://github.com/kite-org/kite-plugins/tree/main/plugins/cert-manager)：它为 Certificate、Issuer、CertificateRequest、Order、Challenge 等 CRD 提供了完整的管理界面，包含资源列表、详情页、状态徽标和 YAML 编辑。
 
@@ -48,8 +52,7 @@ Kite 插件是一个运行在 Kite 内部的 React 前端模块。它可以在�
 | 仓库                                                     | 作用                                                             |
 | -------------------------------------------------------- | ---------------------------------------------------------------- |
 | [kite](https://github.com/kite-org/kite)                 | 宿主应用：插件加载、资产分发、管理 API                           |
-| [plugin-sdk](https://github.com/kite-org/plugin-sdk)     | `@kite-dev/plugin-sdk`：类型定义、构建配置、打包 CLI、项目脚手架 |
-| [kite-plugins](https://github.com/kite-org/kite-plugins) | 官方插件集合与插件目录（cert-manager、hello-world 等）           |
+| [kite-plugins](https://github.com/kite-org/kite-plugins) | SDK、创建器、官方插件集合与插件目录；SDK 位于 `packages/plugin-sdk`，创建器位于 `packages/create-plugin-sdk` |
 
 ## 接下来
 

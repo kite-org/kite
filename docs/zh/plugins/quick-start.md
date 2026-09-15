@@ -110,7 +110,8 @@ export default definePlugin({
 要点：
 
 - 路由路径相对于 `/plugins/my-plugin`。空字符串 `''` 是插件首页；路径支持 `:namespace/:name` 这样的命名参数。
-- `menus` 中的 `parent` 可以是 Kite 内置分组（`core:workloads`、`core:storage`、`core:other` 等），也可以省略形成顶级菜单；不带 `route` 的菜单是分组标题。
+- `menus` 中的 `parent` 可以是 Kite 内置分组（`core:workloads`、`core:storage`、`core:other` 等），也可以省略形成顶级菜单。`route` 指向插件路由，`resource: { group, resource }` 直接指向 CRD 列表；两者都不带的菜单是分组标题。
+- `routes`、`menus`、`resources` 均可省略。`resources` 可追加列表列、详情 Tab 或接管自定义资源页面，详见 [API 参考：资源扩展](./api#资源扩展)。
 - `element` 接收任意 React 节点。页面组件用 `React.lazy(() => import(...))` 懒加载，CSS 和浏览器依赖放在页面模块里。
 - `plugin.config.tsx` 会在构建时于 Node.js 中执行一次以提取路由和菜单元数据，因此其中的声明不能依赖浏览器全局变量。
 
@@ -195,7 +196,7 @@ pnpm run pack    # 打包 dist/ 为归档
 | `pnpm run lint` / `lint:fix` | ESLint 检查 / 自动修复 |
 | `pnpm run format` / `format:check` | Prettier 格式化 / 检查 |
 | `pnpm run build` | 类型检查并构建到 `dist/` |
-| `pnpm run dev` | `vite build --watch`，文件变更时重新构建 |
+| `pnpm run dev` | 启动开发服务并监听文件变更，输出开发插件地址 |
 | `pnpm run pack` | 打包当前 `dist/` |
 
 ## 安装到 Kite
@@ -204,7 +205,9 @@ pnpm run pack    # 打包 dist/ 为归档
 2. 点击 **从文件安装**，选择 `my-plugin-0.1.0.tar.gz`。
 3. 安装完成后插件自动启用，侧边栏 **其他** 分组中出现菜单项，点击即可打开插件页面。
 
-后续修改代码后的更新流程：递增 `package.json` 中的 `version` → `pnpm run build && pnpm run pack` → 再次从文件安装。同一 ID + 版本的包内容不可变，内容变了就必须换版本号，否则 Kite 会拒绝安装。
+开发时运行 `pnpm dev`，将输出地址配置到 Kite 的 `PLUGIN_DEV_URL` 启动环境变量。修改代码并等待构建完成后，刷新 Kite 页面即可，无需反复打包安装。详见[调试](./debugging)。
+
+发布安装包时，递增 `package.json` 中的 `version` → `pnpm run build && pnpm run pack` → 再次从文件安装。同一 ID + 版本的安装包内容不可变，内容变了就必须换版本号，否则 Kite 会拒绝安装。
 
 ## 样式
 

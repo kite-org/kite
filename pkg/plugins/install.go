@@ -25,7 +25,7 @@ const (
 	maxExpandedSize = 200 * 1024 * 1024
 )
 
-// Serialize in-process asset changes; SQLite ignores FOR UPDATE.
+// Coordinate asset installation, recovery, and removal within this process.
 var mutationMu sync.Mutex
 
 func installArchive(reader io.Reader, expected *CatalogPlugin, enabled bool) (string, error) {
