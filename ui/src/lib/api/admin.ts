@@ -365,6 +365,16 @@ export interface GeneralSetting {
   aiApiKeyConfigured: boolean
   aiBaseUrl: string
   aiMaxTokens: number
+  smtpEnabled: boolean
+  smtpHost: string
+  smtpPort: number
+  smtpUsername: string
+  smtpPasswordConfigured: boolean
+  smtpFromEmail: string
+  smtpFromName: string
+  smtpEncryption: 'none' | 'starttls' | 'tls'
+  smtpSkipTLSVerify: boolean
+  smtpTimeoutSeconds: number
   kubectlEnabled: boolean
   kubectlImage: string
   nodeTerminalImage: string
@@ -384,6 +394,17 @@ export interface GeneralSettingUpdateRequest {
   aiApiKey?: string
   aiBaseUrl?: string
   aiMaxTokens?: number
+  smtpEnabled?: boolean
+  smtpHost?: string
+  smtpPort?: number
+  smtpUsername?: string
+  smtpPassword?: string
+  smtpClearPassword?: boolean
+  smtpFromEmail?: string
+  smtpFromName?: string
+  smtpEncryption?: 'none' | 'starttls' | 'tls'
+  smtpSkipTLSVerify?: boolean
+  smtpTimeoutSeconds?: number
   kubectlEnabled?: boolean
   kubectlImage?: string
   nodeTerminalImage?: string
@@ -447,6 +468,27 @@ export const updateGeneralSetting = async (
   data: GeneralSettingUpdateRequest
 ): Promise<GeneralSetting> => {
   return await apiClient.put<GeneralSetting>('/admin/general-setting/', data)
+}
+
+export interface SMTPTestRequest {
+  recipient: string
+  smtpEnabled?: boolean
+  smtpHost?: string
+  smtpPort?: number
+  smtpUsername?: string
+  smtpPassword?: string
+  smtpFromEmail?: string
+  smtpFromName?: string
+  smtpEncryption?: 'none' | 'starttls' | 'tls'
+  smtpSkipTLSVerify?: boolean
+  smtpTimeoutSeconds?: number
+}
+
+export const testSMTPSetting = async (data: SMTPTestRequest) => {
+  return await apiClient.post<{ message: string }>(
+    '/admin/general-setting/smtp/test',
+    data
+  )
 }
 
 export const setGlobalSidebarPreference = async (sidebarPreference: string) => {

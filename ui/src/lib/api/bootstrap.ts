@@ -26,6 +26,7 @@ export interface BootstrapResponse {
   setup: BootstrapSetup
   auth: AuthProviderCatalog
   capabilities: BootstrapCapabilities
+  managedSections: Record<string, boolean>
   user: AuthUser | null
   hasGlobalSidebarPreference: boolean
   globalSidebarPreference: string

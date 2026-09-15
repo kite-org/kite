@@ -70,6 +70,11 @@ func CanAccessCluster(user model.User, name string) bool {
 	return false
 }
 
+func CanAccessClusterCurrent(user model.User, name string) bool {
+	user.Roles = nil
+	return CanAccessCluster(user, name)
+}
+
 func CanAccessNamespace(user model.User, cluster, name string) bool {
 	roles := GetUserRoles(user)
 	for _, role := range roles {
