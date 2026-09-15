@@ -13,7 +13,6 @@ import (
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"k8s.io/klog/v2"
 )
 
@@ -53,35 +52,27 @@ func ListActive(c *gin.Context) {
 		plugins = append(plugins, plugin)
 	}
 	c.Header("Cache-Control", "no-store")
-	c.JSON(http.StatusOK, gin.H{"plugins": plugins})
+	c.JSON(http.StatusOK, gin.H{"plugins": plugins, "devUrl": common.PluginDevURL})
 }
 
-func installedPlugins(id string) ([]InstalledPlugin, error) {
-	var records []model.Plugin
-	query := model.DB.Order("id")
-	if id != "" {
-		query = query.Where("id = ?", id)
+func describeInstalledPlugin(record model.Plugin) InstalledPlugin {
+	manifest, err := loadInstalledPlugin(record, record.Enabled)
+	plugin := InstalledPlugin{ID: record.ID, Enabled: record.Enabled, Version: record.Version, Manifest: manifest}
+	if err != nil {
+		plugin.Error = err.Error()
 	}
-	if err := query.Find(&records).Error; err != nil {
-		return nil, err
-	}
-	plugins := make([]InstalledPlugin, 0, len(records))
-	for _, record := range records {
-		manifest, err := loadInstalledPlugin(record, record.Enabled)
-		plugin := InstalledPlugin{ID: record.ID, Enabled: record.Enabled, Version: record.Version, Manifest: manifest}
-		if err != nil {
-			plugin.Error = err.Error()
-		}
-		plugins = append(plugins, plugin)
-	}
-	return plugins, nil
+	return plugin
 }
 
 func ListInstalled(c *gin.Context) {
-	plugins, err := installedPlugins("")
-	if err != nil {
+	var records []model.Plugin
+	if err := model.DB.Order("id").Find(&records).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	plugins := make([]InstalledPlugin, 0, len(records))
+	for _, record := range records {
+		plugins = append(plugins, describeInstalledPlugin(record))
 	}
 	c.Header("Cache-Control", "no-store")
 	c.JSON(http.StatusOK, gin.H{"plugins": plugins})
@@ -183,14 +174,11 @@ func Update(c *gin.Context) {
 	}
 	id := c.Param("id")
 	mutationMu.Lock()
-	err := model.DB.Transaction(func(tx *gorm.DB) error {
-		var plugin model.Plugin
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&plugin, "id = ?", id).Error; err != nil {
-			return err
-		}
-		plugin.Enabled = *request.Enabled
-		return tx.Save(&plugin).Error
-	})
+	var plugin model.Plugin
+	err := model.DB.First(&plugin, "id = ?", id).Error
+	if err == nil {
+		err = model.DB.Model(&plugin).Update("enabled", *request.Enabled).Error
+	}
 	if err == nil {
 		forgetRecovery(id)
 	}
@@ -208,16 +196,16 @@ func Update(c *gin.Context) {
 }
 
 func respondInstalled(c *gin.Context, id string, status int) {
-	plugins, err := installedPlugins(id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	var record model.Plugin
+	if err := model.DB.First(&record, "id = ?", id).Error; err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			status = http.StatusNotFound
+		}
+		c.JSON(status, gin.H{"error": err.Error()})
 		return
 	}
-	if len(plugins) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "plugin is no longer installed"})
-		return
-	}
-	c.JSON(status, plugins[0])
+	c.JSON(status, describeInstalledPlugin(record))
 }
 
 func Delete(c *gin.Context) {

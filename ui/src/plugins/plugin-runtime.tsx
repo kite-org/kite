@@ -14,7 +14,11 @@ import {
   validateModule,
 } from '@kite-dev/plugin-sdk/validation'
 
-import { useActivePlugins, type ActivePlugin } from '@/lib/api/plugins'
+import {
+  useActivePlugins,
+  useDevelopmentPlugin,
+  type ActivePlugin,
+} from '@/lib/api/plugins'
 
 import { PluginsContext, type LoadedPlugin } from './plugin-context'
 
@@ -40,6 +44,7 @@ function dispose(entry: LoadingPlugin) {
 export function PluginRuntime({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const active = useActivePlugins(!!user)
+  const development = useDevelopmentPlugin(active.data?.devUrl, !!user)
   const entries = useRef(new Map<string, LoadingPlugin>())
   const [plugins, setPlugins] = useState<LoadedPlugin[]>([])
 
@@ -68,6 +73,7 @@ export function PluginRuntime({ children }: { children: ReactNode }) {
         .catch((error: unknown) => {
           entry.styles.forEach((style) => style.remove())
           if (entry.cancelled) return
+          console.error(`[Plugin ${id}] Failed to load`, error)
           entry.record = {
             ...plugin,
             error: error instanceof Error ? error.message : String(error),
@@ -79,15 +85,34 @@ export function PluginRuntime({ children }: { children: ReactNode }) {
   )
 
   useEffect(() => {
+    if (development.error) {
+      console.error(
+        `[Plugin development] Failed to load ${active.data?.devUrl}`,
+        development.error
+      )
+    }
+  }, [active.data?.devUrl, development.error])
+
+  useEffect(() => {
     const currentEntries = entries.current
+    if (user && development.isLoading) return
     const desired = user ? (active.data?.plugins ?? []) : []
+    const devPlugin = user ? development.data : undefined
+    const resolved = devPlugin
+      ? [
+          ...desired.filter(
+            (plugin) => plugin.manifest.id !== devPlugin.manifest.id
+          ),
+          devPlugin,
+        ]
+      : desired
     for (const [id, entry] of currentEntries) {
-      if (!desired.some((plugin) => plugin.manifest.id === id)) {
+      if (!resolved.some((plugin) => plugin.manifest.id === id)) {
         dispose(entry)
         currentEntries.delete(id)
       }
     }
-    for (const plugin of desired) {
+    for (const plugin of resolved) {
       const existing = currentEntries.get(plugin.manifest.id)
       if (
         existing?.record.assetBaseUrl === plugin.assetBaseUrl &&
@@ -115,7 +140,7 @@ export function PluginRuntime({ children }: { children: ReactNode }) {
       }
     }
     publish()
-  }, [active.data, user, publish])
+  }, [active.data, development.data, development.isLoading, user, publish])
 
   useEffect(() => {
     const currentEntries = entries.current
@@ -129,7 +154,7 @@ export function PluginRuntime({ children }: { children: ReactNode }) {
     <PluginsContext.Provider
       value={{
         plugins,
-        isLoading: active.isLoading,
+        isLoading: active.isLoading || development.isLoading,
         loadPlugin,
       }}
     >

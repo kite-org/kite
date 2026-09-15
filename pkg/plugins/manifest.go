@@ -27,6 +27,7 @@ type Manifest struct {
 	Styles        []string        `json:"styles,omitempty"`
 	Routes        json.RawMessage `json:"routes"`
 	Menus         json.RawMessage `json:"menus"`
+	Resources     json.RawMessage `json:"resources"`
 }
 
 type Requirements struct {

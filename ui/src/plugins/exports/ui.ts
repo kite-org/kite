@@ -36,6 +36,7 @@ export {
 } from '@/components/ui/select'
 export { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 export { NamespaceSelector } from '@/components/selector/namespace-selector'
+export { ResourceYaml } from '@/components/resource-yaml'
 export { SimpleYamlEditor as YamlEditor } from '@/components/simple-yaml-editor'
 export {
   PluginResourceTable as ResourceTable,

@@ -4,7 +4,7 @@ import type { NamespaceContext as NamespaceValue } from '@kite-dev/plugin-sdk/ho
 
 import { getClusterScopedStorageKey } from '@/lib/current-cluster'
 
-const NamespaceContext = createContext<NamespaceValue | null>(null)
+export const PluginNamespaceContext = createContext<NamespaceValue | null>(null)
 
 export function PluginNamespaceProvider({ children }: { children: ReactNode }) {
   const storageKey = getClusterScopedStorageKey('selectedNamespace')
@@ -20,12 +20,12 @@ export function PluginNamespaceProvider({ children }: { children: ReactNode }) {
     setValue(value)
   }
   return (
-    <NamespaceContext.Provider value={{ namespace, setNamespace }}>
+    <PluginNamespaceContext.Provider value={{ namespace, setNamespace }}>
       {children}
-    </NamespaceContext.Provider>
+    </PluginNamespaceContext.Provider>
   )
 }
 
 export function usePluginNamespace() {
-  return useContext(NamespaceContext)!
+  return useContext(PluginNamespaceContext)!
 }

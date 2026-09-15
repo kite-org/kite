@@ -1,10 +1,7 @@
-// API client with authentication support
+import type { APIRequestOptions } from '@kite-dev/plugin-sdk/api'
+
 import { appendCurrentClusterHeader } from './current-cluster'
 import { withSubPath } from './subpath'
-
-export interface ApiRequestOptions extends RequestInit {
-  retryOnUnauthorized?: boolean
-}
 
 class ApiClient {
   private baseUrl: string = ''
@@ -40,7 +37,7 @@ class ApiClient {
 
   async request(
     url: string,
-    options: ApiRequestOptions = {}
+    options: APIRequestOptions = {}
   ): Promise<Response> {
     const fullUrl = withSubPath(this.baseUrl + url)
 
@@ -88,7 +85,7 @@ class ApiClient {
 
   private async makeRequest<T>(
     url: string,
-    options: ApiRequestOptions = {}
+    options: APIRequestOptions = {}
   ): Promise<T> {
     const response = await this.request(url, options)
 
@@ -107,14 +104,14 @@ class ApiClient {
     return (await response.text()) as T
   }
 
-  async get<T>(url: string, options?: ApiRequestOptions): Promise<T> {
+  async get<T>(url: string, options?: APIRequestOptions): Promise<T> {
     return this.makeRequest<T>(url, { ...options, method: 'GET' })
   }
 
   async post<T>(
     url: string,
     data?: unknown,
-    options?: ApiRequestOptions
+    options?: APIRequestOptions
   ): Promise<T> {
     const isFormData = data instanceof FormData
     return this.makeRequest<T>(url, {
@@ -131,7 +128,7 @@ class ApiClient {
   async put<T>(
     url: string,
     data?: unknown,
-    options?: ApiRequestOptions
+    options?: APIRequestOptions
   ): Promise<T> {
     const isFormData = data instanceof FormData
     return this.makeRequest<T>(url, {
@@ -145,14 +142,14 @@ class ApiClient {
     })
   }
 
-  async delete<T>(url: string, options?: ApiRequestOptions): Promise<T> {
+  async delete<T>(url: string, options?: APIRequestOptions): Promise<T> {
     return this.makeRequest<T>(url, { ...options, method: 'DELETE' })
   }
 
   async patch<T>(
     url: string,
     data?: unknown,
-    options?: ApiRequestOptions
+    options?: APIRequestOptions
   ): Promise<T> {
     const isFormData = data instanceof FormData
     return this.makeRequest<T>(url, {

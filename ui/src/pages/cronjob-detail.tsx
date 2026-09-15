@@ -29,13 +29,11 @@ import { CronJobJobLink, CronJobOverview } from '@/components/cronjob-overview'
 import { EventTable } from '@/components/event-table'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
 import { ResourceHistoryTable } from '@/components/resource-history-table'
+import { ResourceYaml } from '@/components/resource-yaml'
 import { Column, SimpleTable } from '@/components/simple-table'
 import { VolumeTable } from '@/components/volume-table'
 
-import {
-  ResourceDetailShell,
-  type ResourceDetailShellTab,
-} from './resource-detail-shell'
+import { ResourceDetailShell } from './resource-detail-shell'
 
 export function CronJobDetail(props: { namespace: string; name: string }) {
   const { namespace, name } = props
@@ -251,132 +249,6 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
     [containers, initContainers]
   )
 
-  const extraTabs = useMemo<ResourceDetailShellTab<CronJob>[]>(() => {
-    const tabs: ResourceDetailShellTab<CronJob>[] = [
-      {
-        value: 'jobs',
-        label: (
-          <>
-            {t('common.tabs.jobs', 'Jobs')}
-            <Badge variant="secondary">{cronJobJobs.length}</Badge>
-          </>
-        ),
-        content: (
-          <Card>
-            <CardContent className="pt-6">
-              <SimpleTable<Job>
-                data={sortedJobs}
-                columns={jobColumns}
-                emptyMessage={t(
-                  'cronjobs.noJobs',
-                  'No jobs found for this CronJob'
-                )}
-                pagination={{
-                  enabled: true,
-                  pageSize: 20,
-                  showPageInfo: true,
-                }}
-              />
-            </CardContent>
-          </Card>
-        ),
-      },
-      {
-        value: 'containers',
-        label: (
-          <>
-            {t('common.tabs.containers', 'Containers')}
-            <Badge variant="secondary">
-              {containers.length + initContainers.length}
-            </Badge>
-          </>
-        ),
-        content: (
-          <div className="space-y-4">
-            {initContainers.length > 0 ? (
-              <div className="space-y-3">
-                {initContainers.map((container) => (
-                  <ContainerInfoCard
-                    key={container.name}
-                    container={container}
-                    init
-                  />
-                ))}
-              </div>
-            ) : null}
-            <div className="space-y-3">
-              {containers.map((container) => (
-                <ContainerInfoCard key={container.name} container={container} />
-              ))}
-            </div>
-          </div>
-        ),
-      },
-      {
-        value: 'volumes',
-        label: (
-          <>
-            {t('common.tabs.volumes', 'Volumes')}
-            <Badge variant="secondary">{volumes.length}</Badge>
-          </>
-        ),
-        content: (
-          <VolumeTable
-            namespace={namespace}
-            volumes={volumes}
-            containers={allContainers}
-            isLoading={isLoading}
-          />
-        ),
-      },
-      {
-        value: 'related',
-        label: t('common.tabs.related', 'Related'),
-        content: (
-          <RelatedResourcesTable
-            resource="cronjobs"
-            name={name}
-            namespace={namespace}
-          />
-        ),
-      },
-      {
-        value: 'history',
-        label: t('common.tabs.history', 'History'),
-        content: cronjob ? (
-          <ResourceHistoryTable
-            resourceType="cronjobs"
-            name={name}
-            namespace={namespace}
-            currentResource={cronjob}
-          />
-        ) : null,
-      },
-      {
-        value: 'events',
-        label: t('common.tabs.events', 'Events'),
-        content: (
-          <EventTable resource="cronjobs" name={name} namespace={namespace} />
-        ),
-      },
-    ]
-
-    return tabs
-  }, [
-    allContainers,
-    cronJobJobs,
-    cronjob,
-    containers,
-    initContainers,
-    isLoading,
-    jobColumns,
-    name,
-    namespace,
-    sortedJobs,
-    t,
-    volumes,
-  ])
-
   return (
     <ResourceDetailShell
       resourceType="cronjobs"
@@ -387,20 +259,144 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
       isLoading={isLoading}
       error={isError ? cronJobError : null}
       onRefresh={handleRefresh}
-      onSaveYaml={handleSaveYaml}
-      overview={
-        cronjob ? (
-          <CronJobOverview
-            cronjob={cronjob}
-            namespace={namespace}
-            name={name}
-            jobs={sortedJobs}
-            isJobsLoading={isLoadingJobs}
-            events={cronJobEvents}
-            isEventsLoading={isEventsLoading}
-          />
-        ) : null
-      }
+      tabs={[
+        {
+          value: 'overview',
+          label: t('common.tabs.overview'),
+          content: cronjob ? (
+            <CronJobOverview
+              cronjob={cronjob}
+              namespace={namespace}
+              name={name}
+              jobs={sortedJobs}
+              isJobsLoading={isLoadingJobs}
+              events={cronJobEvents}
+              isEventsLoading={isEventsLoading}
+            />
+          ) : null,
+        },
+        {
+          value: 'jobs',
+          label: (
+            <>
+              {t('common.tabs.jobs', 'Jobs')}
+              <Badge variant="secondary">{cronJobJobs.length}</Badge>
+            </>
+          ),
+          content: (
+            <Card>
+              <CardContent className="pt-6">
+                <SimpleTable<Job>
+                  data={sortedJobs}
+                  columns={jobColumns}
+                  emptyMessage={t(
+                    'cronjobs.noJobs',
+                    'No jobs found for this CronJob'
+                  )}
+                  pagination={{
+                    enabled: true,
+                    pageSize: 20,
+                    showPageInfo: true,
+                  }}
+                />
+              </CardContent>
+            </Card>
+          ),
+        },
+        {
+          value: 'containers',
+          label: (
+            <>
+              {t('common.tabs.containers', 'Containers')}
+              <Badge variant="secondary">
+                {containers.length + initContainers.length}
+              </Badge>
+            </>
+          ),
+          content: (
+            <div className="space-y-4">
+              {initContainers.length > 0 ? (
+                <div className="space-y-3">
+                  {initContainers.map((container) => (
+                    <ContainerInfoCard
+                      key={container.name}
+                      container={container}
+                      init
+                    />
+                  ))}
+                </div>
+              ) : null}
+              <div className="space-y-3">
+                {containers.map((container) => (
+                  <ContainerInfoCard
+                    key={container.name}
+                    container={container}
+                  />
+                ))}
+              </div>
+            </div>
+          ),
+        },
+        {
+          value: 'yaml',
+          label: t('common.tabs.yaml'),
+          content: ({ resource, refreshKey }) => (
+            <ResourceYaml
+              key={refreshKey}
+              value={resource}
+              onSave={handleSaveYaml}
+              fillHeight
+            />
+          ),
+        },
+        {
+          value: 'volumes',
+          label: (
+            <>
+              {t('common.tabs.volumes', 'Volumes')}
+              <Badge variant="secondary">{volumes.length}</Badge>
+            </>
+          ),
+          content: (
+            <VolumeTable
+              namespace={namespace}
+              volumes={volumes}
+              containers={allContainers}
+              isLoading={isLoading}
+            />
+          ),
+        },
+        {
+          value: 'related',
+          label: t('common.tabs.related', 'Related'),
+          content: (
+            <RelatedResourcesTable
+              resource="cronjobs"
+              name={name}
+              namespace={namespace}
+            />
+          ),
+        },
+        {
+          value: 'history',
+          label: t('common.tabs.history', 'History'),
+          content: cronjob ? (
+            <ResourceHistoryTable
+              resourceType="cronjobs"
+              name={name}
+              namespace={namespace}
+              currentResource={cronjob}
+            />
+          ) : null,
+        },
+        {
+          value: 'events',
+          label: t('common.tabs.events', 'Events'),
+          content: (
+            <EventTable resource="cronjobs" name={name} namespace={namespace} />
+          ),
+        },
+      ]}
       headerActions={
         <>
           <Button
@@ -427,12 +423,6 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
           </Button>
         </>
       }
-      preYamlTabs={extraTabs.filter((tab) =>
-        ['jobs', 'containers'].includes(tab.value)
-      )}
-      extraTabs={extraTabs.filter(
-        (tab) => !['jobs', 'containers'].includes(tab.value)
-      )}
     />
   )
 }

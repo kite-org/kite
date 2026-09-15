@@ -168,7 +168,7 @@ export function PluginResourceDetailShell<T>({
     <ResourceDetailShell
       {...props}
       resourceType={resourcePath(resource) as ResourceType}
-      showYaml
+      resourceExtensions={false}
       showDelete={props.showDelete ?? false}
       showClone={props.showClone ?? false}
     />

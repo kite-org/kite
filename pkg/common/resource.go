@@ -79,8 +79,6 @@ const (
 	PodGroups                         ResourceType = "podgroups"
 	PodMetrics                        ResourceType = "podmetrics"
 	NodeMetrics                       ResourceType = "nodemetrics"
-	Gateways                          ResourceType = "gateways"
-	HTTPRoutes                        ResourceType = "httproutes"
 	HorizontalPodAutoscalers          ResourceType = "horizontalpodautoscalers"
 	HelmReleases                      ResourceType = "helmrelease"
 )
@@ -204,10 +202,6 @@ var Registry = []ResourceMeta{
 	// metrics.k8s.io/v1beta1
 	{Kind: "PodMetrics", Singular: "podmetrics", Plural: PodMetrics, Group: "metrics.k8s.io", Version: "v1beta1"},
 	{Kind: "NodeMetrics", Singular: "nodemetrics", Plural: NodeMetrics, Group: "metrics.k8s.io", Version: "v1beta1", ClusterScoped: true},
-
-	// gateway.networking.k8s.io/v1
-	{Kind: "Gateway", Singular: "gateway", Plural: Gateways, Group: "gateway.networking.k8s.io", Version: "v1"},
-	{Kind: "HTTPRoute", Singular: "httproute", Plural: HTTPRoutes, Group: "gateway.networking.k8s.io", Version: "v1", Related: true},
 
 	// autoscaling/v2
 	{Kind: "HorizontalPodAutoscaler", Singular: "horizontalpodautoscaler", Plural: HorizontalPodAutoscalers, Short: []string{"hpa"}, Group: "autoscaling", Version: "v2", Searchable: true, Related: true},

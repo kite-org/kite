@@ -13,12 +13,10 @@ import {
 import { EventTable } from '@/components/event-table'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
 import { ResourceHistoryTable } from '@/components/resource-history-table'
+import { ResourceYaml } from '@/components/resource-yaml'
 import { ServiceOverview } from '@/components/service-overview'
 
-import {
-  ResourceDetailShell,
-  type ResourceDetailShellTab,
-} from './resource-detail-shell'
+import { ResourceDetailShell } from './resource-detail-shell'
 
 export function ServiceDetail(props: { name: string; namespace?: string }) {
   const { namespace, name } = props
@@ -72,42 +70,6 @@ export function ServiceDetail(props: { name: string; namespace?: string }) {
     await handleRefresh()
   }
 
-  const tabs = useMemo<ResourceDetailShellTab<Service>[]>(
-    () => [
-      {
-        value: 'related',
-        label: t('common.tabs.related'),
-        content: (
-          <RelatedResourcesTable
-            resource="services"
-            name={name}
-            namespace={namespace}
-          />
-        ),
-      },
-      {
-        value: 'events',
-        label: t('common.tabs.events'),
-        content: (
-          <EventTable resource="services" name={name} namespace={namespace} />
-        ),
-      },
-      {
-        value: 'history',
-        label: t('common.tabs.history'),
-        content: data ? (
-          <ResourceHistoryTable
-            resourceType="services"
-            name={name}
-            namespace={namespace}
-            currentResource={data}
-          />
-        ) : null,
-      },
-    ],
-    [data, name, namespace, t]
-  )
-
   return (
     <ResourceDetailShell
       resourceType="services"
@@ -118,25 +80,69 @@ export function ServiceDetail(props: { name: string; namespace?: string }) {
       isLoading={isLoading}
       error={isError ? error : null}
       onRefresh={handleRefresh}
-      onSaveYaml={handleSaveYaml}
-      overview={
-        data ? (
-          <ServiceOverview
-            service={data}
-            namespace={namespace}
-            name={name}
-            pods={relatedPods}
-            isPodsLoading={isLoadingPods}
-            endpoints={serviceEndpoints}
-            isEndpointsLoading={isEndpointsLoading}
-            endpointSlices={endpointSlicesQuery.data}
-            isEndpointSlicesLoading={endpointSlicesQuery.isLoading}
-            events={serviceEvents}
-            isEventsLoading={isEventsLoading}
-          />
-        ) : null
-      }
-      extraTabs={tabs}
+      tabs={[
+        {
+          value: 'overview',
+          label: t('common.tabs.overview'),
+          content: data ? (
+            <ServiceOverview
+              service={data}
+              namespace={namespace}
+              name={name}
+              pods={relatedPods}
+              isPodsLoading={isLoadingPods}
+              endpoints={serviceEndpoints}
+              isEndpointsLoading={isEndpointsLoading}
+              endpointSlices={endpointSlicesQuery.data}
+              isEndpointSlicesLoading={endpointSlicesQuery.isLoading}
+              events={serviceEvents}
+              isEventsLoading={isEventsLoading}
+            />
+          ) : null,
+        },
+        {
+          value: 'yaml',
+          label: t('common.tabs.yaml'),
+          content: ({ resource, refreshKey }) => (
+            <ResourceYaml
+              key={refreshKey}
+              value={resource}
+              onSave={handleSaveYaml}
+              fillHeight
+            />
+          ),
+        },
+        {
+          value: 'related',
+          label: t('common.tabs.related'),
+          content: (
+            <RelatedResourcesTable
+              resource="services"
+              name={name}
+              namespace={namespace}
+            />
+          ),
+        },
+        {
+          value: 'events',
+          label: t('common.tabs.events'),
+          content: (
+            <EventTable resource="services" name={name} namespace={namespace} />
+          ),
+        },
+        {
+          value: 'history',
+          label: t('common.tabs.history'),
+          content: data ? (
+            <ResourceHistoryTable
+              resourceType="services"
+              name={name}
+              namespace={namespace}
+              currentResource={data}
+            />
+          ) : null,
+        },
+      ]}
     />
   )
 }

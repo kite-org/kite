@@ -21,3 +21,16 @@ export const PluginsContext = createContext<{
 export function usePlugins() {
   return useContext(PluginsContext)
 }
+
+export function useResourcePlugin(view: 'list' | 'detail', target?: string) {
+  const { plugins } = usePlugins()
+  if (!target?.includes('.')) return
+
+  return plugins.find(
+    (plugin) =>
+      !plugin.invalid &&
+      plugin.manifest.resources.some(
+        (entry) => `${entry.resource}.${entry.group}` === target && entry[view]
+      )
+  )
+}

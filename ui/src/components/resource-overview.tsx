@@ -1,5 +1,5 @@
-import { useMemo, type ReactNode } from 'react'
-import type { ObjectMeta } from 'kubernetes-types/meta/v1'
+import { useMemo } from 'react'
+import type { ResourceOverviewProps as PluginResourceOverviewProps } from '@kite-dev/plugin-sdk/ui'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
@@ -19,21 +19,11 @@ import {
   MetadataListCard,
 } from './pod-overview-sidebar'
 
-export interface ResourceOverviewField {
-  label: ReactNode
-  value: ReactNode
-  mono?: boolean
-  truncate?: boolean
-}
-
-export interface ResourceOverviewProps {
+interface ResourceOverviewProps extends Omit<
+  PluginResourceOverviewProps,
+  'resource'
+> {
   resourceType: ResourceType
-  name: string
-  namespace?: string
-  metadata?: ObjectMeta
-  fields?: ResourceOverviewField[]
-  children?: ReactNode
-  relatedResources?: ReactNode
 }
 
 export function ResourceOverview({

@@ -695,6 +695,7 @@ export const useResources = <T extends ResourceType>(
       options?.limit,
       options?.labelSelector,
       options?.fieldSelector,
+      options?.reduce ?? false,
     ],
     queryFn: () => {
       return fetchResources<ResourcesTypeMap[T]>(resource, namespace, {
