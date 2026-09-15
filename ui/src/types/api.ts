@@ -66,8 +66,6 @@ import { StorageClass, StorageClassList } from 'kubernetes-types/storage/v1'
 
 import type { ResourceType } from '@/lib/resource-metadata'
 
-import { Gateway, HTTPRoute } from './gateway'
-
 export type { ResourceType } from '@/lib/resource-metadata'
 
 export interface CustomResource {
@@ -348,14 +346,6 @@ export interface ResourcesTypeMap {
   limitranges: KubernetesResourceList
   resourcequotas: KubernetesResourceList
   componentstatuses: KubernetesResourceList
-  gateways: {
-    items: Gateway[]
-    metadata?: listMetadataType
-  }
-  httproutes: {
-    items: HTTPRoute[]
-    metadata?: listMetadataType
-  }
   configmaps: ConfigMapList
   secrets: SecretList
   persistentvolumeclaims: PersistentVolumeClaimList
@@ -476,8 +466,6 @@ export interface ResourceTypeMap {
   limitranges: KubernetesResource
   resourcequotas: KubernetesResource
   componentstatuses: KubernetesResource
-  gateways: Gateway
-  httproutes: HTTPRoute
   configmaps: ConfigMap
   secrets: Secret
   persistentvolumeclaims: PersistentVolumeClaim

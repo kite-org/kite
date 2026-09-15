@@ -42,6 +42,7 @@ vi.mock('@/lib/api', () => ({
 
 vi.mock('@/lib/resource-catalog', () => ({
   getResourceMetadata: () => null,
+  getResourceCatalogEntry: () => undefined,
 }))
 
 vi.mock('sonner', () => ({

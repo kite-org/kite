@@ -1,4 +1,5 @@
 import type { PluginManifest } from '@kite-dev/plugin-sdk'
+import { validateManifest } from '@kite-dev/plugin-sdk/validation'
 import { useQuery } from '@tanstack/react-query'
 
 import { apiClient } from '@/lib/api-client'
@@ -37,12 +38,45 @@ export function useActivePlugins(enabled: boolean) {
     queryFn: ({ signal }) =>
       apiClient.get<{
         plugins: ActivePlugin[]
+        devUrl: string
       }>('/plugins', {
         signal,
       }),
     enabled,
     refetchInterval: 15000,
     refetchOnWindowFocus: 'always',
+  })
+}
+
+export function useDevelopmentPlugin(
+  address: string | undefined,
+  enabled: boolean
+) {
+  return useQuery({
+    queryKey: ['plugins', 'development', address],
+    queryFn: async ({ signal }): Promise<ActivePlugin> => {
+      const url = new URL(address!)
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        throw new Error('Plugin development URL must use HTTP or HTTPS')
+      }
+      const response = await fetch(url, {
+        signal: AbortSignal.any([signal, AbortSignal.timeout(10000)]),
+        cache: 'no-store',
+        credentials: 'omit',
+      })
+      if (!response.ok) {
+        throw new Error(
+          `Plugin development URL returned HTTP ${response.status}`
+        )
+      }
+      const manifest: unknown = await response.json()
+      validateManifest(manifest)
+      return { manifest, assetBaseUrl: new URL('.', response.url).href }
+    },
+    enabled: enabled && !!address,
+    staleTime: Infinity,
+    retry: false,
+    refetchOnWindowFocus: false,
   })
 }
 

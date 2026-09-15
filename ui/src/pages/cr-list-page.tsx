@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
+import { PluginResourceView } from '@/plugins/resource-view'
 import { createColumnHelper } from '@tanstack/react-table'
-import * as yaml from 'js-yaml'
 import { CustomResourceDefinition } from 'kubernetes-types/apiextensions/v1'
 import { Eye } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { ResourceTable } from '@/components/resource-table'
-import { YamlEditor } from '@/components/yaml-editor'
+import { ResourceYaml } from '@/components/resource-yaml'
 
 const searchQueryFilter = createSearchFilter<CustomResource>(
   (cr) => cr.metadata?.name,
@@ -32,14 +32,25 @@ const searchQueryFilter = createSearchFilter<CustomResource>(
 const columnHelper = createColumnHelper<CustomResource>()
 
 export function CRListPage() {
+  const { crd } = useParams<{ crd: string }>()
+  return (
+    <PluginResourceView
+      view="list"
+      target={crd}
+      fallback={<CRListPageContent />}
+    />
+  )
+}
+
+function CRListPageContent() {
   const { t } = useTranslation()
   const [isYamlDialogOpen, setIsYamlDialogOpen] = useState(false)
-  const [yamlContent, setYamlContent] = useState('')
+  const [yamlResource, setYamlResource] = useState<CustomResourceDefinition>()
   const { crd } = useParams<{ crd: string }>()
   const { data: crdData, isLoading: isLoadingCRD } = useResource('crds', crd!)
 
   const handleViewYaml = useCallback((crd: CustomResourceDefinition) => {
-    setYamlContent(yaml.dump(crd, { indent: 2 }))
+    setYamlResource(crd)
     setIsYamlDialogOpen(true)
   }, [])
   const extraToolbars = useMemo(() => {
@@ -138,12 +149,7 @@ export function CRListPage() {
               {crdData?.metadata?.name ?? t('status.unknown')}
             </DialogTitle>
           </DialogHeader>
-          <YamlEditor
-            value={yamlContent}
-            readOnly={true}
-            showControls={false}
-            minHeight={600}
-          />
+          <ResourceYaml value={yamlResource} />
         </DialogContent>
       </Dialog>
     </>

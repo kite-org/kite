@@ -40,6 +40,7 @@ var (
 	DBType               = "sqlite"
 	DBDSN                = "dev.db"
 	PluginDir            = "data/plugins"
+	PluginDevURL         = ""
 
 	KiteEncryptKey = "kite-default-encryption-key-change-in-production"
 
@@ -136,6 +137,7 @@ func LoadEnvs() {
 	if v := os.Getenv("PLUGIN_DIR"); v != "" {
 		PluginDir = v
 	}
+	PluginDevURL = strings.TrimSpace(os.Getenv("PLUGIN_DEV_URL"))
 
 	if dbType := os.Getenv("DB_TYPE"); dbType != "" {
 		if dbType != "sqlite" && dbType != "mysql" && dbType != "postgres" {

@@ -39,14 +39,12 @@ import { PodFileBrowser } from '@/components/pod-file-browser'
 import { PodMonitoring } from '@/components/pod-monitoring'
 import { PodOverview } from '@/components/pod-overview'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
+import { ResourceYaml } from '@/components/resource-yaml'
 import { ContainerSelector } from '@/components/selector/container-selector'
 import { Terminal } from '@/components/terminal'
 import { VolumeTable } from '@/components/volume-table'
 
-import {
-  ResourceDetailShell,
-  type ResourceDetailShellTab,
-} from './resource-detail-shell'
+import { ResourceDetailShell } from './resource-detail-shell'
 
 export function PodDetail(props: { namespace: string; name: string }) {
   const { namespace, name } = props
@@ -171,164 +169,7 @@ export function PodDetail(props: { namespace: string; name: string }) {
     pod.status?.phase !== 'Succeeded' &&
     pod.status?.phase !== 'Failed' &&
     !pod.metadata?.annotations?.['kubernetes.io/config.mirror']
-  const extraTabs = useMemo<ResourceDetailShellTab<Pod>[]>(
-    () => [
-      {
-        value: 'containers',
-        label: (
-          <>
-            {t('common.tabs.containers')}
-            <Badge variant="secondary">
-              {(pod?.spec?.containers?.length || 0) +
-                (pod?.spec?.initContainers?.length || 0) +
-                (pod?.spec?.ephemeralContainers?.length || 0)}
-            </Badge>
-          </>
-        ),
-        content: (
-          <div className="space-y-4">
-            {pod?.spec?.initContainers &&
-              pod.spec.initContainers.length > 0 && (
-                <Card>
-                  <CardContent className="space-y-3 pt-4">
-                    {pod.spec.initContainers.map((container) => (
-                      <ContainerInfoCard
-                        key={container.name}
-                        container={container}
-                        status={pod.status?.initContainerStatuses?.find(
-                          (s) => s.name === container.name
-                        )}
-                        init
-                      />
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
-            <Card>
-              <CardContent className="space-y-3 pt-4">
-                {pod?.spec?.containers?.map((container) => (
-                  <ContainerInfoCard
-                    key={container.name}
-                    container={container}
-                    status={pod.status?.containerStatuses?.find(
-                      (s) => s.name === container.name
-                    )}
-                  />
-                ))}
-              </CardContent>
-            </Card>
-            {!!pod?.spec?.ephemeralContainers?.length && (
-              <Card>
-                <CardContent className="space-y-3 pt-4">
-                  {pod.spec.ephemeralContainers.map((container) => (
-                    <ContainerInfoCard
-                      key={container.name}
-                      container={container}
-                      status={pod.status?.ephemeralContainerStatuses?.find(
-                        (status) => status.name === container.name
-                      )}
-                      ephemeral
-                    />
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        ),
-      },
-      {
-        value: 'logs',
-        label: t('common.tabs.logs'),
-        content: (
-          <LogViewer
-            namespace={namespace}
-            podName={name}
-            containers={pod?.spec?.containers}
-            initContainers={pod?.spec?.initContainers}
-            ephemeralContainers={pod?.spec?.ephemeralContainers}
-            selectedContainerName={tabContainerName}
-          />
-        ),
-      },
-      {
-        value: 'terminal',
-        label: t('common.tabs.terminal'),
-        content: (
-          <Terminal
-            namespace={namespace}
-            podName={name}
-            containers={pod?.spec?.containers}
-            initContainers={pod?.spec?.initContainers}
-            ephemeralContainers={pod?.spec?.ephemeralContainers}
-            attachContainerName={attachContainerName}
-            selectedContainerName={tabContainerName}
-          />
-        ),
-      },
-      {
-        value: 'files',
-        label: t('common.tabs.files'),
-        content: (
-          <PodFileBrowser
-            namespace={namespace}
-            podName={name}
-            containers={pod?.spec?.containers}
-            initContainers={pod?.spec?.initContainers}
-          />
-        ),
-      },
-      {
-        value: 'volumes',
-        label: (
-          <>
-            {t('common.tabs.volumes')}
-            {pod?.spec?.volumes && (
-              <Badge variant="secondary">{pod.spec.volumes.length}</Badge>
-            )}
-          </>
-        ),
-        content: (
-          <VolumeTable
-            namespace={namespace}
-            volumes={pod?.spec?.volumes}
-            containers={pod?.spec?.containers}
-            isLoading={isLoading}
-          />
-        ),
-      },
-      {
-        value: 'related',
-        label: t('common.tabs.related'),
-        content: (
-          <RelatedResourcesTable
-            resource="pods"
-            name={name}
-            namespace={namespace}
-          />
-        ),
-      },
-      {
-        value: 'events',
-        label: t('common.tabs.events'),
-        content: (
-          <EventTable resource="pods" name={name} namespace={namespace} />
-        ),
-      },
-      {
-        value: 'monitor',
-        label: t('common.tabs.monitor'),
-        content: (
-          <PodMonitoring
-            namespace={namespace}
-            podName={name}
-            containers={pod?.spec?.containers}
-            initContainers={pod?.spec?.initContainers}
-          />
-        ),
-      },
-    ],
-    [attachContainerName, isLoading, name, namespace, pod, t, tabContainerName]
-  )
+
   return (
     <>
       <ResourceDetailShell
@@ -340,18 +181,186 @@ export function PodDetail(props: { namespace: string; name: string }) {
         isLoading={isLoading}
         error={isError ? podError : null}
         onRefresh={refetch}
-        onSaveYaml={handleSaveYaml}
-        overview={
-          pod ? (
-            <PodOverview
-              pod={pod}
-              namespace={namespace}
-              name={name}
-              events={podEvents}
-              isEventsLoading={isEventsLoading}
-            />
-          ) : null
-        }
+        tabs={[
+          {
+            value: 'overview',
+            label: t('common.tabs.overview'),
+            content: pod ? (
+              <PodOverview
+                pod={pod}
+                namespace={namespace}
+                name={name}
+                events={podEvents}
+                isEventsLoading={isEventsLoading}
+              />
+            ) : null,
+          },
+          {
+            value: 'containers',
+            label: (
+              <>
+                {t('common.tabs.containers')}
+                <Badge variant="secondary">
+                  {(pod?.spec?.containers?.length || 0) +
+                    (pod?.spec?.initContainers?.length || 0) +
+                    (pod?.spec?.ephemeralContainers?.length || 0)}
+                </Badge>
+              </>
+            ),
+            content: (
+              <div className="space-y-4">
+                {pod?.spec?.initContainers &&
+                  pod.spec.initContainers.length > 0 && (
+                    <Card>
+                      <CardContent className="space-y-3 pt-4">
+                        {pod.spec.initContainers.map((container) => (
+                          <ContainerInfoCard
+                            key={container.name}
+                            container={container}
+                            status={pod.status?.initContainerStatuses?.find(
+                              (s) => s.name === container.name
+                            )}
+                            init
+                          />
+                        ))}
+                      </CardContent>
+                    </Card>
+                  )}
+                <Card>
+                  <CardContent className="space-y-3 pt-4">
+                    {pod?.spec?.containers?.map((container) => (
+                      <ContainerInfoCard
+                        key={container.name}
+                        container={container}
+                        status={pod.status?.containerStatuses?.find(
+                          (s) => s.name === container.name
+                        )}
+                      />
+                    ))}
+                  </CardContent>
+                </Card>
+                {!!pod?.spec?.ephemeralContainers?.length && (
+                  <Card>
+                    <CardContent className="space-y-3 pt-4">
+                      {pod.spec.ephemeralContainers.map((container) => (
+                        <ContainerInfoCard
+                          key={container.name}
+                          container={container}
+                          status={pod.status?.ephemeralContainerStatuses?.find(
+                            (status) => status.name === container.name
+                          )}
+                          ephemeral
+                        />
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            ),
+          },
+          {
+            value: 'yaml',
+            label: t('common.tabs.yaml'),
+            content: ({ resource, refreshKey }) => (
+              <ResourceYaml
+                key={refreshKey}
+                value={resource}
+                onSave={handleSaveYaml}
+                fillHeight
+              />
+            ),
+          },
+          {
+            value: 'logs',
+            label: t('common.tabs.logs'),
+            content: (
+              <LogViewer
+                namespace={namespace}
+                podName={name}
+                containers={pod?.spec?.containers}
+                initContainers={pod?.spec?.initContainers}
+                ephemeralContainers={pod?.spec?.ephemeralContainers}
+                selectedContainerName={tabContainerName}
+              />
+            ),
+          },
+          {
+            value: 'terminal',
+            label: t('common.tabs.terminal'),
+            content: (
+              <Terminal
+                namespace={namespace}
+                podName={name}
+                containers={pod?.spec?.containers}
+                initContainers={pod?.spec?.initContainers}
+                ephemeralContainers={pod?.spec?.ephemeralContainers}
+                attachContainerName={attachContainerName}
+                selectedContainerName={tabContainerName}
+              />
+            ),
+          },
+          {
+            value: 'files',
+            label: t('common.tabs.files'),
+            content: (
+              <PodFileBrowser
+                namespace={namespace}
+                podName={name}
+                containers={pod?.spec?.containers}
+                initContainers={pod?.spec?.initContainers}
+              />
+            ),
+          },
+          {
+            value: 'volumes',
+            label: (
+              <>
+                {t('common.tabs.volumes')}
+                {pod?.spec?.volumes && (
+                  <Badge variant="secondary">{pod.spec.volumes.length}</Badge>
+                )}
+              </>
+            ),
+            content: (
+              <VolumeTable
+                namespace={namespace}
+                volumes={pod?.spec?.volumes}
+                containers={pod?.spec?.containers}
+                isLoading={isLoading}
+              />
+            ),
+          },
+          {
+            value: 'related',
+            label: t('common.tabs.related'),
+            content: (
+              <RelatedResourcesTable
+                resource="pods"
+                name={name}
+                namespace={namespace}
+              />
+            ),
+          },
+          {
+            value: 'events',
+            label: t('common.tabs.events'),
+            content: (
+              <EventTable resource="pods" name={name} namespace={namespace} />
+            ),
+          },
+          {
+            value: 'monitor',
+            label: t('common.tabs.monitor'),
+            content: (
+              <PodMonitoring
+                namespace={namespace}
+                podName={name}
+                containers={pod?.spec?.containers}
+                initContainers={pod?.spec?.initContainers}
+              />
+            ),
+          },
+        ]}
         headerActions={
           <>
             {debugAvailable && (
@@ -376,8 +385,6 @@ export function PodDetail(props: { namespace: string; name: string }) {
             )}
           </>
         }
-        preYamlTabs={extraTabs.filter((tab) => tab.value === 'containers')}
-        extraTabs={extraTabs.filter((tab) => tab.value !== 'containers')}
       />
       {isDebugDialogOpen && debugAvailable && (
         <PodDebugDialog

@@ -60,7 +60,6 @@ func fetch(ctx context.Context, address string) (*http.Response, error) {
 }
 
 func readCatalog(ctx context.Context, address string) ([]CatalogPlugin, error) {
-	plugins := []CatalogPlugin{}
 	if address == "" {
 		address = common.DefaultPluginCatalogURL
 	}
@@ -78,7 +77,7 @@ func readCatalog(ctx context.Context, address string) ([]CatalogPlugin, error) {
 	}
 	catalog := struct {
 		Plugins []CatalogPlugin `json:"plugins"`
-	}{Plugins: plugins}
+	}{}
 	if err := json.Unmarshal(data, &catalog); err != nil {
 		return nil, fmt.Errorf("invalid plugin catalog JSON")
 	}
@@ -107,7 +106,7 @@ func readCatalog(ctx context.Context, address string) ([]CatalogPlugin, error) {
 		}
 	}
 	if catalog.Plugins == nil {
-		return plugins, nil
+		return []CatalogPlugin{}, nil
 	}
 	return catalog.Plugins, nil
 }

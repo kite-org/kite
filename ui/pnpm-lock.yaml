@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@kite-dev/plugin-sdk':
-        specifier: 0.0.4
-        version: 0.0.4(f081f8484bfdc8099368e590f2ca87e1)
+        specifier: file:../../kite-plugins/packages/plugin-sdk
+        version: file:../../kite-plugins/packages/plugin-sdk(f081f8484bfdc8099368e590f2ca87e1)
       '@module-federation/runtime':
         specifier: 2.9.0
         version: 2.9.0
@@ -693,8 +693,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@kite-dev/plugin-sdk@0.0.4':
-    resolution: {integrity: sha512-rRdnw2h1PUnJREnCiH4es7wowwyHKzecwsr0eXKl8wGEKT3ky0rAJDGK1t1vG02gWf9mvX4RUA2Xd4UKgESO3g==}
+  '@kite-dev/plugin-sdk@file:../../kite-plugins/packages/plugin-sdk':
+    resolution: {directory: ../../kite-plugins/packages/plugin-sdk, type: directory}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
     peerDependencies:
@@ -3683,7 +3683,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@kite-dev/plugin-sdk@0.0.4(f081f8484bfdc8099368e590f2ca87e1)':
+  '@kite-dev/plugin-sdk@file:../../kite-plugins/packages/plugin-sdk(f081f8484bfdc8099368e590f2ca87e1)':
     dependencies:
       '@module-federation/vite': 1.21.3(typescript@6.0.3)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.27.2)(jiti@2.7.0))
       '@radix-ui/react-dialog': 1.1.23(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

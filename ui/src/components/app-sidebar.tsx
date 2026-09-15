@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/sidebar'
 
 import { ClusterSelector } from './cluster-selector'
+import { PluginIndicator } from './plugins/plugin-indicator'
 import { Collapsible, CollapsibleTrigger } from './ui/collapsible'
 import { VersionInfo } from './version-info'
 
@@ -189,7 +190,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <CollapsibleTrigger asChild>
               <SidebarMenuButton tooltip={title} isActive={hasActiveChild}>
                 <IconComponent className="text-sidebar-primary" />
-                <span>{title}</span>
+                <span className="truncate">{title}</span>
+                <PluginIndicator pluginId={item.pluginId} />
                 <ChevronRight className="ml-auto group-data-[state=open]/submenu:rotate-90" />
               </SidebarMenuButton>
             </CollapsibleTrigger>
@@ -213,7 +215,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           onClick={handleMenuItemClick}
                           title={childTitle}
                         >
-                          <span>{childTitle}</span>
+                          <span className="truncate">{childTitle}</span>
+                          <PluginIndicator pluginId={child.pluginId} />
                         </Link>
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
@@ -235,7 +238,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         >
           <Link to={item.url} onClick={handleMenuItemClick}>
             <IconComponent className="text-sidebar-primary" />
-            <span>{title}</span>
+            <span className="truncate">{title}</span>
+            <PluginIndicator pluginId={item.pluginId} />
           </Link>
         </SidebarMenuButton>
       </SidebarMenuItem>
@@ -348,10 +352,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarGroup>
               <SidebarGroupLabel asChild>
                 <CollapsibleTrigger className="flex items-center justify-between w-full text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors group-data-[state=open]:text-foreground">
-                  <span className="uppercase tracking-wide text-xs font-bold">
-                    {group.nameKey
-                      ? t(group.nameKey, { defaultValue: group.nameKey })
-                      : ''}
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate uppercase tracking-wide text-xs font-bold">
+                      {group.nameKey
+                        ? t(group.nameKey, { defaultValue: group.nameKey })
+                        : ''}
+                    </span>
+                    <PluginIndicator pluginId={group.pluginId} />
                   </span>
                   <ChevronDown className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
                 </CollapsibleTrigger>

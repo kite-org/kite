@@ -150,8 +150,8 @@ function CreateResourceDialogContent({
           <div className="space-y-2">
             <Label>{t('common.fields.namespace', 'Namespace')}</Label>
             <NamespaceSelector
-              selectedNamespace={selectedNamespace}
-              handleNamespaceChange={setSelectedNamespace}
+              value={selectedNamespace}
+              onChange={setSelectedNamespace}
               triggerClassName="sm:w-full sm:max-w-none"
               modal
             />

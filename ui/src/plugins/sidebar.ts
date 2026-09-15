@@ -1,5 +1,8 @@
 import type { LocalizedLabel, PluginMenu } from '@kite-dev/plugin-sdk'
-import { resolvePluginRoute } from '@kite-dev/plugin-sdk/navigation'
+import {
+  resolvePluginRoute,
+  resolveResourcePath,
+} from '@kite-dev/plugin-sdk/navigation'
 import { coreMenuGroupIds } from '@kite-dev/plugin-sdk/validation'
 
 import type {
@@ -41,7 +44,7 @@ export function mergePluginMenus(
     for (const menu of manifest.menus) {
       if (menu.parent && !coreMenuGroups[menu.parent]) continue
       const id = `${manifest.id}:${menu.id}`
-      if (!menu.parent && !menu.route) {
+      if (!menu.parent && !menu.route && !menu.resource) {
         const preferences = config.pluginPreferences?.groups[id]
         const group: SidebarGroup = {
           id,
@@ -88,17 +91,20 @@ export function mergePluginMenus(
               { pluginId: manifest.id, routes: manifest.routes },
               menu.route
             )
-          : '',
-        children: menu.route
-          ? undefined
-          : manifest.menus
-              .filter((child) => child.parent === id)
-              .map(createItem)
-              .sort((a, b) => a.order - b.order),
+          : menu.resource
+            ? resolveResourcePath(menu.resource)
+            : '',
+        children:
+          menu.route || menu.resource
+            ? undefined
+            : manifest.menus
+                .filter((child) => child.parent === id)
+                .map(createItem)
+                .sort((a, b) => a.order - b.order),
       }
     }
     for (const menu of manifest.menus) {
-      if (!menu.parent && !menu.route) continue
+      if (!menu.parent && !menu.route && !menu.resource) continue
       if (menu.parent && menus.get(menu.parent)?.parent) continue
       const item = createItem(menu)
       const preferredParent = config.pluginPreferences?.items[item.id]?.parent

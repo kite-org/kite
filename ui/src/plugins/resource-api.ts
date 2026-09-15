@@ -1,9 +1,12 @@
+import { useContext } from 'react'
 import type {
   DeepPartial,
+  KubernetesResource,
   RelatedResource,
   ResourceDeleteOptions,
   ResourceHistoryQueryOptions,
   ResourceHistoryResponse,
+  ResourceListQueryOptions,
   ResourceQueryOptions,
   ResourceReference,
   ResourceScopeOptions,
@@ -20,8 +23,8 @@ import { getResourceCatalogEntry } from '@/lib/resource-catalog'
 import { useCluster } from '@/hooks/use-cluster'
 
 import { usePluginNamespace } from './namespace-context'
+import { PluginResourceContext } from './resource-context'
 
-type ResourceFetchOptions = ResourceQueryOptions & { signal?: AbortSignal }
 type ResourceList<T> = { items: T[] }
 
 export function resourcePath(resource: ResourceReference) {
@@ -42,15 +45,18 @@ export function resourcePath(resource: ResourceReference) {
 
 function resourceScope(
   resource: ResourceReference,
-  options: ResourceScopeOptions = {}
+  {
+    cluster = getCurrentCluster(),
+    namespace,
+  }: { cluster?: string | null; namespace?: string } = {}
 ) {
   const path = resourcePath(resource)
   const clusterScope =
     resource.scope === 'Cluster' || getResourceCatalogEntry(path)?.clusterScope
   return {
     path,
-    cluster: options.cluster ?? getCurrentCluster(),
-    namespace: clusterScope ? '_all' : options.namespace || '_all',
+    cluster,
+    namespace: clusterScope ? '_all' : namespace || '_all',
   }
 }
 
@@ -60,10 +66,14 @@ function useResourceScope(
 ) {
   const { currentCluster } = useCluster()
   const { namespace } = usePluginNamespace()
-  return {
-    ...resourceScope(resource, { namespace: options.namespace ?? namespace }),
+  const context = useContext(PluginResourceContext)
+  const resourceNamespace = (
+    context?.resource as KubernetesResource | undefined
+  )?.metadata?.namespace
+  return resourceScope(resource, {
+    namespace: options.namespace ?? resourceNamespace ?? namespace,
     cluster: options.cluster ?? currentCluster,
-  }
+  })
 }
 
 function resourceEndpoint(
@@ -76,49 +86,12 @@ function resourceEndpoint(
   )
 }
 
-function listParameters(options: ResourceFetchOptions) {
+function listParameters(options: ResourceListQueryOptions) {
   const params = new URLSearchParams()
   if (options.labelSelector) params.set('labelSelector', options.labelSelector)
   if (options.fieldSelector) params.set('fieldSelector', options.fieldSelector)
   params.set('reduce', String(options.reduce ?? false))
   return params
-}
-
-async function fetchResources<T>(
-  resource: ResourceReference,
-  options: ResourceFetchOptions = {}
-): Promise<ResourceList<T>> {
-  const scope = resourceScope(resource, options)
-  if (scope.path.includes('.') && options.fieldSelector)
-    throw new Error(
-      'Custom resources support labelSelector; fieldSelector is not supported by this API'
-    )
-  const namespaces = scope.namespace.split(',').filter(Boolean)
-  const params = listParameters(options)
-  const results = await Promise.all(
-    namespaces.map((namespace) =>
-      apiClient.get<ResourceList<T>>(
-        `${resourceEndpoint({ ...scope, namespace })}?${params}`,
-        { signal: options.signal }
-      )
-    )
-  )
-  return results.length === 1
-    ? results[0]
-    : { items: results.flatMap((result) => result.items) }
-}
-
-function fetchResource<T>(
-  resource: ResourceReference,
-  name: string,
-  options: ResourceScopeOptions = {}
-): Promise<T> {
-  return apiClient.get<T>(
-    resourceEndpoint(resourceScope(resource, options), name),
-    {
-      signal: options.signal,
-    }
-  )
 }
 
 export async function updateResource<T>(
@@ -168,7 +141,7 @@ export async function deleteResource(
 
 export function usePluginResources<T>(
   resource: ResourceReference,
-  options: ResourceQueryOptions = {}
+  options: ResourceListQueryOptions = {}
 ) {
   const scope = useResourceScope(resource, options)
   return useQuery({
@@ -181,13 +154,23 @@ export function usePluginResources<T>(
       listParameters(options).toString(),
     ],
     queryFn: async ({ signal }) => {
-      const result = await fetchResources<T>(resource, {
-        ...options,
-        namespace: scope.namespace,
-        cluster: scope.cluster ?? undefined,
-        signal,
-      })
-      return result.items
+      if (scope.path.includes('.') && options.fieldSelector)
+        throw new Error(
+          'Custom resources support labelSelector; fieldSelector is not supported by this API'
+        )
+      const params = listParameters(options)
+      const results = await Promise.all(
+        scope.namespace
+          .split(',')
+          .filter(Boolean)
+          .map((namespace) =>
+            apiClient.get<ResourceList<T>>(
+              `${resourceEndpoint({ ...scope, namespace })}?${params}`,
+              { signal }
+            )
+          )
+      )
+      return results.flatMap((result) => result.items)
     },
     enabled: options.enabled !== false && !!scope.cluster,
     staleTime: options.staleTime ?? 1000,
@@ -211,11 +194,7 @@ export function usePluginResource<T>(
       name,
     ],
     queryFn: ({ signal }) =>
-      fetchResource<T>(resource, name, {
-        namespace: scope.namespace,
-        cluster: scope.cluster ?? undefined,
-        signal,
-      }),
+      apiClient.get<T>(resourceEndpoint(scope, name), { signal }),
     enabled: options.enabled !== false && !!scope.cluster && !!name,
     staleTime: options.staleTime ?? 1000,
     refetchInterval: options.refreshInterval ?? false,
@@ -254,17 +233,6 @@ export function useResourceEvents(
   })
 }
 
-function fetchDescribe(
-  resource: ResourceReference,
-  name: string,
-  options: ResourceScopeOptions = {}
-) {
-  return apiClient.get<{ result: string }>(
-    `${resourceEndpoint(resourceScope(resource, options), name)}/describe`,
-    { signal: options.signal }
-  )
-}
-
 export function useDescribe(
   resource: ResourceReference,
   name: string,
@@ -280,31 +248,15 @@ export function useDescribe(
       name,
     ],
     queryFn: ({ signal }) =>
-      fetchDescribe(resource, name, {
-        namespace: scope.namespace,
-        cluster: scope.cluster ?? undefined,
-        signal,
-      }),
+      apiClient.get<{ result: string }>(
+        `${resourceEndpoint(scope, name)}/describe`,
+        { signal }
+      ),
     enabled: options.enabled !== false && !!scope.cluster && !!name,
     staleTime: options.staleTime ?? 0,
     refetchInterval: options.refreshInterval ?? false,
     retry: false,
   })
-}
-
-function fetchResourceHistory(
-  resource: ResourceReference,
-  name: string,
-  options: ResourceScopeOptions & { page?: number; pageSize?: number } = {}
-) {
-  const params = new URLSearchParams({
-    page: String(options.page ?? 1),
-    pageSize: String(options.pageSize ?? 10),
-  })
-  return apiClient.get<ResourceHistoryResponse>(
-    `${resourceEndpoint(resourceScope(resource, options), name)}/history?${params}`,
-    { signal: options.signal }
-  )
 }
 
 export function useResourceHistory(
@@ -323,35 +275,20 @@ export function useResourceHistory(
       options.page ?? 1,
       options.pageSize ?? 10,
     ],
-    queryFn: ({ signal }) =>
-      fetchResourceHistory(resource, name, {
-        ...options,
-        namespace: scope.namespace,
-        cluster: scope.cluster ?? undefined,
-        signal,
-      }),
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({
+        page: String(options.page ?? 1),
+        pageSize: String(options.pageSize ?? 10),
+      })
+      return apiClient.get<ResourceHistoryResponse>(
+        `${resourceEndpoint(scope, name)}/history?${params}`,
+        { signal }
+      )
+    },
     enabled: options.enabled !== false && !!scope.cluster && !!name,
     staleTime: options.staleTime ?? 30000,
     refetchInterval: options.refreshInterval ?? false,
   })
-}
-
-async function getRelatedResources(
-  resource: ResourceReference,
-  name: string,
-  options: ResourceScopeOptions = {}
-): Promise<RelatedResource[]> {
-  const scope = resourceScope(resource, options)
-  if (scope.path.includes('.'))
-    throw new Error(
-      'Related resource discovery is only available for supported built-in resources; query custom resource relationships with useResources'
-    )
-  return apiClient.get<RelatedResource[]>(
-    `${resourceEndpoint(scope, name)}/related`,
-    {
-      signal: options.signal,
-    }
-  )
 }
 
 export function useRelatedResources(
@@ -368,12 +305,16 @@ export function useRelatedResources(
       scope.namespace,
       name,
     ],
-    queryFn: ({ signal }) =>
-      getRelatedResources(resource, name, {
-        namespace: scope.namespace,
-        cluster: scope.cluster ?? undefined,
-        signal,
-      }),
+    queryFn: ({ signal }) => {
+      if (scope.path.includes('.'))
+        throw new Error(
+          'Related resource discovery is only available for supported built-in resources; query custom resource relationships with useResources'
+        )
+      return apiClient.get<RelatedResource[]>(
+        `${resourceEndpoint(scope, name)}/related`,
+        { signal }
+      )
+    },
     enabled: options.enabled !== false && !!scope.cluster && !!name,
     staleTime: options.staleTime ?? 60000,
     refetchInterval: options.refreshInterval ?? false,

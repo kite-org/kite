@@ -1,3 +1,5 @@
+export { useResourceContext } from '../resource-context'
+
 export {
   deleteResource,
   patchResource,
