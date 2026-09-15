@@ -40,28 +40,48 @@ func clusterAgentServerURL(c *gin.Context) string {
 
 func (cm *ClusterManager) GetClusters(c *gin.Context) {
 	clusters, errors, defaultContext := cm.snapshotState()
+	clusterMetadata := make(map[string]*model.Cluster)
+	if model.DB != nil {
+		if storedClusters, err := model.ListClusters(); err == nil {
+			for _, cluster := range storedClusters {
+				clusterMetadata[cluster.Name] = cluster
+			}
+		}
+	}
 	result := make([]common.ClusterInfo, 0, len(clusters))
 	user := c.MustGet("user").(model.User)
 	for name, cluster := range clusters {
 		if !rbac.CanAccessCluster(user, name) {
 			continue
 		}
-		result = append(result, common.ClusterInfo{
+		info := common.ClusterInfo{
 			Name:      name,
 			Version:   cluster.Version,
+			Enabled:   true,
 			IsDefault: name == defaultContext,
-		})
+		}
+		if dbCluster := clusterMetadata[name]; dbCluster != nil {
+			info.UUID = dbCluster.UUID
+			info.Enabled = dbCluster.Enable
+		}
+		result = append(result, info)
 	}
 	for name, errMsg := range errors {
 		if !rbac.CanAccessCluster(user, name) {
 			continue
 		}
-		result = append(result, common.ClusterInfo{
+		info := common.ClusterInfo{
 			Name:      name,
 			Version:   "",
+			Enabled:   true,
 			IsDefault: false,
 			Error:     errMsg,
-		})
+		}
+		if dbCluster := clusterMetadata[name]; dbCluster != nil {
+			info.UUID = dbCluster.UUID
+			info.Enabled = dbCluster.Enable
+		}
+		result = append(result, info)
 	}
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].Name < result[j].Name
