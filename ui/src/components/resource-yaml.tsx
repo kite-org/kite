@@ -117,7 +117,7 @@ export function ResourceYaml<T>({
   const editorTitle = title ?? t('common.fields.yamlConfiguration')
 
   return (
-    <Card className={cn(fillHeight && 'min-h-0 flex-1', className)}>
+    <Card className={cn(fillHeight && 'h-full min-h-0 flex-1', className)}>
       <CardHeader className="flex flex-row items-center justify-between">
         <div className="space-y-1">
           <CardTitle>{editorTitle}</CardTitle>
