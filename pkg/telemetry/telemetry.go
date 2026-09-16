@@ -15,20 +15,12 @@ import (
 	"github.com/zxh326/kite/pkg/version"
 )
 
-const endpoint = "https://kite-plugins.zzde.me/telemetry"
+const endpoint = "https://telemetry.zzde.me/telemetry"
 
 func Start(ctx context.Context, cm *cluster.ClusterManager) {
 	go func() {
-		ticker := time.NewTicker(1 * time.Hour)
-		defer ticker.Stop()
-		for {
-			_ = reportIfDue(ctx, cm)
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-			}
-		}
+		_ = reportIfDue(ctx, cm)
+		time.Sleep(1 * time.Hour)
 	}()
 }
 
