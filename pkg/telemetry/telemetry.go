@@ -13,13 +13,16 @@ import (
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/version"
+	"k8s.io/klog/v2"
 )
 
 const endpoint = "https://telemetry.zzde.me/telemetry"
 
 func Start(ctx context.Context, cm *cluster.ClusterManager) {
 	go func() {
-		_ = reportIfDue(ctx, cm)
+		if err := reportIfDue(ctx, cm); err != nil {
+			klog.V(3).Infof("Telemetry report failed: %v", err)
+		}
 		time.Sleep(1 * time.Hour)
 	}()
 }
@@ -32,7 +35,11 @@ func reportIfDue(ctx context.Context, cm *cluster.ClusterManager) error {
 	}
 	now := time.Now().UTC()
 	cutoff := now.Add(-24 * time.Hour)
-	if !setting.EnableAnalytics || (setting.AnalyticsLastAttemptAt != nil && setting.AnalyticsLastAttemptAt.After(cutoff)) {
+	if !setting.EnableAnalytics {
+		return nil
+	}
+	if setting.AnalyticsLastAttemptAt != nil && setting.AnalyticsLastAttemptAt.After(cutoff) {
+		klog.V(3).Infof("Skipping telemetry report: last attempt at %s is within 24 hours", setting.AnalyticsLastAttemptAt.UTC().Format(time.RFC3339))
 		return nil
 	}
 	if setting.AnalyticsInstallationID == "" {
@@ -79,6 +86,7 @@ func reportIfDue(ctx context.Context, cm *cluster.ClusterManager) error {
 		return err
 	}
 	if !setting.EnableAnalytics {
+		klog.V(3).Info("Skipping telemetry report: analytics was disabled before sending")
 		return nil
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
@@ -92,11 +100,13 @@ func reportIfDue(ctx context.Context, cm *cluster.ClusterManager) error {
 			return http.ErrUseLastResponse
 		},
 	}
+	klog.V(3).Infof("Sending telemetry report to %s: installationId=%s, kiteVersion=%s, kubernetesVersions=%v", endpoint, setting.AnalyticsInstallationID, version.Version, versions)
 	response, err := client.Do(request)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = response.Body.Close() }()
+	klog.V(3).Infof("Telemetry collector returned HTTP %d", response.StatusCode)
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return fmt.Errorf("collector returned HTTP %d", response.StatusCode)
 	}
