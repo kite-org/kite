@@ -42,7 +42,6 @@ export function mergePluginMenus(
     if (plugin.invalid) continue
     const { manifest } = plugin
     for (const menu of manifest.menus) {
-      if (menu.parent && !coreMenuGroups[menu.parent]) continue
       const id = `${manifest.id}:${menu.id}`
       if (!menu.parent && !menu.route && !menu.resource) {
         const preferences = config.pluginPreferences?.groups[id]
