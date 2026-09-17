@@ -65,46 +65,46 @@ my-plugin/
 }
 ```
 
-| 字段 | 说明 |
-| ---- | ---- |
-| `name` | 插件 ID，也是 URL 的一部分。1–64 个小写字母、数字或连字符，以字母或数字开头结尾；不使用 npm scope |
-| `displayName` | 插件管理中显示的名称，1–128 个字符 |
-| `version` | 语义化版本，不带 `v` 前缀。内容变更时必须递增版本 |
-| `engines.kite` | 支持的 Kite 版本范围，省略时默认 `>=0.16.0`，构建时写入 `plugin.json` 的 `requires.kite` |
-| `description` / `author` / `homepage` / `license` | 可选元数据 |
+| 字段                                              | 说明                                                                                              |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `name`                                            | 插件 ID，也是 URL 的一部分。1–64 个小写字母、数字或连字符，以字母或数字开头结尾；不使用 npm scope |
+| `displayName`                                     | 插件管理中显示的名称，1–128 个字符                                                                |
+| `version`                                         | 语义化版本，不带 `v` 前缀。内容变更时必须递增版本                                                 |
+| `engines.kite`                                    | 支持的 Kite 版本范围，省略时默认 `>=0.16.0`，构建时写入 `plugin.json` 的 `requires.kite`          |
+| `description` / `author` / `homepage` / `license` | 可选元数据                                                                                        |
 
 ## 编写页面和菜单
 
 编辑 `plugin.config.tsx`，声明路由和菜单：
 
 ```tsx
-import { lazy } from 'react'
-import { definePlugin } from '@kite-dev/plugin-sdk'
+import { lazy } from "react";
+import { definePlugin } from "@kite-dev/plugin-sdk";
 
-import { label, translations } from './src/i18n'
+import { label, translations } from "./src/i18n";
 
-const HomePage = lazy(() => import('./src/pages/home'))
+const HomePage = lazy(() => import("./src/pages/home"));
 
 export default definePlugin({
   i18n: translations,
   routes: [
     {
-      id: 'home',
-      path: '',
-      title: label('navigation.home'),
+      id: "home",
+      path: "",
+      title: label("navigation.home"),
       element: <HomePage />,
     },
   ],
   menus: [
     {
-      id: 'home',
-      parent: 'core:other',
-      label: label('navigation.home'),
-      route: 'home',
-      icon: 'IconBox',
+      id: "home",
+      parent: "core:other",
+      label: label("navigation.home"),
+      route: "home",
+      icon: "IconBox",
     },
   ],
-})
+});
 ```
 
 要点：
@@ -118,62 +118,61 @@ export default definePlugin({
 生成的页面 `src/pages/home.tsx` 展示了最基本的宿主能力复用——读取当前集群和命名空间：
 
 ```tsx
-import { useCluster, useNamespace } from '@kite-dev/plugin-sdk/hooks'
+import { useCluster, useNamespace } from "@kite-dev/plugin-sdk/hooks";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@kite-dev/plugin-sdk/ui'
+} from "@kite-dev/plugin-sdk/ui";
 
-import { useTranslation } from '../i18n'
-import styles from './home.module.css'
+import { useTranslation } from "../i18n";
+import styles from "./home.module.css";
 
 export default function HomePage() {
-  const { currentCluster } = useCluster()
-  const { namespace } = useNamespace()
-  const { t } = useTranslation()
+  const { currentCluster } = useCluster();
+  const { namespace } = useNamespace();
+  const { t } = useTranslation();
 
   return (
     <main className={styles.page}>
       <Card>
         <CardHeader>
-          <CardTitle>{t('navigation.home')}</CardTitle>
-          <CardDescription>{t('context.description')}</CardDescription>
+          <CardTitle>{t("navigation.home")}</CardTitle>
+          <CardDescription>{t("context.description")}</CardDescription>
         </CardHeader>
         <CardContent>
           <dl className={styles.context}>
-            <dt>{t('context.cluster')}</dt>
-            <dd>{currentCluster ?? '—'}</dd>
-            <dt>{t('context.namespace')}</dt>
+            <dt>{t("context.cluster")}</dt>
+            <dd>{currentCluster ?? "—"}</dd>
+            <dt>{t("context.namespace")}</dt>
             <dd>
-              {namespace === '_all' ? t('context.allNamespaces') : namespace}
+              {namespace === "_all" ? t("context.allNamespaces") : namespace}
             </dd>
           </dl>
         </CardContent>
       </Card>
     </main>
-  )
+  );
 }
 ```
 
 再写一个真正查询资源的页面，体验资源 Hook 的用法：
 
 ```tsx
-import { useResources } from '@kite-dev/plugin-sdk/resources'
-import type { CoreV1 } from '@kite-dev/plugin-sdk/k8s'
+import { useResources } from "@kite-dev/plugin-sdk/resources";
+import type { CoreV1 } from "@kite-dev/plugin-sdk/k8s";
 
 export default function ConfigMapsPage() {
   const configMaps = useResources<CoreV1.ConfigMap>(
-    { group: '', resource: 'configmaps' },
-    { namespace: '_all' }
-  )
+    { group: "", resource: "configmaps" },
+    { namespace: "_all" },
+  );
 
-  if (configMaps.isLoading) return <p>加载中…</p>
-  if (configMaps.error)
-    return <p role="alert">{configMaps.error.message}</p>
-  return <p>{configMaps.data?.length ?? 0} 个 ConfigMap</p>
+  if (configMaps.isLoading) return <p>加载中…</p>;
+  if (configMaps.error) return <p role="alert">{configMaps.error.message}</p>;
+  return <p>{configMaps.data?.length ?? 0} 个 ConfigMap</p>;
 }
 ```
 
@@ -190,14 +189,14 @@ pnpm run pack    # 打包 dist/ 为归档
 
 常用脚本一览：
 
-| 命令 | 作用 |
-| ---- | ---- |
-| `pnpm run type-check` | TypeScript 检查 |
-| `pnpm run lint` / `lint:fix` | ESLint 检查 / 自动修复 |
-| `pnpm run format` / `format:check` | Prettier 格式化 / 检查 |
-| `pnpm run build` | 类型检查并构建到 `dist/` |
-| `pnpm run dev` | 启动开发服务并监听文件变更，输出开发插件地址 |
-| `pnpm run pack` | 打包当前 `dist/` |
+| 命令                               | 作用                                         |
+| ---------------------------------- | -------------------------------------------- |
+| `pnpm run type-check`              | TypeScript 检查                              |
+| `pnpm run lint` / `lint:fix`       | ESLint 检查 / 自动修复                       |
+| `pnpm run format` / `format:check` | Prettier 格式化 / 检查                       |
+| `pnpm run build`                   | 类型检查并构建到 `dist/`                     |
+| `pnpm run dev`                     | 启动开发服务并监听文件变更，输出开发插件地址 |
+| `pnpm run pack`                    | 打包当前 `dist/`                             |
 
 ## 安装到 Kite
 

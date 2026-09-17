@@ -73,6 +73,7 @@ export default defineConfig({
       { text: "Home", link: "/" },
       { text: "Guide", link: "/guide/" },
       { text: "Configuration", link: "/config/" },
+      { text: "Plugins", link: "/plugins/" },
       { text: "API", link: "/api/authentication" },
       { text: "FAQ", link: "/faq" },
     ],
@@ -204,6 +205,19 @@ export default defineConfig({
         {
           text: "用户管理",
           link: "/zh/api/user-management",
+        },
+      ],
+      "/plugins/": [
+        {
+          text: "Plugins",
+          items: [
+            { text: "Introduction to Plugins", link: "/plugins/" },
+            { text: "Quick Start", link: "/plugins/quick-start" },
+            { text: "API Reference", link: "/plugins/api" },
+            { text: "Internationalization", link: "/plugins/i18n" },
+            { text: "Debugging", link: "/plugins/debugging" },
+            { text: "Publishing Plugins", link: "/plugins/publishing" },
+          ],
         },
       ],
       "/zh/plugins/": [

@@ -4,21 +4,18 @@ outline: deep
 
 # 插件简介
 
+插件功能自 Kite **v0.16.0** 起提供。
+
 Kite 插件是一个运行在 Kite 内部的 React 前端模块。它可以在不重新编译 Kite 的前提下，为 Kite 增加页面、侧边栏菜单和针对自定义资源的专属管理界面。
 
 插件通过 [`@kite-dev/plugin-sdk`](https://github.com/kite-org/kite-plugins/tree/main/packages/plugin-sdk) 编写和构建，打包为 `.tar.gz` 归档，由 Kite 管理员在 **插件管理** 页面安装。安装后，供所有登录用户使用。
 
 ## 插件能做什么
 
-- **注册页面和路由**：可按需在 `/plugins/<插件 ID>/` 下注册独立页面，展示单种或多种资源，支持路径参数和嵌套路由。
-- **注册侧边栏菜单**：可以创建插件自己的菜单分组，也可以把菜单项挂进 Kite 内置的分组（工作负载、流量、存储、配置、安全等）。菜单既能指向插件路由，也能直接打开 CRD 列表。
-- **扩展资源列表和详情**：为原生资源和通用 CR 页追加列表列、详情 Tab，直接读取当前资源数据，参与表格搜索、排序和列显隐。
-- **接管自定义资源页面**：为 CRD 提供完整的列表页、详情页，沿用 Kite 的 CRD URL，无需额外注册路由或菜单。可以只替换其中一页；原生资源整页不支持替换。
-- **浏览和管理任意 Kubernetes 资源**：包括 CRD 自定义资源。通过 SDK 的资源 Hook 查询列表和详情，执行创建、更新、删除、YAML 应用等写操作。
-- **复用宿主能力**：插件直接使用 Kite 的认证、集群切换、命名空间选择、查询缓存、UI 组件（表格、详情页骨架、YAML 编辑器、对话框等）以及可观测性接口（指标、日志流）。
-- **调用既有 Kite API**：通过 `apiClient` 以当前用户身份访问 Kite 已有的全部后端接口。
-
-路由、菜单和资源扩展可以独立使用或组合。配置和接口用法见 [API 参考](./api)。
+- 注册页面和路由
+- 注册侧边栏菜单
+- 扩展资源列表和详情
+- 接管自定义资源页面
 
 一个典型的插件例子是 [cert-manager 插件](https://github.com/kite-org/kite-plugins/tree/main/plugins/cert-manager)：它为 Certificate、Issuer、CertificateRequest、Order、Challenge 等 CRD 提供了完整的管理界面，包含资源列表、详情页、状态徽标和 YAML 编辑。
 
@@ -33,8 +30,7 @@ Kite 插件是一个运行在 Kite 内部的 React 前端模块。它可以在�
 1. **插件以当前登录用户的身份运行**。插件发起的所有 Kubernetes 请求都经由 Kite 后端转发，并受该用户的 RBAC 权限约束——用户看不到自己无权访问的资源，这与在 Kite 原生页面中操作完全一致。插件不会获得任何额外权限。
 2. **插件管理是管理员操作**。安装、停用、卸载、目录配置均需要 Kite 管理员权限；普通用户只能使用已启用的插件。
 3. **插件是受信任代码**。插件 JavaScript 在您的浏览器中执行，等同于其作者可以直接使用您在 Kite 中的全部操作能力。只安装来自可信作者的插件。
-4. **版本与完整性**。每个插件归档带有 SHA-256 摘要，Kite 按 `插件 ID + 版本 + 摘要` 存储和分发资产；同一 ID 和版本对应不可变的包内容，内容变更必须发布新版本。插件通过 `requires.kite` 声明支持的 Kite 版本范围，安装时 Kite 会校验兼容性。
-5. **运行时共享**。插件与 Kite 通过 Module Federation 共享 React、React Router、TanStack Query 等运行时和 SDK 实现，插件包因此非常小，也不会出现双 React 实例问题。
+4. **运行时共享**。插件与 Kite 通过 Module Federation 共享 React、React Router、TanStack Query 等运行时和 SDK 实现，插件包因此非常小，也不会出现双 React 实例问题。
 
 ## 安装与使用
 
@@ -49,10 +45,10 @@ Kite 插件是一个运行在 Kite 内部的 React 前端模块。它可以在�
 
 ## 相关仓库
 
-| 仓库                                                     | 作用                                                             |
-| -------------------------------------------------------- | ---------------------------------------------------------------- |
-| [kite](https://github.com/kite-org/kite)                 | 宿主应用：插件加载、资产分发、管理 API                           |
-| [kite-plugins](https://github.com/kite-org/kite-plugins) | SDK、创建器、官方插件集合与插件目录；SDK 位于 `packages/plugin-sdk`，创建器位于 `packages/create-plugin-sdk` |
+| 仓库                                                     | 作用                                                                |
+| -------------------------------------------------------- | ------------------------------------------------------------------- |
+| [kite](https://github.com/kite-org/kite)                 | 宿主应用：插件加载、资产分发、管理 API                              |
+| [kite-plugins](https://github.com/kite-org/kite-plugins) | SDK、创建器、官方插件集合与插件目录；SDK 位于 `packages/plugin-sdk` |
 
 ## 接下来
 
