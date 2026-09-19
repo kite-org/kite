@@ -1,4 +1,5 @@
 interface SidebarItemBase {
+  pluginId?: string
   id: string
   titleKey: string
   icon: string
@@ -10,6 +11,7 @@ interface SidebarItemBase {
 export interface SidebarLinkItem extends SidebarItemBase {
   type: 'link'
   url: string
+  children?: SidebarLinkItem[]
 }
 
 export interface SidebarCustomResourceItem extends SidebarItemBase {
@@ -26,6 +28,7 @@ export type SidebarItem =
   SidebarLinkItem | SidebarCustomResourceItem | SidebarAPIGroupItem
 
 export interface SidebarGroup {
+  pluginId?: string
   id: string
   nameKey: string
   items: SidebarItem[]
@@ -36,6 +39,18 @@ export interface SidebarGroup {
 }
 
 export interface SidebarConfig {
+  pluginPreferences?: {
+    items: Record<string, { parent: string; order: number }>
+    groups: Record<
+      string,
+      {
+        order: number
+        visible: boolean
+        collapsed: boolean
+        items?: SidebarItem[]
+      }
+    >
+  }
   version?: number
   groups: SidebarGroup[]
   hiddenItems: string[]

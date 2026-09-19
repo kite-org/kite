@@ -47,14 +47,12 @@ import { LogViewer } from '@/components/log-viewer'
 import { PodMonitoring } from '@/components/pod-monitoring'
 import { PodTable } from '@/components/pod-table'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
+import { ResourceYaml } from '@/components/resource-yaml'
 import { Terminal } from '@/components/terminal'
 import { VolumeTable } from '@/components/volume-table'
 import { WorkloadHistoryTabs } from '@/components/workload-history-tabs'
 
-import {
-  ResourceDetailShell,
-  type ResourceDetailShellTab,
-} from './resource-detail-shell'
+import { ResourceDetailShell } from './resource-detail-shell'
 
 type ExposeServiceType = 'ClusterIP' | 'NodePort' | 'LoadBalancer'
 
@@ -282,189 +280,9 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
     [deployment, name, namespace, t]
   )
 
-  const extraTabs = useMemo<ResourceDetailShellTab<Deployment>[]>(() => {
-    const tabs: ResourceDetailShellTab<Deployment>[] = []
-    const pods = relatedPods || []
-    const containers = deployment?.spec?.template.spec?.containers || []
-    const initContainers = deployment?.spec?.template.spec?.initContainers || []
-
-    tabs.push(
-      {
-        value: 'pods',
-        label: (
-          <>
-            {t('common.tabs.pods')}
-            <Badge variant="secondary">{pods.length}</Badge>
-          </>
-        ),
-        content: (
-          <PodTable
-            pods={pods}
-            isLoading={isLoadingPods}
-            labelSelector={labelSelector}
-          />
-        ),
-      },
-      {
-        value: 'containers',
-        label: (
-          <>
-            {t('common.tabs.containers')}
-            <Badge variant="secondary">
-              {containers.length + initContainers.length}
-            </Badge>
-          </>
-        ),
-        content: (
-          <div className="space-y-4">
-            {initContainers.length > 0 ? (
-              <div className="space-y-3">
-                {initContainers.map((container) => (
-                  <ContainerInfoCard
-                    key={container.name}
-                    container={container}
-                    init
-                    onContainerUpdate={(updatedContainer) =>
-                      handleContainerUpdate(updatedContainer, true)
-                    }
-                  />
-                ))}
-              </div>
-            ) : null}
-            <div className="space-y-3">
-              {containers.map((container) => (
-                <ContainerInfoCard
-                  key={container.name}
-                  container={container}
-                  onContainerUpdate={(updatedContainer) =>
-                    handleContainerUpdate(updatedContainer, false)
-                  }
-                />
-              ))}
-            </div>
-          </div>
-        ),
-      },
-      {
-        value: 'logs',
-        label: t('common.tabs.logs'),
-        content: (
-          <LogViewer
-            namespace={namespace}
-            pods={pods}
-            containers={containers}
-            initContainers={initContainers}
-            labelSelector={labelSelector}
-          />
-        ),
-      },
-      {
-        value: 'terminal',
-        label: t('common.tabs.terminal'),
-        content:
-          pods.length > 0 ? (
-            <Terminal
-              namespace={namespace}
-              pods={pods}
-              containers={containers}
-              initContainers={initContainers}
-            />
-          ) : null,
-      }
-    )
-
-    tabs.push(
-      {
-        value: 'related',
-        label: t('common.tabs.related'),
-        content: (
-          <RelatedResourcesTable
-            resource="deployments"
-            name={name}
-            namespace={namespace}
-          />
-        ),
-      },
-      {
-        value: 'history',
-        label: t('common.tabs.history'),
-        content: deployment ? (
-          <WorkloadHistoryTabs
-            resourceType="deployments"
-            namespace={namespace}
-            name={name}
-            resource={deployment}
-            onRollbackComplete={refetch}
-          />
-        ) : null,
-      }
-    )
-
-    if (deployment?.spec?.template?.spec?.volumes) {
-      tabs.push({
-        value: 'volumes',
-        label: (
-          <>
-            {t('common.tabs.volumes')}
-            <Badge variant="secondary">
-              {deployment.spec.template.spec.volumes.length}
-            </Badge>
-          </>
-        ),
-        content: (
-          <VolumeTable
-            namespace={namespace}
-            volumes={deployment.spec.template.spec.volumes}
-            containers={toSimpleContainer(
-              deployment.spec.template.spec.initContainers,
-              deployment.spec.template.spec.containers
-            )}
-            isLoading={isLoading}
-          />
-        ),
-      })
-    }
-
-    tabs.push(
-      {
-        value: 'events',
-        label: t('common.tabs.events'),
-        content: (
-          <EventTable
-            resource="deployments"
-            name={name}
-            namespace={namespace}
-          />
-        ),
-      },
-      {
-        value: 'monitor',
-        label: t('common.tabs.monitor'),
-        content: (
-          <PodMonitoring
-            namespace={namespace}
-            pods={pods}
-            containers={containers}
-            initContainers={initContainers}
-            labelSelector={labelSelector}
-          />
-        ),
-      }
-    )
-
-    return tabs
-  }, [
-    deployment,
-    isLoading,
-    isLoadingPods,
-    labelSelector,
-    handleContainerUpdate,
-    name,
-    namespace,
-    refetch,
-    relatedPods,
-    t,
-  ])
+  const pods = relatedPods || []
+  const containers = deployment?.spec?.template.spec?.containers || []
+  const initContainers = deployment?.spec?.template.spec?.initContainers || []
 
   return (
     <ResourceDetailShell
@@ -476,20 +294,191 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
       isLoading={isLoading}
       error={isError ? error : null}
       onRefresh={refetch}
-      onSaveYaml={handleSaveYaml}
-      overview={
-        deployment ? (
-          <DeploymentOverview
-            deployment={deployment}
-            namespace={namespace}
-            name={name}
-            pods={relatedPods}
-            isPodsLoading={isLoadingPods}
-            events={deploymentEvents}
-            isEventsLoading={isEventsLoading}
-          />
-        ) : null
-      }
+      tabs={[
+        {
+          value: 'overview',
+          label: t('common.tabs.overview'),
+          content: deployment ? (
+            <DeploymentOverview
+              deployment={deployment}
+              namespace={namespace}
+              name={name}
+              pods={relatedPods}
+              isPodsLoading={isLoadingPods}
+              events={deploymentEvents}
+              isEventsLoading={isEventsLoading}
+            />
+          ) : null,
+        },
+        {
+          value: 'pods',
+          label: (
+            <>
+              {t('common.tabs.pods')}
+              <Badge variant="secondary">{pods.length}</Badge>
+            </>
+          ),
+          content: (
+            <PodTable
+              pods={pods}
+              isLoading={isLoadingPods}
+              labelSelector={labelSelector}
+            />
+          ),
+        },
+        {
+          value: 'containers',
+          label: (
+            <>
+              {t('common.tabs.containers')}
+              <Badge variant="secondary">
+                {containers.length + initContainers.length}
+              </Badge>
+            </>
+          ),
+          content: (
+            <div className="space-y-4">
+              {initContainers.length > 0 ? (
+                <div className="space-y-3">
+                  {initContainers.map((container) => (
+                    <ContainerInfoCard
+                      key={container.name}
+                      container={container}
+                      init
+                      onContainerUpdate={(updatedContainer) =>
+                        handleContainerUpdate(updatedContainer, true)
+                      }
+                    />
+                  ))}
+                </div>
+              ) : null}
+              <div className="space-y-3">
+                {containers.map((container) => (
+                  <ContainerInfoCard
+                    key={container.name}
+                    container={container}
+                    onContainerUpdate={(updatedContainer) =>
+                      handleContainerUpdate(updatedContainer, false)
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          ),
+        },
+        {
+          value: 'yaml',
+          label: t('common.tabs.yaml'),
+          content: ({ resource, refreshKey }) => (
+            <ResourceYaml
+              key={refreshKey}
+              value={resource}
+              onSave={handleSaveYaml}
+              fillHeight
+            />
+          ),
+        },
+        {
+          value: 'logs',
+          label: t('common.tabs.logs'),
+          content: (
+            <LogViewer
+              namespace={namespace}
+              pods={pods}
+              containers={containers}
+              initContainers={initContainers}
+              labelSelector={labelSelector}
+            />
+          ),
+        },
+        {
+          value: 'terminal',
+          label: t('common.tabs.terminal'),
+          content:
+            pods.length > 0 ? (
+              <Terminal
+                namespace={namespace}
+                pods={pods}
+                containers={containers}
+                initContainers={initContainers}
+              />
+            ) : null,
+        },
+        {
+          value: 'related',
+          label: t('common.tabs.related'),
+          content: (
+            <RelatedResourcesTable
+              resource="deployments"
+              name={name}
+              namespace={namespace}
+            />
+          ),
+        },
+        {
+          value: 'history',
+          label: t('common.tabs.history'),
+          content: deployment ? (
+            <WorkloadHistoryTabs
+              resourceType="deployments"
+              namespace={namespace}
+              name={name}
+              resource={deployment}
+              onRollbackComplete={refetch}
+            />
+          ) : null,
+        },
+        ...(deployment?.spec?.template?.spec?.volumes
+          ? [
+              {
+                value: 'volumes',
+                label: (
+                  <>
+                    {t('common.tabs.volumes')}
+                    <Badge variant="secondary">
+                      {deployment.spec.template.spec.volumes.length}
+                    </Badge>
+                  </>
+                ),
+                content: (
+                  <VolumeTable
+                    namespace={namespace}
+                    volumes={deployment.spec.template.spec.volumes}
+                    containers={toSimpleContainer(
+                      deployment.spec.template.spec.initContainers,
+                      deployment.spec.template.spec.containers
+                    )}
+                    isLoading={isLoading}
+                  />
+                ),
+              },
+            ]
+          : []),
+        {
+          value: 'events',
+          label: t('common.tabs.events'),
+          content: (
+            <EventTable
+              resource="deployments"
+              name={name}
+              namespace={namespace}
+            />
+          ),
+        },
+        {
+          value: 'monitor',
+          label: t('common.tabs.monitor'),
+          content: (
+            <PodMonitoring
+              namespace={namespace}
+              pods={pods}
+              containers={containers}
+              initContainers={initContainers}
+              labelSelector={labelSelector}
+            />
+          ),
+        },
+      ]}
       headerActions={
         <>
           {relatedResources && !hasRelatedService ? (
@@ -700,12 +689,6 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
           </Dialog>
         </>
       }
-      preYamlTabs={extraTabs.filter((tab) =>
-        ['pods', 'containers'].includes(tab.value)
-      )}
-      extraTabs={extraTabs.filter(
-        (tab) => !['pods', 'containers'].includes(tab.value)
-      )}
     />
   )
 }

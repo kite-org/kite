@@ -3,6 +3,7 @@
 Kite supports several environment variables by default to change the default values of some configuration items.
 
 - **KITE_CONFIG_FILE**: Path to the configuration file. Available in Kite `v0.10.0` and later. When set, Kite loads cluster, OAuth, LDAP, RBAC, and super user settings from this file. See [Configuration File](/config/config-file) for details.
+- **PLUGIN_DEV_URL**: Development plugin manifest URL, for example `http://localhost:5174/plugin.json`. The browser loads it directly; it overrides an installed plugin with the same ID without changing installation records. Leave unset to use installed plugins only. Helm deployments can set it through `extraEnvs`. See [Plugin Debugging](/plugins/debugging) for details.
 - **KITE_USERNAME**: Legacy environment variable for the initial administrator username. It is only used for env-to-DB migration when `KITE_CONFIG_FILE` is not set.
 - **KITE_PASSWORD**: Legacy environment variable for the initial administrator password. It is only used for env-to-DB migration when `KITE_CONFIG_FILE` is not set.
 - **KUBECONFIG**: Legacy kubeconfig environment variable used to import clusters when `KITE_CONFIG_FILE` is not set.

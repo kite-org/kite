@@ -11,7 +11,6 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { ResourceType } from '@/types/api'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -45,45 +44,41 @@ export interface ResourceTableBatchAction<T> {
 interface ResourceTableToolbarProps<T> {
   table: Table<T>
   resourceName: string
-  resourceType?: ResourceType
-  clusterScope: boolean
-  extraToolbars: React.ReactNode[]
-  showCreateButton: boolean
+  extraToolbars?: React.ReactNode[]
   onCreateClick?: () => void
   searchQuery: string
   setSearchQuery: (value: string) => void
-  selectedNamespace?: string
-  handleNamespaceChange: (value: string) => void
-  useSSE: boolean
-  isConnected: boolean
-  refreshInterval: number
-  onUseSSEChange: (pressed: boolean) => void
-  onRefreshIntervalChange: (value: number) => void
-  selectedRowCount: number
-  onOpenDeleteDialog: () => void
-  batchActions: ResourceTableBatchAction<T>[]
+  searchPlaceholder?: string
+  namespace?: { value?: string; onChange: (value: string) => void }
+  watch?: {
+    enabled: boolean
+    connected: boolean
+    onChange: (enabled: boolean) => void
+  }
+  refreshInterval?: number
+  onRefreshIntervalChange?: (value: number) => void
+  onRefresh?: () => void
+  isRefreshing?: boolean
+  onOpenDeleteDialog?: () => void
+  batchActions?: ResourceTableBatchAction<T>[]
 }
 
 export function ResourceTableToolbar<T>({
   table,
   resourceName,
-  resourceType,
-  clusterScope,
-  extraToolbars,
-  showCreateButton,
+  extraToolbars = [],
   onCreateClick,
   searchQuery,
   setSearchQuery,
-  selectedNamespace,
-  handleNamespaceChange,
-  useSSE,
-  isConnected,
+  searchPlaceholder,
+  namespace,
+  watch,
   refreshInterval,
-  onUseSSEChange,
   onRefreshIntervalChange,
-  selectedRowCount,
+  onRefresh,
+  isRefreshing,
   onOpenDeleteDialog,
-  batchActions,
+  batchActions = [],
 }: ResourceTableToolbarProps<T>) {
   const { t } = useTranslation()
 
@@ -96,7 +91,9 @@ export function ResourceTableToolbar<T>({
 
   const getSelectedRows = () =>
     table.getSelectedRowModel().rows.map((row) => row.original)
-  const showBatchActionsInline = batchActions.length + 1 <= 2
+  const selectedRowCount = table.getSelectedRowModel().rows.length
+  const batchActionCount = batchActions.length + (onOpenDeleteDialog ? 1 : 0)
+  const showBatchActionsInline = batchActionCount <= 2
 
   return (
     <div className="flex flex-col gap-3">
@@ -105,47 +102,54 @@ export function ResourceTableToolbar<T>({
           {extraToolbars.map((toolbar, index) => (
             <React.Fragment key={index}>{toolbar}</React.Fragment>
           ))}
-          {resourceType === 'pods' && (
+          {watch && (
             <Toggle
-              pressed={useSSE}
+              pressed={watch.enabled}
               variant="outline"
               className="px-3 text-muted-foreground data-[state=on]:text-foreground"
               aria-label={t('resourceTable.watch')}
-              onPressedChange={onUseSSEChange}
+              onPressedChange={watch.onChange}
             >
               <span
                 className={cn(
                   'bg-muted-foreground/25 size-2 rounded-full',
-                  useSSE && isConnected && 'bg-emerald-500',
-                  useSSE && !isConnected && 'bg-red-500'
+                  watch.enabled && watch.connected && 'bg-emerald-500',
+                  watch.enabled && !watch.connected && 'bg-red-500'
                 )}
               />
               <span>{t('resourceTable.watch')}</span>
             </Toggle>
           )}
-          <Select
-            value={refreshInterval.toString()}
-            onValueChange={(value) => onRefreshIntervalChange(Number(value))}
-            disabled={useSSE}
-          >
-            <SelectTrigger className="w-full sm:w-[120px]">
-              <div className="flex items-center gap-2">
-                <RefreshCw className="h-4 w-4" />
-                <SelectValue />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="0">Off</SelectItem>
-              <SelectItem value="1000">1s</SelectItem>
-              <SelectItem value="5000">5s</SelectItem>
-              <SelectItem value="10000">10s</SelectItem>
-              <SelectItem value="30000">30s</SelectItem>
-            </SelectContent>
-          </Select>
-          {!clusterScope && (
+          {refreshInterval !== undefined && onRefreshIntervalChange && (
+            <Select
+              value={refreshInterval.toString()}
+              onValueChange={(value) => onRefreshIntervalChange(Number(value))}
+              disabled={watch?.enabled}
+            >
+              <SelectTrigger
+                className="w-full sm:w-[120px]"
+                aria-label={t('resourceTable.refreshInterval')}
+              >
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4" />
+                  <SelectValue />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">
+                  {t('resourceTable.refreshOff')}
+                </SelectItem>
+                <SelectItem value="1000">1s</SelectItem>
+                <SelectItem value="5000">5s</SelectItem>
+                <SelectItem value="10000">10s</SelectItem>
+                <SelectItem value="30000">30s</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          {namespace && (
             <NamespaceSelector
-              selectedNamespace={selectedNamespace}
-              handleNamespaceChange={handleNamespaceChange}
+              value={namespace.value}
+              onChange={namespace.onChange}
               showAll={true}
               multiple={true}
             />
@@ -202,7 +206,13 @@ export function ResourceTableToolbar<T>({
             <div className="relative min-w-0 flex-1 sm:w-[280px]">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder={`Search ${resourceName} or app=nginx...`}
+                aria-label={t('resourceTable.searchResources', {
+                  resource: resourceName,
+                })}
+                placeholder={
+                  searchPlaceholder ??
+                  t('resourceTable.searchResources', { resource: resourceName })
+                }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-4"
@@ -214,7 +224,7 @@ export function ResourceTableToolbar<T>({
                 size="icon"
                 onClick={() => setSearchQuery('')}
                 className="h-9 w-9"
-                aria-label="Clear search"
+                aria-label={t('resourceTable.clearFilters')}
               >
                 <XCircle className="h-4 w-4" />
               </Button>
@@ -222,31 +232,35 @@ export function ResourceTableToolbar<T>({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            {selectedRowCount > 0 && showBatchActionsInline && (
-              <>
-                {batchActions.map((action) => (
-                  <Button
-                    key={action.id}
-                    variant="outline"
-                    onClick={() => action.onSelect(getSelectedRows())}
-                    className="gap-2 tabular-nums"
-                  >
-                    {action.icon}
-                    {action.label} ({selectedRowCount})
-                  </Button>
-                ))}
-                <Button
-                  variant="destructive"
-                  onClick={onOpenDeleteDialog}
-                  className="gap-2 tabular-nums"
-                >
-                  <Trash2 className="size-4" />
-                  {t('resourceTable.deleteSelected', {
-                    count: selectedRowCount,
-                  })}
-                </Button>
-              </>
-            )}
+            {selectedRowCount > 0 &&
+              batchActionCount > 0 &&
+              showBatchActionsInline && (
+                <>
+                  {batchActions.map((action) => (
+                    <Button
+                      key={action.id}
+                      variant="outline"
+                      onClick={() => action.onSelect(getSelectedRows())}
+                      className="gap-2 tabular-nums"
+                    >
+                      {action.icon}
+                      {action.label} ({selectedRowCount})
+                    </Button>
+                  ))}
+                  {onOpenDeleteDialog && (
+                    <Button
+                      variant="destructive"
+                      onClick={onOpenDeleteDialog}
+                      className="gap-2 tabular-nums"
+                    >
+                      <Trash2 className="size-4" />
+                      {t('resourceTable.deleteSelected', {
+                        count: selectedRowCount,
+                      })}
+                    </Button>
+                  )}
+                </>
+              )}
             {selectedRowCount > 0 && !showBatchActionsInline && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -271,21 +285,37 @@ export function ResourceTableToolbar<T>({
                       {action.label}
                     </DropdownMenuItem>
                   ))}
-                  {batchActions.length > 0 && <DropdownMenuSeparator />}
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onSelect={onOpenDeleteDialog}
-                  >
-                    <Trash2 className="size-4" />
-                    {t('common.actions.delete')}
-                  </DropdownMenuItem>
+                  {batchActions.length > 0 && onOpenDeleteDialog && (
+                    <DropdownMenuSeparator />
+                  )}
+                  {onOpenDeleteDialog && (
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={onOpenDeleteDialog}
+                    >
+                      <Trash2 className="size-4" />
+                      {t('common.actions.delete')}
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            {showCreateButton && onCreateClick && (
+            {onRefresh && (
+              <Button
+                variant="outline"
+                onClick={onRefresh}
+                disabled={isRefreshing}
+              >
+                <RefreshCw
+                  className={cn('size-4', isRefreshing && 'animate-spin')}
+                />
+                {t('common.actions.refresh')}
+              </Button>
+            )}
+            {onCreateClick && (
               <Button onClick={onCreateClick} className="gap-1">
                 <Plus className="h-2 w-2" />
-                New
+                {t('common.actions.create')}
               </Button>
             )}
 
@@ -294,13 +324,15 @@ export function ResourceTableToolbar<T>({
                 <Button
                   variant="outline"
                   size="icon"
-                  aria-label="Toggle columns"
+                  aria-label={t('resourceTable.toggleColumns')}
                 >
                   <Settings2 className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                <DropdownMenuLabel>
+                  {t('resourceTable.toggleColumns')}
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {table
                   .getAllLeafColumns()

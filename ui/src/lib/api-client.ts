@@ -1,10 +1,7 @@
-// API client with authentication support
+import type { APIRequestOptions } from '@kite-dev/plugin-sdk/api'
+
 import { appendCurrentClusterHeader } from './current-cluster'
 import { withSubPath } from './subpath'
-
-export interface ApiRequestOptions extends RequestInit {
-  retryOnUnauthorized?: boolean
-}
 
 class ApiClient {
   private baseUrl: string = ''
@@ -40,25 +37,27 @@ class ApiClient {
 
   async request(
     url: string,
-    options: ApiRequestOptions = {}
+    options: APIRequestOptions = {}
   ): Promise<Response> {
     const fullUrl = withSubPath(this.baseUrl + url)
 
-    const headers: Record<string, string> = {
-      ...(options.headers as Record<string, string>),
-    }
+    const defaultHeaders: Record<string, string> = {}
+    appendCurrentClusterHeader(defaultHeaders)
+
+    const headers = new Headers(defaultHeaders)
+    new Headers(options.headers).forEach((value, name) => {
+      headers.set(name, value)
+    })
 
     // Only set default Content-Type to application/json if not already set and body is not FormData
-    if (!headers['Content-Type'] && !(options.body instanceof FormData)) {
-      headers['Content-Type'] = 'application/json'
+    if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
+      headers.set('Content-Type', 'application/json')
     }
-
-    appendCurrentClusterHeader(headers)
 
     const defaultOptions: RequestInit = {
       credentials: 'include',
-      headers,
       ...options,
+      headers,
     }
 
     try {
@@ -77,14 +76,16 @@ class ApiClient {
 
       return response
     } catch (error) {
-      console.error('API request failed:', error)
+      if (!options.signal?.aborted) {
+        console.error('API request failed:', error)
+      }
       throw error
     }
   }
 
   private async makeRequest<T>(
     url: string,
-    options: ApiRequestOptions = {}
+    options: APIRequestOptions = {}
   ): Promise<T> {
     const response = await this.request(url, options)
 
@@ -103,14 +104,14 @@ class ApiClient {
     return (await response.text()) as T
   }
 
-  async get<T>(url: string, options?: ApiRequestOptions): Promise<T> {
+  async get<T>(url: string, options?: APIRequestOptions): Promise<T> {
     return this.makeRequest<T>(url, { ...options, method: 'GET' })
   }
 
   async post<T>(
     url: string,
     data?: unknown,
-    options?: ApiRequestOptions
+    options?: APIRequestOptions
   ): Promise<T> {
     const isFormData = data instanceof FormData
     return this.makeRequest<T>(url, {
@@ -127,7 +128,7 @@ class ApiClient {
   async put<T>(
     url: string,
     data?: unknown,
-    options?: ApiRequestOptions
+    options?: APIRequestOptions
   ): Promise<T> {
     const isFormData = data instanceof FormData
     return this.makeRequest<T>(url, {
@@ -141,14 +142,14 @@ class ApiClient {
     })
   }
 
-  async delete<T>(url: string, options?: ApiRequestOptions): Promise<T> {
+  async delete<T>(url: string, options?: APIRequestOptions): Promise<T> {
     return this.makeRequest<T>(url, { ...options, method: 'DELETE' })
   }
 
   async patch<T>(
     url: string,
     data?: unknown,
-    options?: ApiRequestOptions
+    options?: APIRequestOptions
   ): Promise<T> {
     const isFormData = data instanceof FormData
     return this.makeRequest<T>(url, {

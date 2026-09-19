@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { useSidebarConfig } from '@/contexts/sidebar-config-context'
+import { persistPluginPreferences } from '@/plugins/sidebar'
 import {
   ArrowDown,
   ArrowUp,
@@ -41,6 +42,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { PluginIndicator } from '@/components/plugins/plugin-indicator'
 import { CRDSelector } from '@/components/selector/crd-selector'
 
 const normalizeSidebarPreference = (value: string): string => {
@@ -235,7 +237,7 @@ export function SidebarCustomizer({
     if (!config) {
       return ''
     }
-    return JSON.stringify(config)
+    return JSON.stringify(persistPluginPreferences(config))
   }, [config])
 
   const normalizedGlobalSidebarPreference = useMemo(() => {
@@ -363,6 +365,7 @@ export function SidebarCustomizer({
                           <div className="flex flex-wrap items-center gap-2">
                             <IconComponent className="h-4 w-4 text-sidebar-primary" />
                             <span className="text-sm">{title}</span>
+                            <PluginIndicator pluginId={item.pluginId} />
                             <Badge variant="outline" className="text-xs">
                               {t('sidebar.pinned', 'Pinned')}
                             </Badge>
@@ -408,6 +411,7 @@ export function SidebarCustomizer({
                           ? t(group.nameKey, { defaultValue: group.nameKey })
                           : ''}
                       </h4>
+                      <PluginIndicator pluginId={group.pluginId} />
                       {group.isCustom && (
                         <Badge variant="outline" className="text-xs">
                           Custom
@@ -532,6 +536,7 @@ export function SidebarCustomizer({
                             </Button>
                             <IconComponent className="h-4 w-4 text-sidebar-primary" />
                             <span className="text-sm">{title}</span>
+                            <PluginIndicator pluginId={item.pluginId} />
                             {item.type === 'apiGroup' && (
                               <Badge variant="outline" className="text-xs">
                                 {t('sidebar.apiGroup', 'API Group')}

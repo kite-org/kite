@@ -1,0 +1,35 @@
+export { useResourceContext } from '../resource-context'
+
+export {
+  deleteResource,
+  patchResource,
+  updateResource,
+  useDescribe,
+  usePluginResource as useResource,
+  usePluginResources as useResources,
+  useRelatedResources,
+  useResourceEvents,
+  useResourceHistory,
+} from '../resource-api'
+
+export {
+  applyResource,
+  copyDebugPod,
+  cordonNode,
+  debugPod,
+  drainNode,
+  podDownloadFile,
+  podPreviewFile,
+  podUploadFile,
+  resizePod,
+  restartWorkload,
+  rollbackWorkload,
+  scaleDeployment,
+  taintNode,
+  uncordonNode,
+  untaintNode,
+  useImageTags,
+  usePodFiles,
+  useTemplates,
+  useWorkloadRevisions,
+} from '@/lib/api/core'

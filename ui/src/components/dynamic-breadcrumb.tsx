@@ -1,5 +1,7 @@
+import { usePlugins, useResourcePlugin } from '@/plugins/plugin-context'
+import { pluginLabel } from '@/plugins/sidebar'
 import { useTranslation } from 'react-i18next'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, matchRoutes, useLocation } from 'react-router-dom'
 
 import { getResourceCatalogEntry } from '@/lib/resource-catalog'
 import {
@@ -10,19 +12,54 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
+import { PluginIndicator } from '@/components/plugins/plugin-indicator'
 
 interface BreadcrumbSegment {
   label: string
   href?: string
+  pluginId?: string
 }
 
 export function DynamicBreadcrumb() {
   const location = useLocation()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const { plugins } = usePlugins()
+  const pathSegments = location.pathname.split('/').filter(Boolean)
+  const resourceIndex = pathSegments[0] === 'crds' ? 1 : 0
+  const resourcePlugin = useResourcePlugin(
+    resourceIndex === 1 && pathSegments.length === 2 ? 'list' : 'detail',
+    pathSegments.length > 1 ? pathSegments[resourceIndex] : undefined
+  )
 
   const generateBreadcrumbs = (): BreadcrumbSegment[] => {
-    const pathSegments = location.pathname.split('/').filter(Boolean)
     const breadcrumbs: BreadcrumbSegment[] = []
+
+    if (pathSegments[0] === 'plugins') {
+      const plugin = plugins.find(
+        (item) => item.manifest.id === pathSegments[1]
+      )
+      if (!plugin) return [{ label: t('plugins.title') }]
+      const base = `/plugins/${plugin.manifest.id}`
+      const routes = plugin.invalid ? [] : plugin.manifest.routes
+      const match = matchRoutes(
+        routes.map((route) => ({
+          title: route.title,
+          path: `${base}/${route.path}`,
+        })),
+        location
+      )?.at(-1)?.route
+      const title = match?.title
+        ? pluginLabel(match.title, i18n.language)
+        : undefined
+      return [
+        {
+          label: plugin.manifest.name,
+          pluginId: plugin.manifest.id,
+          href: routes.some((route) => route.path === '') ? base : undefined,
+        },
+        ...(title && title !== plugin.manifest.name ? [{ label: title }] : []),
+      ]
+    }
 
     if (pathSegments.length === 0) {
       return breadcrumbs
@@ -86,11 +123,15 @@ export function DynamicBreadcrumb() {
     // Generate breadcrumbs for each visible path segment
     visibleSegments.forEach((segment, index) => {
       const href = getSafeLink(index)
-      breadcrumbs.push(
-        index === 0
+      breadcrumbs.push({
+        ...(index === 0
           ? createResourceBreadcrumb(segment, href)
-          : { label: segment, href }
-      )
+          : { label: segment, href }),
+        pluginId:
+          index === resourceIndex && !resourcePlugin?.error
+            ? resourcePlugin?.manifest.id
+            : undefined,
+      })
     })
 
     return breadcrumbs
@@ -112,6 +153,7 @@ export function DynamicBreadcrumb() {
               ) : (
                 <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
               )}
+              <PluginIndicator pluginId={crumb.pluginId} />
             </BreadcrumbItem>
           </div>
         ))}

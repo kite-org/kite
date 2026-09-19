@@ -1,22 +1,26 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
+import { PluginNamespaceContext } from '@/plugins/namespace-context'
 import {
-  ColumnDef,
-  getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
+  usePluginColumnContributions,
+  usePluginResourceColumns,
+} from '@/plugins/resource-extensions'
+import { ColumnDef } from '@tanstack/react-table'
 import { Box, Database } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { ResourceType } from '@/types/api'
 import { deleteResource } from '@/lib/api'
+import { getClusterScopedStorageKey } from '@/lib/current-cluster'
 import { getResourceMetadata } from '@/lib/resource-catalog'
 import { useCluster } from '@/hooks/use-cluster'
+import { useResourceTable } from '@/hooks/use-resource-table'
 import { useResourceTableData } from '@/hooks/use-resource-table-data'
 import { useResourceTableState } from '@/hooks/use-resource-table-state'
 import { Badge } from '@/components/ui/badge'
@@ -42,16 +46,16 @@ export type { ResourceTableBatchAction } from './resource-table-toolbar'
 
 export interface ResourceTableProps<T> {
   resourceName: string
+  searchQueryFilter?: (item: T, query: string) => boolean
+  onCreateClick?: () => void
+  extraToolbars?: ReactNode[]
+  defaultHiddenColumns?: string[]
   resourceType?: ResourceType // Optional, used for fetching resources
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   columns: ColumnDef<T, any>[]
   clusterScope?: boolean // If true, don't show namespace selector
-  searchQueryFilter?: (item: T, query: string) => boolean // Custom filter function
   showCreateButton?: boolean // If true, show create button
-  onCreateClick?: () => void // Callback for create button click
-  extraToolbars?: React.ReactNode[] // Additional toolbar components
   batchActions?: ResourceTableBatchAction<T>[]
-  defaultHiddenColumns?: string[] // Columns to hide by default
 }
 
 export function ResourceTable<T>(props: ResourceTableProps<T>) {
@@ -75,35 +79,64 @@ function ResourceTableContent<T>({
   defaultHiddenColumns = [],
 }: ResourceTableProps<T>) {
   const { t } = useTranslation()
+  const tableState = useResourceTableState({
+    storageKey: resourceName,
+    defaultHiddenColumns,
+  })
   const {
-    sorting,
-    setSorting,
     columnFilters,
-    setColumnFilters,
-    rowSelection,
     setRowSelection,
-    deleteDialogOpen,
-    setDeleteDialogOpen,
     searchQuery,
     setSearchQuery,
     debouncedSearchQuery,
-    columnVisibility,
-    setColumnVisibility,
     pagination,
     setPagination,
-    refreshInterval,
-    setRefreshInterval,
-    selectedNamespace,
-    effectiveNamespace,
-    useSSE,
-    handleNamespaceChange,
-    handleUseSSEChange,
-    handleRefreshIntervalChange,
-  } = useResourceTableState({
-    resourceName,
-    clusterScope,
-    defaultHiddenColumns,
+  } = tableState
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [refreshInterval, setRefreshInterval] = useState(5000)
+  const [selectedNamespace, setSelectedNamespace] = useState<
+    string | undefined
+  >(() => {
+    const storageKey = getClusterScopedStorageKey('selectedNamespace')
+    return clusterScope
+      ? undefined
+      : sessionStorage.getItem(storageKey) ||
+          localStorage.getItem(storageKey) ||
+          'default'
   })
+  const [useSSE, setUseSSE] = useState(false)
+  const effectiveNamespace = clusterScope
+    ? undefined
+    : selectedNamespace?.includes(',')
+      ? '_all'
+      : selectedNamespace
+
+  useEffect(() => {
+    if (clusterScope || selectedNamespace !== undefined) return
+    const storageKey = getClusterScopedStorageKey('selectedNamespace')
+    setSelectedNamespace(
+      sessionStorage.getItem(storageKey) ||
+        localStorage.getItem(storageKey) ||
+        'default'
+    )
+  }, [clusterScope, selectedNamespace])
+
+  const handleNamespaceChange = (value: string) => {
+    const storageKey = getClusterScopedStorageKey('selectedNamespace')
+    sessionStorage.setItem(storageKey, value)
+    localStorage.setItem(storageKey, value)
+    setSelectedNamespace(value)
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+    setSearchQuery('')
+  }
+  const handleUseSSEChange = (pressed: boolean) => {
+    setUseSSE(pressed)
+    setRefreshInterval((current) => (pressed ? 0 : current || 5000))
+  }
+  const handleRefreshIntervalChange = (value: number) => {
+    setRefreshInterval(value)
+    if (value > 0) setUseSSE(false)
+  }
 
   // When the query looks like a label selector, route it to the backend API
   // instead of the client-side name filter.
@@ -126,21 +159,24 @@ function ResourceTableContent<T>({
           : ''
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteProgress, setDeleteProgress] = useState({ done: 0, total: 0 })
-  const {
-    resourceType: resolvedResourceType,
-    data,
-    isLoading,
-    isError,
-    error,
-    refetch,
-    isConnected,
-  } = useResourceTableData<T>({
-    resourceName,
-    resourceType,
-    namespace: effectiveNamespace,
-    useSSE,
-    refreshInterval,
-    labelSelector: effectiveLabelSelector,
+  const resolvedResourceType =
+    resourceType ?? (resourceName.toLowerCase() as ResourceType)
+  const extensions = usePluginColumnContributions(
+    resolvedResourceType,
+    tableState.columnVisibility
+  )
+  const { data, isLoading, isError, error, refetch, isConnected } =
+    useResourceTableData<T>({
+      resourceType: resolvedResourceType,
+      namespace: effectiveNamespace,
+      useSSE,
+      refreshInterval,
+      labelSelector: effectiveLabelSelector,
+      reduce: !extensions.hasVisibleColumns,
+    })
+  const pluginColumns = usePluginResourceColumns<T>({
+    extensions,
+    onRefresh: refetch,
   })
   const displayResourceName = (() => {
     const resource = getResourceMetadata(resolvedResourceType)
@@ -156,7 +192,6 @@ function ResourceTableContent<T>({
     return resource.shortLabel || resource.pluralLabel || resourceName
   })()
 
-  // Add namespace column when showing all namespaces
   const enhancedColumns = useMemo(() => {
     const selectColumn: ColumnDef<T> = {
       id: 'select',
@@ -181,7 +216,11 @@ function ResourceTableContent<T>({
       enableHiding: false,
     }
 
-    const baseColumns = [selectColumn, ...columns]
+    const baseColumns: ResourceTableProps<T>['columns'] = [
+      selectColumn,
+      ...columns,
+      ...pluginColumns,
+    ]
 
     // Only add namespace column if not cluster scope, showing all namespaces,
     // and there isn't already a namespace column in the provided columns
@@ -189,9 +228,7 @@ function ResourceTableContent<T>({
       !clusterScope &&
       (selectedNamespace === '_all' || selectedNamespaces.length > 1)
     ) {
-      // Check if namespace column already exists in the provided columns
       const hasNamespaceColumn = columns.some((col) => {
-        // Check if the column accesses namespace data
         if ('accessorKey' in col && col.accessorKey === 'metadata.namespace') {
           return true
         }
@@ -201,13 +238,11 @@ function ResourceTableContent<T>({
         return false
       })
 
-      // Only add namespace column if it doesn't already exist
       if (!hasNamespaceColumn) {
         const namespaceColumn = {
           id: 'namespace',
           header: t('resourceTable.namespace'),
           accessorFn: (row: T) => {
-            // Try to get namespace from metadata.namespace
             const metadata = (row as { metadata?: { namespace?: string } })
               ?.metadata
             return metadata?.namespace || '-'
@@ -226,7 +261,14 @@ function ResourceTableContent<T>({
       }
     }
     return baseColumns
-  }, [columns, clusterScope, selectedNamespace, selectedNamespaces.length, t])
+  }, [
+    columns,
+    pluginColumns,
+    clusterScope,
+    selectedNamespace,
+    selectedNamespaces.length,
+    t,
+  ])
 
   const namespaceFilteredData = useMemo(() => {
     if (clusterScope || selectedNamespaces.length <= 1) {
@@ -241,8 +283,12 @@ function ResourceTableContent<T>({
   }, [clusterScope, data, selectedNamespaces])
 
   const memoizedData = useMemo(
-    () => (namespaceFilteredData || []) as T[],
-    [namespaceFilteredData]
+    () =>
+      pluginColumns.length
+        ? [...(namespaceFilteredData || [])]
+        : namespaceFilteredData || [],
+    // TanStack caches accessor values on rows; replace rows when plugin accessors change.
+    [namespaceFilteredData, pluginColumns]
   )
 
   useEffect(() => {
@@ -251,20 +297,22 @@ function ResourceTableContent<T>({
     }
   }, [useSSE, error, effectiveLabelSelector, setRefreshInterval])
 
-  // Create table instance using TanStack Table
-  const table = useReactTable<T>({
+  const pluginColumnIds = new Set(pluginColumns.map((column) => column.id))
+  const isAvailableColumn = ({ id }: { id: string }) =>
+    !id.startsWith('plugin:') || pluginColumnIds.has(id)
+
+  const table = useResourceTable({
     data: memoizedData,
     columns: enhancedColumns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    onRowSelectionChange: setRowSelection,
-    onColumnVisibilityChange: setColumnVisibility,
+    state: {
+      ...tableState,
+      columnVisibility: extensions.columnVisibility,
+      sorting: tableState.sorting.filter(isAvailableColumn),
+      columnFilters: tableState.columnFilters.filter(isAvailableColumn),
+    },
+    searchQueryFilter,
+    additionalSearchColumnIds: pluginColumns.map((column) => column.id!),
+    filterOnServer: isLabelSelector,
     getRowId: (row) => {
       const metadata = (
         row as {
@@ -281,33 +329,6 @@ function ResourceTableContent<T>({
           : metadata.name)
       )
     },
-    state: {
-      sorting,
-      columnFilters,
-      globalFilter: isLabelSelector ? '' : searchQuery,
-      pagination,
-      rowSelection,
-      columnVisibility,
-    },
-    onPaginationChange: setPagination,
-    // Let TanStack Table handle pagination automatically based on filtered data
-    manualPagination: false,
-    // Improve filtering performance and consistency
-    globalFilterFn: (row, _columnId, value) => {
-      if (searchQueryFilter) {
-        return searchQueryFilter(row.original as T, String(value).toLowerCase())
-      }
-      const searchValue = String(value).toLowerCase()
-
-      // Search across all visible columns
-      return row.getVisibleCells().some((cell) => {
-        const cellValue = String(cell.getValue() || '').toLowerCase()
-        return cellValue.includes(searchValue)
-      })
-    },
-    // Add this to prevent unnecessary pagination resets
-    autoResetPageIndex: false,
-    enableRowSelection: true,
   })
 
   // Handle batch delete - must be after table is defined
@@ -369,26 +390,10 @@ function ResourceTableContent<T>({
     setRowSelection,
     setDeleteDialogOpen,
   ])
-  // Calculate total and filtered row counts
-  const totalRowCount = useMemo(
-    () => (namespaceFilteredData as T[] | undefined)?.length || 0,
-    [namespaceFilteredData]
-  )
-  const filteredRowCount = useMemo(() => {
-    if (!namespaceFilteredData || (namespaceFilteredData as T[]).length === 0)
-      return 0
-    // Force re-computation when filters change
-    void searchQuery // Ensure dependency is used
-    void columnFilters // Ensure dependency is used
-    return table.getFilteredRowModel().rows.length
-  }, [table, namespaceFilteredData, searchQuery, columnFilters])
+  const totalRowCount = namespaceFilteredData?.length ?? 0
+  const filteredRowCount = table.getFilteredRowModel().rows.length
+  const hasActiveFilters = Boolean(searchQuery) || columnFilters.length > 0
 
-  // Check if there are active filters
-  const hasActiveFilters = useMemo(() => {
-    return Boolean(searchQuery) || columnFilters.length > 0
-  }, [searchQuery, columnFilters])
-
-  // Render empty state based on condition
   const renderEmptyState = () => {
     // Only show loading state if there's no existing data
     if (
@@ -460,79 +465,95 @@ function ResourceTableContent<T>({
   const emptyState = renderEmptyState()
 
   return (
-    <div className="flex flex-col gap-3">
-      <ResourceTableToolbar
-        table={table}
-        resourceName={displayResourceName}
-        resourceType={resolvedResourceType}
-        clusterScope={clusterScope}
-        extraToolbars={extraToolbars}
-        showCreateButton={showCreateButton}
-        onCreateClick={onCreateClick}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        selectedNamespace={selectedNamespace}
-        handleNamespaceChange={handleNamespaceChange}
-        useSSE={useSSE}
-        isConnected={isConnected}
-        refreshInterval={refreshInterval}
-        onUseSSEChange={handleUseSSEChange}
-        onRefreshIntervalChange={handleRefreshIntervalChange}
-        selectedRowCount={table.getSelectedRowModel().rows.length}
-        onOpenDeleteDialog={() => setDeleteDialogOpen(true)}
-        batchActions={batchActions}
-      />
+    <PluginNamespaceContext.Provider
+      value={{
+        namespace: selectedNamespace ?? '_all',
+        setNamespace: handleNamespaceChange,
+      }}
+    >
+      <div className="flex flex-col gap-3">
+        <ResourceTableToolbar
+          table={table}
+          resourceName={displayResourceName}
+          extraToolbars={extraToolbars}
+          onCreateClick={showCreateButton ? onCreateClick : undefined}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          searchPlaceholder={`Search ${displayResourceName} or app=nginx...`}
+          namespace={
+            clusterScope
+              ? undefined
+              : {
+                  value: selectedNamespace,
+                  onChange: handleNamespaceChange,
+                }
+          }
+          watch={
+            resolvedResourceType === 'pods'
+              ? {
+                  enabled: useSSE,
+                  connected: isConnected,
+                  onChange: handleUseSSEChange,
+                }
+              : undefined
+          }
+          refreshInterval={refreshInterval}
+          onRefreshIntervalChange={handleRefreshIntervalChange}
+          onOpenDeleteDialog={() => setDeleteDialogOpen(true)}
+          batchActions={batchActions}
+        />
 
-      <ResourceTableView
-        table={table}
-        columnCount={enhancedColumns.length}
-        isLoading={isLoading}
-        data={namespaceFilteredData as T[] | undefined}
-        fitViewportHeight={true}
-        emptyState={emptyState}
-        hasActiveFilters={hasActiveFilters}
-        filteredRowCount={filteredRowCount}
-        totalRowCount={totalRowCount}
-        searchQuery={searchQuery}
-        pagination={pagination}
-        setPagination={setPagination}
-      />
+        <ResourceTableView
+          table={table}
+          columnCount={enhancedColumns.length}
+          isLoading={isLoading}
+          data={namespaceFilteredData as T[] | undefined}
+          fitViewportHeight={true}
+          emptyState={emptyState}
+          hasActiveFilters={hasActiveFilters}
+          filteredRowCount={filteredRowCount}
+          totalRowCount={totalRowCount}
+          searchQuery={searchQuery}
+          pagination={pagination}
+          setPagination={setPagination}
+        />
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('resourceTable.confirmDeletion')}</DialogTitle>
-            <DialogDescription>
-              {t('resourceTable.confirmDeletionMessage', {
-                count: table.getSelectedRowModel().rows.length,
-                resourceName: displayResourceName,
-              })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteDialogOpen(false)}
-              disabled={isDeleting}
-            >
-              {t('common.actions.cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleBatchDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting
-                ? t('resourceTable.deletingProgress', {
-                    done: deleteProgress.done,
-                    total: deleteProgress.total,
-                  })
-                : t('common.actions.delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('resourceTable.confirmDeletion')}</DialogTitle>
+              <DialogDescription>
+                {t('resourceTable.confirmDeletionMessage', {
+                  count: table.getSelectedRowModel().rows.length,
+                  resourceName: displayResourceName,
+                })}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteDialogOpen(false)}
+                disabled={isDeleting}
+              >
+                {t('common.actions.cancel')}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleBatchDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting
+                  ? t('resourceTable.deletingProgress', {
+                      done: deleteProgress.done,
+                      total: deleteProgress.total,
+                    })
+                  : t('common.actions.delete')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </PluginNamespaceContext.Provider>
   )
 }

@@ -301,10 +301,8 @@ export function DeploymentCreateDialog({
             <div className="space-y-2">
               <Label htmlFor="namespace">Namespace *</Label>
               <NamespaceSelector
-                selectedNamespace={formData.namespace}
-                handleNamespaceChange={(namespace) =>
-                  updateFormData({ namespace })
-                }
+                value={formData.namespace}
+                onChange={(namespace) => updateFormData({ namespace })}
               />
             </div>
             <div className="space-y-2">

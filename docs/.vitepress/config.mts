@@ -33,6 +33,7 @@ export default defineConfig({
           { text: "首页", link: "/zh/" },
           { text: "指南", link: "/zh/guide/" },
           { text: "配置", link: "/zh/config/" },
+          { text: "插件", link: "/zh/plugins/" },
           { text: "API", link: "/zh/api/authentication" },
           { text: "常见问题", link: "/zh/faq" },
         ],
@@ -72,6 +73,7 @@ export default defineConfig({
       { text: "Home", link: "/" },
       { text: "Guide", link: "/guide/" },
       { text: "Configuration", link: "/config/" },
+      { text: "Plugins", link: "/plugins/" },
       { text: "API", link: "/api/authentication" },
       { text: "FAQ", link: "/faq" },
     ],
@@ -203,6 +205,32 @@ export default defineConfig({
         {
           text: "用户管理",
           link: "/zh/api/user-management",
+        },
+      ],
+      "/plugins/": [
+        {
+          text: "Plugins",
+          items: [
+            { text: "Introduction to Plugins", link: "/plugins/" },
+            { text: "Quick Start", link: "/plugins/quick-start" },
+            { text: "API Reference", link: "/plugins/api" },
+            { text: "Internationalization", link: "/plugins/i18n" },
+            { text: "Debugging", link: "/plugins/debugging" },
+            { text: "Publishing Plugins", link: "/plugins/publishing" },
+          ],
+        },
+      ],
+      "/zh/plugins/": [
+        {
+          text: "插件",
+          items: [
+            { text: "插件简介", link: "/zh/plugins/" },
+            { text: "快速开始", link: "/zh/plugins/quick-start" },
+            { text: "API 参考", link: "/zh/plugins/api" },
+            { text: "国际化", link: "/zh/plugins/i18n" },
+            { text: "调试", link: "/zh/plugins/debugging" },
+            { text: "发布插件", link: "/zh/plugins/publishing" },
+          ],
         },
       ],
     },

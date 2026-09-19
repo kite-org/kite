@@ -20,11 +20,9 @@ import { DaemonSetListPage } from './daemonset-list-page'
 import { DeploymentDetail } from './deployment-detail'
 import { DeploymentListPage } from './deployment-list-page'
 import { EventListPage } from './event-list-page'
-import { GatewayListPage } from './gateway-list-page'
 import { HelmReleaseDetail } from './helmrelease-detail'
 import { HelmReleaseListPage } from './helmrelease-list-page'
 import { HorizontalPodAutoscalerListPage } from './horizontalpodautoscaler-list-page'
-import { HTTPRouteListPage } from './httproute-list-page'
 import { IngressListPage } from './ingress-list-page'
 import { JobDetail } from './job-detail'
 import { JobListPage } from './job-list-page'
@@ -160,14 +158,6 @@ function getResourceViews(resourceType: ResourceType): ResourceViewDefinition {
     case 'horizontalpodautoscalers':
       return {
         listPage: () => <HorizontalPodAutoscalerListPage />,
-      }
-    case 'gateways':
-      return {
-        listPage: () => <GatewayListPage />,
-      }
-    case 'httproutes':
-      return {
-        listPage: () => <HTTPRouteListPage />,
       }
     case 'helmrelease':
       return {

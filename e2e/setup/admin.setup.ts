@@ -13,18 +13,18 @@ test('bootstrap a reusable admin session', async ({ page }) => {
   await page.goto('/setup')
 
   await expect(
-    page.getByRole('heading', { name: 'Create Super Admin User' })
+    page.getByRole('heading', { name: 'Create your admin account' })
   ).toBeVisible()
 
   await page.getByLabel(/^Username \*$/).fill(adminUser.username)
-  await page.getByLabel('Display Name').fill(adminUser.name)
+  await page.getByLabel('Display name').fill(adminUser.name)
   await page.getByLabel(/^Password \*$/).fill(adminUser.password)
-  await page.getByLabel(/^Confirm Password \*$/).fill(adminUser.password)
-  await page.getByRole('button', { name: 'Create Super Admin User' }).click()
+  await page.getByLabel(/^Confirm password \*$/).fill(adminUser.password)
+  await page.getByRole('button', { name: 'Create admin account' }).click()
 
   await expect(page.getByLabel(/^Kubeconfig File \*$/)).toBeVisible()
   await page.getByLabel(/^Kubeconfig File \*$/).fill(kubeconfig)
-  await page.getByRole('button', { name: 'Import Clusters' }).click()
+  await page.getByRole('button', { name: 'Connect cluster' }).click()
 
   await page.waitForURL((url) => url.pathname === '/')
   await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
