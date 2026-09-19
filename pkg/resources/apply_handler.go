@@ -1,7 +1,7 @@
 package resources
 
 import (
-	"bufio"
+	"bytes"
 	"errors"
 	"io"
 	"net/http"
@@ -15,7 +15,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	serializeryaml "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	"k8s.io/apimachinery/pkg/runtime"
 	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,12 +46,12 @@ func (h *ResourceApplyHandler) ApplyResource(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	decodeUniversal := serializeryaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-	reader := utilyaml.NewYAMLReader(bufio.NewReader(strings.NewReader(req.YAML)))
+	decoder := utilyaml.NewYAMLOrJSONDecoder(strings.NewReader(req.YAML), 4096)
 	appliedResources := make([]gin.H, 0, 1)
 
 	for {
-		rawDoc, err := reader.Read()
+		rawDoc := runtime.RawExtension{}
+		err := decoder.Decode(&rawDoc)
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -61,13 +61,13 @@ func (h *ResourceApplyHandler) ApplyResource(c *gin.Context) {
 			return
 		}
 
-		docYAML := strings.TrimSpace(string(rawDoc))
-		if docYAML == "" {
+		rawDoc.Raw = bytes.TrimSpace(rawDoc.Raw)
+		if len(rawDoc.Raw) == 0 || bytes.Equal(rawDoc.Raw, []byte("null")) {
 			continue
 		}
 
 		obj := &unstructured.Unstructured{}
-		_, _, err = decodeUniversal.Decode(rawDoc, nil, obj)
+		_, _, err = unstructured.UnstructuredJSONScheme.Decode(rawDoc.Raw, nil, obj)
 		if err != nil {
 			klog.V(1).Infof("Failed to decode YAML: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid YAML format: " + err.Error()})
