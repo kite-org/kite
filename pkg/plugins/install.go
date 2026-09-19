@@ -31,7 +31,7 @@ var mutationMu sync.Mutex
 func installArchive(reader io.Reader, expected *CatalogPlugin, enabled bool) (string, error) {
 	var id string
 	err := withArchive(reader, expected, func(content string, manifest Manifest, digest string) error {
-		if err := manifest.Requires.validate(); err != nil {
+		if err := checkCompatibility(manifest.SDKVersion, manifest.Requires); err != nil {
 			return err
 		}
 		var downloadURL string

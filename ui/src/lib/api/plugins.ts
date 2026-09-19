@@ -23,6 +23,7 @@ export interface CatalogPlugin {
   name: string
   description?: string
   version: string
+  sdkVersion: string
   url: string
   sha256: string
   author?: string

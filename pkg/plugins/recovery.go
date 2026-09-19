@@ -61,7 +61,7 @@ func loadInstalledPlugin(plugin model.Plugin, restore bool) (*Manifest, error) {
 		err = fmt.Errorf("plugin identity does not match its installation record")
 	}
 	if err == nil {
-		return &manifest, manifest.Requires.validate()
+		return &manifest, checkCompatibility(manifest.SDKVersion, manifest.Requires)
 	}
 	if plugin.DownloadURL == "" {
 		return nil, fmt.Errorf("plugin files are unavailable; upload this plugin version again: %w", err)
@@ -112,7 +112,7 @@ func restorePlugin(plugin model.Plugin, recovery *pluginRecovery) error {
 		if err := publishAssets(content, record); err != nil {
 			return err
 		}
-		if err := manifest.Requires.validate(); err != nil {
+		if err := checkCompatibility(manifest.SDKVersion, manifest.Requires); err != nil {
 			klog.Errorf("Loading plugin %s error: %v", plugin.ID, err)
 		} else {
 			klog.Infof("Loaded plugin %s@%s", plugin.ID, plugin.Version)

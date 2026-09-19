@@ -37,6 +37,7 @@ export {
 export { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 export { NamespaceSelector } from '@/components/selector/namespace-selector'
 export { ResourceYaml } from '@/components/resource-yaml'
+export { WorkloadPodsCard } from '@/components/workload-pods-card'
 export { SimpleYamlEditor as YamlEditor } from '@/components/simple-yaml-editor'
 export {
   PluginResourceTable as ResourceTable,
