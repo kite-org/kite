@@ -17,7 +17,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@kite-dev/plugin-sdk": "0.0.6",
+    "@kite-dev/plugin-sdk": "0.0.8",
     "@module-federation/runtime": "2.9.0",
     "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-avatar": "^1.2.6",

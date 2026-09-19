@@ -368,6 +368,25 @@ Additional details:
 
 Import these components from `/ui`. They are all optional; you can use the hooks with your own page layouts instead.
 
+### WorkloadPodsCard
+
+Displays the host's compact Pod card, including status, ready containers, restarts, node, IP, and age. Pod names open the host's Pod detail dialog.
+
+```tsx
+import { WorkloadPodsCard } from '@kite-dev/plugin-sdk/ui'
+
+<WorkloadPodsCard
+  title="Pods"
+  pods={pods}
+  isLoading={isLoading}
+  loadingText="Loading pods…"
+  emptyText="No pods found"
+  ageLabel="Age"
+/>
+```
+
+`pods` accepts Kubernetes `Pod[]`. The component only renders the supplied data; use resource hooks to load it. All displayed labels above accept `ReactNode` and can use your plugin's translations.
+
 ### ResourceTable
 
 ```tsx
@@ -490,7 +509,7 @@ export default function DeploymentPage() {
 - `content` can be a React node or a callback that receives `{ resource, refreshKey, onRefresh }`. The type of `resource` is inferred from `data`. To reset a child component on manual refresh, use `refreshKey` as its `key`.
 - `ResourceYaml<T>` accepts a resource object as `value` and manages YAML editing, validation, saving, and cancellation independently. `onSave` receives the parsed object and returns a Promise. If saving fails, the component displays an error and keeps the draft. Without `onSave`, it is read-only. Use `title` and `actions` to customize the header, `className` to style the container, and `fillHeight` to fill the tab. It can also be used without a shell.
 - Delete and clone actions are disabled by default; enable them with `showDelete` and `showClone`. `onDeleted` runs after deletion. `showDescribe` controls the Describe action, while `headerActions` and `titleIcon` customize the resource header.
-- `ResourceOverview` displays metadata, custom fields, events, and the host's related resource cards. For custom resources, provide your own `relatedResources` content or pass `relatedResources={null}` to skip the built-in relationship query.
+- `ResourceOverview` displays metadata and custom fields in an information card. Its `children` appear below that card in the main column; use them for Pod lists and other resource-specific sections. Events, related resources, labels, and annotations appear in the sidebar. For custom resources, provide your own `relatedResources` content or pass `relatedResources={null}` to skip the built-in relationship query.
 - `ResourceEvents` is a standalone event table that accepts `resource`, `name`, and an optional `namespace`.
 
 ### Primitives and Editors

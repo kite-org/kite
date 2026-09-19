@@ -24,6 +24,7 @@ type CatalogPlugin struct {
 	Homepage    string       `json:"homepage,omitempty"`
 	ReadmeURL   string       `json:"readmeUrl,omitempty"`
 	Version     string       `json:"version"`
+	SDKVersion  string       `json:"sdkVersion"`
 	URL         string       `json:"url"`
 	SHA256      string       `json:"sha256"`
 	Requires    Requirements `json:"requires"`
@@ -101,7 +102,7 @@ func readCatalog(ctx context.Context, address string) ([]CatalogPlugin, error) {
 		seen[key] = true
 		plugin.SHA256 = strings.ToLower(plugin.SHA256)
 		plugin.Error = ""
-		if err := plugin.Requires.validate(); err != nil {
+		if err := checkCompatibility(plugin.SDKVersion, plugin.Requires); err != nil {
 			plugin.Error = err.Error()
 		}
 	}

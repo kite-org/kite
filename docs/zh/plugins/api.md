@@ -369,6 +369,25 @@ Kite 会自动选择 CRD 的 API 版本。自定义资源列表支持 `labelSele
 
 从 `/ui` 导入。所有资源组件都是可选的，你也可以只用 Hook 搭配自己的页面布局。
 
+### WorkloadPodsCard
+
+展示宿主的紧凑 Pod 卡片，包含状态、就绪容器数、重启次数、节点、IP 和运行时间。点击 Pod 名称可打开宿主的 Pod 详情弹窗。
+
+```tsx
+import { WorkloadPodsCard } from '@kite-dev/plugin-sdk/ui'
+
+<WorkloadPodsCard
+  title="Pods"
+  pods={pods}
+  isLoading={isLoading}
+  loadingText="正在加载 Pod…"
+  emptyText="暂无 Pod"
+  ageLabel="运行时间"
+/>
+```
+
+`pods` 接收 Kubernetes `Pod[]`。组件只展示传入的数据，通过资源 Hook 获取数据即可。上述展示文案均接收 `ReactNode`，可使用插件自己的翻译。
+
 ### ResourceTable
 
 ```tsx
@@ -491,7 +510,7 @@ export default function DeploymentPage() {
 - `content` 可以是 React 节点，也可以是接收 `{ resource, refreshKey, onRefresh }` 的回调，`resource` 的类型从 `data` 推导。需要在手动刷新时重置子组件，可将 `refreshKey` 作为子组件的 `key`。
 - `ResourceYaml<T>` 接收资源对象 `value`，独立管理 YAML 编辑、校验、保存和取消。`onSave` 接收解析后的对象并返回 Promise；保存失败时显示错误并保留草稿，不传则只读。支持 `title`、`actions` 定制页头，`className` 设置容器样式，`fillHeight` 填满 Tab。它也可以脱离 Shell 单独使用。
 - 删除和克隆默认关闭，用 `showDelete`、`showClone` 开启；`onDeleted` 在删除后执行。`showDescribe` 控制 Describe 操作，`headerActions`、`titleIcon` 定制资源页头。
-- `ResourceOverview` 展示元数据、自定义字段、事件和宿主的相关资源卡片。CRD 场景请自行提供 `relatedResources` 内容或传 `relatedResources={null}` 跳过内置关系查询。
+- `ResourceOverview` 在信息卡片中展示元数据和自定义字段。`children` 位于主栏的信息卡片下方，可放置 Pod 列表等资源专属内容；事件、相关资源、标签和注解位于侧栏。CRD 场景请自行提供 `relatedResources` 内容或传 `relatedResources={null}` 跳过内置关系查询。
 - `ResourceEvents` 是独立的事件表，接收 `resource`、`name` 和可选 `namespace`。
 
 ### 基础组件与编辑器

@@ -109,12 +109,6 @@ export function ResourceOverview({
                   </div>
                 ) : null}
 
-                {children ? (
-                  <div className="border-t border-border/60 pt-3">
-                    {children}
-                  </div>
-                ) : null}
-
                 <div className="border-t border-border/60 pt-2">
                   <WorkloadInfoRow
                     label={t('common.fields.uid')}
@@ -128,6 +122,7 @@ export function ResourceOverview({
               </div>
             </CardContent>
           </Card>
+          {children}
         </div>
 
         <div className="space-y-3">

@@ -12,11 +12,14 @@ import (
 	"github.com/zxh326/kite/pkg/version"
 )
 
+const supportedSDKVersions = ">=0.0.6"
+
 type Manifest struct {
 	SchemaVersion int             `json:"schemaVersion"`
 	ID            string          `json:"id"`
 	Name          string          `json:"name"`
 	Version       string          `json:"version"`
+	SDKVersion    string          `json:"sdkVersion"`
 	Description   string          `json:"description,omitempty"`
 	Author        string          `json:"author,omitempty"`
 	Homepage      string          `json:"homepage,omitempty"`
@@ -80,7 +83,18 @@ func (m Manifest) validate() error {
 	return nil
 }
 
-func (r Requirements) validate() error {
+func checkCompatibility(sdkVersion string, r Requirements) error {
+	if sdkVersion == "" {
+		return fmt.Errorf("sdkVersion is required")
+	}
+	sdk, err := semver.StrictNewVersion(sdkVersion)
+	if err != nil || len(sdkVersion) > 128 {
+		return fmt.Errorf("sdkVersion must be a semantic version of at most 128 characters")
+	}
+	sdkRange, _ := semver.NewConstraint(supportedSDKVersions)
+	if !sdkRange.Check(sdk) {
+		return fmt.Errorf("plugin was built with SDK %s; this Kite supports SDK %s", sdkVersion, supportedSDKVersions)
+	}
 	if r.Kite == "" {
 		return fmt.Errorf("requires.kite is required")
 	}
