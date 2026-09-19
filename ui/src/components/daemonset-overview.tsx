@@ -11,8 +11,9 @@ import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { useRelatedResources } from '@/lib/api'
-import { getEventTime, getOwnerInfo } from '@/lib/k8s'
+import { getEventTime } from '@/lib/k8s'
 import { formatDate, getAge } from '@/lib/utils'
+import { useOwnerInfo } from '@/hooks/use-owner-info'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -177,7 +178,7 @@ function DaemonSetSummaryGrid({ daemonset }: { daemonset: DaemonSet }) {
 function DaemonSetInformationCard({ daemonset }: { daemonset: DaemonSet }) {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
-  const ownerInfo = getOwnerInfo(daemonset.metadata)
+  const ownerInfo = useOwnerInfo(daemonset.metadata)
   const selectorEntries = Object.entries(
     daemonset.spec?.selector?.matchLabels || {}
   )
@@ -216,12 +217,18 @@ function DaemonSetInformationCard({ daemonset }: { daemonset: DaemonSet }) {
               truncate={!!ownerInfo}
             >
               {ownerInfo ? (
-                <Link
-                  to={ownerInfo.path}
-                  className="app-link inline-block max-w-full truncate"
-                >
-                  {ownerInfo.kind}/{ownerInfo.name}
-                </Link>
+                ownerInfo.path ? (
+                  <Link
+                    to={ownerInfo.path}
+                    className="app-link inline-block max-w-full truncate"
+                  >
+                    {ownerInfo.kind}/{ownerInfo.name}
+                  </Link>
+                ) : (
+                  <span>
+                    {ownerInfo.kind}/{ownerInfo.name}
+                  </span>
+                )
               ) : (
                 <span className="text-muted-foreground">
                   {t('common.values.none')}

@@ -6,8 +6,9 @@ import { Link, useSearchParams } from 'react-router-dom'
 
 import { useRelatedResources } from '@/lib/api'
 import { formatJobStatusBadge, getJobStatusBadge } from '@/lib/job-status'
-import { getEventTime, getOwnerInfo } from '@/lib/k8s'
+import { getEventTime } from '@/lib/k8s'
 import { formatDate, getAge } from '@/lib/utils'
+import { useOwnerInfo } from '@/hooks/use-owner-info'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -169,7 +170,7 @@ function JobSummaryGrid({ job }: { job: Job }) {
 function JobInformationCard({ job }: { job: Job }) {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
-  const ownerInfo = getOwnerInfo(job.metadata)
+  const ownerInfo = useOwnerInfo(job.metadata)
   const templateSpec = job.spec?.template?.spec
   const templateContainers = [
     ...(templateSpec?.initContainers || []),
@@ -197,12 +198,18 @@ function JobInformationCard({ job }: { job: Job }) {
               truncate={!!ownerInfo}
             >
               {ownerInfo ? (
-                <Link
-                  to={ownerInfo.path}
-                  className="app-link inline-block max-w-full truncate"
-                >
-                  {ownerInfo.kind}/{ownerInfo.name}
-                </Link>
+                ownerInfo.path ? (
+                  <Link
+                    to={ownerInfo.path}
+                    className="app-link inline-block max-w-full truncate"
+                  >
+                    {ownerInfo.kind}/{ownerInfo.name}
+                  </Link>
+                ) : (
+                  <span>
+                    {ownerInfo.kind}/{ownerInfo.name}
+                  </span>
+                )
               ) : (
                 <span className="text-muted-foreground">
                   {t('common.values.none')}

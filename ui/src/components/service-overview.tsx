@@ -14,9 +14,10 @@ import { Link } from 'react-router-dom'
 import { useRelatedResources } from '@/lib/api'
 import { API_BASE_URL } from '@/lib/api-client'
 import { withCurrentClusterPath } from '@/lib/current-cluster'
-import { getEventTime, getOwnerInfo, getServiceExternalIP } from '@/lib/k8s'
+import { getEventTime, getServiceExternalIP } from '@/lib/k8s'
 import { withSubPath } from '@/lib/subpath'
 import { formatDate } from '@/lib/utils'
+import { useOwnerInfo } from '@/hooks/use-owner-info'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Column, SimpleTable } from '@/components/simple-table'
@@ -209,7 +210,7 @@ function ServiceInformationCard({
   namespace?: string
 }) {
   const { t } = useTranslation()
-  const ownerInfo = getOwnerInfo(service.metadata)
+  const ownerInfo = useOwnerInfo(service.metadata)
   const selectorEntries = Object.entries(service.spec?.selector || {})
 
   return (
@@ -232,12 +233,18 @@ function ServiceInformationCard({
               truncate={!!ownerInfo}
             >
               {ownerInfo ? (
-                <Link
-                  to={ownerInfo.path}
-                  className="app-link inline-block max-w-full truncate"
-                >
-                  {ownerInfo.kind}/{ownerInfo.name}
-                </Link>
+                ownerInfo.path ? (
+                  <Link
+                    to={ownerInfo.path}
+                    className="app-link inline-block max-w-full truncate"
+                  >
+                    {ownerInfo.kind}/{ownerInfo.name}
+                  </Link>
+                ) : (
+                  <span>
+                    {ownerInfo.kind}/{ownerInfo.name}
+                  </span>
+                )
               ) : (
                 <span className="text-muted-foreground">
                   {t('common.values.none')}

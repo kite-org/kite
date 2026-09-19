@@ -3,13 +3,9 @@ import { Event as KubernetesEvent, Pod } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 
-import {
-  getEventTime,
-  getOwnerInfo,
-  getPodErrorMessage,
-  getPodStatus,
-} from '@/lib/k8s'
+import { getEventTime, getPodErrorMessage, getPodStatus } from '@/lib/k8s'
 import { cn, formatDate, getAge } from '@/lib/utils'
+import { useOwnerInfo } from '@/hooks/use-owner-info'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PodStatusIcon } from '@/components/pod-status-icon'
 
@@ -232,7 +228,7 @@ function PodSummaryGrid({
 function PodInformationCard({ pod }: { pod: Pod }) {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
-  const ownerInfo = getOwnerInfo(pod.metadata)
+  const ownerInfo = useOwnerInfo(pod.metadata)
   const uid = pod.metadata?.uid
   const priorityClass =
     pod.spec?.priorityClassName || pod.spec?.priority?.toString()
@@ -260,12 +256,18 @@ function PodInformationCard({ pod }: { pod: Pod }) {
               truncate={!!ownerInfo}
             >
               {ownerInfo ? (
-                <Link
-                  to={ownerInfo.path}
-                  className="app-link inline-block max-w-full truncate"
-                >
-                  {ownerInfo.kind}/{ownerInfo.name}
-                </Link>
+                ownerInfo.path ? (
+                  <Link
+                    to={ownerInfo.path}
+                    className="app-link inline-block max-w-full truncate"
+                  >
+                    {ownerInfo.kind}/{ownerInfo.name}
+                  </Link>
+                ) : (
+                  <span>
+                    {ownerInfo.kind}/{ownerInfo.name}
+                  </span>
+                )
               ) : (
                 <span className="text-muted-foreground">
                   {t('common.values.none')}

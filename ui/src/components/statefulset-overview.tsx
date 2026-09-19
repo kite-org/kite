@@ -6,8 +6,9 @@ import { Link, useSearchParams } from 'react-router-dom'
 
 import { DeploymentStatusType } from '@/types/k8s'
 import { useRelatedResources } from '@/lib/api'
-import { getEventTime, getOwnerInfo } from '@/lib/k8s'
+import { getEventTime } from '@/lib/k8s'
 import { formatDate, getAge } from '@/lib/utils'
+import { useOwnerInfo } from '@/hooks/use-owner-info'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DeploymentStatusIcon } from '@/components/deployment-status-icon'
@@ -175,7 +176,7 @@ function StatefulSetInformationCard({
 }) {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
-  const ownerInfo = getOwnerInfo(statefulset.metadata)
+  const ownerInfo = useOwnerInfo(statefulset.metadata)
   const selectorEntries = Object.entries(
     statefulset.spec?.selector?.matchLabels || {}
   )
@@ -211,12 +212,18 @@ function StatefulSetInformationCard({
               truncate={!!ownerInfo}
             >
               {ownerInfo ? (
-                <Link
-                  to={ownerInfo.path}
-                  className="app-link inline-block max-w-full truncate"
-                >
-                  {ownerInfo.kind}/{ownerInfo.name}
-                </Link>
+                ownerInfo.path ? (
+                  <Link
+                    to={ownerInfo.path}
+                    className="app-link inline-block max-w-full truncate"
+                  >
+                    {ownerInfo.kind}/{ownerInfo.name}
+                  </Link>
+                ) : (
+                  <span>
+                    {ownerInfo.kind}/{ownerInfo.name}
+                  </span>
+                )
               ) : (
                 <span className="text-muted-foreground">
                   {t('common.values.none')}

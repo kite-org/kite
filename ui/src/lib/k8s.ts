@@ -8,16 +8,11 @@ import {
   Pod,
   Service,
 } from 'kubernetes-types/core/v1'
-import { ObjectMeta } from 'kubernetes-types/meta/v1'
 
-import { CustomResource, ResourceType } from '@/types/api'
+import { CustomResource } from '@/types/api'
 import { DeploymentStatusType, PodStatus, SimpleContainer } from '@/types/k8s'
 
-import {
-  getResourceDetailPath,
-  isClusterScopedResource,
-  resourceMetadataList,
-} from './resource-metadata'
+import { resourceMetadataList } from './resource-metadata'
 import { getAge } from './utils'
 
 // This function retrieves the status of a Pod in Kubernetes.
@@ -434,44 +429,6 @@ export function getCRDResourcePath(
   return namespace
     ? `/crds/${kind}.${group}/${namespace}/${name}`
     : `/crds/${kind}.${group}/${name}`
-}
-
-// Get owner reference information for a pod
-export function getOwnerInfo(metadata?: ObjectMeta) {
-  if (!metadata) {
-    return null
-  }
-  const ownerRefs = metadata.ownerReferences
-  if (!ownerRefs || ownerRefs.length === 0) {
-    return null
-  }
-
-  const ownerRef = ownerRefs[0]
-
-  const resourcePath = ownerRef.kind.toLowerCase() + 's'
-  if (isStandardK8sResource(ownerRef.kind)) {
-    return {
-      kind: ownerRef.kind,
-      name: ownerRef.name,
-      path: getResourceDetailPath(
-        resourcePath,
-        ownerRef.name,
-        isClusterScopedResource(resourcePath as ResourceType)
-          ? undefined
-          : metadata.namespace
-      ),
-      controller: ownerRef.controller || false,
-    }
-  } else {
-    const apiVersion = ownerRef.apiVersion || ''
-    const group = apiVersion.includes('/') ? apiVersion.split('/')[0] : ''
-    return {
-      kind: ownerRef.kind,
-      name: ownerRef.name,
-      path: `/crds/${ownerRef.kind.toLowerCase()}s.${group}/${metadata.namespace}/${ownerRef.name}`,
-      controller: ownerRef.controller || false,
-    }
-  }
 }
 
 // @see https://github.com/kubernetes/kubernetes/blob/bd44685eadc64c8cd46a8259f027f57ba9724a85/pkg/printers/internalversion/printers.go#L1317-L1347

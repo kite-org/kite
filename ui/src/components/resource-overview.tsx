@@ -5,8 +5,9 @@ import { Link } from 'react-router-dom'
 
 import type { ResourceType } from '@/types/api'
 import { useRelatedResources, useResourcesEvents } from '@/lib/api'
-import { getEventTime, getOwnerInfo } from '@/lib/k8s'
+import { getEventTime } from '@/lib/k8s'
 import { formatDate } from '@/lib/utils'
+import { useOwnerInfo } from '@/hooks/use-owner-info'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   WorkloadInfoBlock,
@@ -63,7 +64,7 @@ export function ResourceOverview({
       )
     })
   }, [events])
-  const ownerInfo = getOwnerInfo(metadata)
+  const ownerInfo = useOwnerInfo(metadata)
 
   return (
     <div className="@container/resource-overview">
@@ -88,12 +89,18 @@ export function ResourceOverview({
                     truncate={!!ownerInfo}
                   >
                     {ownerInfo ? (
-                      <Link
-                        to={ownerInfo.path}
-                        className="app-link inline-block max-w-full truncate"
-                      >
-                        {ownerInfo.kind}/{ownerInfo.name}
-                      </Link>
+                      ownerInfo.path ? (
+                        <Link
+                          to={ownerInfo.path}
+                          className="app-link inline-block max-w-full truncate"
+                        >
+                          {ownerInfo.kind}/{ownerInfo.name}
+                        </Link>
+                      ) : (
+                        <span>
+                          {ownerInfo.kind}/{ownerInfo.name}
+                        </span>
+                      )
                     ) : (
                       <span className="text-muted-foreground">
                         {t('common.values.none')}

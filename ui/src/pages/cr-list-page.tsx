@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { ErrorMessage } from '@/components/error-message'
 import { ResourceTable } from '@/components/resource-table'
 import { YamlEditor } from '@/components/yaml-editor'
 
@@ -36,7 +37,12 @@ export function CRListPage() {
   const [isYamlDialogOpen, setIsYamlDialogOpen] = useState(false)
   const [yamlContent, setYamlContent] = useState('')
   const { crd } = useParams<{ crd: string }>()
-  const { data: crdData, isLoading: isLoadingCRD } = useResource('crds', crd!)
+  const {
+    data: crdData,
+    isLoading: isLoadingCRD,
+    error,
+    refetch,
+  } = useResource('crds', crd!)
 
   const handleViewYaml = useCallback((crd: CustomResourceDefinition) => {
     setYamlContent(yaml.dump(crd, { indent: 2 }))
@@ -115,8 +121,12 @@ export function CRListPage() {
     return <div>Loading...</div>
   }
 
+  if (error) {
+    return <ErrorMessage resourceName={crd!} error={error} refetch={refetch} />
+  }
+
   if (!crdData) {
-    return <div>Error: CRD name is required</div>
+    return <div>{t('common.messages.resourceNotFound', { resource: crd })}</div>
   }
 
   return (
