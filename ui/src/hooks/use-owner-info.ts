@@ -4,8 +4,11 @@ import type { ObjectMeta } from 'kubernetes-types/meta/v1'
 
 import { fetchAPI } from '@/lib/api/shared'
 import { withCurrentClusterPath } from '@/lib/current-cluster'
-import { getCRDResourcePath } from '@/lib/k8s'
-import { getResourceDetailPath, resourceCatalog } from '@/lib/resource-catalog'
+import { getCRDResourcePath, isStandardK8sResource } from '@/lib/k8s'
+import {
+  getResourceDetailPath,
+  getResourceMetadata,
+} from '@/lib/resource-catalog'
 
 import { useCluster } from './use-cluster'
 
@@ -14,12 +17,10 @@ export function useOwnerInfo(metadata?: ObjectMeta) {
   const group = owner?.apiVersion.includes('/')
     ? owner.apiVersion.split('/')[0]
     : ''
-  const resource = resourceCatalog.find(
-    (entry) =>
-      'apiGroup' in entry &&
-      entry.apiGroup === group &&
-      entry.singular === owner?.kind.toLowerCase()
-  )
+  const standardType =
+    owner && isStandardK8sResource(owner.kind)
+      ? getResourceMetadata(owner.kind)?.type
+      : undefined
   const { currentCluster } = useCluster()
   const { data: crds } = useQuery({
     queryKey: ['crds', 'owner-references', currentCluster],
@@ -27,7 +28,7 @@ export function useOwnerInfo(metadata?: ObjectMeta) {
       fetchAPI<CustomResourceDefinitionList>(
         withCurrentClusterPath('/crds', currentCluster)
       ),
-    enabled: !!owner && !resource && !!currentCluster,
+    enabled: !!owner && !standardType && !!currentCluster,
     staleTime: 5000,
   })
 
@@ -36,8 +37,8 @@ export function useOwnerInfo(metadata?: ObjectMeta) {
   const crd = crds?.items.find(
     (item) => item.spec.group === group && item.spec.names.kind === owner.kind
   )
-  const path = resource
-    ? getResourceDetailPath(resource.type, owner.name, metadata?.namespace)
+  const path = standardType
+    ? getResourceDetailPath(standardType, owner.name, metadata?.namespace)
     : crd
       ? getCRDResourcePath(
           crd.spec.names.plural,
