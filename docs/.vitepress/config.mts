@@ -225,11 +225,30 @@ export default defineConfig({
       ],
       "/zh/plugins/": [
         {
-          text: "插件",
+          text: "开始使用",
           items: [
             { text: "插件简介", link: "/zh/plugins/" },
             { text: "快速开始", link: "/zh/plugins/quick-start" },
-            { text: "API 参考", link: "/zh/plugins/api" },
+          ],
+        },
+        {
+          text: "API 参考",
+          items: [
+            { text: "入口点", link: "/zh/plugins/api/" },
+            { text: "插件配置", link: "/zh/plugins/api/plugin-config" },
+            { text: "资源扩展", link: "/zh/plugins/api/resource-extensions" },
+            { text: "导航", link: "/zh/plugins/api/navigation" },
+            { text: "资源", link: "/zh/plugins/api/resources" },
+            { text: "UI 组件", link: "/zh/plugins/api/ui" },
+            { text: "Hooks", link: "/zh/plugins/api/hooks" },
+            { text: "可观测性", link: "/zh/plugins/api/observability" },
+            { text: "API 客户端", link: "/zh/plugins/api/api-client" },
+            { text: "构建与校验", link: "/zh/plugins/api/build" },
+          ],
+        },
+        {
+          text: "指南",
+          items: [
             { text: "国际化", link: "/zh/plugins/i18n" },
             { text: "调试", link: "/zh/plugins/debugging" },
             { text: "发布插件", link: "/zh/plugins/publishing" },

@@ -111,7 +111,7 @@ export default definePlugin({
 
 - 路由路径相对于 `/plugins/my-plugin`。空字符串 `''` 是插件首页；路径支持 `:namespace/:name` 这样的命名参数。
 - `menus` 中的 `parent` 可以是 Kite 内置分组（`core:workloads`、`core:storage`、`core:other` 等），也可以省略形成顶级菜单。`route` 指向插件路由，`resource: { group, resource }` 直接指向 CRD 列表；两者都不带的菜单是分组标题。
-- `routes`、`menus`、`resources` 均可省略。`resources` 可追加列表列、详情 Tab 或接管自定义资源页面，详见 [API 参考：资源扩展](./api#资源扩展)。
+- `routes`、`menus`、`resources` 均可省略。`resources` 可追加列表列、详情 Tab 或接管自定义资源页面，详见 [API 参考：资源扩展](./api/resource-extensions)。
 - `element` 接收任意 React 节点。页面组件用 `React.lazy(() => import(...))` 懒加载，CSS 和浏览器依赖放在页面模块里。
 - `plugin.config.tsx` 会在构建时于 Node.js 中执行一次以提取路由和菜单元数据，因此其中的声明不能依赖浏览器全局变量。
 
@@ -229,6 +229,6 @@ pnpm run pack    # 打包 dist/ 为归档
 
 ## 下一步
 
-- [API 参考](./api)：路由、菜单、资源查询、写操作、UI 组件等全部扩展点
+- [API 参考](./api/)：插件配置、资源扩展、导航、资源查询与写操作、UI 组件等全部接口
 - [国际化](./i18n)：完善中英文词典
 - [调试](./debugging)：搭建高效的开发迭代循环
