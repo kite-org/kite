@@ -1403,6 +1403,8 @@
     "noSearchResults": "No plugins match your search.",
     "update": "Update",
     "install": "Install",
+    "configure": "Configure",
+    "loadingPlugin": "Loading plugin…",
     "browseCatalog": "Browse catalog",
     "availableVersion": "Available update: {{version}}",
     "configureCatalog": "Configure catalog"

@@ -10,10 +10,10 @@ outline: deep
 
 | 导出 | 作用 |
 | ---- | ---- |
-| `validateManifest(input)` | 校验元数据、版本、`sdkVersion` / `requires.kite`、资产路径、路由、菜单和资源扩展声明 |
-| `validateNavigation(pluginId, input)` | 校验路由、菜单、资源目标及列 / Tab 元数据，包括 ID 唯一性、路径冲突、菜单父子关系、图标名称和本地化标签 |
+| `validateManifest(input)` | 校验元数据、版本、`sdkVersion` / `requires.kite`、资产路径、路由、菜单、资源扩展和主题声明 |
+| `validateNavigation(pluginId, input)` | 校验路由、菜单、资源目标、主题及列 / Tab 元数据，包括 ID 唯一性、路径冲突、菜单父子关系、图标名称和本地化标签 |
 | `validateDefinition(pluginId, input)` | 在导航校验之上检查运行时定义，包括路由 / Tab 的 `element`、列 accessor 与排序函数的契约 |
-| `validateModule(manifest, input)` | 校验模块与 `plugin.json` 的路由、菜单和资源扩展元数据完全一致 |
+| `validateModule(manifest, input)` | 校验模块与 `plugin.json` 的路由、菜单、资源扩展和主题元数据完全一致 |
 | `validatePluginIdentity(id, name)` | 校验插件 ID 与显示名 |
 | `coreMenuGroupIds` | 宿主公开的菜单分组 ID |
 | `defaultKiteRange` | 当前 SDK 默认写入 `requires.kite` 的 Kite 版本范围 |

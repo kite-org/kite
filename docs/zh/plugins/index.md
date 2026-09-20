@@ -16,6 +16,8 @@ Kite 插件是一个运行在 Kite 内部的 React 前端模块。它可以在�
 - 注册侧边栏菜单
 - 扩展资源列表和详情
 - 接管自定义资源页面
+- 提供配色主题
+- 提供插件配置页
 
 一个典型的插件例子是 [cert-manager 插件](https://github.com/kite-org/kite-plugins/tree/main/plugins/cert-manager)：它为 Certificate、Issuer、CertificateRequest、Order、Challenge 等 CRD 提供了完整的管理界面，包含资源列表、详情页、状态徽标和 YAML 编辑。
 

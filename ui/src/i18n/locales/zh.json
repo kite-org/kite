@@ -1490,6 +1490,8 @@
     "noSearchResults": "没有符合搜索条件的插件。",
     "update": "更新",
     "install": "安装",
+    "configure": "配置",
+    "loadingPlugin": "正在加载插件…",
     "browseCatalog": "浏览插件目录",
     "availableVersion": "可更新至：{{version}}",
     "configureCatalog": "配置 Catalog"

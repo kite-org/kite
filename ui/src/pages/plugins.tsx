@@ -39,6 +39,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'
 import { PluginReadme } from '@/components/plugins/plugin-readme'
+import { PluginSettingsDialog } from '@/components/plugins/plugin-settings-dialog'
 import { ResourceTableView } from '@/components/resource-table-view'
 
 export function PluginManagementPage() {
@@ -48,7 +49,7 @@ export function PluginManagementPage() {
   const queryClient = useQueryClient()
   const installed = useInstalledPlugins(isAdmin)
   const catalog = usePluginCatalog(isAdmin)
-  const { plugins } = usePlugins()
+  const { plugins, loadPlugin } = usePlugins()
   const [params, setParams] = useSearchParams()
   const tab = ['catalog', 'installed'].includes(params.get('tab') ?? '')
     ? params.get('tab')!
@@ -66,6 +67,7 @@ export function PluginManagementPage() {
     pageSize: 20,
   })
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [configuring, setConfiguring] = useState<string | null>(null)
   const [readmePlugin, setReadmePlugin] = useState<CatalogPlugin | null>(null)
   const readmeTrigger = useRef<string | null>(null)
   const upload = useRef<HTMLInputElement>(null)
@@ -337,10 +339,23 @@ export function PluginManagementPage() {
       header: t('common.fields.actions'),
       cell: ({
         row: {
-          original: { plugin, latest },
+          original: { plugin, manifest, latest },
         },
       }) => (
         <div className="flex items-center justify-end gap-2">
+          {manifest?.settings && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={action.isPending}
+              onClick={() => {
+                loadPlugin(plugin.id)
+                setConfiguring(plugin.id)
+              }}
+            >
+              {t('plugins.configure')}
+            </Button>
+          )}
           {latest && (
             <Button
               size="sm"
@@ -589,6 +604,12 @@ export function PluginManagementPage() {
         }}
         isDeleting={action.isPending}
       />
+      {configuring && (
+        <PluginSettingsDialog
+          pluginId={configuring}
+          onClose={() => setConfiguring(null)}
+        />
+      )}
     </div>
   )
 }

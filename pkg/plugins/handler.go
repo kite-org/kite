@@ -225,6 +225,9 @@ func Delete(c *gin.Context) {
 	if err := os.RemoveAll(filepath.Join(common.PluginDir, id)); err != nil {
 		klog.Errorf("Failed to remove uninstalled plugin assets: %v", err)
 	}
+	if err := model.DeletePluginSetting(id); err != nil {
+		klog.Errorf("Failed to remove uninstalled plugin settings: %v", err)
+	}
 
 	recordAudit(c, id, "delete")
 	c.JSON(http.StatusOK, gin.H{"message": "Plugin uninstalled"})

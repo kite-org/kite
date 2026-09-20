@@ -15,19 +15,19 @@ import { router } from './routes'
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryProvider>
-      <AppearanceProvider
-        defaultTheme="system"
-        defaultColorTheme="default"
-        defaultFont="maple"
-      >
-        <AuthProvider>
-          <PluginRuntime>
+      <AuthProvider>
+        <PluginRuntime>
+          <AppearanceProvider
+            defaultTheme="system"
+            defaultColorTheme="default"
+            defaultFont="maple"
+          >
             <SidebarConfigProvider>
               <RouterProvider router={router} />
             </SidebarConfigProvider>
-          </PluginRuntime>
-        </AuthProvider>
-      </AppearanceProvider>
+          </AppearanceProvider>
+        </PluginRuntime>
+      </AuthProvider>
     </QueryProvider>
   </StrictMode>
 )
