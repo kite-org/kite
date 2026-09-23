@@ -11,10 +11,12 @@ export interface LoadedPlugin extends ActivePlugin {
 export const PluginsContext = createContext<{
   plugins: LoadedPlugin[]
   isLoading: boolean
+  isReady: boolean
   loadPlugin: (id: string) => void
 }>({
   plugins: [],
   isLoading: false,
+  isReady: false,
   loadPlugin: () => {},
 })
 

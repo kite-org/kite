@@ -4,13 +4,13 @@ outline: deep
 
 # Quick Start
 
-This page walks through creating a Kite plugin from scratch: scaffold a project, write a page, build and package it, and install it in Kite.
+Create a plugin project with the scaffolding tool, write a React page, then package it as a `.tar.gz` archive and install it in Kite.
 
 ## Prerequisites
 
 - Node.js `^20.19.0 || >=22.12.0` and pnpm 10.x
 - An accessible Kite instance whose version satisfies the plugin's `engines.kite` range, currently `>=0.16.0` by default
-- Administrator access to install the plugin
+- Administrator access to install plugins
 
 ## Create a Project
 
@@ -20,60 +20,34 @@ cd my-plugin
 pnpm install
 ```
 
-The scaffolding tool asks for a directory and display name. You can also specify them directly:
+The scaffolding tool prompts for a directory and display name. You can also supply them directly:
 
 ```sh
 pnpm create @kite-dev/plugin-sdk my-plugin --yes --display-name "My Plugin"
 ```
 
-The generated project has this structure:
+Generated project structure:
 
 ```text
 my-plugin/
   package.json       # Plugin identity and metadata
   plugin.config.tsx  # Plugin configuration: routes and menus
-  vite.config.ts     # Build configuration: a call to kitePlugin()
+  vite.config.ts     # Build configuration (calls kitePlugin())
   tsconfig.json
-  README.md          # Included in the package for catalog previews
+  README.md          # Packaged with the plugin for catalog previews
   src/
-    i18n.ts          # Translation dictionary bindings
+    i18n.ts          # Translation bindings
     locales/
       en.json
       zh.json
     pages/
-      home.tsx       # Lazily loaded page component
+      home.tsx       # Lazy-loaded page component
       home.module.css
 ```
 
-## Configure Plugin Identity
+Set the plugin's name, display name, and version in `package.json`. See [Plugin Identity](./api/plugin-identity) for the fields.
 
-The plugin ID and metadata come from `package.json`. You do not need to write `plugin.json` yourself; it is generated during the build:
-
-```json
-{
-  "name": "my-plugin",
-  "displayName": "My Plugin",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "description": "My first Kite plugin",
-  "author": "Your Team",
-  "license": "Apache-2.0",
-  "engines": {
-    "kite": ">=0.16.0"
-  }
-}
-```
-
-| Field | Description |
-| ----- | ----------- |
-| `name` | Plugin ID, also used in URLs. Use 1–64 lowercase letters, digits, or hyphens, starting and ending with a letter or digit. Do not use an npm scope |
-| `displayName` | Name shown in plugin management, between 1 and 128 characters |
-| `version` | Semantic version without a `v` prefix. Increment it whenever the package contents change |
-| `engines.kite` | Supported Kite version range. Defaults to `>=0.16.0` when omitted and is written to `requires.kite` in `plugin.json` during the build |
-| `description` / `author` / `homepage` / `license` | Optional metadata |
-
-## Write a Page and Menu
+## Write Pages and Menus
 
 Edit `plugin.config.tsx` to declare routes and menus:
 
@@ -107,15 +81,13 @@ export default definePlugin({
 });
 ```
 
-Key points:
+- Route paths are relative to `/plugins/my-plugin`. An empty string (`''`) is the plugin home page. Paths support named parameters such as `:namespace/:name`.
+- A menu's `parent` can be a built-in Kite group (`core:workloads`, `core:storage`, `core:other`, etc.). Omit it to place the menu at the top level. `route` points to a plugin route, while `resource: { group, resource }` points directly to a custom resource list. These fields are mutually exclusive; a menu with neither is a group heading.
+- `routes`, `menus`, and `resources` are optional. `resources` can add list columns or detail tabs, or replace complete custom resource pages. See [Plugin Configuration: Resource Extensions](./api/plugin-config#resource-extensions).
+- `element` accepts any React node. Load page components with `React.lazy(() => import(...))`, keeping CSS and browser dependencies in the page modules.
+- `plugin.config.tsx` runs once in Node.js during the build to extract route and menu metadata, so its declarations cannot depend on browser globals.
 
-- Route paths are relative to `/plugins/my-plugin`. An empty string, `''`, is the plugin's home page. Paths support named parameters such as `:namespace/:name`.
-- A menu's `parent` can be a built-in Kite group such as `core:workloads`, `core:storage`, or `core:other`. Omit it to create a top-level menu. `route` points to a plugin route; `resource: { group, resource }` points directly to a custom resource list. A menu with neither is a group heading.
-- `routes`, `menus`, and `resources` are all optional. `resources` can add list columns or detail tabs, or provide custom resource pages. See [API Reference: Resource Extensions](./api#resource-extensions).
-- `element` accepts any React node. Load page components with `React.lazy(() => import(...))`, and keep CSS and browser dependencies in the page module.
-- `plugin.config.tsx` runs once in Node.js during the build to extract route and menu metadata, so its declarations must not depend on browser globals.
-
-The generated `src/pages/home.tsx` demonstrates basic host integration by reading the current cluster and namespace:
+In `src/pages/home.tsx`, use `useCluster()` and `useNamespace()` to access the current cluster and namespace:
 
 ```tsx
 import { useCluster, useNamespace } from "@kite-dev/plugin-sdk/hooks";
@@ -158,7 +130,7 @@ export default function HomePage() {
 }
 ```
 
-To try the resource hooks, write a page that queries resources:
+Use `useResources()` to query Kubernetes resources. For example, count ConfigMaps across all namespaces:
 
 ```tsx
 import { useResources } from "@kite-dev/plugin-sdk/resources";
@@ -176,41 +148,41 @@ export default function ConfigMapsPage() {
 }
 ```
 
-Query results are automatically filtered by the current user's RBAC permissions. Namespaces the user cannot access are excluded.
+Query results are filtered by the current user's RBAC permissions. Namespaces the user cannot access are excluded.
 
 ## Build and Package
 
 ```sh
-pnpm run build   # Type-check and build into dist/
-pnpm run pack    # Package dist/ as an archive
+pnpm run build   # Check types and build into dist/
+pnpm run pack    # Package dist/ into an archive
 ```
 
-The `pack` script runs `kite-plugin pack`, creates `my-plugin-0.1.0.tar.gz`, and prints its SHA-256 digest. The archive contains the contents of `dist/` at its root, including the generated `plugin.json`, Federation entry, JavaScript chunks, styles, and README. There is no enclosing directory.
+`pnpm run pack` generates `my-plugin-0.1.0.tar.gz` and prints its SHA-256 digest.
 
 Common scripts:
 
 | Command | Purpose |
 | ------- | ------- |
-| `pnpm run type-check` | Run TypeScript checks |
+| `pnpm run type-check` | Check TypeScript types |
 | `pnpm run lint` / `lint:fix` | Run ESLint checks or apply fixes |
 | `pnpm run format` / `format:check` | Format with Prettier or check formatting |
-| `pnpm run build` | Type-check and build into `dist/` |
-| `pnpm run dev` | Start the development server, watch for changes, and print the development plugin URL |
-| `pnpm run pack` | Package the current `dist/` contents |
+| `pnpm run build` | Check types and build into `dist/` |
+| `pnpm run dev` | Start the development server, watch files, and print the plugin's development URL |
+| `pnpm run pack` | Package the current `dist/` directory |
 
 ## Install in Kite
 
 1. Click your avatar in the upper right corner and select **Plugin management**.
 2. Click **Install from file** and select `my-plugin-0.1.0.tar.gz`.
-3. The plugin is enabled automatically after installation. Its menu appears in the sidebar's **other** group. Click it to open the plugin page.
+3. The plugin is enabled automatically. Open its new menu item under **Other** in the sidebar.
 
-During development, run `pnpm dev` and pass the printed URL to Kite through the `PLUGIN_DEV_URL` startup environment variable. After changing code and waiting for the build to finish, refresh the Kite page. You do not need to repeatedly package and install the plugin. See [Debugging](./debugging).
+During development, run `pnpm dev` and set Kite's `PLUGIN_DEV_URL` environment variable to the printed URL. After changing code, wait for the build to finish and refresh Kite. You do not need to package and install every change. See [Debugging](./debugging).
 
-To publish an updated package, increment `version` in `package.json`, run `pnpm run build && pnpm run pack`, and install the new file. Package contents are immutable for a given ID and version. If the contents change, you must use a new version number or Kite will reject the installation.
+To distribute an update, increment `version` in `package.json`, run `pnpm run build && pnpm run pack`, and install the new archive. Package contents for the same ID and version are immutable. If the contents change without a version increment, Kite rejects the installation.
 
 ## Styling
 
-Host components include their own styles. For custom layouts, use CSS Modules and Kite's CSS variables to support both light and dark themes:
+Host components include their own styles. For custom layouts, use CSS Modules and Kite's CSS variables to support light and dark themes:
 
 ```css
 /* src/pages/home.module.css */
@@ -225,10 +197,12 @@ Host components include their own styles. For custom layouts, use CSS Modules an
 
 Common variables include `--background`, `--foreground`, `--card`, `--card-foreground`, `--primary`, `--primary-foreground`, `--muted`, `--muted-foreground`, and `--border`.
 
-Kite's Tailwind build does not scan plugin source code. Your plugin's build must generate any utility classes it uses. Scope plugin styles to avoid global resets affecting Kite.
+Kite's Tailwind build does not scan plugin source files. Your plugin's build must generate any utility classes it uses. Scope plugin styles to avoid global resets affecting Kite.
 
 ## Next Steps
 
-- [API Reference](./api): routes, menus, resource queries, mutations, UI components, and other extension points
-- [Internationalization](./i18n): complete the English and Chinese dictionaries
-- [Debugging](./debugging): set up an efficient development workflow
+- [Plugin Configuration](./api/plugin-config): configure routes, menus, resource extensions, themes, a settings page, and translation dictionaries
+- [Resource Queries and Operations](./api/resources): read resources, perform mutations, and call Kite APIs
+- [UI Components](./api/ui): reuse resource lists, detail layouts, and YAML editors
+- [Internationalization](./i18n): add English and Chinese translations
+- [Debugging](./debugging): local development and troubleshooting

@@ -23,16 +23,15 @@ const content = {
   en: {
     homeHref: "/",
     docsHref: "/guide/",
+    pluginsHref: "/plugins/",
     installHref: "/guide/installation",
-    languageHref: "/zh/",
-    languageLabel: "中文",
-    languageCode: "zh-CN",
     homeLabel: "Kite home",
     navigationLabel: "Primary navigation",
     skipLabel: "Skip to content",
     starLabel: "View Kite stars on GitHub",
     nav: {
       docs: "Docs",
+      plugins: "Plugins",
       community: "Community",
       github: "GitHub",
     },
@@ -141,16 +140,15 @@ const content = {
   zh: {
     homeHref: "/zh/",
     docsHref: "/zh/guide/",
+    pluginsHref: "/zh/plugins/",
     installHref: "/zh/guide/installation",
-    languageHref: "/",
-    languageLabel: "English",
-    languageCode: "en",
     homeLabel: "Kite 首页",
     navigationLabel: "主导航",
     skipLabel: "跳至主要内容",
     starLabel: "在 GitHub 上查看 Kite 星标数",
     nav: {
       docs: "文档",
+      plugins: "插件",
       community: "社区",
       github: "GitHub",
     },
@@ -273,6 +271,7 @@ const copy = computed(() =>
 
         <nav class="site-nav" :aria-label="copy.navigationLabel">
           <a :href="copy.docsHref">{{ copy.nav.docs }}</a>
+          <a :href="copy.pluginsHref">{{ copy.nav.plugins }}</a>
           <a
             class="nav__optional"
             href="https://join.slack.com/t/kite-dashboard/shared_invite/zt-3cl9mccs7-eQZ1_t6IoTPHZkxXED1ceg"
@@ -287,9 +286,6 @@ const copy = computed(() =>
             rel="noreferrer"
           >
             {{ copy.nav.github }}
-          </a>
-          <a :href="copy.languageHref" :hreflang="copy.languageCode">
-            {{ copy.languageLabel }}
           </a>
           <GitHubStarCount :aria-label="copy.starLabel" />
         </nav>

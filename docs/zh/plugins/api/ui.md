@@ -4,9 +4,11 @@ outline: deep
 
 # UI 组件
 
-从 `/ui` 导入。所有组件都是可选的，也可以只用 Hook 搭配自己的页面布局。
+从 `@kite-dev/plugin-sdk/ui` 导入组件，复用 Kite 的资源表格、详情页、YAML 编辑器和基础控件。组件负责展示与交互，资源数据通过[资源查询与操作](./resources)获取；也可以用这些接口搭配自己的布局。
 
 ## ResourceTable
+
+用于构建资源列表页，内置搜索、排序、客户端分页和列显隐。传入查询结果和列定义即可：
 
 ```tsx
 import { useNamespace } from '@kite-dev/plugin-sdk/hooks'
@@ -64,9 +66,11 @@ export default function DeploymentsPage() {
 | `namespace` | `{ value, onChange }`，传入后显示命名空间选择器 |
 | `refreshInterval`、`onRefreshIntervalChange` | 同时传入才显示轮询间隔选择器；把同一间隔传给资源 Hook 即可控制轮询 |
 
-表格内置搜索、排序、客户端分页、行数统计、列可见性和刷新控制。搜索与筛选状态按集群 + 表格保存在 `sessionStorage`，列可见性保存在 `localStorage`。
+表格还提供行数统计和刷新控制。搜索与筛选状态按集群 + 表格保存在 `sessionStorage`，列可见性保存在 `localStorage`。
 
 ## ResourceDetailShell
+
+用于构建资源详情页，提供页头、加载与错误状态、刷新和可选的资源操作。通过 `tabs` 自己组织概览、YAML 等内容：
 
 ```tsx
 import { useParams, usePluginNavigate } from '@kite-dev/plugin-sdk/navigation'
@@ -144,7 +148,39 @@ export default function DeploymentPage() {
 | `onDeleted` | 删除成功后的回调 |
 | `headerActions`、`titleIcon`、`loadingMessage` | 自定义页头操作、标题图标和加载文案 |
 
-Shell 提供加载 / 错误状态、资源页头、刷新和可选的资源操作。用户仍可通过 Kite 的 Tab 控件调整插件 Tab 的顺序和可见性。
+用户可通过 Kite 的 Tab 控件调整插件 Tab 的顺序和可见性。
+
+## ResourceOverview
+
+在信息卡片中展示元数据和自定义字段（`fields`）。
+
+`children` 位于主栏信息卡片下方，适合放 Pod 列表等资源专属内容；事件、相关资源、标签和注解位于侧栏。不传 `relatedResources` 时使用内置关系查询，传 `relatedResources={null}`（或自定义内容）可以跳过它。
+
+## ResourceYaml
+
+`ResourceYaml<T>` 接收资源对象 `value`，管理 YAML 编辑、校验、保存和取消，可嵌入详情页或单独使用。
+
+| 属性 | 说明 |
+| ---- | ---- |
+| `value` | 要展示或编辑的资源对象 |
+| `onSave` | 接收解析后的对象并返回 Promise；保存失败时显示错误并保留草稿，不传时只读 |
+| `title`、`actions` | 定制页头 |
+| `className` | 设置容器样式 |
+| `fillHeight` | 填满 Tab 的可用高度 |
+
+## ResourceEvents
+
+独立事件表，接收 `resource`、`name` 和可选的 `namespace`：
+
+```tsx
+import { ResourceEvents } from '@kite-dev/plugin-sdk/ui'
+
+<ResourceEvents
+  resource={{ group: 'apps', resource: 'deployments' }}
+  name="demo"
+  namespace="default"
+/>
+```
 
 ## WorkloadPodsCard
 
@@ -165,11 +201,8 @@ import { WorkloadPodsCard } from '@kite-dev/plugin-sdk/ui'
 
 `title`、`pods`、`isLoading`、`loadingText`、`emptyText`、`ageLabel` 都是必填属性，`pods` 接收 Kubernetes `Pod[]`。组件只展示传入的数据，数据需要自己通过资源 Hook 获取；这些文案都接收 `ReactNode`，可以使用插件自己的翻译。
 
-## 其他组件
+## 基础控件
 
-- `ResourceYaml<T>`：接收资源对象 `value`，独立管理 YAML 编辑、校验、保存和取消。`onSave` 接收解析后的对象并返回 Promise，保存失败时显示错误并保留草稿；不传 `onSave` 时只读。支持 `title`、`actions` 定制页头，`className` 设置容器样式，`fillHeight` 填满 Tab；也可以脱离 Shell 单独使用。
-- `ResourceOverview`：在信息卡片中展示元数据和自定义字段（`fields`）。`children` 位于主栏信息卡片下方，适合放 Pod 列表等资源专属内容；事件、相关资源、标签和注解位于侧栏。不传 `relatedResources` 时使用内置关系查询，传 `relatedResources={null}`（或自定义内容）可以跳过它。
-- `ResourceEvents`：独立事件表，接收 `resource`、`name` 和可选的 `namespace`。
 - 基础组件：`Button`、`Badge`、`Input`、`Label`、`Card` 系列、`Dialog` 系列、`Select` 系列、`Tabs` 系列。
 - `NamespaceSelector`：支持 `value`、`onChange`、`showAll`、`multiple`、`disabled`、`triggerClassName`、`modal`。
 - `YamlEditor`：`value`、`onChange`（接收 `string | undefined`）、`disabled`、`height`。

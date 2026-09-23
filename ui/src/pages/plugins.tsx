@@ -339,7 +339,7 @@ export function PluginManagementPage() {
       header: t('common.fields.actions'),
       cell: ({
         row: {
-          original: { plugin, manifest, latest },
+          original: { plugin, manifest, runtime, latest },
         },
       }) => (
         <div className="flex items-center justify-end gap-2">
@@ -347,7 +347,12 @@ export function PluginManagementPage() {
             <Button
               size="sm"
               variant="outline"
-              disabled={action.isPending}
+              disabled={
+                action.isPending ||
+                !plugin.enabled ||
+                !runtime ||
+                runtime.invalid
+              }
               onClick={() => {
                 loadPlugin(plugin.id)
                 setConfiguring(plugin.id)
@@ -600,7 +605,13 @@ export function PluginManagementPage() {
         resourceName={deleting ?? ''}
         resourceType={t('plugins.plugin')}
         onConfirm={() => {
-          if (deleting) action.mutate(() => deletePlugin(deleting))
+          if (deleting)
+            action.mutate(async () => {
+              await deletePlugin(deleting)
+              queryClient.removeQueries({
+                queryKey: ['plugin-settings', deleting],
+              })
+            })
         }}
         isDeleting={action.isPending}
       />

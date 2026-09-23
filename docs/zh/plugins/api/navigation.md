@@ -2,7 +2,13 @@
 outline: deep
 ---
 
-# 导航
+# 页面跳转
+
+从 `@kite-dev/plugin-sdk/navigation` 导入链接组件和路由工具，用于在插件页面之间跳转、打开 CRD 页面或读取 URL 参数。侧边栏菜单和路由的声明见[插件配置](./plugin-config)。
+
+## 打开插件页面
+
+用 `PluginLink` 渲染链接，用 `usePluginNavigate()` 在事件回调中跳转。下面的 `deployment` 和 `deployments` 对应 `plugin.config.tsx` 中声明的路由 ID：
 
 ```tsx
 import { PluginLink, usePluginNavigate } from '@kite-dev/plugin-sdk/navigation'
@@ -24,10 +30,9 @@ export function DeploymentActions() {
 
 - `PluginLink`：接受常规 React Router Link 属性（除 `to`），外加 `route`、`params`、`search`、`hash`。参数自动编码并加上插件前缀。
 - `usePluginNavigate()`：返回 `navigate(routeId, params?, options?)`，`options` 是 React Router 的 `NavigateOptions` 加上 `search`、`hash`。
-- `/navigation` 还导出 `useParams`、`useSearchParams`、`useLocation`、`Outlet`，用法与 react-router-dom 相同。
 - `usePlugin()` 返回当前插件的 `{ pluginId, routes }`，可配合 `resolvePluginRoute(context, routeId, params?)` 手工拼 URL。
 
-## 资源页面导航
+## 打开资源页面
 
 `ResourceLink` 和 `resolveResourcePath` 从 `/navigation` 导入，用于跳转 Kite 的自定义资源页面，不依赖插件路由：
 
@@ -53,10 +58,23 @@ const gateways = { group: 'gateway.networking.k8s.io', resource: 'gateways' }
 `resolveResourcePath(target, item?)` 返回同样的路径，`item` 为 `{ name, namespace? }`。参数自动编码，部署基路径由 Kite 的 Router 处理。事件回调中可以配合 React Router 的 `useNavigate()` 跳转：
 
 ```tsx
-import { resolveResourcePath, useParams } from '@kite-dev/plugin-sdk/navigation'
+import { resolveResourcePath } from '@kite-dev/plugin-sdk/navigation'
 import { useNavigate } from 'react-router-dom'
 
-const { name = '', namespace } = useParams<{ name: string; namespace: string }>()
 const navigate = useNavigate()
 const returnToList = () => navigate(resolveResourcePath(gateways))
 ```
+
+## 读取路由参数
+
+`useParams` 读取路径参数，`useSearchParams` 读写查询参数，`useLocation` 读取当前 URL 信息，用法与 React Router 相同。例如在资源详情页读取名称、命名空间和当前 Tab：
+
+```tsx
+import { useParams, useSearchParams } from '@kite-dev/plugin-sdk/navigation'
+
+const { name = '', namespace } = useParams<{ name: string; namespace: string }>()
+const [searchParams] = useSearchParams()
+const tab = searchParams.get('tab')
+```
+
+需要嵌套路由布局时，同一模块还提供 React Router 的 `Outlet` 组件。

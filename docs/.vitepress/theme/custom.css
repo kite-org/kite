@@ -1,8 +1,150 @@
+@font-face {
+  font-family: "DM Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("/assets/fonts/dm-mono-latin-400-normal.woff2") format("woff2");
+}
+
 :root {
   --vp-c-brand-1: #1769e0;
   --vp-c-brand-2: #125bc6;
   --vp-c-brand-3: #0f4fae;
-  --vp-c-brand-soft: rgba(23, 105, 224, 0.14);
+  --vp-c-brand-soft: rgba(23, 105, 224, 0.07);
+  --vp-c-bg: #fcfbf9;
+  --vp-c-bg-alt: #f7f6f3;
+  --vp-c-bg-soft: #f0f1f3;
+  --vp-c-bg-elv: #fcfbf9;
+  --vp-c-text-1: #17202b;
+  --vp-c-text-2: #526071;
+  --vp-c-text-3: #667486;
+  --vp-c-divider: #dce0e5;
+  --vp-c-gutter: #dce0e5;
+  --vp-nav-height: 64px;
+  --vp-nav-logo-height: 30px;
+  --vp-sidebar-width: 264px;
+  --vp-font-family-mono:
+    "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --vp-code-block-bg: #f6f7f8;
+  --vp-code-lang-color: var(--vp-c-text-2);
+  --vp-code-font-size: 13px;
+  --kite-code-header-bg: #eef0f3;
+}
+
+.dark {
+  --vp-c-brand-1: #79adff;
+  --vp-c-brand-2: #a0c5ff;
+  --vp-c-brand-3: #4a8df0;
+  --vp-c-brand-soft: rgba(121, 173, 255, 0.1);
+  --vp-c-bg: #171c24;
+  --vp-c-bg-alt: #141920;
+  --vp-c-bg-soft: #232b36;
+  --vp-c-bg-elv: #202731;
+  --vp-c-text-1: #e7ebf2;
+  --vp-c-text-2: #b2bdcc;
+  --vp-c-text-3: #929fb1;
+  --vp-c-divider: #303a47;
+  --vp-c-gutter: #303a47;
+  --vp-code-block-bg: #1c232d;
+  --kite-code-header-bg: #232b36;
+}
+
+.Layout .VPNavBarTitle .title {
+  gap: 12px;
+  color: var(--vp-c-brand-1);
+  font-size: 26px;
+  font-weight: 600;
+}
+
+.Layout .VPNavBarTitle.has-sidebar .title {
+  border-bottom: 0;
+}
+
+.Layout .VPNavBar:not(.home) {
+  background: var(--vp-c-bg);
+}
+
+.Layout .VPNavBarTitle .logo {
+  margin-right: 0;
+}
+
+.Layout .VPNavBarMenuLink {
+  padding-inline: 14px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.Layout .VPNavBarMenuLink.active span {
+  box-shadow: 0 2px var(--vp-c-brand-1);
+}
+
+.Layout .VPNavBarMenuLink span {
+  line-height: 32px;
+}
+
+.Layout .VPSidebar .group {
+  width: 100%;
+}
+
+.Layout .VPSidebar .group + .group {
+  padding-top: 16px;
+}
+
+.Layout .VPSidebarItem.level-0 > .item {
+  margin-bottom: 6px;
+}
+
+.Layout .VPSidebarItem.is-link > .item {
+  border-radius: 3px;
+}
+
+.Layout .VPSidebarItem.is-link > .item > .link {
+  padding-inline: 12px;
+}
+
+.Layout .VPSidebarItem.is-link > .item:hover {
+  background: var(--vp-c-default-soft);
+}
+
+.Layout .VPSidebarItem.is-active > .item {
+  background: var(--vp-c-brand-soft);
+}
+
+.Layout .VPSidebarItem.is-active > .item > .indicator {
+  inset: 0 auto 0 0;
+  background: var(--vp-c-brand-1);
+}
+
+.Layout .VPSidebarItem .text {
+  padding-block: 4px;
+  font-size: 14px;
+}
+
+.Layout .VPSidebarItem.level-0 > .item > .text {
+  padding-inline: 12px;
+}
+
+.Layout .VPSidebarItem.level-1 .text {
+  font-weight: 400;
+}
+
+.kite-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+  color: var(--vp-c-text-2);
+  font-size: 12px;
+  line-height: 22px;
+}
+
+.kite-breadcrumb a:hover {
+  color: var(--vp-c-brand-1);
+}
+
+.vp-doc {
+  font-size: 15px;
 }
 
 .vp-doc h1,
@@ -11,12 +153,279 @@
   text-wrap: balance;
 }
 
+.vp-doc h1 {
+  padding-bottom: 20px;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.vp-doc h1::after {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 28px;
+  border-bottom: 2px solid var(--vp-c-brand-1);
+  content: "";
+}
+
+.vp-doc h1 + p {
+  margin: 16px 0 28px;
+  color: var(--vp-c-text-2);
+  font-size: 16px;
+  line-height: 28px;
+}
+
+.vp-doc h1 + h2,
+.vp-doc h1 + p + h2 {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.vp-doc h2 {
+  margin-top: 28px;
+  font-size: 24px;
+  font-weight: 650;
+  line-height: 32px;
+}
+
+.vp-doc h3 {
+  margin-top: 20px;
+  font-size: 19px;
+  line-height: 28px;
+}
+
 .vp-doc p,
 .vp-doc li {
   text-wrap: pretty;
+  line-height: 26px;
+}
+
+.vp-doc p {
+  margin-block: 10px;
+}
+
+.vp-doc div[class*="language-"] {
+  margin: 14px 0;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 6px;
+  padding-top: 32px;
+}
+
+.vp-doc div[class*="language-"]::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 32px;
+  border-bottom: 1px solid var(--vp-c-divider);
+  background: var(--kite-code-header-bg);
+  content: "";
+}
+
+.vp-doc div[class*="language-"] > span.lang {
+  inset: 4px auto auto 14px;
+  line-height: 24px;
+}
+
+.vp-doc div[class*="language-"] > button.copy {
+  top: 0;
+  right: 6px;
+  border-color: transparent;
+  width: 32px;
+  height: 32px;
+  background-color: transparent;
+  background-size: 16px;
+  opacity: 1;
+}
+
+.vp-doc div[class*="language-"] > button.copy.copied::before {
+  height: 32px;
+}
+
+.vp-doc div[class*="language-"]:hover > button.copy + span.lang,
+.vp-doc div[class*="language-"] > button.copy:focus + span.lang {
+  opacity: 1;
+}
+
+.vp-doc div[class*="language-"] pre {
+  padding-block: 10px;
+}
+
+.vp-doc div[class*="language-"] code {
+  padding-inline: 16px;
+}
+
+.vp-doc .line-numbers-wrapper {
+  padding-top: 42px;
+}
+
+.vp-doc .custom-block {
+  border: 0;
+  border-left: 3px solid var(--vp-c-brand-1);
+  border-radius: 3px;
+}
+
+.vp-doc .custom-block.warning {
+  border-left-color: var(--vp-c-warning-1);
+}
+
+.vp-doc .custom-block.danger {
+  border-left-color: var(--vp-c-danger-1);
 }
 
 .vp-doc img {
   border: 1px solid var(--vp-c-divider);
-  border-radius: 8px;
+  border-radius: 6px;
+}
+
+.Layout .VPDocAsideOutline .content {
+  border-left: 0;
+  padding-left: 16px;
+  font-size: 14px;
+}
+
+.Layout .VPDocAsideOutline .outline-title {
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--vp-c-text-2);
+}
+
+.Layout .VPDocOutlineItem .outline-link {
+  font-size: 13px;
+  line-height: 32px;
+}
+
+@media (min-width: 960px) {
+  .Layout .VPNavBar.has-sidebar > .wrapper > .container > .title {
+    padding-inline: 36px;
+    width: var(--vp-sidebar-width);
+  }
+
+  .Layout .VPNavBar.has-sidebar .content {
+    padding-right: 32px;
+    padding-left: var(--vp-sidebar-width);
+  }
+
+  .Layout .VPNavBar.has-sidebar .divider {
+    padding-left: 0;
+  }
+
+  .Layout .VPNavBar .menu {
+    order: -1;
+    margin-right: auto;
+  }
+
+  .Layout .VPNavBarSearch {
+    flex-grow: 0;
+    padding-inline: 20px 12px;
+  }
+
+  .Layout .VPNavBarSearch .DocSearch-Button {
+    border-color: var(--vp-c-divider);
+    border-radius: 6px;
+    min-width: 176px;
+    background: var(--vp-c-bg-soft);
+  }
+
+  .Layout .VPSidebar {
+    top: var(--vp-nav-height);
+    border-right: 1px solid var(--vp-c-divider);
+    padding: 24px 16px 80px 36px;
+    width: var(--vp-sidebar-width);
+  }
+
+  .Layout .VPSidebar .curtain {
+    display: none;
+  }
+
+  .Layout .VPContent.has-sidebar {
+    padding-right: 0;
+    padding-left: var(--vp-sidebar-width);
+  }
+
+  .Layout .VPDoc {
+    padding: 20px 36px 80px 44px;
+  }
+
+  .Layout .VPDoc > .container {
+    max-width: 1180px;
+    gap: 40px;
+  }
+
+  .Layout .VPDoc > .container > .content {
+    min-width: 0;
+    padding: 0;
+  }
+
+  .Layout .VPDoc.has-aside .content-container {
+    max-width: 800px;
+  }
+
+  .Layout .VPDoc .aside {
+    flex: 0 0 208px;
+    padding-left: 0;
+  }
+
+  .Layout .VPDoc .aside-container {
+    top: calc(var(--vp-nav-height) + 20px);
+    border-left: 1px solid var(--vp-c-divider);
+    padding: 12px 0 32px 14px;
+    width: 208px;
+    height: calc(100dvh - var(--vp-nav-height) - 20px);
+  }
+
+  .Layout .VPDoc .aside-curtain {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  :root {
+    --vp-sidebar-width: 232px;
+  }
+
+  .Layout .VPNavBarSearch .DocSearch-Button {
+    min-width: 0;
+  }
+
+  .Layout .VPNavBarMenuLink {
+    padding-inline: 10px;
+    font-size: 14px;
+  }
+
+  .Layout .VPNavBarSearch .DocSearch-Button-Placeholder,
+  .Layout .VPNavBarSearch .DocSearch-Button-Keys {
+    display: none;
+  }
+
+  .Layout .VPNavBarSearch .DocSearch-Search-Icon {
+    margin: 0;
+  }
+
+  .Layout .VPDoc {
+    padding-inline: 36px;
+  }
+}
+
+@media (max-width: 767px) {
+  .Layout .VPNavBarTitle .title {
+    font-size: 24px;
+  }
+
+  .vp-doc h1 {
+    font-size: 28px;
+  }
+
+  .vp-doc h2 {
+    font-size: 22px;
+  }
+
+  .vp-doc h1 + p {
+    font-size: 16px;
+    line-height: 28px;
+  }
+
+  .kite-breadcrumb {
+    gap: 6px;
+    font-size: 12px;
+  }
 }

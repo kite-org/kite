@@ -4,7 +4,7 @@ outline: deep
 
 # 发布插件
 
-插件构建打包后就是一个 `.tar.gz` 归档，分发方式完全取决于你的需求：直接安装、自建 catalog，或提交到官方 [kite-plugins](https://github.com/kite-org/kite-plugins) 仓库。
+插件打包为 `.tar.gz` 安装包，支持直接分发、自建 catalog，或通过官方 [kite-plugins](https://github.com/kite-org/kite-plugins) 仓库发布。
 
 ## 版本规则
 
@@ -49,32 +49,17 @@ pnpm run catalog \
 
 先上传 `packages/`，再发布 `catalog.json` 和 `readmes/`。
 
-## 提交到 kite-plugins 仓库
+## 发布到官方目录
 
-官方仓库 [kite-org/kite-plugins](https://github.com/kite-org/kite-plugins) 是一个 pnpm workspace，通过 GitHub Releases + Pages + EdgeOne 双端点发布官方目录：
+将开发完成的插件提交到 [kite-org/kite-plugins](https://github.com/kite-org/kite-plugins)，审核合并后即可发布到官方目录。
+
+1. Fork 并 clone 仓库。
+2. 将插件源码放入 `plugins/<插件 ID>/`，目录名与 `package.json` 中的 `name` 一致。附上介绍插件功能和使用方法的 `README.md`，不要提交 `dist/` 或安装包。
+3. 在仓库根目录运行 `pnpm install`，将插件源码和更新后的 `pnpm-lock.yaml` 一起提交 PR。
+
+PR 合并到 `main` 后，发布流程会自动构建尚未发布的插件版本并更新以下目录：
 
 | 目录         | 地址                                                       |
 | ------------ | ---------------------------------------------------------- |
 | GitHub Pages | `https://kite-org.github.io/kite-plugins/catalog.json`     |
 | EdgeOne      | `https://plugins.kitehq.dev/catalog.json`（Kite 默认目录） |
-
-### 添加插件
-
-Fork 并 clone 仓库，从根目录运行脚手架（目录名即插件 ID）：
-
-```sh
-pnpm create @kite-dev/plugin-sdk plugins/my-plugin
-pnpm install
-```
-
-开发与验证：
-
-```sh
-pnpm --filter my-plugin run dev     # watch 单个插件
-pnpm run type-check                 # 全部插件类型检查
-pnpm run lint                       # ESLint
-pnpm run format:check               # Prettier
-pnpm run build                      # 全部插件构建
-```
-
-提交 PR 前确保：插件 ID 唯一且符合规范、版本为合法 semver、中英文词典键对齐、README 包含面向用户的使用说明。CI 会在 PR 上运行 lint、格式化和 catalog 构建校验。

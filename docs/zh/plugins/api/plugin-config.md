@@ -4,31 +4,50 @@ outline: deep
 
 # 插件配置
 
-`plugin.config.tsx` 是插件唯一的声明式入口，同时被构建期（提取 manifest）和浏览器（插件入口）使用。
+在 `plugin.config.tsx` 中通过 `definePlugin()` 声明插件的路由、菜单、资源扩展、主题、配置页和词典。
+
+所有配置项均可省略，`routes`、`menus`、`resources` 和 `themes` 默认为空数组。
+
+| 配置项 | 用途 |
+| ------ | ---- |
+| [`routes`](#路由) | 注册插件页面和路由 |
+| [`menus`](#菜单) | 注册侧边栏菜单和分组 |
+| [`resources`](#资源扩展) | 添加列表列、详情 Tab 或接管 CRD 页面 |
+| [`themes`](#主题) | 提供配色主题 |
+| [`settings`](#配置页) | 提供管理员配置页 |
+| [`i18n`](#国际化) | 注册插件词典 |
+
+## 路由
+
+注册插件首页和带命名空间、名称参数的详情页：
 
 ```tsx
+import { lazy } from 'react'
+import { definePlugin } from '@kite-dev/plugin-sdk'
+
+import { label, translations } from './src/i18n'
+
+const DeploymentsPage = lazy(() => import('./src/pages/deployments'))
+const DeploymentPage = lazy(() => import('./src/pages/deployment'))
+
 export default definePlugin({
   i18n: translations,
   routes: [
-    { id: 'deployments', path: '', title: label('nav.workloads'),
-      element: <DeploymentsPage /> },
-    { id: 'deployment', path: 'deployments/:namespace/:name',
-      title: label('nav.deployment'), element: <DeploymentPage /> },
-  ],
-  menus: [
-    { id: 'workloads', parent: 'core:workloads',
-      label: label('nav.workloads'), route: 'deployments', icon: 'IconBox' },
+    {
+      id: 'deployments',
+      path: '',
+      title: label('navigation.deployments'),
+      element: <DeploymentsPage />,
+    },
+    {
+      id: 'deployment',
+      path: 'deployments/:namespace/:name',
+      title: label('navigation.deployment'),
+      element: <DeploymentPage />,
+    },
   ],
 })
 ```
-
-`routes`、`menus`、`resources`、`themes` 均可省略，`definePlugin` 会把省略的字段填成空数组。它会从内联声明推断路由 ID 的字面量类型，并校验 `menus.route` 的取值；如果把路由数组提取成变量，需要加 `as const` 保留字面量类型。词典绑定和 `label()` 的用法见[国际化](../i18n)。
-
-::: warning
-`plugin.config.tsx` 在构建时会在 Node.js 中执行一次，用来提取导航和资源扩展元数据；同一份文件也是浏览器入口。路由、菜单、资源扩展声明不能依赖浏览器全局或用户状态，页面和 Tab 组件请用 `React.lazy` 引入。
-:::
-
-## 路由
 
 - `id`：路由 ID，插件内唯一。必须由字母或数字开头，可含字母、数字、下划线、连字符。
 - `path`：相对 `/plugins/<插件 ID>` 的路径，不能以 `/` 开头，也不能包含 `\` 或 `.`、`..` 段；空字符串是插件首页，支持命名参数（`:name`）、可选参数（`:name?`）和尾部 `*`。
@@ -44,6 +63,31 @@ export default definePlugin({
 
 ## 菜单
 
+为 ID 为 `my-plugin` 的插件添加“证书管理”分组，并在分组下放置 Certificate 列表菜单：
+
+```tsx
+import { definePlugin } from '@kite-dev/plugin-sdk'
+
+import { label, translations } from './src/i18n'
+
+export default definePlugin({
+  i18n: translations,
+  menus: [
+    {
+      id: 'cert-manager',
+      label: label('navigation.certManager'),
+      icon: 'IconCertificate',
+    },
+    {
+      id: 'certificates',
+      parent: 'my-plugin:cert-manager',
+      label: label('navigation.certificates'),
+      resource: { group: 'cert-manager.io', resource: 'certificates' },
+    },
+  ],
+})
+```
+
 - `id`、`label` 必填：ID 在插件内唯一，格式与路由 ID 相同；标签支持本地化。
 - `route` 指向一个无需必填参数即可打开的插件路由；`resource: { group, resource }` 直接指向某个自定义资源的列表页，由 `resources` 中的页面定义接管，无需额外注册路由。两者互斥，都不带的菜单是分组标题。
 - `parent` 决定菜单位置：
@@ -58,16 +102,177 @@ export default definePlugin({
 
 菜单父级只能是内置分组或同一插件声明的分组，不允许成环；作为父级的分组菜单自身不能带 `route` 或 `resource`。`order` 设置默认排序（菜单项默认 `50`，用户侧边栏偏好优先）；`icon` 接受宿主图标名（如 `IconBox`、`IconPackage`），未知名称回退默认图标。
 
+`definePlugin` 会从内联声明推断路由 ID 的字面量类型，并校验 `menus.route` 的取值；如果把路由数组提取成变量，需要加 `as const` 保留字面量类型。
+
+## 资源扩展
+
+通过 `plugin.config.tsx` 的 `resources` 配置，为 Kite 的资源列表添加列、为详情页添加 Tab，或替换某种 CRD 的完整页面。查询和修改资源数据见[资源查询与操作](./resources)。
+
+`resources` 中的每一项用 `group`（API 组）和 `resource`（复数资源名）定位一种资源，类型是 `PluginResourceView<T>`。核心 API 组用空字符串，例如 Pod 是 `{ group: '', resource: 'pods' }`，StorageClass 是 `{ group: 'storage.k8s.io', resource: 'storageclasses' }`；API 组按格式校验，不限制 `k8s.io` 这类后缀。
+
+| 字段 | 类型 | 作用 |
+| ---- | ---- | ---- |
+| `group`、`resource` | `string` | 必填，共同组成唯一的资源目标 |
+| `columns` | `PluginResourceColumn<T>[]` | 向宿主列表追加列 |
+| `tabs` | `PluginResourceTab[]` | 向宿主详情页追加 Tab |
+| `list` | `ReactNode` | 接管自定义资源的完整列表页 |
+| `detail` | `ReactNode` | 接管自定义资源的完整详情页 |
+
+四种扩展至少提供一种，且同一插件内不能重复声明相同的资源目标。宿主按需加载插件模块：列可见时加载，Tab 被选中时加载，接管页面在访问时加载。`columns`、`tabs` 对原生资源和通用 CR 页面都生效；`list`、`detail` 只接管自定义资源整页，不会替换原生资源页面。
+
+### 添加列表列
+
+给 Pod 列表增加 Team 列，显示资源的 `team` 标签：
+
+```tsx
+// plugin.config.tsx
+import { definePlugin, type PluginResourceColumn } from '@kite-dev/plugin-sdk'
+import type { CoreV1 } from '@kite-dev/plugin-sdk/k8s'
+
+import { label, translations } from './src/i18n'
+
+const podColumns = [
+  {
+    id: 'team',
+    header: label('columns.team'),
+    accessorFn: (pod) => pod.metadata?.labels?.team ?? '—',
+    order: 10,
+  },
+] satisfies PluginResourceColumn<CoreV1.Pod>[]
+
+export default definePlugin({
+  i18n: translations,
+  resources: [
+    {
+      group: '',
+      resource: 'pods',
+      columns: podColumns,
+    },
+  ],
+})
+```
+
+`PluginResourceColumn<T, TValue>` 从 SDK 根入口导入，`T` 是资源类型，`TValue` 是列值类型（默认 `unknown`）。
+
+| 字段 | 说明 |
+| ---- | ---- |
+| `id`、`header` | 必填；ID 在该资源的列中唯一，标题支持本地化标签 |
+| `accessorFn` / `accessorKey` | 读取用于显示、排序和搜索的值，两者互斥；`accessorKey` 支持 `metadata.labels.team` 这类点路径 |
+| `cell` | TanStack Table 单元格渲染接口，`row.original` 是当前资源；需要 Hook 时渲染独立的 React 组件 |
+| `size`、`minSize`、`maxSize` | 列宽及其范围 |
+| `enableSorting`、`sortingFn` | 控制排序；有 accessor 的列默认参与排序，`sortingFn` 可用 TanStack 内置名称（`auto`、`text`、`alphanumeric`、`datetime` 等）或自定义函数 |
+| `sortDescFirst`、`sortUndefined`、`invertSorting` | 首次排序方向、空值位置（默认排在最后）和反向排序 |
+| `enableHiding`、`defaultHidden` | 是否允许隐藏、是否默认隐藏；已有用户显隐偏好优先 |
+| `order` | 插件列之间的默认顺序，默认 `0`，相同取值按 ID 排序；插件列统一追加在宿主列之后 |
+
+只要存在可见的插件列，宿主列表请求（包括开启 watch 时）就会拉取完整资源对象，因此单元格可以直接读取当前行，不需要再次请求同一资源。文本搜索会匹配当前可见列的取值（含插件列 accessor 的返回值），标签选择器仍由后端处理。accessor 建议返回字符串、数字或布尔值。
+
+### 添加详情 Tab
+
+给 Pod 详情页增加“策略”Tab：
+
+```tsx
+import { lazy } from 'react'
+import { definePlugin } from '@kite-dev/plugin-sdk'
+
+import { label, translations } from './src/i18n'
+
+const PolicyTab = lazy(() => import('./src/tabs/policy'))
+
+export default definePlugin({
+  i18n: translations,
+  resources: [
+    {
+      group: '',
+      resource: 'pods',
+      tabs: [
+        {
+          id: 'policy',
+          label: label('tabs.policy'),
+          element: <PolicyTab />,
+        },
+      ],
+    },
+  ],
+})
+```
+
+`PluginResourceTab` 从 SDK 根入口导入：
+
+| 字段 | 说明 |
+| ---- | ---- |
+| `id` | 必填，在该资源的 Tab 中唯一 |
+| `label` | 必填，本地化标签 |
+| `element` | 必填，任意 React 节点 |
+| `order` | 可选，默认 `0`，相同取值按 ID 排序 |
+
+插件 Tab 追加在宿主 Tab 之后，用户排序与显隐偏好优先。
+
+在列或 Tab 组件中读取当前资源和触发刷新，见[读取扩展中的当前资源](./resources#读取扩展中的当前资源)。
+
+### 接管 CRD 列表和详情
+
+`list`、`detail` 接收实际的 React 节点。只提供其中一项时，另一页仍使用 Kite 的通用视图。无需声明插件路由，菜单也可以直接指向该 CRD：
+
+```tsx
+// plugin.config.tsx
+import { lazy } from 'react'
+import { definePlugin } from '@kite-dev/plugin-sdk'
+
+import { label, translations } from './src/i18n'
+
+const GatewayList = lazy(() => import('./src/pages/gateway-list'))
+const GatewayDetail = lazy(() => import('./src/pages/gateway-detail'))
+const gateways = { group: 'gateway.networking.k8s.io', resource: 'gateways' }
+
+export default definePlugin({
+  i18n: translations,
+  menus: [
+    {
+      id: 'gateways',
+      parent: 'core:traffic',
+      label: label('navigation.gateways'),
+      resource: gateways,
+      icon: 'IconLoadBalancer',
+    },
+  ],
+  resources: [
+    { ...gateways, list: <GatewayList />, detail: <GatewayDetail /> },
+  ],
+})
+```
+
+接管页面自行通过资源 Hook 请求数据，详情页用 `useParams()` 读取 `name` 和 `namespace`。菜单、CRD 浏览器和页面内链接使用同一套 CRD URL，见[打开资源页面](./navigation#打开资源页面)。表格、详情页和 YAML 编辑器可以复用 [UI 组件](./ui)。
+
+多个活动插件接管同一资源的同一种页面时，只有活动插件列表中的第一个匹配项生效。插件被禁用、卸载、不兼容或模块加载失败时，Kite 回退到通用视图。
+
+### 扩展的标识与深链
+
+宿主会给扩展 ID 加插件前缀，例如 `plugin:my-plugin:column:team`、`plugin:my-plugin:tab:policy`。这些 ID 不含版本号，因此升级插件不会丢失用户偏好；详情页可以用 `?tab=plugin:my-plugin:tab:policy` 直接选中该 Tab，值在页面上不存在时回退到第一个可见 Tab。
+
+例如，打开 `default` 命名空间中名为 `demo` 的 Pod，并选中 `my-plugin` 提供的“策略”Tab：
+
+```text
+/pods/default/demo?tab=plugin:my-plugin:tab:policy
+```
+
+列和 Tab 扩展作用于使用宿主资源表格与详情页组件的页面；插件自己渲染的 `ResourceTable`、`ResourceDetailShell` 不会自动插入其他插件的内容。插件列或 Tab 的加载、渲染错误只影响对应的扩展区域。
+
 ## 主题
 
 插件可以提供配色主题。一个主题就是一份样式表，用来覆盖 Kite 的 CSS 变量，因此一份文件就能同时改变所有页面、YAML 编辑器和终端的配色。
 
 ```tsx
+import { definePlugin } from '@kite-dev/plugin-sdk'
+
+import { label, translations } from './src/i18n'
+
 export default definePlugin({
+  i18n: translations,
   themes: [
     {
       id: 'nord',
-      label: { en: 'Nord', zh: 'Nord 暗色' },
+      label: label('themes.nord'),
       styles: ['themes/nord.css'],
     },
   ],
@@ -119,10 +324,14 @@ body::before {
 
 ```tsx
 import { lazy } from 'react'
+import { definePlugin } from '@kite-dev/plugin-sdk'
+
+import { label, translations } from './src/i18n'
 
 const Settings = lazy(() => import('./src/settings'))
 
 export default definePlugin({
+  i18n: translations,
   settings: {
     label: label('settings.title'),
     element: <Settings />,
@@ -143,7 +352,8 @@ export default function Settings() {
   const { settings, isLoading, isSaving, save } = usePluginSettings<{
     grafanaUrl?: string
   }>()
-  const [url, setUrl] = useState('')
+  const [url, setUrl] = useState<string>()
+  const grafanaUrl = url ?? settings?.grafanaUrl ?? ''
 
   if (isLoading) return null
 
@@ -153,13 +363,13 @@ export default function Settings() {
         <Label htmlFor="grafana-url">Grafana URL</Label>
         <Input
           id="grafana-url"
-          value={url || settings?.grafanaUrl || ''}
+          value={grafanaUrl}
           onChange={(event) => setUrl(event.target.value)}
         />
       </div>
       <Button
         disabled={isSaving}
-        onClick={() => void save({ grafanaUrl: url })}
+        onClick={() => void save({ grafanaUrl })}
       >
         Save
       </Button>
@@ -169,3 +379,19 @@ export default function Settings() {
 ```
 
 配置是实例级的：管理员配置一次，所有用户共享；读取对所有登录用户开放，写入只有管理员可以。保存成功后宿主会给出统一提示。单次提交的 JSON 不超过 16 KiB，未配置过时 `settings` 是空对象，插件应当处理"尚未配置"的情况。卸载插件时会连带删除它的配置。
+
+## 国际化
+
+`i18n` 可选，接收插件的中英文词典。通常将 `createPluginI18n()` 返回的 `resources` 命名为 `translations`，再传入配置：
+
+```tsx
+import { definePlugin } from '@kite-dev/plugin-sdk'
+
+import { translations } from './src/i18n'
+
+export default definePlugin({
+  i18n: translations,
+})
+```
+
+声明菜单、路由或 Tab 标签时使用同一模块的 `label()`；页面组件通过 `useTranslation()` 读取文案，随 Kite 的语言切换更新。词典结构、绑定方式和完整示例见[国际化指南](../i18n)。

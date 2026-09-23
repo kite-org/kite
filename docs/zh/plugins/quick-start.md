@@ -4,7 +4,7 @@ outline: deep
 
 # 快速开始
 
-本页从零开始创建一个 Kite 插件：初始化项目、编写页面、构建、打包，最后安装到 Kite 中。
+使用脚手架创建插件项目，编写 React 页面后，打包为 `.tar.gz` 安装到 Kite。
 
 ## 前置要求
 
@@ -45,33 +45,7 @@ my-plugin/
       home.module.css
 ```
 
-## 配置插件身份
-
-插件的 ID 和元数据来自 `package.json`，不需要手写 `plugin.json`（构建时自动生成）：
-
-```json
-{
-  "name": "my-plugin",
-  "displayName": "My Plugin",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "description": "我的第一个 Kite 插件",
-  "author": "Your Team",
-  "license": "Apache-2.0",
-  "engines": {
-    "kite": ">=0.16.0"
-  }
-}
-```
-
-| 字段                                              | 说明                                                                                              |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `name`                                            | 插件 ID，也是 URL 的一部分。1–64 个小写字母、数字或连字符，以字母或数字开头结尾；不使用 npm scope |
-| `displayName`                                     | 插件管理中显示的名称，1–128 个字符                                                                |
-| `version`                                         | 语义化版本，不带 `v` 前缀。内容变更时必须递增版本                                                 |
-| `engines.kite`                                    | 支持的 Kite 版本范围，省略时默认 `>=0.16.0`，构建时写入 `plugin.json` 的 `requires.kite`          |
-| `description` / `author` / `homepage` / `license` | 可选元数据                                                                                        |
+在 `package.json` 中设置插件的名称、显示名称和版本，字段说明见[插件身份](./api/plugin-identity)。
 
 ## 编写页面和菜单
 
@@ -111,11 +85,11 @@ export default definePlugin({
 
 - 路由路径相对于 `/plugins/my-plugin`。空字符串 `''` 是插件首页；路径支持 `:namespace/:name` 这样的命名参数。
 - `menus` 中的 `parent` 可以是 Kite 内置分组（`core:workloads`、`core:storage`、`core:other` 等），也可以省略形成顶级菜单。`route` 指向插件路由，`resource: { group, resource }` 直接指向 CRD 列表；两者都不带的菜单是分组标题。
-- `routes`、`menus`、`resources` 均可省略。`resources` 可追加列表列、详情 Tab 或接管自定义资源页面，详见 [API 参考：资源扩展](./api/resource-extensions)。
+- `routes`、`menus`、`resources` 均可省略。`resources` 可追加列表列、详情 Tab 或接管自定义资源页面，详见[插件配置：资源扩展](./api/plugin-config#资源扩展)。
 - `element` 接收任意 React 节点。页面组件用 `React.lazy(() => import(...))` 懒加载，CSS 和浏览器依赖放在页面模块里。
 - `plugin.config.tsx` 会在构建时于 Node.js 中执行一次以提取路由和菜单元数据，因此其中的声明不能依赖浏览器全局变量。
 
-生成的页面 `src/pages/home.tsx` 展示了最基本的宿主能力复用——读取当前集群和命名空间：
+在 `src/pages/home.tsx` 中使用 `useCluster()` 和 `useNamespace()` 读取当前集群和命名空间：
 
 ```tsx
 import { useCluster, useNamespace } from "@kite-dev/plugin-sdk/hooks";
@@ -158,7 +132,7 @@ export default function HomePage() {
 }
 ```
 
-再写一个真正查询资源的页面，体验资源 Hook 的用法：
+使用 `useResources()` 查询 Kubernetes 资源，例如统计所有命名空间的 ConfigMap 数量：
 
 ```tsx
 import { useResources } from "@kite-dev/plugin-sdk/resources";
@@ -185,7 +159,7 @@ pnpm run build   # 类型检查 + 产物输出到 dist/
 pnpm run pack    # 打包 dist/ 为归档
 ```
 
-`pack` 实际执行 `kite-plugin pack`，产出 `my-plugin-0.1.0.tar.gz` 并打印 SHA-256 摘要。归档内容是 `dist/` 的根级内容（含自动生成的 `plugin.json`、Federation 入口、JS 分块、样式和 README），外层没有包裹目录。
+`pnpm run pack` 生成安装包 `my-plugin-0.1.0.tar.gz`，并打印 SHA-256 摘要。
 
 常用脚本一览：
 
@@ -229,6 +203,8 @@ pnpm run pack    # 打包 dist/ 为归档
 
 ## 下一步
 
-- [API 参考](./api/)：插件配置、资源扩展、导航、资源查询与写操作、UI 组件等全部接口
+- [插件配置](./api/plugin-config)：配置路由、菜单、资源扩展、主题、配置页和词典
+- [资源查询与操作](./api/resources)：读取资源、执行写操作和调用 Kite API
+- [UI 组件](./api/ui)：复用资源列表、详情页和 YAML 编辑器
 - [国际化](./i18n)：完善中英文词典
-- [调试](./debugging)：搭建高效的开发迭代循环
+- [调试](./debugging)：本地开发与问题排查

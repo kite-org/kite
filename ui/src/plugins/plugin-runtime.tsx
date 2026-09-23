@@ -47,6 +47,7 @@ export function PluginRuntime({ children }: { children: ReactNode }) {
   const development = useDevelopmentPlugin(active.data?.devUrl, !!user)
   const entries = useRef(new Map<string, LoadingPlugin>())
   const [plugins, setPlugins] = useState<LoadedPlugin[]>([])
+  const [isReady, setIsReady] = useState(false)
 
   const publish = useCallback(() => {
     setPlugins([...entries.current.values()].map((entry) => entry.record))
@@ -140,7 +141,15 @@ export function PluginRuntime({ children }: { children: ReactNode }) {
       }
     }
     publish()
-  }, [active.data, development.data, development.isLoading, user, publish])
+    setIsReady(!!user && active.isSuccess)
+  }, [
+    active.data,
+    active.isSuccess,
+    development.data,
+    development.isLoading,
+    user,
+    publish,
+  ])
 
   useEffect(() => {
     const currentEntries = entries.current
@@ -155,6 +164,7 @@ export function PluginRuntime({ children }: { children: ReactNode }) {
       value={{
         plugins,
         isLoading: active.isLoading || development.isLoading,
+        isReady: isReady && !!user && !development.isLoading,
         loadPlugin,
       }}
     >

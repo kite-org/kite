@@ -119,7 +119,7 @@ export function ColorThemeProvider({
   storageKey = 'vite-ui-color-theme',
   ...props
 }: ColorThemeProviderProps) {
-  const { plugins, isLoading } = usePlugins()
+  const { plugins, isReady } = usePlugins()
   const assetsStorageKey = `${storageKey}-plugin-assets`
 
   const pluginThemes = useMemo(
@@ -181,16 +181,11 @@ export function ColorThemeProvider({
   }, [colorTheme, activePluginTheme, assetsStorageKey])
 
   useEffect(() => {
-    if (isLoading || !plugins.length) return
+    if (!isReady) return
     if (!isPluginColorTheme(colorTheme) || activePluginTheme) return
+    window.localStorage.setItem(storageKey, defaultColorTheme)
     setColorThemeState(defaultColorTheme)
-  }, [
-    isLoading,
-    plugins.length,
-    colorTheme,
-    activePluginTheme,
-    defaultColorTheme,
-  ])
+  }, [isReady, colorTheme, activePluginTheme, defaultColorTheme, storageKey])
 
   const value = {
     colorTheme,

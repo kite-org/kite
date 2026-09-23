@@ -2,15 +2,21 @@
 outline: deep
 ---
 
-# 资源
+# 资源查询与操作
 
-## 查询
+从 `@kite-dev/plugin-sdk/resources` 导入查询和操作接口，用于读取、创建、修改和删除 Kubernetes 资源。查询默认跟随 Kite 当前选择的集群，所有请求都受当前用户的权限约束。
 
-用 API group + 复数资源名标识资源：
+## 查询列表和详情
 
-```ts
+用 API group + 复数资源名标识资源，例如查询当前命名空间的 Deployment：
+
+```tsx
 import type { AppsV1 } from '@kite-dev/plugin-sdk/k8s'
-import type { KubernetesResource, ResourceReference } from '@kite-dev/plugin-sdk/resources'
+import {
+  useResources,
+  type KubernetesResource,
+  type ResourceReference,
+} from '@kite-dev/plugin-sdk/resources'
 
 export const deploymentRef = {
   group: 'apps',
@@ -18,6 +24,14 @@ export const deploymentRef = {
 } satisfies ResourceReference
 
 export type Deployment = AppsV1.Deployment & KubernetesResource
+
+export function DeploymentCount() {
+  const query = useResources<Deployment>(deploymentRef)
+
+  if (query.isLoading) return <p>加载中…</p>
+  if (query.error) return <p role="alert">{query.error.message}</p>
+  return <p>{query.data?.length ?? 0} 个 Deployment</p>
+}
 ```
 
 - `useResources<T>(ref, options?)` → `UseQueryResult<T[], Error>`
@@ -36,6 +50,41 @@ export type Deployment = AppsV1.Deployment & KubernetesResource
 `ResourceListQueryOptions` 在公共的 `ResourceQueryOptions` 基础上增加 `labelSelector`、`fieldSelector`、`reduce`，只有 `useResources` 接受这些选项。详情、事件、Describe、历史和关联资源查询都不接受列表筛选参数。
 
 命名空间传 `_all` 表示全部命名空间，也可以传逗号分隔的多个命名空间（Hook 会拆分成并行请求后合并结果）。单资源查询需要对象的真实命名空间。集群级（cluster-scoped）自定义资源需声明 `scope: 'Cluster'`；内置资源的 scope 由 Kite 自动识别。
+
+## 读取扩展中的当前资源
+
+在插件单元格组件和 Tab 内，可以通过 `@kite-dev/plugin-sdk/resources` 的 `useResourceContext<T>()` 读取宿主已经获取的资源，无需再请求一次：
+
+```tsx
+// src/tabs/policy.tsx
+import type { CoreV1 } from '@kite-dev/plugin-sdk/k8s'
+import { useResourceContext } from '@kite-dev/plugin-sdk/resources'
+import { Button } from '@kite-dev/plugin-sdk/ui'
+
+import { useTranslation } from '../i18n'
+
+export default function PolicyTab() {
+  const { resource, reference, onRefresh } = useResourceContext<CoreV1.Pod>()
+  const { t } = useTranslation()
+
+  return (
+    <>
+      <p>{reference.resource}: {resource.metadata?.name}</p>
+      <Button onClick={() => void onRefresh()}>{t('actions.refresh')}</Button>
+    </>
+  )
+}
+```
+
+返回类型是 `ResourceContext<T>`：
+
+| 字段 | 类型 | 说明 |
+| ---- | ---- | ---- |
+| `resource` | `T` | 当前行或详情页的资源对象 |
+| `reference` | `ResourceReference` | 当前资源的 API 组、复数名称与作用域信息 |
+| `onRefresh` | `() => Promise<unknown>` | 刷新宿主页面数据 |
+
+该 Hook 只在单元格和 Tab 扩展中提供。查询关联资源时继续使用 `useResource` / `useResources`：它们默认继承当前集群和当前对象的命名空间，也可以通过选项覆盖。
 
 ## 自定义资源（CRD）
 
@@ -65,7 +114,7 @@ const certificates = useResources<Certificate>(
 | 关联资源（`useRelatedResources`） | 部分内置资源支持 | 不支持，调用会抛错 |
 | 通用 PATCH | 支持 | 不支持，请改用 `updateResource` 或 `applyResource` |
 
-## 写操作与运维动作
+## 创建、修改和删除
 
 `/resources` 提供基于 Promise 的写操作：
 
@@ -80,7 +129,9 @@ const certificates = useResources<Certificate>(
 - `applyResource` 走 Kite 的创建 / 更新流程；显式 `namespace` 会覆盖 YAML 中的命名空间，集群级资源忽略它。
 - 写操作不会自动刷新查询，成功后请调用 `refetch()` 或用 TanStack Query 失效相关缓存。
 
-其余能力（未标 `?` 的参数都是必填）：
+## 事件与运维操作
+
+以下接口也从 `@kite-dev/plugin-sdk/resources` 导入，未标 `?` 的参数都是必填：
 
 | 领域 | 函数 |
 | ---- | ---- |
@@ -113,3 +164,41 @@ type ObjectMeta = MetaV1.ObjectMeta
 ```
 
 还包括 `AutoscalingV1`、`AutoscalingV2`、`NetworkingV1`、`RbacV1` 等分组。请使用 `import type`。CRD 类型自行定义接口，可扩展 `/resources` 的 `KubernetesResource`。
+
+## 自定义 API 请求
+
+使用 `@kite-dev/plugin-sdk/api` 的 `apiClient` 调用 Kite 的现有后端接口。客户端自动携带 Kite 认证、当前集群（`x-cluster-name` 请求头）和部署基路径。插件不能通过它注册新的后端接口。
+
+自定义查询可以用 `apiClient` 搭配 TanStack Query 管理加载状态、错误和缓存。使用宿主共享的 `QueryClient`，不要创建新的实例：
+
+```tsx
+import { apiClient } from '@kite-dev/plugin-sdk/api'
+import { useCluster } from '@kite-dev/plugin-sdk/hooks'
+import type { CoreV1 } from '@kite-dev/plugin-sdk/k8s'
+import { useQuery } from '@tanstack/react-query'
+
+export function usePluginPodList() {
+  const { currentCluster } = useCluster()
+
+  return useQuery({
+    queryKey: ['my-plugin', 'pods', currentCluster, '_all'],
+    enabled: !!currentCluster,
+    queryFn: ({ signal }) =>
+      apiClient.get<CoreV1.PodList>(
+        `/_clusters/${encodeURIComponent(currentCluster!)}/pods/_all`,
+        { signal }
+      ),
+  })
+}
+```
+
+查询键应包含插件标识、集群、命名空间和关键参数，避免不同查询共用缓存。写操作可配合 `useMutation`，成功后用 `useQueryClient` 失效相关查询。
+
+| 方法 | 返回值与行为 |
+| ---- | ------------ |
+| `get<T>`、`post<T>`、`put<T>`、`patch<T>`、`delete<T>` | 返回解析后的数据，非成功响应会抛出错误 |
+| `request` | 返回原始 `Response`，由调用方检查状态和读取响应 |
+
+传入 API 相对路径：`apiClient.get('/pods/_all')` 会请求部署路径下的 `/api/v1/pods/_all`，不要重复包含 `/api/v1`。显式访问指定集群时使用 `/_clusters/<cluster>/...`。
+
+选项接受 `RequestInit` 字段和 `retryOnUnauthorized`，后者默认 `true`，即收到 401 时先尝试刷新会话。
