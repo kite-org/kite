@@ -790,7 +790,8 @@
       "general": "General",
       "oauth": "Authentication",
       "rbac": "RBAC",
-      "users": "User"
+      "users": "User",
+      "kubeconfigTokens": "Kubeconfig Tokens"
     }
   },
   "generalManagement": {
@@ -1194,6 +1195,67 @@
   "apikeyManagement": {
     "actions": {
       "add": "Add API Key"
+    }
+  },
+  "kubeconfigDownload": {
+    "title": "Download Kubeconfig",
+    "description": "Choose accessible clusters and an expiration time.",
+    "clusters": "Clusters",
+    "searchClusters": "Search clusters",
+    "noClustersFound": "No matching clusters found.",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "selectMatching": "Select matching",
+    "deselectMatching": "Deselect matching",
+    "selectedSummary": "{{selected}} selected / {{total}} total",
+    "expiration": "Expiration",
+    "custom": "Custom",
+    "year": "Year",
+    "month": "Month",
+    "day": "Day",
+    "hour": "Hour",
+    "minute": "Minute",
+    "second": "Second",
+    "expiresAt": "Expires {{date}}",
+    "ttlError": "Select an expiration time between 1 hour and 5 years from now.",
+    "securityNotice": "This file contains a sensitive Bearer token. Store it securely and set file permissions to 0600.",
+    "download": "Download",
+    "downloading": "Downloading...",
+    "success": "Kubeconfig downloaded",
+    "error": "Failed to download kubeconfig",
+    "presets": {
+      "1d": "1 day",
+      "7d": "7 days",
+      "30d": "30 days",
+      "1year": "1 year"
+    }
+  },
+  "kubeconfigTokens": {
+    "adminTitle": "Kubeconfig Tokens",
+    "adminDescription": "Review and delete kubeconfig tokens for all users.",
+    "empty": "No kubeconfig tokens found.",
+    "expiresAt": "Expires At",
+    "active": "Active",
+    "expired": "Expired",
+    "delete": "Delete",
+    "deleteSuccess": "Kubeconfig token deleted",
+    "ownerPlaceholder": "Filter by username",
+    "allStatuses": "All statuses",
+    "totalTokens": "{{count}} token(s) total.",
+    "rowsPerPage": "Rows per page:",
+    "pagination": "Page {{page}} of {{totalPages}}",
+    "previousPage": "Go to previous page",
+    "nextPage": "Go to next page",
+    "deleteConfirmTitle": "Delete kubeconfig token?",
+    "deleteConfirmDescription": "This token will be deleted, become invalid immediately, and cannot be recovered."
+  },
+  "accountSettings": {
+    "title": "Account Settings",
+    "tabs": {
+      "profile": "Profile",
+      "password": "Password",
+      "security": "Security",
+      "kubeconfigTokens": "Kubeconfig Tokens"
     }
   },
   "deleteConfirmation": {

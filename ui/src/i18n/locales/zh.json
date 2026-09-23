@@ -801,7 +801,8 @@
       "oauth": "认证",
       "rbac": "RBAC",
       "users": "用户",
-      "apikeys": "API 密钥"
+      "apikeys": "API 密钥",
+      "kubeconfigTokens": "Kubeconfig 令牌"
     }
   },
   "generalManagement": {
@@ -1140,6 +1141,67 @@
       "description": "创建新的 API 密钥用于程序化访问。",
       "namePlaceholder": "例如：生产环境 API 密钥",
       "nameRequired": "名称为必填项"
+    }
+  },
+  "kubeconfigDownload": {
+    "title": "下载 Kubeconfig",
+    "description": "选择可访问的集群和有效期。",
+    "clusters": "集群",
+    "searchClusters": "搜索集群",
+    "noClustersFound": "未找到匹配的集群。",
+    "selectAll": "全选",
+    "deselectAll": "取消全选",
+    "selectMatching": "全选匹配项",
+    "deselectMatching": "取消选择匹配项",
+    "selectedSummary": "已选 {{selected}} / 共 {{total}}",
+    "expiration": "有效期",
+    "custom": "自定义",
+    "year": "年",
+    "month": "月",
+    "day": "日",
+    "hour": "时",
+    "minute": "分",
+    "second": "秒",
+    "expiresAt": "将于 {{date}} 过期",
+    "ttlError": "请选择 1 小时到 5 年内的到期时间。",
+    "securityNotice": "此文件包含敏感 Bearer Token，请妥善保存并设置文件权限为 0600。",
+    "download": "下载",
+    "downloading": "下载中...",
+    "success": "Kubeconfig 已下载",
+    "error": "下载 Kubeconfig 失败",
+    "presets": {
+      "1d": "1 天",
+      "7d": "7 天",
+      "30d": "30 天",
+      "1year": "1 年"
+    }
+  },
+  "kubeconfigTokens": {
+    "adminTitle": "Kubeconfig 令牌",
+    "adminDescription": "查看并删除所有用户的 Kubeconfig 令牌。",
+    "empty": "暂无 Kubeconfig 令牌。",
+    "expiresAt": "过期时间",
+    "active": "有效",
+    "expired": "已过期",
+    "delete": "删除",
+    "deleteSuccess": "Kubeconfig 令牌已删除",
+    "ownerPlaceholder": "按用户名筛选",
+    "allStatuses": "全部状态",
+    "totalTokens": "共 {{count}} 个令牌。",
+    "rowsPerPage": "每页行数：",
+    "pagination": "第 {{page}} / {{totalPages}} 页",
+    "previousPage": "转到上一页",
+    "nextPage": "转到下一页",
+    "deleteConfirmTitle": "删除 Kubeconfig 令牌？",
+    "deleteConfirmDescription": "此令牌将被删除，立即失效且不可恢复。"
+  },
+  "accountSettings": {
+    "title": "账户设置",
+    "tabs": {
+      "profile": "资料",
+      "password": "密码",
+      "security": "安全",
+      "kubeconfigTokens": "Kubeconfig 令牌"
     }
   },
   "deleteConfirmation": {
