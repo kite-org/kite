@@ -1,6 +1,7 @@
 export type { PaginatedResult } from './api/shared'
 export * from './api/auth'
 export * from './api/cluster'
+export * from './api/kubeconfig'
 export * from './api/bootstrap'
 export * from './api/core'
 export * from './api/observability'

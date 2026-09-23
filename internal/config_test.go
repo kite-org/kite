@@ -96,6 +96,18 @@ ldap:
   groupBaseDn: "ou=groups,dc=example,dc=com"
   groupFilter: "(member=%s)"
 
+smtp:
+  enabled: true
+  host: "smtp.example.com"
+  port: 587
+  username: "kite"
+  password: "smtp-password"
+  fromEmail: "kite@example.com"
+  fromName: "Kite"
+  encryption: "starttls"
+  skipTLSVerify: true
+  timeoutSeconds: 45
+
 rbac:
   roles:
     - name: admin
@@ -245,6 +257,17 @@ func TestLoadConfigFromFile_EndToEnd(t *testing.T) { //nolint:gocyclo // end-to-
 		}
 		if setting.GroupBaseDN != "ou=groups,dc=example,dc=com" {
 			t.Errorf("groupBaseDn = %q", setting.GroupBaseDN)
+		}
+	})
+
+	// --- Verify SMTP ---
+	t.Run("SMTP", func(t *testing.T) {
+		setting, err := model.GetGeneralSetting()
+		if err != nil {
+			t.Fatalf("GetGeneralSetting: %v", err)
+		}
+		if !setting.SMTPEnabled || setting.SMTPHost != "smtp.example.com" || setting.SMTPPort != 587 || setting.SMTPUsername != "kite" || setting.SMTPPassword != model.SecretString("smtp-password") || setting.SMTPFromEmail != "kite@example.com" || setting.SMTPFromName != "Kite" || setting.SMTPEncryption != "starttls" || !setting.SMTPSkipTLSVerify || setting.SMTPTimeoutSeconds != 45 {
+			t.Errorf("SMTP setting = %#v", setting)
 		}
 	})
 

@@ -21,6 +21,7 @@ type KiteConfig struct {
 	Clusters  []ClusterConfig  `yaml:"clusters"`
 	OAuth     []OAuthConfig    `yaml:"oauth"`
 	LDAP      *LDAPConfig      `yaml:"ldap"`
+	SMTP      *SMTPConfig      `yaml:"smtp"`
 	RBAC      *RBACConfig      `yaml:"rbac"`
 }
 
@@ -68,6 +69,19 @@ type LDAPConfig struct {
 	GroupBaseDN          string `yaml:"groupBaseDn"`
 	GroupFilter          string `yaml:"groupFilter"`
 	GroupNameAttribute   string `yaml:"groupNameAttribute"`
+}
+
+type SMTPConfig struct {
+	Enabled        bool   `yaml:"enabled"`
+	Host           string `yaml:"host"`
+	Port           int    `yaml:"port"`
+	Username       string `yaml:"username"`
+	Password       string `yaml:"password"`
+	FromEmail      string `yaml:"fromEmail"`
+	FromName       string `yaml:"fromName"`
+	Encryption     string `yaml:"encryption"`
+	SkipTLSVerify  bool   `yaml:"skipTLSVerify"`
+	TimeoutSeconds int    `yaml:"timeoutSeconds"`
 }
 
 type RBACConfig struct {
@@ -153,6 +167,15 @@ func applyConfig(path string, cfg *KiteConfig) AppliedSections {
 		} else {
 			sections["ldap"] = true
 			klog.Info("Applied LDAP settings from config file")
+		}
+	}
+
+	if cfg.SMTP != nil {
+		if err := applySMTP(cfg.SMTP); err != nil {
+			klog.Errorf("Failed to apply SMTP config: %v", err)
+		} else {
+			sections["smtp"] = true
+			klog.Info("Applied SMTP settings from config file")
 		}
 	}
 
@@ -309,6 +332,25 @@ func applyLDAP(cfg *LDAPConfig) error {
 	}
 
 	_, err := model.UpdateLDAPSetting(setting)
+	return err
+}
+
+func applySMTP(cfg *SMTPConfig) error {
+	if _, err := model.GetGeneralSetting(); err != nil {
+		return err
+	}
+	_, err := model.UpdateGeneralSetting(map[string]any{
+		"smtp_enabled":         cfg.Enabled,
+		"smtp_host":            cfg.Host,
+		"smtp_port":            cfg.Port,
+		"smtp_username":        cfg.Username,
+		"smtp_password":        model.SecretString(cfg.Password),
+		"smtp_from_email":      cfg.FromEmail,
+		"smtp_from_name":       cfg.FromName,
+		"smtp_encryption":      cfg.Encryption,
+		"smtp_skip_tls_verify": cfg.SkipTLSVerify,
+		"smtp_timeout_seconds": cfg.TimeoutSeconds,
+	})
 	return err
 }
 

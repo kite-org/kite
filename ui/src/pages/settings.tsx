@@ -1,4 +1,6 @@
 import { useMemo } from 'react'
+import { useAuth } from '@/contexts/auth-context'
+import { ShieldAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { usePageTitle } from '@/hooks/use-page-title'
@@ -7,9 +9,22 @@ import { createSettingsTabs } from '@/components/settings/settings-sections'
 
 export function SettingsPage() {
   const { t } = useTranslation()
+  const { user } = useAuth()
   const tabs = useMemo(() => createSettingsTabs(t), [t])
 
   usePageTitle('Settings')
+
+  if (!user?.isAdmin()) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-20">
+        <ShieldAlert className="h-12 w-12 text-muted-foreground" />
+        <p className="text-lg font-medium">{t('errors.noPermission.title')}</p>
+        <p className="text-sm text-muted-foreground">
+          {t('errors.noPermission.adminRequired')}
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-2">

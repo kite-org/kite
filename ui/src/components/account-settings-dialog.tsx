@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '@/contexts/auth-context'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Fingerprint, KeyRound, ShieldCheck, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -7,6 +8,7 @@ import { toast } from 'sonner'
 import {
   beginCurrentUserPasskeyRegistration,
   changeCurrentUserPassword,
+  deleteCurrentUserKubeconfigToken,
   deleteCurrentUserPasskey,
   disableCurrentUserMFA,
   enableCurrentUserMFA,
@@ -14,6 +16,7 @@ import {
   listCurrentUserPasskeys,
   setupCurrentUserMFA,
   updateCurrentUser,
+  useCurrentUserKubeconfigTokens,
   type MFASetupResponse,
   type PasskeyCredential,
 } from '@/lib/api'
@@ -31,8 +34,10 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { KubeconfigTokenList } from '@/components/kubeconfig-token-list'
 
 interface AccountSettingsDialogProps {
   open: boolean
@@ -45,6 +50,21 @@ export function AccountSettingsDialog({
 }: AccountSettingsDialogProps) {
   const { t } = useTranslation()
   const { user, checkAuth, mfaEnabled, passkeyLoginEnabled } = useAuth()
+  const queryClient = useQueryClient()
+  const { data: kubeconfigTokens = [], isLoading: kubeconfigTokensLoading } =
+    useCurrentUserKubeconfigTokens(open)
+  const deleteKubeconfigMutation = useMutation({
+    mutationFn: deleteCurrentUserKubeconfigToken,
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['current-user-kubeconfig-tokens'],
+      })
+      toast.success(
+        t('kubeconfigTokens.deleteSuccess', 'Kubeconfig token deleted')
+      )
+    },
+    onError: (error) => toast.error(error.message),
+  })
   const [nickname, setNickname] = useState(user?.name || '')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -121,7 +141,6 @@ export function AccountSettingsDialog({
   if (!user) return null
 
   const isPasswordUser = !user.provider || user.provider === 'password'
-  if (!isPasswordUser) return null
 
   const mfaControlsDisabled = !mfaEnabled || savingMFA
   const passkeyControlsDisabled = !passkeyLoginEnabled || savingPasskey
@@ -345,16 +364,22 @@ export function AccountSettingsDialog({
           </DialogHeader>
 
           <Tabs defaultValue="profile" className="gap-4">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList
+              className={`grid w-full ${isPasswordUser ? 'grid-cols-3' : 'grid-cols-1'}`}
+            >
               <TabsTrigger value="profile">
                 {t('accountSettings.tabs.profile', 'Profile')}
               </TabsTrigger>
-              <TabsTrigger value="password">
-                {t('accountSettings.tabs.password', 'Password')}
-              </TabsTrigger>
-              <TabsTrigger value="security">
-                {t('accountSettings.tabs.security', 'Security')}
-              </TabsTrigger>
+              {isPasswordUser && (
+                <TabsTrigger value="password">
+                  {t('accountSettings.tabs.password', 'Password')}
+                </TabsTrigger>
+              )}
+              {isPasswordUser && (
+                <TabsTrigger value="security">
+                  {t('accountSettings.tabs.security', 'Security')}
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="profile">
@@ -587,7 +612,8 @@ export function AccountSettingsDialog({
                   )}
                 </div>
 
-                <div className="space-y-4 border-t pt-4">
+                <div className="space-y-4">
+                  <Separator />
                   <div className="flex items-center gap-2 text-sm font-medium">
                     <Fingerprint className="h-4 w-4" />
                     <span>
@@ -687,6 +713,32 @@ export function AccountSettingsDialog({
                       ))
                     )}
                   </div>
+                </div>
+
+                <div className="space-y-4">
+                  <Separator />
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <KeyRound className="h-4 w-4" />
+                    <span>
+                      {t(
+                        'accountSettings.tabs.kubeconfigTokens',
+                        'Kubeconfig Tokens'
+                      )}
+                    </span>
+                  </div>
+                  {kubeconfigTokensLoading ? (
+                    <p className="text-sm text-muted-foreground">
+                      {t('common.messages.loading', 'Loading...')}
+                    </p>
+                  ) : (
+                    <KubeconfigTokenList
+                      tokens={kubeconfigTokens}
+                      onDelete={(token) =>
+                        deleteKubeconfigMutation.mutate(token.id)
+                      }
+                      deletingId={deleteKubeconfigMutation.variables}
+                    />
+                  )}
                 </div>
               </div>
             </TabsContent>

@@ -1,7 +1,15 @@
 package model
 
+import (
+	"errors"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
+
 type Cluster struct {
 	Model
+	UUID                   string       `json:"uuid" gorm:"type:varchar(36);uniqueIndex"`
 	Name                   string       `json:"name" gorm:"type:varchar(100);uniqueIndex;not null"`
 	Description            string       `json:"description" gorm:"type:text"`
 	Config                 SecretString `json:"config" gorm:"type:text"`
@@ -15,8 +23,48 @@ type Cluster struct {
 	Enable                 bool         `json:"enable" gorm:"type:boolean;default:true"`
 }
 
+func (cluster *Cluster) BeforeCreate(*gorm.DB) error {
+	if cluster.UUID == "" {
+		cluster.UUID = uuid.NewString()
+	}
+	return nil
+}
+
 func AddCluster(cluster *Cluster) error {
 	return DB.Create(cluster).Error
+}
+
+func GetClusterByUUID(value string) (*Cluster, error) {
+	var cluster Cluster
+	if err := DB.Where("uuid = ?", value).First(&cluster).Error; err != nil {
+		return nil, err
+	}
+	return &cluster, nil
+}
+
+// BackfillClusterUUIDs assigns UUIDv4 values to legacy clusters. The database
+// unique index remains the authority if concurrent instances race.
+func BackfillClusterUUIDs() error {
+	for {
+		var clusters []Cluster
+		if err := DB.Where("uuid IS NULL OR uuid = ?", "").Find(&clusters).Error; err != nil {
+			return err
+		}
+		if len(clusters) == 0 {
+			return nil
+		}
+		for _, cluster := range clusters {
+			for {
+				result := DB.Model(&Cluster{}).Where("id = ? AND (uuid IS NULL OR uuid = ?)", cluster.ID, "").Update("uuid", uuid.NewString())
+				if result.Error == nil || !errors.Is(result.Error, gorm.ErrDuplicatedKey) {
+					if result.Error != nil {
+						return result.Error
+					}
+					break
+				}
+			}
+		}
+	}
 }
 
 func GetClusterByName(name string) (*Cluster, error) {

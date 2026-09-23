@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
 )
 
@@ -15,25 +16,40 @@ func HandleGetGeneralSetting(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to load general setting: %v", err)})
 		return
 	}
+	writeGeneralSettingResponse(c, setting)
+}
+
+func writeGeneralSettingResponse(c *gin.Context, setting *model.GeneralSetting) {
 	hasAIAPIKey := strings.TrimSpace(string(setting.AIAPIKey)) != ""
+	hasSMTPPassword := strings.TrimSpace(string(setting.SMTPPassword)) != ""
 	c.JSON(http.StatusOK, gin.H{
-		"aiAgentEnabled":        setting.AIAgentEnabled,
-		"aiProvider":            setting.AIProvider,
-		"aiModel":               setting.AIModel,
-		"aiApiKey":              "",
-		"aiApiKeyConfigured":    hasAIAPIKey,
-		"aiBaseUrl":             setting.AIBaseURL,
-		"aiMaxTokens":           setting.AIMaxTokens,
-		"kubectlEnabled":        setting.KubectlEnabled,
-		"kubectlImage":          setting.KubectlImage,
-		"nodeTerminalImage":     setting.NodeTerminalImage,
-		"clusterAgentImage":     setting.ClusterAgentImage,
-		"enableAnalytics":       setting.EnableAnalytics,
-		"enableVersionCheck":    setting.EnableVersionCheck,
-		"passwordLoginDisabled": setting.PasswordLoginDisabled,
-		"enableMFA":             setting.EnableMFA,
-		"enablePasskeyLogin":    setting.EnablePasskeyLogin,
-		"loginPrompt":           setting.LoginPrompt,
+		"aiAgentEnabled":         setting.AIAgentEnabled,
+		"aiProvider":             setting.AIProvider,
+		"aiModel":                setting.AIModel,
+		"aiApiKey":               "",
+		"aiApiKeyConfigured":     hasAIAPIKey,
+		"aiBaseUrl":              setting.AIBaseURL,
+		"aiMaxTokens":            setting.AIMaxTokens,
+		"kubectlEnabled":         setting.KubectlEnabled,
+		"kubectlImage":           setting.KubectlImage,
+		"nodeTerminalImage":      setting.NodeTerminalImage,
+		"clusterAgentImage":      setting.ClusterAgentImage,
+		"enableAnalytics":        setting.EnableAnalytics,
+		"enableVersionCheck":     setting.EnableVersionCheck,
+		"passwordLoginDisabled":  setting.PasswordLoginDisabled,
+		"enableMFA":              setting.EnableMFA,
+		"enablePasskeyLogin":     setting.EnablePasskeyLogin,
+		"loginPrompt":            setting.LoginPrompt,
+		"smtpEnabled":            setting.SMTPEnabled,
+		"smtpHost":               setting.SMTPHost,
+		"smtpPort":               setting.SMTPPort,
+		"smtpUsername":           setting.SMTPUsername,
+		"smtpPasswordConfigured": hasSMTPPassword,
+		"smtpFromEmail":          setting.SMTPFromEmail,
+		"smtpFromName":           setting.SMTPFromName,
+		"smtpEncryption":         setting.SMTPEncryption,
+		"smtpSkipTLSVerify":      setting.SMTPSkipTLSVerify,
+		"smtpTimeoutSeconds":     setting.SMTPTimeoutSeconds,
 	})
 }
 
@@ -54,12 +70,27 @@ type UpdateGeneralSettingRequest struct {
 	EnableMFA             *bool   `json:"enableMFA"`
 	EnablePasskeyLogin    *bool   `json:"enablePasskeyLogin"`
 	LoginPrompt           *string `json:"loginPrompt"`
+	SMTPEnabled           *bool   `json:"smtpEnabled"`
+	SMTPHost              *string `json:"smtpHost"`
+	SMTPPort              *int    `json:"smtpPort"`
+	SMTPUsername          *string `json:"smtpUsername"`
+	SMTPPassword          *string `json:"smtpPassword"`
+	SMTPClearPassword     *bool   `json:"smtpClearPassword"`
+	SMTPFromEmail         *string `json:"smtpFromEmail"`
+	SMTPFromName          *string `json:"smtpFromName"`
+	SMTPEncryption        *string `json:"smtpEncryption"`
+	SMTPSkipTLSVerify     *bool   `json:"smtpSkipTLSVerify"`
+	SMTPTimeoutSeconds    *int    `json:"smtpTimeoutSeconds"`
 }
 
 func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 	var req UpdateGeneralSettingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid request: %v", err)})
+		return
+	}
+	if common.IsSectionManaged("smtp") && (req.SMTPEnabled != nil || req.SMTPHost != nil || req.SMTPPort != nil || req.SMTPUsername != nil || req.SMTPPassword != nil || req.SMTPClearPassword != nil || req.SMTPFromEmail != nil || req.SMTPFromName != nil || req.SMTPEncryption != nil || req.SMTPSkipTLSVerify != nil || req.SMTPTimeoutSeconds != nil) {
+		c.JSON(http.StatusForbidden, gin.H{"error": common.ManagedSectionError})
 		return
 	}
 	currentSetting, err := model.GetGeneralSetting()
@@ -79,7 +110,6 @@ func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 			aiProvider = model.NormalizeGeneralAIProvider(incomingProvider)
 		}
 	}
-
 	aiModel := strings.TrimSpace(currentSetting.AIModel)
 	if req.AIModel != nil {
 		aiModel = strings.TrimSpace(*req.AIModel)
@@ -90,8 +120,7 @@ func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 	aiAPIKey := strings.TrimSpace(string(currentSetting.AIAPIKey))
 	shouldUpdateAIAPIKey := false
 	if req.AIAPIKey != nil {
-		incomingKey := strings.TrimSpace(*req.AIAPIKey)
-		if incomingKey != "" {
+		if incomingKey := strings.TrimSpace(*req.AIAPIKey); incomingKey != "" {
 			aiAPIKey = incomingKey
 			shouldUpdateAIAPIKey = true
 		}
@@ -134,13 +163,45 @@ func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 	if clusterAgentImage == "" {
 		clusterAgentImage = model.DefaultGeneralClusterAgentImageValue()
 	}
-
 	aiMaxTokens := currentSetting.AIMaxTokens
 	if req.AIMaxTokens != nil {
 		aiMaxTokens = *req.AIMaxTokens
 	}
 	if aiMaxTokens <= 0 {
 		aiMaxTokens = 16384
+	}
+
+	smtpSetting := *currentSetting
+	if req.SMTPEnabled != nil {
+		smtpSetting.SMTPEnabled = *req.SMTPEnabled
+	}
+	if req.SMTPHost != nil {
+		smtpSetting.SMTPHost = strings.TrimSpace(*req.SMTPHost)
+	}
+	if req.SMTPPort != nil {
+		smtpSetting.SMTPPort = *req.SMTPPort
+	}
+	if req.SMTPUsername != nil {
+		smtpSetting.SMTPUsername = strings.TrimSpace(*req.SMTPUsername)
+	}
+	if req.SMTPFromEmail != nil {
+		smtpSetting.SMTPFromEmail = strings.TrimSpace(*req.SMTPFromEmail)
+	}
+	if req.SMTPFromName != nil {
+		smtpSetting.SMTPFromName = strings.TrimSpace(*req.SMTPFromName)
+	}
+	if req.SMTPEncryption != nil {
+		smtpSetting.SMTPEncryption = normalizeSMTPEncryption(*req.SMTPEncryption)
+	}
+	if req.SMTPSkipTLSVerify != nil {
+		smtpSetting.SMTPSkipTLSVerify = *req.SMTPSkipTLSVerify
+	}
+	if req.SMTPTimeoutSeconds != nil {
+		smtpSetting.SMTPTimeoutSeconds = *req.SMTPTimeoutSeconds
+	}
+	if err := validateSMTPSetting(&smtpSetting); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 
 	updates := map[string]interface{}{}
@@ -192,31 +253,134 @@ func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 	if shouldUpdateAIAPIKey {
 		updates["ai_api_key"] = model.SecretString(aiAPIKey)
 	}
+	if req.SMTPEnabled != nil {
+		updates["smtp_enabled"] = smtpSetting.SMTPEnabled
+	}
+	if req.SMTPHost != nil {
+		updates["smtp_host"] = smtpSetting.SMTPHost
+	}
+	if req.SMTPPort != nil {
+		updates["smtp_port"] = smtpSetting.SMTPPort
+	}
+	if req.SMTPUsername != nil {
+		updates["smtp_username"] = smtpSetting.SMTPUsername
+	}
+	if req.SMTPFromEmail != nil {
+		updates["smtp_from_email"] = smtpSetting.SMTPFromEmail
+	}
+	if req.SMTPFromName != nil {
+		updates["smtp_from_name"] = smtpSetting.SMTPFromName
+	}
+	if req.SMTPEncryption != nil {
+		updates["smtp_encryption"] = smtpSetting.SMTPEncryption
+	}
+	if req.SMTPSkipTLSVerify != nil {
+		updates["smtp_skip_tls_verify"] = smtpSetting.SMTPSkipTLSVerify
+	}
+	if req.SMTPTimeoutSeconds != nil {
+		updates["smtp_timeout_seconds"] = smtpSetting.SMTPTimeoutSeconds
+	}
+	if req.SMTPClearPassword != nil && *req.SMTPClearPassword {
+		updates["smtp_password"] = model.SecretString("")
+	} else if req.SMTPPassword != nil {
+		if password := strings.TrimSpace(*req.SMTPPassword); password != "" {
+			updates["smtp_password"] = model.SecretString(password)
+		}
+	}
 
 	updated, err := model.UpdateGeneralSetting(updates)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to update general setting: %v", err)})
 		return
 	}
+	writeGeneralSettingResponse(c, updated)
+}
 
-	hasAIAPIKey := strings.TrimSpace(string(updated.AIAPIKey)) != ""
-	c.JSON(http.StatusOK, gin.H{
-		"aiAgentEnabled":        updated.AIAgentEnabled,
-		"aiProvider":            updated.AIProvider,
-		"aiModel":               updated.AIModel,
-		"aiApiKey":              "",
-		"aiApiKeyConfigured":    hasAIAPIKey,
-		"aiBaseUrl":             updated.AIBaseURL,
-		"aiMaxTokens":           updated.AIMaxTokens,
-		"kubectlEnabled":        updated.KubectlEnabled,
-		"kubectlImage":          updated.KubectlImage,
-		"nodeTerminalImage":     updated.NodeTerminalImage,
-		"clusterAgentImage":     updated.ClusterAgentImage,
-		"enableAnalytics":       updated.EnableAnalytics,
-		"enableVersionCheck":    updated.EnableVersionCheck,
-		"passwordLoginDisabled": updated.PasswordLoginDisabled,
-		"enableMFA":             updated.EnableMFA,
-		"enablePasskeyLogin":    updated.EnablePasskeyLogin,
-		"loginPrompt":           updated.LoginPrompt,
-	})
+type SMTPTestRequest struct {
+	Recipient          string  `json:"recipient"`
+	SMTPEnabled        *bool   `json:"smtpEnabled"`
+	SMTPHost           *string `json:"smtpHost"`
+	SMTPPort           *int    `json:"smtpPort"`
+	SMTPUsername       *string `json:"smtpUsername"`
+	SMTPPassword       *string `json:"smtpPassword"`
+	SMTPFromEmail      *string `json:"smtpFromEmail"`
+	SMTPFromName       *string `json:"smtpFromName"`
+	SMTPEncryption     *string `json:"smtpEncryption"`
+	SMTPSkipTLSVerify  *bool   `json:"smtpSkipTLSVerify"`
+	SMTPTimeoutSeconds *int    `json:"smtpTimeoutSeconds"`
+}
+
+func (req SMTPTestRequest) hasSMTPOverride() bool {
+	return req.SMTPEnabled != nil || req.SMTPHost != nil || req.SMTPPort != nil || req.SMTPUsername != nil || req.SMTPPassword != nil || req.SMTPFromEmail != nil || req.SMTPFromName != nil || req.SMTPEncryption != nil || req.SMTPSkipTLSVerify != nil || req.SMTPTimeoutSeconds != nil
+}
+
+func (req SMTPTestRequest) applySMTPOverride(setting *model.GeneralSetting) {
+	if req.SMTPEnabled != nil {
+		setting.SMTPEnabled = *req.SMTPEnabled
+	}
+	if req.SMTPHost != nil {
+		setting.SMTPHost = strings.TrimSpace(*req.SMTPHost)
+	}
+	if req.SMTPPort != nil {
+		setting.SMTPPort = *req.SMTPPort
+	}
+	if req.SMTPUsername != nil {
+		setting.SMTPUsername = strings.TrimSpace(*req.SMTPUsername)
+	}
+	if req.SMTPPassword != nil {
+		if password := strings.TrimSpace(*req.SMTPPassword); password != "" {
+			setting.SMTPPassword = model.SecretString(password)
+		}
+	}
+	if req.SMTPFromEmail != nil {
+		setting.SMTPFromEmail = strings.TrimSpace(*req.SMTPFromEmail)
+	}
+	if req.SMTPFromName != nil {
+		setting.SMTPFromName = strings.TrimSpace(*req.SMTPFromName)
+	}
+	if req.SMTPEncryption != nil {
+		setting.SMTPEncryption = normalizeSMTPEncryption(*req.SMTPEncryption)
+	}
+	if req.SMTPSkipTLSVerify != nil {
+		setting.SMTPSkipTLSVerify = *req.SMTPSkipTLSVerify
+	}
+	if req.SMTPTimeoutSeconds != nil {
+		setting.SMTPTimeoutSeconds = *req.SMTPTimeoutSeconds
+	}
+}
+
+func HandleTestSMTP(c *gin.Context) {
+	var req SMTPTestRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid request: %v", err)})
+		return
+	}
+	recipient := strings.TrimSpace(req.Recipient)
+	if !isValidEmail(recipient) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "recipient must be a valid email address"})
+		return
+	}
+	setting, err := model.GetGeneralSetting()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to load general setting: %v", err)})
+		return
+	}
+	if req.hasSMTPOverride() {
+		temporarySetting := *setting
+		req.applySMTPOverride(&temporarySetting)
+		setting = &temporarySetting
+		if err := validateSMTPSetting(setting); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	}
+	if !setting.SMTPEnabled {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "SMTP is not enabled"})
+		return
+	}
+	if err := sendSMTPTestEmail(c.Request.Context(), setting, recipient); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to send SMTP test email"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }
