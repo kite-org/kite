@@ -43,6 +43,10 @@ Use host capabilities through `@kite-dev/plugin-sdk`. Do not import Kite's inter
 
 You can also use **Install from file** to upload a plugin's `.tar.gz` archive directly. Under **Installed plugins**, you can disable, enable, or uninstall a plugin.
 
+::: warning Plugin persistence
+The Helm Chart stores plugins in `/data/plugins`. Enabling SQLite persistence also preserves plugins with the default paths; MySQL/PostgreSQL deployments need separate plugin storage. Without persistent storage, recreating the Pod loses plugin files: plugins installed from the official catalog are downloaded again, while manually uploaded plugins must be uploaded again. Automatic downloads require the installation records in the database to be preserved. See [Plugin Storage](../config/chart-values#plugin-storage) for configuration.
+:::
+
 ## Related Repositories
 
 | Repository                                               | Purpose                                                                                          |

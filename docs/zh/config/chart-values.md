@@ -47,6 +47,55 @@
 | `db.sqlite.persistence.mountPath`         | 容器内的挂载路径                      | `/data`             |
 | `db.sqlite.persistence.filename`          | 挂载路径内的 sqlite 文件名            | `kite.db`           |
 
+## 插件存储
+
+适用于 Kite `v0.16.0` 及以上版本。插件目录默认为 `/data/plugins`，可复用 SQLite 挂载在 `/data` 的存储卷。默认不启用持久化。
+
+| 参数 | 描述 | 默认值 |
+| ---- | ---- | ------ |
+| `plugins.directory` | 容器内的插件目录，对应 `PLUGIN_DIR` | `/data/plugins` |
+| `plugins.persistence.enabled` | 为插件文件挂载独立的 PVC | `false` |
+| `plugins.persistence.existingClaim` | 使用已有 PVC，不创建新 PVC | `""` |
+| `plugins.persistence.storageClass` | 新 PVC 的 StorageClass，留空使用集群默认值 | `""` |
+| `plugins.persistence.accessModes` | 新 PVC 的访问模式 | `["ReadWriteOnce"]` |
+| `plugins.persistence.size` | 新 PVC 请求的存储大小 | `1Gi` |
+
+::: warning
+插件目录未使用持久化存储时，Pod 重建会丢失插件文件。从官方插件目录安装的插件会重新下载，需要能够访问下载源；手动上传的插件需要重新上传。
+
+自动下载依赖数据库中的安装记录，因此还需持久化 SQLite 数据库或使用外部数据库。
+:::
+
+使用 SQLite 时，开启数据库持久化，并保持 `plugins.persistence.enabled: false`，数据库和插件即可共用一个 PVC：
+
+```yaml
+deploymentStrategy:
+  type: Recreate
+
+db:
+  sqlite:
+    persistence:
+      pvc:
+        enabled: true
+```
+
+如果修改了 `db.sqlite.persistence.mountPath`，也需要将 `plugins.directory` 设为该路径下的子目录，才能继续复用存储卷。
+
+使用 MySQL 或 PostgreSQL 时，单独开启插件持久化：
+
+```yaml
+deploymentStrategy:
+  type: Recreate
+
+plugins:
+  directory: /data/plugins
+  persistence:
+    enabled: true
+    size: 1Gi
+```
+
+如需使用已有 PVC，将 `plugins.persistence.existingClaim` 设为 Kite 所在命名空间中的 PVC 名称。单副本使用 `ReadWriteOnce` 存储时，将部署策略设为 `Recreate`，避免升级时卷挂载冲突。
+
 ## 环境变量
 
 | 参数        | 描述               | 默认值 |
