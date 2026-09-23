@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/common"
@@ -122,10 +124,16 @@ func executeDescribeResource(ctx context.Context, cs *cluster.ClientSet, args ma
 	return result, false
 }
 
+// redactedValuePlaceholder replaces sensitive payloads (Secret data, helm
+// values) before a tool result is handed to the model.
+const redactedValuePlaceholder = "***"
+
+// redactSensitiveResourceData masks value payloads before a resource body is
+// handed to the model. Only Secret qualifies: ConfigMap data is not confidential
+// in Kubernetes and the model needs it to explain configuration problems.
 func redactSensitiveResourceData(resource resourceInfo, obj *unstructured.Unstructured) {
 	kind := strings.ToLower(strings.TrimSpace(resource.Kind))
-	switch kind {
-	case "secret", "configmap":
+	if kind == "secret" {
 		redactObjectMapValues(obj.Object, "data")
 		redactObjectMapValues(obj.Object, "stringData")
 		redactObjectMapValues(obj.Object, "binaryData")
@@ -145,10 +153,15 @@ func redactObjectMapValues(object map[string]interface{}, key string) {
 		return
 	}
 	for k := range valueMap {
-		valueMap[k] = "***"
+		valueMap[k] = redactedValuePlaceholder
 	}
 	object[key] = valueMap
 }
+
+// maxListedResourceItems bounds a single list_resources result. The model picks
+// the kind and namespace, so an unqualified list against `_all` in a large
+// cluster would otherwise render every item into the transcript.
+const maxListedResourceItems = 200
 
 func executeListResources(ctx context.Context, cs *cluster.ClientSet, args map[string]interface{}) (string, bool) {
 	kind, err := getRequiredString(args, "kind")
@@ -182,7 +195,8 @@ func executeListResources(ctx context.Context, cs *cluster.ClientSet, args map[s
 	// Build a summary
 	var sb strings.Builder
 	kindLower := strings.ToLower(resource.Kind)
-	fmt.Fprintf(&sb, "Found %d %s(s)", len(list.Items), resource.Kind)
+	total := len(list.Items)
+	fmt.Fprintf(&sb, "Found %d %s(s)", total, resource.Kind)
 	if namespace != "" {
 		fmt.Fprintf(&sb, " in namespace %s", namespace)
 	}
@@ -191,7 +205,13 @@ func executeListResources(ctx context.Context, cs *cluster.ClientSet, args map[s
 	}
 	sb.WriteString(":\n\n")
 
-	for _, item := range list.Items {
+	items := list.Items
+	truncated := total > maxListedResourceItems
+	if truncated {
+		items = items[:maxListedResourceItems]
+	}
+
+	for _, item := range items {
 		name := item.GetName()
 		ns := item.GetNamespace()
 		creationTime := item.GetCreationTimestamp().Format("2006-01-02 15:04:05")
@@ -206,6 +226,19 @@ func executeListResources(ctx context.Context, cs *cluster.ClientSet, args map[s
 			fmt.Fprintf(&sb, " | %s", detail)
 		}
 		sb.WriteString("\n")
+	}
+
+	if truncated {
+		klog.V(2).Infof("list_resources: truncated %s listing from %d to %d items", resource.Kind, total, maxListedResourceItems)
+		// Only suggest a namespace when one would actually narrow the result.
+		// normalizeNamespace clears it for cluster-scoped kinds, so advising it
+		// for Nodes sends the model into an identical retry.
+		narrowing := "label_selector"
+		if !resource.ClusterScoped {
+			narrowing = "namespace or label_selector"
+		}
+		fmt.Fprintf(&sb, "\n[Only the first %d of %d items are shown. Narrow the query with %s to see the rest.]\n",
+			maxListedResourceItems, total, narrowing)
 	}
 
 	return sb.String(), false
@@ -490,14 +523,48 @@ func asInt64(v interface{}) (int64, bool) {
 	}
 }
 
+// Pod log bounds. maxPodLogBytes is what the model receives. maxPodLogTailLines
+// bounds the window requested from the kubelet: tail_lines is sent server-side,
+// so an unclamped value makes the kubelet seek back through the whole log file
+// before any byte cap stops the read. It is also what the tool schema advertises,
+// so the model plans against the bound that is actually enforced.
+//
+// maxPodLogReadBytes bounds the transfer. It is deliberately larger than
+// maxPodLogBytes because the API serves logs oldest-first: to return the NEWEST
+// bytes of the window (where a crash trace lives) the tail has to be reachable,
+// which a cap equal to the output would truncate away.
+const (
+	maxPodLogBytes     = 32 * 1024
+	maxPodLogReadBytes = 8 * maxPodLogBytes
+	maxPodLogTailLines = 2000
+	defaultPodLogTail  = 100
+)
+
 func executeGetPodLogs(ctx context.Context, cs *cluster.ClientSet, args map[string]interface{}) (string, bool) {
 	name, _ := args["name"].(string)
 	namespace, _ := args["namespace"].(string)
 	container, _ := args["container"].(string)
 
-	tailLines := int64(100)
+	tailLines := int64(defaultPodLogTail)
+	tailClamped := false
 	if tl, ok := args["tail_lines"].(float64); ok {
-		tailLines = int64(tl)
+		// Range-check while the value is still a float64. Converting an
+		// out-of-range or NaN float to int64 is implementation-defined in Go
+		// (amd64 yields MinInt64, arm64 saturates to MaxInt64), so clamping
+		// after the conversion would give a platform-dependent window.
+		switch {
+		case math.IsNaN(tl) || tl < 1:
+			tailLines = 1
+			tailClamped = true
+		case tl > maxPodLogTailLines:
+			tailLines = maxPodLogTailLines
+			tailClamped = true
+		default:
+			tailLines = int64(tl)
+		}
+		if tailClamped {
+			klog.V(2).Infof("get_pod_logs: clamped requested tail_lines %v to %d", tl, tailLines)
+		}
 	}
 	previous, _ := args["previous"].(bool)
 
@@ -505,9 +572,13 @@ func executeGetPodLogs(ctx context.Context, cs *cluster.ClientSet, args map[stri
 		return "Error: name and namespace are required", true
 	}
 
+	limitBytes := int64(maxPodLogReadBytes)
 	logOpts := &corev1.PodLogOptions{
 		TailLines: &tailLines,
 		Previous:  previous,
+		// Bound the transfer server-side so the kubelet does not stream a
+		// multi-megabyte window that is discarded on arrival.
+		LimitBytes: &limitBytes,
 	}
 	if container != "" {
 		logOpts.Container = container
@@ -524,16 +595,48 @@ func executeGetPodLogs(ctx context.Context, cs *cluster.ClientSet, args map[stri
 		}
 	}()
 
-	logBytes, err := io.ReadAll(io.LimitReader(stream, 32*1024)) // 32KB limit
+	logBytes, err := io.ReadAll(io.LimitReader(stream, maxPodLogReadBytes))
 	if err != nil {
 		return fmt.Sprintf("Error reading logs: %v", err), true
+	}
+	// The API applies TailLines first, then LimitBytes from the START of that
+	// window — so hitting the read bound means the NEWEST bytes were dropped
+	// server-side, the opposite direction from the client-side cut below.
+	serverCapped := len(logBytes) >= maxPodLogReadBytes
+	truncated := len(logBytes) > maxPodLogBytes
+	if truncated {
+		// Logs arrive oldest-first, so keep the TAIL: the model asked for recent
+		// lines and a crash trace sits at the end of the window. Cutting the head
+		// can land mid-rune, so advance to the next rune boundary instead of
+		// emitting an invalid leading sequence.
+		logBytes = logBytes[len(logBytes)-maxPodLogBytes:]
+		for len(logBytes) > 0 && !utf8.RuneStart(logBytes[0]) {
+			logBytes = logBytes[1:]
+		}
 	}
 
 	if len(logBytes) == 0 {
 		return fmt.Sprintf("No logs available for pod %s/%s", namespace, name), false
 	}
 
-	return fmt.Sprintf("Logs for pod %s/%s:\n\n```\n%s\n```", namespace, name, string(logBytes)), false
+	notice := ""
+	if truncated {
+		klog.V(2).Infof("get_pod_logs: truncated %s/%s logs at %d bytes (serverCapped=%v)", namespace, name, maxPodLogBytes, serverCapped)
+		if serverCapped {
+			notice = fmt.Sprintf("\n[The requested window exceeded %d KB, so it was cut at both ends: the newest lines were dropped by the API and only %d KB of what remained is shown. Use a smaller tail_lines, or filter by container, to read a specific section.]",
+				maxPodLogReadBytes/1024, maxPodLogBytes/1024)
+		} else {
+			notice = fmt.Sprintf("\n[Older lines were dropped: only the most recent %d KB of the requested window is shown. Use a smaller tail_lines, or filter by container, to read an earlier section.]",
+				maxPodLogBytes/1024)
+		}
+	}
+	if tailClamped {
+		// State the clamp explicitly. The schema's maximum is advisory and
+		// providers do not reliably enforce it, so without this the model can
+		// conclude an error is absent from a window it never actually received.
+		notice += fmt.Sprintf("\n[tail_lines was clamped to %d, the maximum this tool serves.]", tailLines)
+	}
+	return fmt.Sprintf("Logs for pod %s/%s:\n\n```\n%s\n```%s", namespace, name, logBytes, notice), false
 }
 
 type execInPodOptions struct {

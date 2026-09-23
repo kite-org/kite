@@ -261,7 +261,7 @@ func (h *HelmReleaseHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	if err := deleteHelmReleaseAutoUpgradeTask(cs.Name, current.Namespace, current.Name); err != nil {
+	if err := scheduler.DeleteHelmReleaseAutoUpgradeTask(cs.Name, current.Namespace, current.Name); err != nil {
 		klog.Errorf("Failed to delete helm release auto upgrade task: %v", err)
 	}
 	success = true
@@ -711,12 +711,6 @@ func getHelmReleaseAutoUpgradeTask(clusterName, namespace, releaseName string) (
 		Where("cluster_name = ? AND type = ? AND key = ?", clusterName, scheduler.HelmReleaseAutoUpgradeTaskType, scheduler.HelmReleaseAutoUpgradeTaskKey(namespace, releaseName)).
 		First(&task).Error
 	return task, err
-}
-
-func deleteHelmReleaseAutoUpgradeTask(clusterName, namespace, releaseName string) error {
-	return model.DB.
-		Where("cluster_name = ? AND type = ? AND key = ?", clusterName, scheduler.HelmReleaseAutoUpgradeTaskType, scheduler.HelmReleaseAutoUpgradeTaskKey(namespace, releaseName)).
-		Delete(&model.ScheduledTask{}).Error
 }
 
 func toHelmReleaseAutoUpgradeResponse(task model.ScheduledTask) (helmReleaseAutoUpgradeResponse, error) {
