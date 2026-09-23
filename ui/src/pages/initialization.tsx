@@ -217,7 +217,7 @@ export function InitializationPage() {
 
         <div className="mt-auto hidden items-center gap-6 pt-12 text-sm text-muted-foreground lg:flex">
           <a
-            href="https://kite.zzde.me"
+            href="https://kitehq.dev"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 hover:text-foreground"

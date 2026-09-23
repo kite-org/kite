@@ -53,10 +53,10 @@ Upload `packages/` first, then publish `catalog.json` and `readmes/`.
 
 The official [kite-org/kite-plugins](https://github.com/kite-org/kite-plugins) repository is a pnpm workspace. It publishes the official catalog through GitHub Releases, with GitHub Pages and EdgeOne hosting two catalog endpoints:
 
-| Catalog | URL |
-| ------- | --- |
-| GitHub Pages | `https://kite-org.github.io/kite-plugins/catalog.json` |
-| EdgeOne | `https://kite-plugins.zzde.me/catalog.json` (Kite's default catalog) |
+| Catalog      | URL                                                                |
+| ------------ | ------------------------------------------------------------------ |
+| GitHub Pages | `https://kite-org.github.io/kite-plugins/catalog.json`             |
+| EdgeOne      | `https://plugins.kitehq.dev/catalog.json` (Kite's default catalog) |
 
 ### Add a Plugin
 

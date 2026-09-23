@@ -16,7 +16,7 @@ import (
 	"github.com/zxh326/kite/pkg/version"
 )
 
-const endpoint = "https://telemetry.zzde.me/telemetry"
+const endpoint = "https://telemetry.kitehq.dev/telemetry"
 
 type pluginInfo struct {
 	ID      string `json:"id"`

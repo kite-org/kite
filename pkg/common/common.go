@@ -17,7 +17,7 @@ const (
 	KubectlTerminalPodName = "kite-kubectl-agent"
 
 	// DefaultPluginCatalogURL is used when no catalog URL is configured in settings.
-	DefaultPluginCatalogURL = "https://kite-plugins.zzde.me/catalog.json"
+	DefaultPluginCatalogURL = "https://plugins.kitehq.dev/catalog.json"
 
 	KubectlAnnotation = "kubectl.kubernetes.io/last-applied-configuration"
 

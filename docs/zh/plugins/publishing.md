@@ -53,10 +53,10 @@ pnpm run catalog \
 
 官方仓库 [kite-org/kite-plugins](https://github.com/kite-org/kite-plugins) 是一个 pnpm workspace，通过 GitHub Releases + Pages + EdgeOne 双端点发布官方目录：
 
-| 目录         | 地址                                                         |
-| ------------ | ------------------------------------------------------------ |
-| GitHub Pages | `https://kite-org.github.io/kite-plugins/catalog.json`       |
-| EdgeOne      | `https://kite-plugins.zzde.me/catalog.json`（Kite 默认目录） |
+| 目录         | 地址                                                       |
+| ------------ | ---------------------------------------------------------- |
+| GitHub Pages | `https://kite-org.github.io/kite-plugins/catalog.json`     |
+| EdgeOne      | `https://plugins.kitehq.dev/catalog.json`（Kite 默认目录） |
 
 ### 添加插件
 

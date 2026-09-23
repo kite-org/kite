@@ -37,7 +37,7 @@ Keep the following points in mind when using plugins:
 To install a plugin:
 
 1. Click your avatar in the upper right corner and select **Plugin management**. This option is only visible to administrators.
-2. Go to **Settings → General**, enter the `catalog.json` URL under **Plugin catalog**, and save. Leave it empty to use the default catalog at `https://kite-plugins.zzde.me/catalog.json`.
+2. Go to **Settings → General**, enter the `catalog.json` URL under **Plugin catalog**, and save. Leave it empty to use the default catalog at `https://plugins.kitehq.dev/catalog.json`.
 3. Return to **Plugin management**, select a plugin in the **Plugin catalog**, and click **Install**. Click a plugin's name to preview its README.
 4. Open the plugin from the sidebar. Newly installed plugins are enabled automatically.
 
@@ -45,9 +45,9 @@ You can also use **Install from file** to upload a plugin's `.tar.gz` archive di
 
 ## Related Repositories
 
-| Repository | Purpose |
-| ---------- | ------- |
-| [kite](https://github.com/kite-org/kite) | Host application: plugin loading, asset serving, and management APIs |
+| Repository                                               | Purpose                                                                                          |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| [kite](https://github.com/kite-org/kite)                 | Host application: plugin loading, asset serving, and management APIs                             |
 | [kite-plugins](https://github.com/kite-org/kite-plugins) | SDK, scaffolding tool, official plugins, and plugin catalog; the SDK is in `packages/plugin-sdk` |
 
 ## Next Steps
