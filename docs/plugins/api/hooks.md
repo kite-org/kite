@@ -56,7 +56,22 @@ export function CurrentScope() {
 | `useFavorites()` | `{ favorites, addToFavorites, removeFromFavorites, isFavorite, toggleFavorite, refreshFavorites }` |
 | `useTerminal()` | `{ isOpen, isMinimized, openTerminal, closeTerminal, minimizeTerminal, toggleTerminal }` |
 
-`useTerminal` controls the global terminal panel. It does not create a Pod terminal session.
+`useTerminal` controls the global kubectl terminal panel. To embed a Pod exec session, use the [Terminal component](./ui#terminal).
+
+## Host Version
+
+`useHostInfo()` synchronously returns `{ kiteVersion, sdkVersion }`, where `sdkVersion` is the SDK version installed in the host. Check these versions before enabling features that require a newer host.
+
+```tsx
+import { useHostInfo } from '@kite-dev/plugin-sdk/hooks'
+
+export function HostVersion() {
+  const { kiteVersion, sdkVersion } = useHostInfo()
+  return <p>Kite {kiteVersion} · SDK {sdkVersion}</p>
+}
+```
+
+Version information is available when the plugin renders; the hook does not send a request. Use semantic version comparisons instead of comparing version strings alphabetically.
 
 ## Repeating Callbacks
 

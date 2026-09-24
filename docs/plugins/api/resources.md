@@ -112,7 +112,8 @@ Capabilities differ between built-in and custom resources:
 | List `reduce` | Supported | Unsupported |
 | Details, Describe, and history | Supported | Supported |
 | Related resources (`useRelatedResources`) | Supported for some built-in resources | Unsupported; throws an error |
-| Generic PATCH | Supported | Unsupported; use `updateResource` or `applyResource` |
+| Creation (`createResource`) | Supported | Supported |
+| Generic PATCH | Strategic merge patch | JSON merge patch; arrays are replaced in full |
 
 ## Creating, Updating, and Deleting
 
@@ -121,13 +122,38 @@ Capabilities differ between built-in and custom resources:
 | Function | Behavior |
 | -------- | -------- |
 | `applyResource(yaml, namespace?)` | Create or update resources from YAML in the current cluster; returns `ApplyResourceResponse` |
+| `createResource<T>(ref, body, options?)` | Create a built-in or custom resource; returns the created object and fails if it already exists |
 | `updateResource<T>(ref, name, body, options?)` | Replace a built-in or custom resource with a complete object; returns `void` |
-| `patchResource<T>(ref, name, body, options?)` | Submit a `DeepPartial<T>`; supported only for built-in resources |
+| `patchResource<T>(ref, name, body, options?)` | Partially update a built-in or custom resource using a `DeepPartial<T>`; returns `void` |
 | `deleteResource(ref, name, options?)` | Delete a built-in or custom resource; returns `void` |
 
 - Shared options are `namespace`, `cluster`, and `signal`. Deletion also supports `force` and `wait`. Mutations on namespaced resources must specify the actual namespace.
 - `applyResource` uses Kite's create/update flow. An explicit `namespace` overrides the namespace in the YAML; cluster-scoped resources ignore it.
 - Mutations do not refresh queries automatically. Call `refetch()` or invalidate the relevant TanStack Query caches after success.
+
+Create a Certificate, then change its target Secret:
+
+```ts
+import { createResource, patchResource } from '@kite-dev/plugin-sdk/resources'
+
+const certificates = { group: 'cert-manager.io', resource: 'certificates' }
+const options = { namespace: 'default' }
+
+await createResource(certificates, {
+  metadata: { name: 'example-tls' },
+  spec: {
+    secretName: 'example-tls',
+    dnsNames: ['example.com'],
+    issuerRef: { name: 'letsencrypt', kind: 'ClusterIssuer' },
+  },
+}, options)
+
+await patchResource(certificates, 'example-tls', {
+  spec: { secretName: 'example-tls-v2' },
+}, options)
+```
+
+Creation requires `create` permission; updates and patches require `update` permission on the target resource and namespace. Kite records these operations in resource history.
 
 ## Events and Operational Actions
 

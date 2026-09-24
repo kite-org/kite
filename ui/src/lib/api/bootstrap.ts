@@ -23,6 +23,7 @@ export interface AuthProviderCatalog {
 }
 
 export interface BootstrapResponse {
+  kiteVersion: string
   setup: BootstrapSetup
   auth: AuthProviderCatalog
   capabilities: BootstrapCapabilities

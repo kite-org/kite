@@ -94,6 +94,20 @@ function listParameters(options: ResourceListQueryOptions) {
   return params
 }
 
+export function createResource<T>(
+  resource: ResourceReference,
+  body: T,
+  options: ResourceScopeOptions = {}
+): Promise<T> {
+  return apiClient.post<T>(
+    resourceEndpoint(resourceScope(resource, options)),
+    body,
+    {
+      signal: options.signal,
+    }
+  )
+}
+
 export async function updateResource<T>(
   resource: ResourceReference,
   name: string,
@@ -116,10 +130,6 @@ export async function patchResource<T>(
   options: ResourceScopeOptions = {}
 ): Promise<void> {
   const scope = resourceScope(resource, options)
-  if (scope.path.includes('.'))
-    throw new Error(
-      'Patching custom resources through this endpoint is not supported; use applyResource instead'
-    )
   await apiClient.patch(resourceEndpoint(scope, name), body, {
     signal: options.signal,
   })

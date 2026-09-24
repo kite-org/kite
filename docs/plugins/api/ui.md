@@ -182,6 +182,86 @@ import { ResourceEvents } from '@kite-dev/plugin-sdk/ui'
 />
 ```
 
+## ResourceHistoryTable
+
+Displays Kite's operation history, including YAML diffs and rollback actions. Supports built-in and custom resources. Pass `currentResource` to compare a historical record with the current object.
+
+```tsx
+import { ResourceHistoryTable } from '@kite-dev/plugin-sdk/ui'
+
+<ResourceHistoryTable
+  resource={{ group: 'cert-manager.io', resource: 'certificates' }}
+  name="example-tls"
+  namespace="default"
+/>
+```
+
+## RelatedResourcesTable
+
+Displays related resources with links to their detail pages. Accepts `resource`, `name`, and optional `namespace`, and supports the same built-in resources as `useRelatedResources`. Query and render custom resource relationships yourself.
+
+```tsx
+import { RelatedResourcesTable } from '@kite-dev/plugin-sdk/ui'
+
+<RelatedResourcesTable
+  resource={{ group: 'apps', resource: 'deployments' }}
+  name="demo"
+  namespace="default"
+/>
+```
+
+## LogViewer
+
+Embeds Kite's Pod log viewer with container selection, search, streaming controls, and download. Queries use the current cluster and require the user's `pods/log` permission for the namespace.
+
+```tsx
+import { LogViewer } from '@kite-dev/plugin-sdk/ui'
+
+<LogViewer
+  namespace="default"
+  podName="demo"
+  containers={pod.spec?.containers}
+  initContainers={pod.spec?.initContainers}
+  ephemeralContainers={pod.spec?.ephemeralContainers}
+  selectedContainerName="app"
+/>
+```
+
+`namespace` is required. Use `podName` for a single Pod, or `pods` / `labelSelector` for workload logs. Pass the Pod's container definitions to populate the selector. `onClose` adds a close action. The viewer loads when rendered.
+
+## Terminal
+
+Embeds Kite's terminal for a Pod, node, or kubectl session. Pod exec uses the current cluster and requires `pods/exec` permission for the namespace.
+
+```tsx
+import { Terminal } from '@kite-dev/plugin-sdk/ui'
+
+<Terminal
+  type="pod"
+  namespace="default"
+  podName="demo"
+  containers={pod.spec?.containers}
+  selectedContainerName="app"
+/>
+```
+
+`type` defaults to `pod`. Provide `namespace`, `podName`, and the Pod's container definitions for a Pod session, `nodeName` for `node`, or set `type="kubectl"` for kubectl. Use `pods` to allow Pod selection. `containers`, `initContainers`, `ephemeralContainers`, and `selectedContainerName` control container selection; `attachContainerName` attaches to a running container process instead of starting a shell. `embedded` hides the toolbar and fills the parent, which must have an explicit height. Mount the terminal only while it is in use, and unmount it when closing the view.
+
+## Toast Notifications
+
+`toast` displays notifications in Kite's existing notification area; plugins do not need a separate provider.
+
+```ts
+import { toast } from '@kite-dev/plugin-sdk/ui'
+
+const id = toast.loading('Saving…')
+toast.success('Saved', { id, description: 'The configuration is up to date.' })
+toast.error('Save failed', { description: 'Check your permissions.' })
+toast.dismiss(id)
+```
+
+Use `toast(message, options?)`, `toast.success`, `toast.error`, `toast.info`, `toast.warning`, or `toast.loading`. Options include `id`, `description`, `duration` in milliseconds, `dismissible`, `closeButton`, and `action: { label, onClick }`. Messages and labels accept React nodes and can use your plugin's translations. `toast.dismiss(id)` closes one notification; omitting the ID closes all notifications.
+
 ## WorkloadPodsCard
 
 Display Kite's compact Pod card, including status, ready container count, restarts, node, IP, and age. Clicking a Pod name opens the host's Pod detail dialog.

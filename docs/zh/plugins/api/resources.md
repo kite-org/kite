@@ -112,7 +112,8 @@ const certificates = useResources<Certificate>(
 | 列表 `reduce` | 支持 | 不支持 |
 | 详情、Describe、历史 | 支持 | 支持 |
 | 关联资源（`useRelatedResources`） | 部分内置资源支持 | 不支持，调用会抛错 |
-| 通用 PATCH | 支持 | 不支持，请改用 `updateResource` 或 `applyResource` |
+| 创建（`createResource`） | 支持 | 支持 |
+| 通用 PATCH | Strategic merge patch | JSON merge patch，数组会整体替换 |
 
 ## 创建、修改和删除
 
@@ -121,13 +122,38 @@ const certificates = useResources<Certificate>(
 | 函数 | 行为 |
 | ---- | ---- |
 | `applyResource(yaml, namespace?)` | 用 YAML 在当前集群创建或更新资源，返回 `ApplyResourceResponse` |
+| `createResource<T>(ref, body, options?)` | 创建内置或自定义资源，返回创建后的对象；资源已存在时失败 |
 | `updateResource<T>(ref, name, body, options?)` | 用完整对象替换内置或自定义资源，返回 `void` |
-| `patchResource<T>(ref, name, body, options?)` | 提交 `DeepPartial<T>`，仅支持内置资源 |
+| `patchResource<T>(ref, name, body, options?)` | 用 `DeepPartial<T>` 局部更新内置或自定义资源，返回 `void` |
 | `deleteResource(ref, name, options?)` | 删除内置或自定义资源，返回 `void` |
 
 - 通用选项：`namespace`、`cluster`、`signal`；删除额外支持 `force` 和 `wait`。命名空间级资源的写操作必须给出真实命名空间。
 - `applyResource` 走 Kite 的创建 / 更新流程；显式 `namespace` 会覆盖 YAML 中的命名空间，集群级资源忽略它。
 - 写操作不会自动刷新查询，成功后请调用 `refetch()` 或用 TanStack Query 失效相关缓存。
+
+例如，创建 Certificate 后修改它的目标 Secret：
+
+```ts
+import { createResource, patchResource } from '@kite-dev/plugin-sdk/resources'
+
+const certificates = { group: 'cert-manager.io', resource: 'certificates' }
+const options = { namespace: 'default' }
+
+await createResource(certificates, {
+  metadata: { name: 'example-tls' },
+  spec: {
+    secretName: 'example-tls',
+    dnsNames: ['example.com'],
+    issuerRef: { name: 'letsencrypt', kind: 'ClusterIssuer' },
+  },
+}, options)
+
+await patchResource(certificates, 'example-tls', {
+  spec: { secretName: 'example-tls-v2' },
+}, options)
+```
+
+创建需要目标资源和命名空间的 `create` 权限，更新和 PATCH 需要 `update` 权限。Kite 会记录这些操作的资源历史。
 
 ## 事件与运维操作
 

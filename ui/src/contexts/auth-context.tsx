@@ -26,6 +26,7 @@ interface User extends AuthUser {
 }
 
 interface AuthContextType {
+  kiteVersion: string | undefined
   user: User | null
   isLoading: boolean
   hasGlobalSidebarPreference: boolean
@@ -170,6 +171,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const oauthProviders = bootstrap?.auth.oauthProviders ?? []
 
     return {
+      kiteVersion: bootstrap?.kiteVersion,
       user,
       isLoading,
       hasGlobalSidebarPreference,
@@ -187,6 +189,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       refreshToken,
     }
   }, [
+    bootstrap?.kiteVersion,
     user,
     isLoading,
     hasGlobalSidebarPreference,

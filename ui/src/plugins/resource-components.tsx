@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ResourceDetailShell } from '@/pages/resource-detail-shell'
 import { usePlugin } from '@kite-dev/plugin-sdk/navigation'
+import type { ResourceReference } from '@kite-dev/plugin-sdk/resources'
 import type {
   ResourceDetailShellProps,
   ResourceEventsProps,
@@ -10,13 +11,15 @@ import type {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import type { ResourceType } from '@/types/api'
+import type { ResourceType, ResourceTypeMap } from '@/types/api'
 import { useCluster } from '@/hooks/use-cluster'
 import { useResourceTable } from '@/hooks/use-resource-table'
 import { useResourceTableState } from '@/hooks/use-resource-table-state'
 import { Button } from '@/components/ui/button'
 import { ErrorMessage } from '@/components/error-message'
 import { EventTable } from '@/components/event-table'
+import { RelatedResourcesTable } from '@/components/related-resource-table'
+import { ResourceHistoryTable } from '@/components/resource-history-table'
 import { ResourceOverview } from '@/components/resource-overview'
 import { ResourceTableToolbar } from '@/components/resource-table-toolbar'
 import { ResourceTableView } from '@/components/resource-table-view'
@@ -193,5 +196,38 @@ export function PluginResourceEvents({
 }: ResourceEventsProps) {
   return (
     <EventTable {...props} resource={resourcePath(resource) as ResourceType} />
+  )
+}
+
+export function PluginResourceHistoryTable<T>({
+  resource,
+  currentResource,
+  ...props
+}: {
+  resource: ResourceReference
+  name: string
+  namespace?: string
+  currentResource?: T
+}) {
+  return (
+    <ResourceHistoryTable
+      {...props}
+      resourceType={resourcePath(resource) as ResourceType}
+      currentResource={
+        currentResource as ResourceTypeMap[ResourceType] | undefined
+      }
+    />
+  )
+}
+
+export function PluginRelatedResourcesTable({
+  resource,
+  ...props
+}: ResourceEventsProps) {
+  return (
+    <RelatedResourcesTable
+      {...props}
+      resource={resourcePath(resource) as ResourceType}
+    />
   )
 }

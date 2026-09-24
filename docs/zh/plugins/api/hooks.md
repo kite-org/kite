@@ -56,7 +56,22 @@ export function CurrentScope() {
 | `useFavorites()` | `{ favorites, addToFavorites, removeFromFavorites, isFavorite, toggleFavorite, refreshFavorites }` |
 | `useTerminal()` | `{ isOpen, isMinimized, openTerminal, closeTerminal, minimizeTerminal, toggleTerminal }` |
 
-`useTerminal` 控制的是全局终端面板，不创建 Pod 终端会话。
+`useTerminal` 控制全局 kubectl 终端面板。嵌入 Pod exec 会话时，使用 [Terminal 组件](./ui#terminal)。
+
+## 宿主版本
+
+`useHostInfo()` 同步返回 `{ kiteVersion, sdkVersion }`，其中 `sdkVersion` 是宿主安装的 SDK 版本。插件可以据此决定是否启用需要新版宿主的功能。
+
+```tsx
+import { useHostInfo } from '@kite-dev/plugin-sdk/hooks'
+
+export function HostVersion() {
+  const { kiteVersion, sdkVersion } = useHostInfo()
+  return <p>Kite {kiteVersion} · SDK {sdkVersion}</p>
+}
+```
+
+版本信息在插件渲染时即可读取，调用该 Hook 不会发起请求。版本应按语义化版本规则比较，不能直接比较字符串大小。
 
 ## 定时回调
 

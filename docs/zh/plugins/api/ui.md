@@ -182,6 +182,86 @@ import { ResourceEvents } from '@kite-dev/plugin-sdk/ui'
 />
 ```
 
+## ResourceHistoryTable
+
+展示 Kite 的操作历史，包含 YAML 差异比较和回滚操作，支持内置资源和自定义资源。传入 `currentResource` 可将历史记录与当前对象比较。
+
+```tsx
+import { ResourceHistoryTable } from '@kite-dev/plugin-sdk/ui'
+
+<ResourceHistoryTable
+  resource={{ group: 'cert-manager.io', resource: 'certificates' }}
+  name="example-tls"
+  namespace="default"
+/>
+```
+
+## RelatedResourcesTable
+
+展示关联资源及详情页链接，接收 `resource`、`name` 和可选的 `namespace`。支持范围与 `useRelatedResources` 一致，仅覆盖支持关系查询的内置资源；自定义资源的关系需要自行查询和展示。
+
+```tsx
+import { RelatedResourcesTable } from '@kite-dev/plugin-sdk/ui'
+
+<RelatedResourcesTable
+  resource={{ group: 'apps', resource: 'deployments' }}
+  name="demo"
+  namespace="default"
+/>
+```
+
+## LogViewer
+
+嵌入 Kite 的 Pod 日志查看器，支持容器选择、搜索、流式日志控制和下载。使用当前集群，并检查用户在目标命名空间的 `pods/log` 权限。
+
+```tsx
+import { LogViewer } from '@kite-dev/plugin-sdk/ui'
+
+<LogViewer
+  namespace="default"
+  podName="demo"
+  containers={pod.spec?.containers}
+  initContainers={pod.spec?.initContainers}
+  ephemeralContainers={pod.spec?.ephemeralContainers}
+  selectedContainerName="app"
+/>
+```
+
+`namespace` 必填。单 Pod 使用 `podName`，工作负载日志可传 `pods` 或 `labelSelector`；容器列表来自 Pod 的定义。`onClose` 提供关闭操作。查看器在渲染时按需加载。
+
+## Terminal
+
+嵌入 Kite 的 Pod、节点或 kubectl 终端。Pod exec 使用当前集群，并检查目标命名空间的 `pods/exec` 权限。
+
+```tsx
+import { Terminal } from '@kite-dev/plugin-sdk/ui'
+
+<Terminal
+  type="pod"
+  namespace="default"
+  podName="demo"
+  containers={pod.spec?.containers}
+  selectedContainerName="app"
+/>
+```
+
+`type` 默认为 `pod`，需传 `namespace`、`podName` 和 Pod 的容器定义；`node` 需传 `nodeName`，kubectl 会话设置 `type="kubectl"`。`pods` 用于提供 Pod 选择列表，`containers`、`initContainers`、`ephemeralContainers`、`selectedContainerName` 用于容器选择。`attachContainerName` 用于附加到容器现有进程，而非新建 shell。`embedded` 隐藏工具栏并填满父容器，需要给父容器指定高度。仅在使用终端时挂载组件，关闭视图时卸载。
+
+## Toast 通知
+
+`toast` 使用 Kite 现有通知区域，插件无需额外挂载通知容器。
+
+```ts
+import { toast } from '@kite-dev/plugin-sdk/ui'
+
+const id = toast.loading('保存中…')
+toast.success('已保存', { id, description: '配置已更新。' })
+toast.error('保存失败', { description: '请检查操作权限。' })
+toast.dismiss(id)
+```
+
+支持 `toast(message, options?)`、`toast.success`、`toast.error`、`toast.info`、`toast.warning`、`toast.loading`。选项包括 `id`、`description`、以毫秒为单位的 `duration`、`dismissible`、`closeButton` 和 `action: { label, onClick }`。消息和标签支持 React 节点，可使用插件自身的翻译。`toast.dismiss(id)` 关闭指定通知，省略 ID 则关闭全部通知。
+
 ## WorkloadPodsCard
 
 展示宿主的紧凑 Pod 卡片，包含状态、就绪容器数、重启次数、节点、IP 和运行时间。点击 Pod 名称可打开宿主的 Pod 详情弹窗。

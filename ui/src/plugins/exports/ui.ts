@@ -39,9 +39,14 @@ export { NamespaceSelector } from '@/components/selector/namespace-selector'
 export { ResourceYaml } from '@/components/resource-yaml'
 export { WorkloadPodsCard } from '@/components/workload-pods-card'
 export { SimpleYamlEditor as YamlEditor } from '@/components/simple-yaml-editor'
+export { toast } from 'sonner'
+export { Terminal } from '@/components/terminal'
+export { PluginLogViewer as LogViewer } from '../log-viewer'
 export {
   PluginResourceTable as ResourceTable,
   PluginResourceDetailShell as ResourceDetailShell,
   PluginResourceOverview as ResourceOverview,
   PluginResourceEvents as ResourceEvents,
+  PluginResourceHistoryTable as ResourceHistoryTable,
+  PluginRelatedResourcesTable as RelatedResourcesTable,
 } from '../resource-components'

@@ -8,6 +8,7 @@ import (
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/rbac"
+	"github.com/zxh326/kite/pkg/version"
 	"k8s.io/klog/v2"
 )
 
@@ -31,6 +32,7 @@ type bootstrapCapabilities struct {
 }
 
 type bootstrapResponse struct {
+	KiteVersion                string                `json:"kiteVersion"`
 	Setup                      bootstrapSetupState   `json:"setup"`
 	Auth                       bootstrapAuthOptions  `json:"auth"`
 	Capabilities               bootstrapCapabilities `json:"capabilities"`
@@ -60,8 +62,9 @@ func (h *AuthHandler) Bootstrap(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, bootstrapResponse{
-		Setup: setup,
-		Auth:  h.bootstrapAuth(setting),
+		KiteVersion: version.Version,
+		Setup:       setup,
+		Auth:        h.bootstrapAuth(setting),
 		Capabilities: bootstrapCapabilities{
 			AIEnabled:      setting.AIAgentEnabled && strings.TrimSpace(string(setting.AIAPIKey)) != "",
 			KubectlEnabled: setting.KubectlEnabled,
