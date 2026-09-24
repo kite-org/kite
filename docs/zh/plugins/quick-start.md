@@ -36,7 +36,7 @@ my-plugin/
   tsconfig.json
   README.md          # 会随插件打包，用于目录预览
   src/
-    i18n.ts          # 词典绑定
+    i18n.ts          # 国际化配置
     locales/
       en.json
       zh.json
@@ -203,8 +203,8 @@ pnpm run pack    # 打包 dist/ 为归档
 
 ## 下一步
 
-- [插件配置](./api/plugin-config)：配置路由、菜单、资源扩展、主题、配置页和词典
+- [插件配置](./api/plugin-config)：配置路由、菜单、资源扩展、主题、配置页和国际化
 - [资源查询与操作](./api/resources)：读取资源、执行写操作和调用 Kite API
 - [UI 组件](./api/ui)：复用资源列表、详情页和 YAML 编辑器
-- [国际化](./i18n)：完善中英文词典
+- [国际化](./i18n)：添加中英文翻译
 - [调试](./debugging)：本地开发与问题排查

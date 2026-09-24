@@ -4,7 +4,7 @@ outline: deep
 
 # Plugin Configuration
 
-Use `definePlugin()` in `plugin.config.tsx` to declare routes, menus, resource extensions, themes, a settings page, and translation dictionaries.
+Use `definePlugin()` in `plugin.config.tsx` to configure routes, menus, resource extensions, themes, a settings page, and internationalization.
 
 All configuration fields are optional. `routes`, `menus`, `resources`, and `themes` default to empty arrays.
 
@@ -15,7 +15,7 @@ All configuration fields are optional. `routes`, `menus`, `resources`, and `them
 | [`resources`](#resource-extensions) | Add list columns or detail tabs, or replace custom resource pages |
 | [`themes`](#themes) | Provide color themes |
 | [`settings`](#settings-page) | Provide an administrator settings page |
-| [`i18n`](#internationalization) | Register translation dictionaries |
+| [`i18n`](#internationalization) | Configure internationalization |
 
 ## Routes
 
@@ -413,7 +413,7 @@ Settings are shared across the Kite instance: an administrator configures them o
 
 ## Internationalization
 
-The optional `i18n` field accepts the plugin's English and Chinese dictionaries. Name the `resources` returned by `createPluginI18n()` as `translations` and pass them into the configuration:
+The optional `i18n` field configures the plugin's English and Chinese translations. Name the `resources` returned by `createPluginI18n()` as `translations` and pass them into the configuration:
 
 ```tsx
 import { definePlugin } from '@kite-dev/plugin-sdk'
@@ -425,4 +425,4 @@ export default definePlugin({
 })
 ```
 
-Use `label()` from the same module for menu labels, route titles, and tab labels. Page components use `useTranslation()` so their text updates when Kite's language changes. See the [Internationalization guide](../i18n) for dictionary structure, binding, and complete examples.
+Use `label()` from the same module for menu labels, route titles, and tab labels. Page components use `useTranslation()` so their text updates when Kite's language changes. See the [Internationalization guide](../i18n) for organizing translation files and complete examples.

@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { ResourceDetailShell } from '@/pages/resource-detail-shell'
 import { usePlugin } from '@kite-dev/plugin-sdk/navigation'
-import type { ResourceReference } from '@kite-dev/plugin-sdk/resources'
 import type {
   ResourceDetailShellProps,
   ResourceEventsProps,
+  ResourceHistoryTableProps,
   ResourceOverviewProps,
   ResourceTableProps,
 } from '@kite-dev/plugin-sdk/ui'
@@ -203,12 +203,7 @@ export function PluginResourceHistoryTable<T>({
   resource,
   currentResource,
   ...props
-}: {
-  resource: ResourceReference
-  name: string
-  namespace?: string
-  currentResource?: T
-}) {
+}: ResourceHistoryTableProps<T>) {
   return (
     <ResourceHistoryTable
       {...props}

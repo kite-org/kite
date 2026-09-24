@@ -57,7 +57,7 @@ The Helm Chart stores plugins in `/data/plugins`. Enabling SQLite persistence al
 ## Next Steps
 
 - [Quick Start](./quick-start): create and install a plugin from scratch
-- [Plugin Configuration](./api/plugin-config): declare pages, menus, resource extensions, themes, a settings page, and translation dictionaries
+- [Plugin Configuration](./api/plugin-config): configure pages, menus, resource extensions, themes, a settings page, and internationalization
 - [Resource Queries and Operations](./api/resources): query and modify Kubernetes resources
 - [Internationalization](./i18n): support multiple languages
 - [Debugging](./debugging): development workflow and troubleshooting

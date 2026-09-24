@@ -1,3 +1,9 @@
+import type {
+  PrometheusQueryControls,
+  PrometheusQueryOptions,
+  PrometheusRangeOptions,
+  PrometheusResult,
+} from '@kite-dev/plugin-sdk/observability'
 import { useQuery } from '@tanstack/react-query'
 
 import { apiClient } from '@/lib/api-client'
@@ -6,59 +12,6 @@ import {
   withCurrentClusterPath,
 } from '@/lib/current-cluster'
 import { useCluster } from '@/hooks/use-cluster'
-
-export type PrometheusSample = [timestamp: number, value: string]
-
-export type PrometheusHistogram = [
-  timestamp: number,
-  histogram: {
-    count: string
-    sum: string
-    buckets:
-      [boundaries: number, lower: string, upper: string, count: string][] | null
-  },
-]
-
-export type PrometheusResult = (
-  | { resultType: 'scalar' | 'string'; result: PrometheusSample }
-  | {
-      resultType: 'vector'
-      result: {
-        metric: Record<string, string>
-        value?: PrometheusSample
-        histogram?: PrometheusHistogram
-      }[]
-    }
-  | {
-      resultType: 'matrix'
-      result: {
-        metric: Record<string, string>
-        values?: PrometheusSample[]
-        histograms?: PrometheusHistogram[]
-      }[]
-    }
-) & { warnings?: string[] | null }
-
-export interface PrometheusQueryOptions {
-  cluster?: string
-  time?: number
-  signal?: AbortSignal
-}
-
-export interface PrometheusRangeOptions extends Omit<
-  PrometheusQueryOptions,
-  'time'
-> {
-  start: number
-  end: number
-  step: number
-}
-
-export interface PrometheusQueryControls {
-  enabled?: boolean
-  staleTime?: number
-  refreshInterval?: number
-}
 
 export function queryPrometheus(
   query: string,

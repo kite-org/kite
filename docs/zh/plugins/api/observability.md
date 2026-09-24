@@ -51,12 +51,12 @@ export function GPUUsage() {
 
 | API | 选项 | 返回值 |
 | --- | ---- | ------ |
-| `queryPrometheus(query, options?)` | `{ cluster?, time?, signal? }` | `Promise<PrometheusResult>` |
-| `queryPrometheusRange(query, options)` | `{ cluster?, start, end, step, signal? }` | `Promise<PrometheusResult>` |
-| `usePrometheusQuery(query, options?)` | 即时查询选项去掉 `signal`，加上查询控制选项 | `UseQueryResult<PrometheusResult, Error>` |
-| `usePrometheusRangeQuery(query, options)` | 区间查询选项去掉 `signal`，加上查询控制选项 | `UseQueryResult<PrometheusResult, Error>` |
+| `queryPrometheus(query, options?)` | `{ cluster?, time? }` | `Promise<PrometheusResult>` |
+| `queryPrometheusRange(query, options)` | `{ cluster?, start, end, step }` | `Promise<PrometheusResult>` |
+| `usePrometheusQuery(query, options?)` | 即时查询选项，加上查询控制选项 | `UseQueryResult<PrometheusResult, Error>` |
+| `usePrometheusRangeQuery(query, options)` | 区间查询选项，加上查询控制选项 | `UseQueryResult<PrometheusResult, Error>` |
 
-查询控制选项为 `enabled`、`staleTime` 和 `refreshInterval`（毫秒）。Hook 卸载时会取消请求，缓存按集群和查询条件隔离。`time`、`start`、`end` 为整数 Unix 时间戳，单位为秒；`step` 为 1～86,400 的整数，单位也是秒。即时查询默认使用当前时间，区间查询用于获取一段时间的采样序列：
+查询控制选项为 `enabled`、`staleTime` 和 `refreshInterval`（毫秒）。缓存按集群和查询条件隔离。`time`、`start`、`end` 为整数 Unix 时间戳，单位为秒；`step` 为 1～86,400 的整数，单位也是秒。即时查询默认使用当前时间，区间查询用于获取一段时间的采样序列：
 
 ```ts
 import { queryPrometheusRange } from '@kite-dev/plugin-sdk/observability'

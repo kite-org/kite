@@ -4,7 +4,7 @@ outline: deep
 
 # 插件配置
 
-在 `plugin.config.tsx` 中通过 `definePlugin()` 声明插件的路由、菜单、资源扩展、主题、配置页和词典。
+在 `plugin.config.tsx` 中通过 `definePlugin()` 声明插件的路由、菜单、资源扩展、主题、配置页和国际化配置。
 
 所有配置项均可省略，`routes`、`menus`、`resources` 和 `themes` 默认为空数组。
 
@@ -15,7 +15,7 @@ outline: deep
 | [`resources`](#资源扩展) | 添加列表列、详情 Tab 或接管 CRD 页面 |
 | [`themes`](#主题) | 提供配色主题 |
 | [`settings`](#配置页) | 提供管理员配置页 |
-| [`i18n`](#国际化) | 注册插件词典 |
+| [`i18n`](#国际化) | 配置国际化 |
 
 ## 路由
 
@@ -413,7 +413,7 @@ export default function Settings() {
 
 ## 国际化
 
-`i18n` 可选，接收插件的中英文词典。通常将 `createPluginI18n()` 返回的 `resources` 命名为 `translations`，再传入配置：
+`i18n` 可选，用于配置插件的中英文翻译。将 `createPluginI18n()` 返回的 `resources` 命名为 `translations`，再传入配置：
 
 ```tsx
 import { definePlugin } from '@kite-dev/plugin-sdk'
@@ -425,4 +425,4 @@ export default definePlugin({
 })
 ```
 
-声明菜单、路由或 Tab 标签时使用同一模块的 `label()`；页面组件通过 `useTranslation()` 读取文案，随 Kite 的语言切换更新。词典结构、绑定方式和完整示例见[国际化指南](../i18n)。
+声明菜单、路由或 Tab 标签时使用同一模块的 `label()`；页面组件通过 `useTranslation()` 读取文案，随 Kite 的语言切换更新。翻译文件的组织方式和完整示例见[国际化指南](../i18n)。

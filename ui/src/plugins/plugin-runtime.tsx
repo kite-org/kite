@@ -2,6 +2,7 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -50,7 +51,13 @@ export function PluginRuntime({ children }: { children: ReactNode }) {
   const [isReady, setIsReady] = useState(false)
 
   const publish = useCallback(() => {
-    setPlugins([...entries.current.values()].map((entry) => entry.record))
+    const next = [...entries.current.values()].map((entry) => entry.record)
+    setPlugins((previous) =>
+      previous.length === next.length &&
+      previous.every((plugin, index) => plugin === next[index])
+        ? previous
+        : next
+    )
   }, [])
 
   const loadPlugin = useCallback(
@@ -159,17 +166,15 @@ export function PluginRuntime({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const isLoading = active.isLoading || development.isLoading
+  const ready = isReady && !!user && !development.isLoading
+  const value = useMemo(
+    () => ({ plugins, isLoading, isReady: ready, loadPlugin }),
+    [plugins, isLoading, ready, loadPlugin]
+  )
+
   return (
-    <PluginsContext.Provider
-      value={{
-        plugins,
-        isLoading: active.isLoading || development.isLoading,
-        isReady: isReady && !!user && !development.isLoading,
-        loadPlugin,
-      }}
-    >
-      {children}
-    </PluginsContext.Provider>
+    <PluginsContext.Provider value={value}>{children}</PluginsContext.Provider>
   )
 }
 

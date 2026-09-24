@@ -36,7 +36,7 @@ my-plugin/
   tsconfig.json
   README.md          # Packaged with the plugin for catalog previews
   src/
-    i18n.ts          # Translation bindings
+    i18n.ts          # Internationalization configuration
     locales/
       en.json
       zh.json
@@ -201,7 +201,7 @@ Kite's Tailwind build does not scan plugin source files. Your plugin's build mus
 
 ## Next Steps
 
-- [Plugin Configuration](./api/plugin-config): configure routes, menus, resource extensions, themes, a settings page, and translation dictionaries
+- [Plugin Configuration](./api/plugin-config): configure routes, menus, resource extensions, themes, a settings page, and internationalization
 - [Resource Queries and Operations](./api/resources): read resources, perform mutations, and call Kite APIs
 - [UI Components](./api/ui): reuse resource lists, detail layouts, and YAML editors
 - [Internationalization](./i18n): add English and Chinese translations

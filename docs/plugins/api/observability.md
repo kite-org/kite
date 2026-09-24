@@ -51,12 +51,12 @@ export function GPUUsage() {
 
 | API | Options | Result |
 | --- | ------- | ------ |
-| `queryPrometheus(query, options?)` | `{ cluster?, time?, signal? }` | `Promise<PrometheusResult>` |
-| `queryPrometheusRange(query, options)` | `{ cluster?, start, end, step, signal? }` | `Promise<PrometheusResult>` |
-| `usePrometheusQuery(query, options?)` | Instant query options without `signal`, plus query controls | `UseQueryResult<PrometheusResult, Error>` |
-| `usePrometheusRangeQuery(query, options)` | Range query options without `signal`, plus query controls | `UseQueryResult<PrometheusResult, Error>` |
+| `queryPrometheus(query, options?)` | `{ cluster?, time? }` | `Promise<PrometheusResult>` |
+| `queryPrometheusRange(query, options)` | `{ cluster?, start, end, step }` | `Promise<PrometheusResult>` |
+| `usePrometheusQuery(query, options?)` | Instant query options, plus query controls | `UseQueryResult<PrometheusResult, Error>` |
+| `usePrometheusRangeQuery(query, options)` | Range query options, plus query controls | `UseQueryResult<PrometheusResult, Error>` |
 
-Query controls are `enabled`, `staleTime`, and `refreshInterval` (milliseconds). Hooks cancel requests on unmount and keep separate caches for each cluster and query. Times (`time`, `start`, `end`) are integer Unix timestamps in seconds; `step` is an integer from 1 to 86,400 seconds. Instant queries default to the current time. A range query retrieves a series of samples:
+Query controls are `enabled`, `staleTime`, and `refreshInterval` (milliseconds). Hooks keep separate caches for each cluster and query. Times (`time`, `start`, `end`) are integer Unix timestamps in seconds; `step` is an integer from 1 to 86,400 seconds. Instant queries default to the current time. A range query retrieves a series of samples:
 
 ```ts
 import { queryPrometheusRange } from '@kite-dev/plugin-sdk/observability'

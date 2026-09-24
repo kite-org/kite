@@ -57,7 +57,7 @@ Helm Chart 将插件存放在 `/data/plugins`。使用默认路径时，开启 S
 ## 接下来
 
 - [快速开始](./quick-start)：从零创建并安装一个插件
-- [插件配置](./api/plugin-config)：声明页面、菜单、资源扩展、主题、配置页和词典
+- [插件配置](./api/plugin-config)：声明页面、菜单、资源扩展、主题、配置页和国际化配置
 - [资源查询与操作](./api/resources)：查询和修改 Kubernetes 资源
 - [国际化](./i18n)：多语言支持
 - [调试](./debugging)：开发迭代与问题排查
