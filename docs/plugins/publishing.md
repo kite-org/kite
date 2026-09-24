@@ -10,7 +10,7 @@ Plugins are packaged as `.tar.gz` archives. Distribute them directly, host your 
 
 - Use a **semantic version without a `v` prefix**, such as `0.1.3`.
 - **Package contents for the same ID and version are immutable.** Kite stores assets by their SHA-256 digest. Any content change, even a single string, requires a version increment; otherwise, Kite rejects the installation.
-- `engines.kite` specifies the Kite versions the plugin supports. Kite checks it during installation and when displaying the catalog.
+- `engines.kite` specifies the Kite versions the plugin supports. Only stable releases (`X.Y.Z` or `vX.Y.Z`) enforce this range during installation and when displaying the catalog. Development, prerelease, and other non-release builds skip Kite version matching. All builds still check SDK compatibility.
 
 ## README
 

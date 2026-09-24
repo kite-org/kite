@@ -1,4 +1,4 @@
-import type { LocalizedLabel, PluginMenu } from '@kite-dev/plugin-sdk'
+import type { LocalizedLabel, PluginMenuMetadata } from '@kite-dev/plugin-sdk'
 import {
   resolvePluginRoute,
   resolveResourcePath,
@@ -73,7 +73,7 @@ export function mergePluginMenus(
     const menus = new Map(
       manifest.menus.map((menu) => [`${manifest.id}:${menu.id}`, menu])
     )
-    const createItem = (menu: PluginMenu): SidebarLinkItem => {
+    const createItem = (menu: PluginMenuMetadata): SidebarLinkItem => {
       const id = `${manifest.id}:${menu.id}`
       const preferences = config.pluginPreferences?.items[id]
       return {
@@ -81,7 +81,7 @@ export function mergePluginMenus(
         type: 'link',
         pluginId: manifest.id,
         titleKey: pluginLabel(menu.label, language),
-        icon: menu.icon ?? 'IconBox',
+        icon: typeof menu.icon === 'string' ? menu.icon : 'IconBox',
         visible: true,
         pinned: false,
         order: preferences?.order ?? menu.order ?? 50,

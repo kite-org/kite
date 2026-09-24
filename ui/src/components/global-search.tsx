@@ -45,6 +45,7 @@ import {
 } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAppearance } from '@/components/appearance-provider'
+import { SidebarItemIcon } from '@/components/sidebar-item-icon'
 
 interface SidebarSearchItem {
   id: string
@@ -249,7 +250,9 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
             id: item.id,
             title,
             url: item.url,
-            Icon,
+            Icon: item.pluginId
+              ? (props) => <SidebarItemIcon item={item} {...props} />
+              : Icon,
             groupLabel,
             searchText: searchTerms,
             isPinned: pinnedItems.has(item.id),

@@ -65,8 +65,15 @@ export default definePlugin({
 
 为 ID 为 `my-plugin` 的插件添加“证书管理”分组，并在分组下放置 Certificate 列表菜单：
 
+安装示例使用的图标库：
+
+```sh
+pnpm add @tabler/icons-react
+```
+
 ```tsx
 import { definePlugin } from '@kite-dev/plugin-sdk'
+import { IconCertificate } from '@tabler/icons-react'
 
 import { label, translations } from './src/i18n'
 
@@ -76,12 +83,12 @@ export default definePlugin({
     {
       id: 'cert-manager',
       label: label('navigation.certManager'),
-      icon: 'IconCertificate',
     },
     {
       id: 'certificates',
       parent: 'my-plugin:cert-manager',
       label: label('navigation.certificates'),
+      icon: <IconCertificate />,
       resource: { group: 'cert-manager.io', resource: 'certificates' },
     },
   ],
@@ -100,7 +107,31 @@ export default definePlugin({
 
 内置分组 ID 为 `core:application`、`core:workloads`、`core:traffic`、`core:storage`、`core:config`、`core:security`、`core:other`，可从 `/validation` 导入 `coreMenuGroupIds`。
 
-菜单父级只能是内置分组或同一插件声明的分组，不允许成环；作为父级的分组菜单自身不能带 `route` 或 `resource`。`order` 设置默认排序（菜单项默认 `50`，用户侧边栏偏好优先）；`icon` 接受宿主图标名（如 `IconBox`、`IconPackage`），未知名称回退默认图标。
+菜单父级只能是内置分组或同一插件声明的分组，不允许成环；作为父级的分组菜单自身不能带 `route` 或 `resource`。`order` 设置默认排序（菜单项默认 `50`，用户侧边栏偏好优先）。
+
+`icon` 接受 React 元素或内置图标名称。可直接使用 `@tabler/icons-react`、`lucide-react` 等图标库，也可以传入自定义组件。图标库由插件自行安装，使用的图标会随插件打包。
+
+自定义组件需将 `className` 传给实际的图标元素，并使用 `currentColor` 继承菜单颜色。例如，为第三方图标调整线条粗细：
+
+```tsx
+import { IconCertificate } from '@tabler/icons-react'
+
+function CertificateIcon({ className }: { className?: string }) {
+  return <IconCertificate className={className} stroke={1.5} />
+}
+```
+
+在菜单中设置 `icon: <CertificateIcon />` 即可使用。自定义图标在菜单显示时加载，在侧边栏、配置侧边栏和全局搜索的菜单入口中使用相同的图标。顶级分组标题不显示图标。
+
+也可以直接填写以下内置图标名称，例如 `icon: 'IconShieldCheck'`。未指定或使用未内置的 `Icon...` 名称时，使用 `IconBox`：
+
+```text
+IconBox           IconRocket           IconStack2        IconTopologyBus  IconPackage
+IconPlayerPlay    IconClockHour4       IconRouter        IconShield       IconNetwork
+IconLoadBalancer  IconRoute            IconFileDatabase  IconDatabase     IconMap
+IconLock          IconArrowsHorizontal IconUser          IconUsers        IconShieldCheck
+IconKey           IconBoxMultiple      IconServer2       IconBell         IconCode
+```
 
 `definePlugin` 会从内联声明推断路由 ID 的字面量类型，并校验 `menus.route` 的取值；如果把路由数组提取成变量，需要加 `as const` 保留字面量类型。
 

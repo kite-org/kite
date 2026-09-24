@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
@@ -12,7 +13,8 @@ import (
 )
 
 type pluginRecovery struct {
-	err error
+	err    error
+	cancel context.CancelFunc
 }
 
 var (
@@ -69,28 +71,47 @@ func loadInstalledPlugin(plugin model.Plugin, restore bool) (*Manifest, error) {
 	if !restore {
 		return nil, fmt.Errorf("plugin files are unavailable: %w", err)
 	}
-	recovery := &pluginRecovery{err: fmt.Errorf("plugin files are unavailable; restoring installed version")}
+	ctx, cancel := context.WithCancel(recoveryContext)
+	recovery := &pluginRecovery{
+		err:    fmt.Errorf("plugin files are unavailable; restoring installed version"),
+		cancel: cancel,
+	}
 	recoveries[key] = recovery
 	klog.Warningf("Loading plugin %s error: %v, reinstall from %s", plugin.ID, err, plugin.DownloadURL)
 	go func() {
-		err := restorePlugin(plugin, recovery)
-		recoveryMu.Lock()
-		defer recoveryMu.Unlock()
-		if recoveries[key] != recovery {
-			return
-		}
-		if err != nil {
+		defer func() {
+			cancel()
+			recoveryMu.Lock()
+			defer recoveryMu.Unlock()
+			if recoveries[key] == recovery {
+				delete(recoveries, key)
+			}
+		}()
+		for delay := 5 * time.Second; ctx.Err() == nil; delay = min(delay*2, 5*time.Minute) {
+			err := restorePlugin(ctx, plugin, recovery)
+			recoveryMu.Lock()
+			if recoveries[key] != recovery || err == nil || ctx.Err() != nil {
+				recoveryMu.Unlock()
+				return
+			}
 			recovery.err = fmt.Errorf("failed to restore plugin files: %w", err)
-			klog.Errorf("Loading plugin %s error: %v", plugin.ID, recovery.err)
-		} else {
-			delete(recoveries, key)
+			klog.Errorf("Loading plugin %s error: %v; retrying in %s", plugin.ID, recovery.err, delay)
+			recoveryMu.Unlock()
+
+			timer := time.NewTimer(delay)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+			}
 		}
 	}()
 	return nil, recovery.err
 }
 
-func restorePlugin(plugin model.Plugin, recovery *pluginRecovery) error {
-	resp, err := fetch(recoveryContext, plugin.DownloadURL)
+func restorePlugin(ctx context.Context, plugin model.Plugin, recovery *pluginRecovery) error {
+	resp, err := fetch(ctx, plugin.DownloadURL)
 	if err != nil {
 		return err
 	}
@@ -102,7 +123,7 @@ func restorePlugin(plugin model.Plugin, recovery *pluginRecovery) error {
 		recoveryMu.Lock()
 		current := recoveries[[3]string{plugin.ID, plugin.Version, plugin.Digest}] == recovery
 		recoveryMu.Unlock()
-		if !current {
+		if !current || ctx.Err() != nil {
 			return nil
 		}
 		var record model.Plugin
@@ -124,8 +145,9 @@ func restorePlugin(plugin model.Plugin, recovery *pluginRecovery) error {
 func forgetRecovery(id string) {
 	recoveryMu.Lock()
 	defer recoveryMu.Unlock()
-	for key := range recoveries {
+	for key, recovery := range recoveries {
 		if key[0] == id {
+			recovery.cancel()
 			delete(recoveries, key)
 		}
 	}

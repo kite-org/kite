@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
@@ -13,6 +14,8 @@ import (
 )
 
 const supportedSDKVersions = ">=0.0.6"
+
+var pluginIDPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$`)
 
 type Manifest struct {
 	SchemaVersion int             `json:"schemaVersion"`
@@ -98,7 +101,7 @@ func (m Manifest) validate() error {
 		return fmt.Errorf("unsupported plugin schema version")
 	}
 	if !validPluginID(m.ID) {
-		return fmt.Errorf("plugin ID must be a safe directory name of 1-64 bytes")
+		return fmt.Errorf("plugin ID must be 1-64 lowercase letters, digits or hyphens, starting and ending with a letter or digit")
 	}
 	if strings.TrimSpace(m.Name) == "" || len(m.Name) > 128 {
 		return fmt.Errorf("plugin name must be 1-128 characters")
@@ -128,15 +131,15 @@ func checkCompatibility(sdkVersion string, r Requirements) error {
 	if err != nil {
 		return fmt.Errorf("invalid requires.kite range")
 	}
-	kiteVersion, err := semver.NewVersion(version.Version)
-	if err == nil && !kiteRange.Check(kiteVersion) {
+	kiteVersion, err := semver.StrictNewVersion(strings.TrimPrefix(version.Version, "v"))
+	if err == nil && kiteVersion.Prerelease() == "" && kiteVersion.Metadata() == "" && !kiteRange.Check(kiteVersion) {
 		return fmt.Errorf("plugin requires Kite %s; this Kite is %s", r.Kite, version.Version)
 	}
 	return nil
 }
 
 func validPluginID(name string) bool {
-	return len(name) > 0 && len(name) <= 64 && validAssetPath(name) && path.Base(name) == name
+	return pluginIDPattern.MatchString(name)
 }
 
 func validThemeID(id string) bool {

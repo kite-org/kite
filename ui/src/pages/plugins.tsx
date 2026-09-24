@@ -160,11 +160,11 @@ export function PluginManagementPage() {
       id: 'name',
       header: t('plugins.plugin'),
       cell: ({ row: { original: plugin } }) => (
-        <div className="min-w-48 space-y-1">
+        <div className="min-w-48">
           <button
             id={`plugin-readme-${plugin.id}`}
             type="button"
-            className="font-medium app-link"
+            className="block truncate font-medium app-link"
             aria-label={t('plugins.previewReadme', { name: plugin.name })}
             onClick={(event) => {
               readmeTrigger.current = event.currentTarget.id
@@ -173,6 +173,11 @@ export function PluginManagementPage() {
           >
             {plugin.name}
           </button>
+          {plugin.author && (
+            <div className="truncate text-xs text-muted-foreground">
+              @{plugin.author}
+            </div>
+          )}
         </div>
       ),
     }),
@@ -272,8 +277,15 @@ export function PluginManagementPage() {
           original: { plugin, manifest },
         },
       }) => (
-        <div className="min-w-48 font-medium">
-          {manifest?.name ?? plugin.id}
+        <div className="min-w-48">
+          <div className="truncate font-medium">
+            {manifest?.name ?? plugin.id}
+          </div>
+          {manifest?.author && (
+            <div className="truncate text-xs text-muted-foreground">
+              @{manifest.author}
+            </div>
+          )}
         </div>
       ),
     }),

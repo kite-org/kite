@@ -65,8 +65,15 @@ Paths with the same structure but different parameter names, such as `deployment
 
 Add a Certificate management group with a Certificate list menu for a plugin whose ID is `my-plugin`:
 
+Install the icon library used in this example:
+
+```sh
+pnpm add @tabler/icons-react
+```
+
 ```tsx
 import { definePlugin } from '@kite-dev/plugin-sdk'
+import { IconCertificate } from '@tabler/icons-react'
 
 import { label, translations } from './src/i18n'
 
@@ -76,12 +83,12 @@ export default definePlugin({
     {
       id: 'cert-manager',
       label: label('navigation.certManager'),
-      icon: 'IconCertificate',
     },
     {
       id: 'certificates',
       parent: 'my-plugin:cert-manager',
       label: label('navigation.certificates'),
+      icon: <IconCertificate />,
       resource: { group: 'cert-manager.io', resource: 'certificates' },
     },
   ],
@@ -100,7 +107,31 @@ export default definePlugin({
 
 Built-in group IDs are `core:application`, `core:workloads`, `core:traffic`, `core:storage`, `core:config`, `core:security`, and `core:other`. Import `coreMenuGroupIds` from `/validation` to access them.
 
-A parent must be a built-in group or a group declared by the same plugin. Cycles are not allowed, and parent groups cannot have `route` or `resource` fields. `order` sets the default position (menu items default to `50`); users' sidebar preferences take precedence. `icon` accepts a host icon name, such as `IconBox` or `IconPackage`. Unknown names use the default icon.
+A parent must be a built-in group or a group declared by the same plugin. Cycles are not allowed, and parent groups cannot have `route` or `resource` fields. `order` sets the default position (menu items default to `50`); users' sidebar preferences take precedence.
+
+`icon` accepts a React element or a built-in icon name. Use libraries such as `@tabler/icons-react` or `lucide-react`, or pass your own component. Install the icon library in your plugin; the icons you use are bundled with it.
+
+Custom components must forward `className` to the icon element and use `currentColor` to inherit the menu color. For example, wrap a third-party icon to adjust its stroke width:
+
+```tsx
+import { IconCertificate } from '@tabler/icons-react'
+
+function CertificateIcon({ className }: { className?: string }) {
+  return <IconCertificate className={className} stroke={1.5} />
+}
+```
+
+Set `icon: <CertificateIcon />` on the menu to use it. Custom icons load when their menus are displayed and appear in the sidebar, Configure Sidebar, and global search navigation results. Top-level group headings do not display icons.
+
+You can also use any of these built-in names, such as `icon: 'IconShieldCheck'`. If omitted or set to an `Icon...` name outside this list, it defaults to `IconBox`:
+
+```text
+IconBox           IconRocket           IconStack2        IconTopologyBus  IconPackage
+IconPlayerPlay    IconClockHour4       IconRouter        IconShield       IconNetwork
+IconLoadBalancer  IconRoute            IconFileDatabase  IconDatabase     IconMap
+IconLock          IconArrowsHorizontal IconUser          IconUsers        IconShieldCheck
+IconKey           IconBoxMultiple      IconServer2       IconBell         IconCode
+```
 
 `definePlugin` infers route ID literal types from inline declarations and checks `menus.route` values. If you extract the route array into a variable, use `as const` to preserve those literal types.
 

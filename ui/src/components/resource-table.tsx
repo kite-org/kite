@@ -297,18 +297,31 @@ function ResourceTableContent<T>({
     }
   }, [useSSE, error, effectiveLabelSelector, setRefreshInterval])
 
-  const pluginColumnIds = new Set(pluginColumns.map((column) => column.id))
-  const isAvailableColumn = ({ id }: { id: string }) =>
-    !id.startsWith('plugin:') || pluginColumnIds.has(id)
+  const availableColumnState = useMemo(() => {
+    const pluginColumnIds = new Set(pluginColumns.map((column) => column.id))
+    const isAvailableColumn = ({ id }: { id: string }) =>
+      !id.startsWith('plugin:') || pluginColumnIds.has(id)
+    const sorting = tableState.sorting.filter(isAvailableColumn)
+    const columnFilters = tableState.columnFilters.filter(isAvailableColumn)
+    return {
+      sorting:
+        sorting.length === tableState.sorting.length
+          ? tableState.sorting
+          : sorting,
+      columnFilters:
+        columnFilters.length === tableState.columnFilters.length
+          ? tableState.columnFilters
+          : columnFilters,
+    }
+  }, [pluginColumns, tableState.sorting, tableState.columnFilters])
 
   const table = useResourceTable({
     data: memoizedData,
     columns: enhancedColumns,
     state: {
       ...tableState,
+      ...availableColumnState,
       columnVisibility: extensions.columnVisibility,
-      sorting: tableState.sorting.filter(isAvailableColumn),
-      columnFilters: tableState.columnFilters.filter(isAvailableColumn),
     },
     searchQueryFilter,
     additionalSearchColumnIds: pluginColumns.map((column) => column.id!),

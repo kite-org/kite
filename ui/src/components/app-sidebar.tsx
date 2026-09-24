@@ -30,6 +30,7 @@ import {
 
 import { ClusterSelector } from './cluster-selector'
 import { PluginIndicator } from './plugins/plugin-indicator'
+import { SidebarItemIcon } from './sidebar-item-icon'
 import { Collapsible, CollapsibleTrigger } from './ui/collapsible'
 import { VersionInfo } from './version-info'
 
@@ -37,7 +38,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { t } = useTranslation()
   const location = useLocation()
   const { isMobile, setOpenMobile } = useSidebar()
-  const { config, isLoading, getIconComponent } = useSidebarConfig()
+  const { config, isLoading } = useSidebarConfig()
   const { data: versionInfo } = useVersionInfo()
   const [openAPIGroupItems, setOpenAPIGroupItems] = useState<
     Record<string, boolean>
@@ -162,7 +163,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         : isActive(item.url)
 
   const renderSidebarItem = (item: SidebarItem): React.ReactNode => {
-    const IconComponent = getIconComponent(item.icon)
     const title = item.titleKey
       ? t(item.titleKey, { defaultValue: item.titleKey })
       : ''
@@ -189,7 +189,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <CollapsibleTrigger asChild>
               <SidebarMenuButton tooltip={title} isActive={hasActiveChild}>
-                <IconComponent className="text-sidebar-primary" />
+                <SidebarItemIcon item={item} className="text-sidebar-primary" />
                 <span className="truncate">{title}</span>
                 <PluginIndicator pluginId={item.pluginId} />
                 <ChevronRight className="ml-auto group-data-[state=open]/submenu:rotate-90" />
@@ -237,7 +237,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           isActive={isActive(item.url)}
         >
           <Link to={item.url} onClick={handleMenuItemClick}>
-            <IconComponent className="text-sidebar-primary" />
+            <SidebarItemIcon item={item} className="text-sidebar-primary" />
             <span className="truncate">{title}</span>
             <PluginIndicator pluginId={item.pluginId} />
           </Link>

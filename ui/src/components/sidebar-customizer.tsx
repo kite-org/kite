@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/tooltip'
 import { PluginIndicator } from '@/components/plugins/plugin-indicator'
 import { CRDSelector } from '@/components/selector/crd-selector'
+import { SidebarItemIcon } from '@/components/sidebar-item-icon'
 
 const normalizeSidebarPreference = (value: string): string => {
   const trimmed = value.trim()
@@ -90,7 +91,6 @@ export function SidebarCustomizer({
     toggleItemPin,
     toggleGroupCollapse,
     resetConfig,
-    getIconComponent,
     toggleGroupVisibility,
     createCustomGroup,
     addCRDToGroup,
@@ -353,7 +353,6 @@ export function SidebarCustomizer({
                   </Label>
                   <div className="space-y-2">
                     {pinnedItems.map((item) => {
-                      const IconComponent = getIconComponent(item.icon)
                       const title = item.titleKey
                         ? t(item.titleKey, { defaultValue: item.titleKey })
                         : ''
@@ -363,7 +362,10 @@ export function SidebarCustomizer({
                           className="flex flex-col gap-3 rounded-md border bg-muted/20 p-2 sm:flex-row sm:items-center sm:justify-between"
                         >
                           <div className="flex flex-wrap items-center gap-2">
-                            <IconComponent className="h-4 w-4 text-sidebar-primary" />
+                            <SidebarItemIcon
+                              item={item}
+                              className="text-sidebar-primary"
+                            />
                             <span className="text-sm">{title}</span>
                             <PluginIndicator pluginId={item.pluginId} />
                             <Badge variant="outline" className="text-xs">
@@ -492,7 +494,6 @@ export function SidebarCustomizer({
                     className={`grid gap-2 pl-4 ${group.collapsed ? 'hidden' : ''} ${!group.visible ? 'opacity-50 pointer-events-none' : ''}`}
                   >
                     {group.items.map((item, itemIndex) => {
-                      const IconComponent = getIconComponent(item.icon)
                       const isHidden = config.hiddenItems.includes(item.id)
                       const isPinned = config.pinnedItems.includes(item.id)
                       const isRemovable =
@@ -534,7 +535,10 @@ export function SidebarCustomizer({
                             >
                               <GripVertical className="h-3.5 w-3.5" />
                             </Button>
-                            <IconComponent className="h-4 w-4 text-sidebar-primary" />
+                            <SidebarItemIcon
+                              item={item}
+                              className="text-sidebar-primary"
+                            />
                             <span className="text-sm">{title}</span>
                             <PluginIndicator pluginId={item.pluginId} />
                             {item.type === 'apiGroup' && (

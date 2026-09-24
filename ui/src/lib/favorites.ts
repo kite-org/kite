@@ -11,7 +11,11 @@ export const getFavorites = (): SearchResult[] => {
     const favorites = localStorage.getItem(
       getClusterScopedStorageKey(FAVORITES_STORAGE_KEY)
     )
-    return favorites ? JSON.parse(favorites) : []
+    const items: SearchResult[] = favorites ? JSON.parse(favorites) : []
+    return items.filter(
+      (item) =>
+        item.resourceType !== 'gateways' && item.resourceType !== 'httproutes'
+    )
   } catch {
     return []
   }

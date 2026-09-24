@@ -3,12 +3,16 @@
 ## 数据共享
 
 默认情况下，Kite 不会收集任何分析数据。
+如果您希望帮助改进产品，您可以在初始化页面或通用设置中，通过「启用数据统计」开关开启或关闭统计。
 
-如果您希望帮助改进产品，可以将环境变量 `ENABLE_ANALYTICS` 设置为 `true`。
+开启后，Kite 服务端每 24 小时上报一次安装统计，用于帮助改进产品。上报内容包括：
 
-Kite 将使用 umami 收集极少的匿名使用数据。
+- 随机生成的安装 ID
+- Kite 版本及已连接的 Kubernetes 集群版本
+- 已安装插件的 ID、版本和启用状态
+- 运行平台的操作系统和 CPU 架构
 
-源代码可在 [这里](https://github.com/kite-org/kite/blob/main/pkg/utils/utils.go#L10-L16) 找到。
+上报实现见[源代码](https://github.com/kite-org/kite/blob/main/pkg/telemetry/telemetry.go)。
 
 ## 权限问题
 
