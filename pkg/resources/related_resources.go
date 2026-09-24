@@ -23,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func discoverServices(ctx context.Context, k8sClient *kube.K8sClient, namespace string, selector *metav1.LabelSelector) ([]common.RelatedResource, error) {
@@ -469,8 +468,6 @@ func GetRelatedResources(c *gin.Context) { //nolint:gocyclo // resource-specific
 			}
 			result = append(result, workloads...)
 		}
-	case *gatewayapiv1.HTTPRoute:
-		result = getHTTPRouteRelatedResouces(res, namespace)
 	case *autoscalingv2.HorizontalPodAutoscaler:
 		result = getAutoScalingRelatedResources(res, namespace)
 	case *autoscalingv1.HorizontalPodAutoscaler:
@@ -561,69 +558,6 @@ func GetRelatedResources(c *gin.Context) { //nolint:gocyclo // resource-specific
 		}
 	}
 	c.JSON(http.StatusOK, filtered)
-}
-
-func getHTTPRouteRelatedResouces(res *gatewayapiv1.HTTPRoute, namespace string) []common.RelatedResource {
-	var result []common.RelatedResource
-	for _, parentRef := range res.Spec.ParentRefs {
-		var parentResourceType string
-		if parentRef.Kind != nil && *parentRef.Kind != "" {
-			parentResourceType = strings.ToLower(string(*parentRef.Kind)) + "s"
-		} else {
-			parentResourceType = string(common.Gateways)
-		}
-		result = append(result, common.RelatedResource{
-			Type:       parentResourceType,
-			Name:       string(parentRef.Name),
-			APIVersion: gatewayReferenceAPIVersion(parentRef.Group, gatewayapiv1.GroupVersion.String()),
-			Namespace: func() string {
-				if parentRef.Namespace != nil && *parentRef.Namespace != "" {
-					return string(*parentRef.Namespace)
-				}
-				return namespace
-			}(),
-		})
-	}
-
-	for _, rule := range res.Spec.Rules {
-		for _, backend := range rule.BackendRefs {
-			var backendType, defaultAPIVersion string
-			if backend.Kind != nil && *backend.Kind != "" {
-				backendType = strings.ToLower(string(*backend.Kind)) + "s"
-			} else {
-				backendType = string(common.Services)
-			}
-			if backendType == string(common.Services) {
-				defaultAPIVersion = corev1.SchemeGroupVersion.String()
-			}
-			result = append(result, common.RelatedResource{
-				Type: backendType,
-				Name: string(backend.Name),
-				Namespace: func() string {
-					if backend.Namespace != nil && *backend.Namespace != "" {
-						return string(*backend.Namespace)
-					}
-					return namespace
-				}(),
-				APIVersion: gatewayReferenceAPIVersion(backend.Group, defaultAPIVersion),
-			})
-		}
-	}
-	return result
-}
-
-func gatewayReferenceAPIVersion(group *gatewayapiv1.Group, defaultAPIVersion string) string {
-	if group == nil {
-		return defaultAPIVersion
-	}
-	groupName := string(*group)
-	if groupName == "" {
-		return corev1.SchemeGroupVersion.String()
-	}
-	if groupName == gatewayapiv1.GroupVersion.Group {
-		return gatewayapiv1.GroupVersion.String()
-	}
-	return groupName + "/" + gatewayapiv1.GroupVersion.Version
 }
 
 func getAutoScalingRelatedResources(res *autoscalingv2.HorizontalPodAutoscaler, namespace string) []common.RelatedResource {

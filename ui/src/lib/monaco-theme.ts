@@ -46,11 +46,24 @@ export function useMonacoBackgroundColor(
   )
 
   useEffect(() => {
-    const frame = requestAnimationFrame(() => {
+    const updateBackground = () => {
       setBackgroundColor(getMonacoBackgroundColor(cssVariableName, actualTheme))
-    })
+    }
+    const frame = requestAnimationFrame(updateBackground)
+    const onStylesheetLoad = (event: Event) => {
+      if (
+        event.target instanceof HTMLLinkElement &&
+        event.target.hasAttribute('data-kite-plugin-theme')
+      ) {
+        updateBackground()
+      }
+    }
+    document.head.addEventListener('load', onStylesheetLoad, true)
 
-    return () => cancelAnimationFrame(frame)
+    return () => {
+      cancelAnimationFrame(frame)
+      document.head.removeEventListener('load', onStylesheetLoad, true)
+    }
   }, [cssVariableName, actualTheme, colorTheme])
 
   return backgroundColor

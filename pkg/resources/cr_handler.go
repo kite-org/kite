@@ -440,6 +440,68 @@ func (h *CRHandler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, &updatedCR)
 }
 
+func (h *CRHandler) Patch(c *gin.Context) {
+	ctx := c.Request.Context()
+	cs := c.MustGet("cluster").(*cluster.ClientSet)
+	crd, err := h.getCRDByName(ctx, cs.K8sClient, c.Param("crd"))
+	if err != nil {
+		if errors.IsNotFound(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "CustomResourceDefinition not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if !validateCRNamespace(c, crd) {
+		return
+	}
+	namespace := ""
+	if crd.Spec.Scope == apiextensionsv1.NamespaceScoped {
+		namespace = c.Param("namespace")
+		if namespace == "" || namespace == common.AllNamespaces {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "namespace is required for namespaced custom resources"})
+			return
+		}
+	}
+	patchType := types.MergePatchType
+	switch c.Query("patchType") {
+	case "", "merge":
+	case "json":
+		patchType = types.JSONPatchType
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Custom resources support merge or json patches"})
+		return
+	}
+	patchBytes, err := c.GetRawData()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read patch data"})
+		return
+	}
+	cr := &unstructured.Unstructured{}
+	cr.SetGroupVersionKind(h.getGVRFromCRD(crd).GroupVersion().WithKind(crd.Spec.Names.Kind))
+	if err := cs.K8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: c.Param("name")}, cr); err != nil {
+		if errors.IsNotFound(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Custom resource not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	previous := cr.DeepCopy()
+	success := false
+	var errMsg string
+	defer func() {
+		h.recordHistory(c, crd, "patch", previous, cr, success, errMsg)
+	}()
+	if err := cs.K8sClient.Patch(ctx, cr, client.RawPatch(patchType, patchBytes)); err != nil {
+		errMsg = err.Error()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errMsg})
+		return
+	}
+	success = true
+	c.JSON(http.StatusOK, cr)
+}
+
 func (h *CRHandler) ListHistory(c *gin.Context) {
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
 	ctx := c.Request.Context()

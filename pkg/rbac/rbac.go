@@ -29,6 +29,18 @@ func CanAccess(user model.User, resource, verb, cluster, namespace string) bool 
 	return false
 }
 
+// CanAccessAllNamespaces requires an unrestricted namespace grant in the same role.
+func CanAccessAllNamespaces(user model.User, resource, verb, cluster string) bool {
+	for _, role := range GetUserRoles(user) {
+		if contains(role.Namespaces, "*") &&
+			!slices.ContainsFunc(role.Namespaces, func(namespace string) bool { return strings.HasPrefix(namespace, "!") }) &&
+			match(role.Clusters, cluster) && match(role.Resources, resource) && match(role.Verbs, verb) {
+			return true
+		}
+	}
+	return false
+}
+
 // CanAccessCurrent checks the latest role configuration instead of the role
 // snapshot attached during authentication. Anonymous access keeps using its
 // built-in role.

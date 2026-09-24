@@ -29,6 +29,8 @@ import {
 } from '@/components/ui/sidebar'
 
 import { ClusterSelector } from './cluster-selector'
+import { PluginIndicator } from './plugins/plugin-indicator'
+import { SidebarItemIcon } from './sidebar-item-icon'
 import { Collapsible, CollapsibleTrigger } from './ui/collapsible'
 import { VersionInfo } from './version-info'
 
@@ -36,7 +38,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { t } = useTranslation()
   const location = useLocation()
   const { isMobile, setOpenMobile } = useSidebar()
-  const { config, isLoading, getIconComponent } = useSidebarConfig()
+  const { config, isLoading } = useSidebarConfig()
   const { data: versionInfo } = useVersionInfo()
   const [openAPIGroupItems, setOpenAPIGroupItems] = useState<
     Record<string, boolean>
@@ -121,15 +123,30 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       .filter((group) => group.items.length > 0)
   }, [config, isCRDItemAvailable])
 
-  const isActive = (url: string) => {
-    if (url === '/') {
-      return location.pathname === '/'
+  const activeURL = useMemo(() => {
+    let active = location.pathname === '/' ? '/' : undefined
+    const visit = (items: SidebarItem[]) => {
+      for (const item of items) {
+        if (item.type === 'apiGroup') {
+          visit(apiGroupItems.get(item.apiGroup) ?? [])
+        } else if (item.type === 'link' && item.children) {
+          visit(item.children)
+        } else {
+          const { url } = item
+          const matches =
+            location.pathname === url ||
+            (url !== '/' &&
+              url !== '/crds' &&
+              location.pathname.startsWith(`${url}/`))
+          if (matches && (!active || url.length > active.length)) active = url
+        }
+      }
     }
-    if (url === '/crds') {
-      return location.pathname == '/crds'
-    }
-    return location.pathname.startsWith(url)
-  }
+    visit(config?.groups.flatMap((group) => group.items) ?? [])
+    return active
+  }, [apiGroupItems, config, location.pathname])
+
+  const isActive = (url: string) => url === activeURL
 
   // Handle menu item click on mobile - close sidebar
   const handleMenuItemClick = () => {
@@ -138,14 +155,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
   }
 
-  const renderSidebarItem = (item: SidebarItem) => {
-    const IconComponent = getIconComponent(item.icon)
+  const isSidebarItemActive = (item: SidebarItem): boolean =>
+    item.type === 'apiGroup'
+      ? (apiGroupItems.get(item.apiGroup) ?? []).some(isSidebarItemActive)
+      : item.type === 'link' && item.children
+        ? item.children.some(isSidebarItemActive)
+        : isActive(item.url)
+
+  const renderSidebarItem = (item: SidebarItem): React.ReactNode => {
     const title = item.titleKey
       ? t(item.titleKey, { defaultValue: item.titleKey })
       : ''
-    if (item.type === 'apiGroup') {
-      const children = apiGroupItems.get(item.apiGroup) || []
-      const hasActiveChild = children.some((child) => isActive(child.url))
+    if (item.type === 'apiGroup' || (item.type === 'link' && item.children)) {
+      const children =
+        item.type === 'apiGroup'
+          ? apiGroupItems.get(item.apiGroup) || []
+          : item.children || []
+      const hasActiveChild = children.some(isSidebarItemActive)
 
       return (
         <Collapsible
@@ -163,14 +189,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <CollapsibleTrigger asChild>
               <SidebarMenuButton tooltip={title} isActive={hasActiveChild}>
-                <IconComponent className="text-sidebar-primary" />
-                <span>{title}</span>
+                <SidebarItemIcon item={item} className="text-sidebar-primary" />
+                <span className="truncate">{title}</span>
+                <PluginIndicator pluginId={item.pluginId} />
                 <ChevronRight className="ml-auto group-data-[state=open]/submenu:rotate-90" />
               </SidebarMenuButton>
             </CollapsibleTrigger>
             <CollapsibleContent>
               <SidebarMenuSub>
                 {children.map((child) => {
+                  if (child.type === 'link' && child.children)
+                    return renderSidebarItem(child)
                   const childTitle = child.titleKey
                     ? t(child.titleKey, { defaultValue: child.titleKey })
                     : ''
@@ -186,7 +215,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           onClick={handleMenuItemClick}
                           title={childTitle}
                         >
-                          <span>{childTitle}</span>
+                          <span className="truncate">{childTitle}</span>
+                          <PluginIndicator pluginId={child.pluginId} />
                         </Link>
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
@@ -207,8 +237,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           isActive={isActive(item.url)}
         >
           <Link to={item.url} onClick={handleMenuItemClick}>
-            <IconComponent className="text-sidebar-primary" />
-            <span>{title}</span>
+            <SidebarItemIcon item={item} className="text-sidebar-primary" />
+            <span className="truncate">{title}</span>
+            <PluginIndicator pluginId={item.pluginId} />
           </Link>
         </SidebarMenuButton>
       </SidebarMenuItem>
@@ -321,10 +352,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarGroup>
               <SidebarGroupLabel asChild>
                 <CollapsibleTrigger className="flex items-center justify-between w-full text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors group-data-[state=open]:text-foreground">
-                  <span className="uppercase tracking-wide text-xs font-bold">
-                    {group.nameKey
-                      ? t(group.nameKey, { defaultValue: group.nameKey })
-                      : ''}
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate uppercase tracking-wide text-xs font-bold">
+                      {group.nameKey
+                        ? t(group.nameKey, { defaultValue: group.nameKey })
+                        : ''}
+                    </span>
+                    <PluginIndicator pluginId={group.pluginId} />
                   </span>
                   <ChevronDown className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
                 </CollapsibleTrigger>

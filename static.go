@@ -4,6 +4,7 @@ import (
 	"embed"
 	"io/fs"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/common"
@@ -33,6 +34,11 @@ func setupStatic(r *gin.Engine) {
 
 	r.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
+		if strings.HasPrefix(path, base+"/assets/") {
+			c.Header("Cache-Control", "no-store")
+			c.Status(http.StatusNotFound)
+			return
+		}
 		if len(path) >= len(base)+5 && path[len(base):len(base)+5] == "/api/" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "API endpoint not found"})
 			return
@@ -45,9 +51,6 @@ func setupStatic(r *gin.Engine) {
 		}
 
 		htmlContent := utils.InjectKiteBase(string(content), base)
-		if common.EnableAnalytics {
-			htmlContent = utils.InjectAnalytics(htmlContent)
-		}
 
 		c.Header("Content-Type", "text/html; charset=utf-8")
 		c.String(http.StatusOK, htmlContent)

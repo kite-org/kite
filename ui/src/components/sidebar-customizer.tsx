@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { useSidebarConfig } from '@/contexts/sidebar-config-context'
+import { persistPluginPreferences } from '@/plugins/sidebar'
 import {
   ArrowDown,
   ArrowUp,
@@ -41,7 +42,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { PluginIndicator } from '@/components/plugins/plugin-indicator'
 import { CRDSelector } from '@/components/selector/crd-selector'
+import { SidebarItemIcon } from '@/components/sidebar-item-icon'
 
 const normalizeSidebarPreference = (value: string): string => {
   const trimmed = value.trim()
@@ -88,7 +91,6 @@ export function SidebarCustomizer({
     toggleItemPin,
     toggleGroupCollapse,
     resetConfig,
-    getIconComponent,
     toggleGroupVisibility,
     createCustomGroup,
     addCRDToGroup,
@@ -235,7 +237,7 @@ export function SidebarCustomizer({
     if (!config) {
       return ''
     }
-    return JSON.stringify(config)
+    return JSON.stringify(persistPluginPreferences(config))
   }, [config])
 
   const normalizedGlobalSidebarPreference = useMemo(() => {
@@ -351,7 +353,6 @@ export function SidebarCustomizer({
                   </Label>
                   <div className="space-y-2">
                     {pinnedItems.map((item) => {
-                      const IconComponent = getIconComponent(item.icon)
                       const title = item.titleKey
                         ? t(item.titleKey, { defaultValue: item.titleKey })
                         : ''
@@ -361,8 +362,12 @@ export function SidebarCustomizer({
                           className="flex flex-col gap-3 rounded-md border bg-muted/20 p-2 sm:flex-row sm:items-center sm:justify-between"
                         >
                           <div className="flex flex-wrap items-center gap-2">
-                            <IconComponent className="h-4 w-4 text-sidebar-primary" />
+                            <SidebarItemIcon
+                              item={item}
+                              className="text-sidebar-primary"
+                            />
                             <span className="text-sm">{title}</span>
+                            <PluginIndicator pluginId={item.pluginId} />
                             <Badge variant="outline" className="text-xs">
                               {t('sidebar.pinned', 'Pinned')}
                             </Badge>
@@ -408,6 +413,7 @@ export function SidebarCustomizer({
                           ? t(group.nameKey, { defaultValue: group.nameKey })
                           : ''}
                       </h4>
+                      <PluginIndicator pluginId={group.pluginId} />
                       {group.isCustom && (
                         <Badge variant="outline" className="text-xs">
                           Custom
@@ -488,7 +494,6 @@ export function SidebarCustomizer({
                     className={`grid gap-2 pl-4 ${group.collapsed ? 'hidden' : ''} ${!group.visible ? 'opacity-50 pointer-events-none' : ''}`}
                   >
                     {group.items.map((item, itemIndex) => {
-                      const IconComponent = getIconComponent(item.icon)
                       const isHidden = config.hiddenItems.includes(item.id)
                       const isPinned = config.pinnedItems.includes(item.id)
                       const isRemovable =
@@ -530,8 +535,12 @@ export function SidebarCustomizer({
                             >
                               <GripVertical className="h-3.5 w-3.5" />
                             </Button>
-                            <IconComponent className="h-4 w-4 text-sidebar-primary" />
+                            <SidebarItemIcon
+                              item={item}
+                              className="text-sidebar-primary"
+                            />
                             <span className="text-sm">{title}</span>
+                            <PluginIndicator pluginId={item.pluginId} />
                             {item.type === 'apiGroup' && (
                               <Badge variant="outline" className="text-xs">
                                 {t('sidebar.apiGroup', 'API Group')}

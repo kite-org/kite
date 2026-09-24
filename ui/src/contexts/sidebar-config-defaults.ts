@@ -71,7 +71,7 @@ defaultMenus['sidebar.groups.application'].push({
   icon: getResourceIconComponent('IconPackage'),
 })
 
-export const SIDEBAR_CONFIG_VERSION = 4
+export const SIDEBAR_CONFIG_VERSION = 5
 
 function getIconName(iconComponent: ComponentType<{ className?: string }>) {
   const entry = Object.entries(sidebarIconMap).find(
@@ -138,40 +138,80 @@ export function buildDefaultSidebarConfig(): SidebarConfig {
 export function migrateSidebarConfig(
   storedConfig: StoredSidebarConfig
 ): SidebarConfig {
+  const removedItemIds = new Set(
+    [
+      ...storedConfig.groups,
+      ...Object.values(storedConfig.pluginPreferences?.groups ?? {}),
+    ].flatMap((group) =>
+      (group.items ?? [])
+        .filter(
+          (item) =>
+            'url' in item &&
+            (item.url === '/gateways' || item.url === '/httproutes')
+        )
+        .map((item) => item.id)
+    )
+  )
   return {
     ...storedConfig,
     version: SIDEBAR_CONFIG_VERSION,
+    hiddenItems: storedConfig.hiddenItems.filter(
+      (id) => !removedItemIds.has(id)
+    ),
+    pinnedItems: storedConfig.pinnedItems.filter(
+      (id) => !removedItemIds.has(id)
+    ),
+    pluginPreferences: storedConfig.pluginPreferences
+      ? {
+          ...storedConfig.pluginPreferences,
+          groups: Object.fromEntries(
+            Object.entries(storedConfig.pluginPreferences.groups).map(
+              ([id, group]) => [
+                id,
+                {
+                  ...group,
+                  items: group.items?.filter(
+                    (item) => !removedItemIds.has(item.id)
+                  ),
+                },
+              ]
+            )
+          ),
+        }
+      : undefined,
     groups: storedConfig.groups.map((group) => ({
       ...group,
-      items: group.items.map((item): SidebarItem => {
-        const apiGroup = item.apiGroup || item.crdGroup
-        const baseItem = {
-          id: item.id,
-          titleKey: item.titleKey,
-          icon: item.icon,
-          visible: item.visible,
-          pinned: item.pinned,
-          order: item.order,
-        }
+      items: group.items
+        .filter((item) => !removedItemIds.has(item.id))
+        .map((item): SidebarItem => {
+          const apiGroup = item.apiGroup || item.crdGroup
+          const baseItem = {
+            id: item.id,
+            titleKey: item.titleKey,
+            icon: item.icon,
+            visible: item.visible,
+            pinned: item.pinned,
+            order: item.order,
+          }
 
-        if (apiGroup) {
+          if (apiGroup) {
+            return {
+              ...baseItem,
+              type: 'apiGroup',
+              apiGroup,
+            }
+          }
+
           return {
             ...baseItem,
-            type: 'apiGroup',
-            apiGroup,
+            type:
+              item.type === 'customResource' ||
+              (!item.type && item.url?.startsWith('/crds/'))
+                ? 'customResource'
+                : 'link',
+            url: item.url!,
           }
-        }
-
-        return {
-          ...baseItem,
-          type:
-            item.type === 'customResource' ||
-            (!item.type && item.url?.startsWith('/crds/'))
-              ? 'customResource'
-              : 'link',
-          url: item.url!,
-        }
-      }),
+        }),
     })),
   }
 }

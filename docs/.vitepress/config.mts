@@ -29,11 +29,22 @@ export default defineConfig({
       title: "Kite",
       description: "一个现代 Kubernetes 仪表盘",
       themeConfig: {
+        outline: { label: "本页目录" },
+        sidebarMenuLabel: "目录",
+        returnToTopLabel: "返回顶部",
+        darkModeSwitchLabel: "外观",
+        darkModeSwitchTitle: "切换至深色模式",
+        lightModeSwitchTitle: "切换至浅色模式",
         nav: [
           { text: "首页", link: "/zh/" },
-          { text: "指南", link: "/zh/guide/" },
-          { text: "配置", link: "/zh/config/" },
-          { text: "API", link: "/zh/api/authentication" },
+          { text: "指南", link: "/zh/guide/", activeMatch: "^/zh/guide/" },
+          { text: "配置", link: "/zh/config/", activeMatch: "^/zh/config/" },
+          { text: "插件", link: "/zh/plugins/", activeMatch: "^/zh/plugins/" },
+          {
+            text: "API",
+            link: "/zh/api/authentication",
+            activeMatch: "^/zh/api/",
+          },
           { text: "常见问题", link: "/zh/faq" },
         ],
         editLink: {
@@ -61,6 +72,38 @@ export default defineConfig({
     logo: "/logo.svg",
     search: {
       provider: "local",
+      options: {
+        locales: {
+          root: {
+            translations: {
+              button: {
+                buttonText: "Search docs",
+                buttonAriaLabel: "Search docs",
+              },
+            },
+          },
+          zh: {
+            translations: {
+              button: { buttonText: "搜索文档", buttonAriaLabel: "搜索文档" },
+              modal: {
+                displayDetails: "显示详细列表",
+                resetButtonTitle: "清除搜索",
+                backButtonTitle: "关闭搜索",
+                noResultsText: "无法找到相关结果",
+                footer: {
+                  selectText: "选择",
+                  selectKeyAriaLabel: "回车键",
+                  navigateText: "切换",
+                  navigateUpKeyAriaLabel: "向上箭头",
+                  navigateDownKeyAriaLabel: "向下箭头",
+                  closeText: "关闭",
+                  closeKeyAriaLabel: "Esc 键",
+                },
+              },
+            },
+          },
+        },
+      },
     },
     langMenuLabel: "Language",
     editLink: {
@@ -70,9 +113,10 @@ export default defineConfig({
 
     nav: [
       { text: "Home", link: "/" },
-      { text: "Guide", link: "/guide/" },
-      { text: "Configuration", link: "/config/" },
-      { text: "API", link: "/api/authentication" },
+      { text: "Guide", link: "/guide/", activeMatch: "^/guide/" },
+      { text: "Configuration", link: "/config/", activeMatch: "^/config/" },
+      { text: "Plugins", link: "/plugins/", activeMatch: "^/plugins/" },
+      { text: "API", link: "/api/authentication", activeMatch: "^/api/" },
       { text: "FAQ", link: "/faq" },
     ],
 
@@ -206,6 +250,67 @@ export default defineConfig({
         {
           text: "用户管理",
           link: "/zh/api/user-management",
+        },
+      ],
+      "/plugins/": [
+        {
+          text: "Getting Started",
+          items: [
+            { text: "Introduction to Plugins", link: "/plugins/" },
+            { text: "Quick Start", link: "/plugins/quick-start" },
+          ],
+        },
+        {
+          text: "API Reference",
+          items: [
+            { text: "Plugin Identity", link: "/plugins/api/plugin-identity" },
+            { text: "Plugin Configuration", link: "/plugins/api/plugin-config" },
+            {
+              text: "Resource Queries and Operations",
+              link: "/plugins/api/resources",
+            },
+            { text: "UI Components", link: "/plugins/api/ui" },
+            { text: "Page Navigation", link: "/plugins/api/navigation" },
+            { text: "Host State and Interaction", link: "/plugins/api/hooks" },
+            { text: "Metrics and Logs", link: "/plugins/api/observability" },
+          ],
+        },
+        {
+          text: "Guides",
+          items: [
+            { text: "Internationalization", link: "/plugins/i18n" },
+            { text: "Debugging", link: "/plugins/debugging" },
+            { text: "Publishing Plugins", link: "/plugins/publishing" },
+          ],
+        },
+      ],
+      "/zh/plugins/": [
+        {
+          text: "开始使用",
+          items: [
+            { text: "插件简介", link: "/zh/plugins/" },
+            { text: "快速开始", link: "/zh/plugins/quick-start" },
+          ],
+        },
+        {
+          text: "API 参考",
+          items: [
+            { text: "插件身份", link: "/zh/plugins/api/plugin-identity" },
+            { text: "插件配置", link: "/zh/plugins/api/plugin-config" },
+            { text: "资源查询与操作", link: "/zh/plugins/api/resources" },
+            { text: "UI 组件", link: "/zh/plugins/api/ui" },
+            { text: "页面跳转", link: "/zh/plugins/api/navigation" },
+            { text: "宿主状态与交互", link: "/zh/plugins/api/hooks" },
+            { text: "指标与日志", link: "/zh/plugins/api/observability" },
+          ],
+        },
+        {
+          text: "指南",
+          items: [
+            { text: "国际化", link: "/zh/plugins/i18n" },
+            { text: "调试", link: "/zh/plugins/debugging" },
+            { text: "发布插件", link: "/zh/plugins/publishing" },
+          ],
         },
       ],
     },

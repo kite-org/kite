@@ -3,12 +3,16 @@
 ## Data Sharing
 
 By default, Kite does not collect any analytics data.
+If you would like to help improve the product, you can turn reporting on or off using **Enable analytics** during initial setup or in General settings.
 
-If you would like to help improve the product, you can set the environment variable `ENABLE_ANALYTICS` to `true`.
+When enabled, the Kite server reports installation statistics once every 24 hours to help improve the product. Reports contain:
 
-Kite will use umami to collect minimal anonymous usage data.
+- A randomly generated installation ID
+- The Kite version and connected Kubernetes cluster versions
+- Installed plugin IDs, versions, and enabled status
+- The operating system and CPU architecture
 
-The source code can be found [here](https://github.com/kite-org/kite/blob/main/pkg/utils/utils.go#L10-L16).
+The reporting implementation is available in [the source code](https://github.com/kite-org/kite/blob/main/pkg/telemetry/telemetry.go).
 
 ## Permission Issues
 

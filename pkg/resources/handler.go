@@ -44,7 +44,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	metricsv1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
-	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type resourceHandler interface {
@@ -179,8 +178,6 @@ func newResourceHandlers() map[string]resourceHandler {
 		string(common.StorageVersionMigrations):          NewGenericResourceHandler[*storagemigrationv1beta1.StorageVersionMigration, *storagemigrationv1beta1.StorageVersionMigrationList](common.StorageVersionMigrations),
 		string(common.PodMetrics):                        NewGenericResourceHandler[*metricsv1.PodMetrics, *metricsv1.PodMetricsList](common.PodMetrics),
 		string(common.NodeMetrics):                       NewGenericResourceHandler[*metricsv1.NodeMetrics, *metricsv1.NodeMetricsList](common.NodeMetrics),
-		string(common.Gateways):                          NewGenericResourceHandler[*gatewayapiv1.Gateway, *gatewayapiv1.GatewayList](common.Gateways),
-		string(common.HTTPRoutes):                        NewGenericResourceHandler[*gatewayapiv1.HTTPRoute, *gatewayapiv1.HTTPRouteList](common.HTTPRoutes),
 		string(common.HorizontalPodAutoscalers): newVersionedResourceHandler(
 			newResourceVersionCandidate("autoscaling/v2", string(common.HorizontalPodAutoscalers), NewGenericResourceHandler[*autoscalingv2.HorizontalPodAutoscaler, *autoscalingv2.HorizontalPodAutoscalerList](common.HorizontalPodAutoscalers)),
 			newResourceVersionCandidate("autoscaling/v1", string(common.HorizontalPodAutoscalers), NewGenericResourceHandler[*autoscalingv1.HorizontalPodAutoscaler, *autoscalingv1.HorizontalPodAutoscalerList](common.HorizontalPodAutoscalers)),
@@ -245,6 +242,8 @@ func RegisterRoutes(group *gin.RouterGroup) {
 		otherGroup.GET("/_all/:name", crHandler.Get)
 		otherGroup.GET("/_all/:name/history", crHandler.ListHistory)
 		otherGroup.GET("/_all/:name/describe", crHandler.Describe)
+		otherGroup.POST("/_all", crHandler.Create)
+		otherGroup.PATCH("/_all/:name", crHandler.Patch)
 		otherGroup.PUT("/_all/:name", crHandler.Update)
 		otherGroup.DELETE("/_all/:name", crHandler.Delete)
 
@@ -252,6 +251,8 @@ func RegisterRoutes(group *gin.RouterGroup) {
 		otherGroup.GET("/:namespace/:name", crHandler.Get)
 		otherGroup.GET("/:namespace/:name/history", crHandler.ListHistory)
 		otherGroup.GET("/:namespace/:name/describe", crHandler.Describe)
+		otherGroup.POST("/:namespace", crHandler.Create)
+		otherGroup.PATCH("/:namespace/:name", crHandler.Patch)
 		otherGroup.PUT("/:namespace/:name", crHandler.Update)
 		otherGroup.DELETE("/:namespace/:name", crHandler.Delete)
 	}

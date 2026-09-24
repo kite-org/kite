@@ -1,3 +1,5 @@
+import type { YamlEditorProps } from '@kite-dev/plugin-sdk/ui'
+
 import { MonacoEditor } from '@/lib/monaco-loader'
 import {
   defineMonacoBackgroundThemes,
@@ -6,19 +8,12 @@ import {
 
 import { useAppearance } from './appearance-provider'
 
-interface SimpleYamlEditorProps {
-  value: string
-  onChange: (value: string | undefined) => void
-  disabled?: boolean
-  height?: string
-}
-
 export function SimpleYamlEditor({
   value,
   onChange,
   disabled = false,
   height = '400px',
-}: SimpleYamlEditorProps) {
+}: YamlEditorProps) {
   const { actualTheme, colorTheme } = useAppearance()
   const themeMode = actualTheme === 'dark' ? 'dark' : 'light'
   const backgroundColor = useMonacoBackgroundColor(

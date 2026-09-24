@@ -112,6 +112,24 @@ db:
     # Additional sqlite database connection options
     # Example: "_journal_mode=WAL&_busy_timeout=5000"
     options: ""
+
+# Plugin files can share SQLite's volume at /data.
+plugins:
+  # Plugin directory inside the container (PLUGIN_DIR).
+  directory: /data/plugins
+  # Keep disabled to reuse SQLite's volume; enable for a separate plugin PVC.
+  # Without persistent storage, Pod recreation loses plugin files. Official
+  # plugins are downloaded again; manually uploaded plugins must be re-uploaded.
+  # Automatic downloads also require the installation records in the database.
+  persistence:
+    enabled: false
+    # Use an existing PVC instead of creating one when persistence is enabled.
+    existingClaim: ""
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
+
 extraEnvs:
   # - name: "EXAMPLE_ENV"
   #   value: "example_value"

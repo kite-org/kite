@@ -1,0 +1,18 @@
+{{- if and .Values.plugins.persistence.enabled (not .Values.plugins.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "kite.fullname" . }}-plugins
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kite.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .Values.plugins.persistence.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.plugins.persistence.size }}
+  {{- if .Values.plugins.persistence.storageClass }}
+  storageClassName: {{ .Values.plugins.persistence.storageClass | quote }}
+  {{- end }}
+{{- end }}

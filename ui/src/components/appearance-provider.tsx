@@ -58,7 +58,7 @@ export default AppearanceProvider
 // Unified hook for reading/updating all appearance settings in one place.
 export function useAppearance() {
   const { theme, actualTheme, setTheme } = useTheme()
-  const { colorTheme, setColorTheme } = useColorTheme()
+  const { colorTheme, setColorTheme, pluginThemes } = useColorTheme()
   const { displayScale, setDisplayScale } = useDisplayScale()
   const { font, setFont } = useFont()
 
@@ -69,6 +69,7 @@ export function useAppearance() {
       setTheme,
       colorTheme,
       setColorTheme,
+      pluginThemes,
       displayScale,
       setDisplayScale,
       font,
@@ -78,6 +79,7 @@ export function useAppearance() {
       theme,
       actualTheme,
       colorTheme,
+      pluginThemes,
       displayScale,
       font,
       setTheme,

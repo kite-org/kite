@@ -60,22 +60,6 @@ func TestInjectKiteBase(t *testing.T) {
 	})
 }
 
-func TestInjectAnalytics(t *testing.T) {
-	html := `<html><head><title>kite</title></head><body></body></html>`
-
-	got := InjectAnalytics(html)
-	if !strings.Contains(got, `https://cloud.umami.is/script.js`) {
-		t.Fatalf("expected analytics script to be injected: %s", got)
-	}
-	if strings.Index(got, `https://cloud.umami.is/script.js`) > strings.Index(got, `</head>`) {
-		t.Fatalf("expected analytics script before </head>: %s", got)
-	}
-
-	if unchanged := InjectAnalytics("<html><body></body></html>"); unchanged != "<html><body></body></html>" {
-		t.Fatalf("InjectAnalytics() = %q, want unchanged input", unchanged)
-	}
-}
-
 func TestGetImageRegistryAndRepo(t *testing.T) {
 	testcase := []struct {
 		image    string

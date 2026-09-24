@@ -2,7 +2,10 @@
 
 Kite 默认支持一些环境变量，来改变一些配置项的默认值。
 
+- **PLUGIN_DIR**：已安装插件的文件目录，默认是相对于 Kite 工作目录的 `data/plugins`（官方容器镜像中为 `/app/data/plugins`）。Helm Chart 将其设为 `/data/plugins`，可复用 SQLite 的存储卷。目录与持久化配置见[插件存储](./chart-values#插件存储)。
+
 - **KITE_CONFIG_FILE**：配置文件路径。该功能仅适用于 Kite `v0.10.0` 及以上版本。设置后，Kite 从该文件加载集群、OAuth、LDAP、RBAC 和超级用户设置。详见[配置文件](/zh/config/config-file)。
+- **PLUGIN_DEV_URL**：开发插件的 manifest 地址，例如 `http://localhost:5174/plugin.json`。浏览器直接加载该地址，同 ID 时优先使用开发插件，不修改安装记录。不设置时仅加载已安装插件。Helm 部署可通过 `extraEnvs` 配置，详见[插件调试](/zh/plugins/debugging)。
 - **KITE_USERNAME**：兼容旧配置的超级用户名环境变量。仅在未设置 `KITE_CONFIG_FILE` 时，用于环境变量到数据库配置的迁移。
 - **KITE_PASSWORD**：兼容旧配置的超级用户密码环境变量。仅在未设置 `KITE_CONFIG_FILE` 时，用于环境变量到数据库配置的迁移。
 - **KUBECONFIG**：兼容旧配置的 kubeconfig 环境变量。仅在未设置 `KITE_CONFIG_FILE` 时读取并导入集群配置。

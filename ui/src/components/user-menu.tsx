@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
+import { pluginLabel } from '@/plugins/sidebar'
 import {
   CaseSensitive,
   Check,
@@ -7,9 +8,12 @@ import {
   Minus,
   Palette,
   Plus,
+  Puzzle,
   UserCog,
   ZoomIn,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -17,6 +21,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -25,7 +30,11 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { useAppearance } from '@/components/appearance-provider'
-import { ColorTheme, colorThemes } from '@/components/color-theme-provider'
+import {
+  ColorTheme,
+  colorThemes,
+  PluginColorThemeEntry,
+} from '@/components/color-theme-provider'
 
 import { AccountSettingsDialog } from './account-settings-dialog'
 import { SidebarCustomizer } from './sidebar-customizer'
@@ -35,10 +44,12 @@ const DISPLAY_SCALE_MAX = 120
 const DISPLAY_SCALE_STEP = 5
 
 export function UserMenu() {
+  const { t, i18n } = useTranslation()
   const { user, logout, hasGlobalSidebarPreference } = useAuth()
   const {
     colorTheme,
     setColorTheme,
+    pluginThemes,
     displayScale,
     setDisplayScale,
     font,
@@ -48,6 +59,22 @@ export function UserMenu() {
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false)
   const [scaleInput, setScaleInput] = useState(String(displayScale))
   const isPasswordUser = !user?.provider || user.provider === 'password'
+  const pluginThemeGroups = useMemo(() => {
+    const groups = new Map<
+      string,
+      { pluginId: string; pluginName: string; themes: PluginColorThemeEntry[] }
+    >()
+    for (const theme of pluginThemes) {
+      const group = groups.get(theme.pluginId) ?? {
+        pluginId: theme.pluginId,
+        pluginName: theme.pluginName,
+        themes: [],
+      }
+      group.themes.push(theme)
+      groups.set(theme.pluginId, group)
+    }
+    return [...groups.values()]
+  }, [pluginThemes])
 
   if (!user) return null
 
@@ -135,6 +162,15 @@ export function UserMenu() {
 
           <DropdownMenuSeparator />
 
+          {user.isAdmin() && (
+            <DropdownMenuItem asChild>
+              <Link to="/plugins">
+                <Puzzle className="size-4" />
+                <span>{t('plugins.title')}</span>
+              </Link>
+            </DropdownMenuItem>
+          )}
+
           {isPasswordUser && (
             <>
               <DropdownMenuItem
@@ -176,6 +212,32 @@ export function UserMenu() {
                   </DropdownMenuItem>
                 )
               })}
+              {pluginThemeGroups.map((group) => (
+                <Fragment key={group.pluginId}>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>{group.pluginName}</DropdownMenuLabel>
+                  {group.themes.map((theme) => {
+                    const isSelected = theme.id === colorTheme
+
+                    return (
+                      <DropdownMenuItem
+                        key={theme.id}
+                        onClick={() => setColorTheme(theme.id)}
+                        role="menuitemradio"
+                        aria-checked={isSelected}
+                        className={`flex items-center justify-between gap-2 cursor-pointer ${
+                          isSelected ? 'font-medium text-foreground' : ''
+                        }`}
+                      >
+                        <span>{pluginLabel(theme.label, i18n.language)}</span>
+                        {isSelected && (
+                          <Check className="h-4 w-4 text-primary" />
+                        )}
+                      </DropdownMenuItem>
+                    )
+                  })}
+                </Fragment>
+              ))}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
 
