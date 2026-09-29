@@ -63,7 +63,8 @@
     "remark-gfm": "^4.0.1",
     "semver": "^7.8.5",
     "sonner": "^2.0.8",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
