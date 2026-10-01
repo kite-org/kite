@@ -9,6 +9,8 @@ export function SecretSelector({
   placeholder = 'Select a secret',
   className,
   avoidHelmSecrets = false,
+  allowedTypes,
+  excludedSecrets = [],
 }: {
   selectedSecret?: string
   onSecretChange: (secret: string) => void
@@ -16,11 +18,23 @@ export function SecretSelector({
   placeholder?: string
   className?: string
   avoidHelmSecrets?: boolean
+  allowedTypes?: string[]
+  excludedSecrets?: string[]
 }) {
   const filter = useCallback(
-    (item: { type?: string }) =>
-      !avoidHelmSecrets || !item.type?.includes('helm.sh/release.v1'),
-    [avoidHelmSecrets]
+    (item: { metadata?: { name?: string }; type?: string }) => {
+      if (avoidHelmSecrets && item.type?.includes('helm.sh/release.v1')) {
+        return false
+      }
+      if (allowedTypes?.length && !allowedTypes.includes(item.type || '')) {
+        return false
+      }
+      return (
+        item.metadata?.name === selectedSecret ||
+        !excludedSecrets.includes(item.metadata?.name || '')
+      )
+    },
+    [allowedTypes, avoidHelmSecrets, excludedSecrets, selectedSecret]
   )
 
   return (
@@ -31,7 +45,11 @@ export function SecretSelector({
       namespace={namespace}
       placeholder={placeholder}
       className={className}
-      filter={avoidHelmSecrets ? filter : undefined}
+      filter={
+        avoidHelmSecrets || allowedTypes?.length || excludedSecrets.length
+          ? filter
+          : undefined
+      }
     />
   )
 }
