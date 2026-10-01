@@ -56,6 +56,7 @@ const RESOURCE_SUGGESTIONS = [
   'prometheus',
   ...resourceCatalog
     .filter((resource) => resource.type !== 'crs')
+    .filter((resource) => !('synthetic' in resource && resource.synthetic))
     .map((resource) => resource.type),
 ]
 

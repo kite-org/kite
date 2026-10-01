@@ -399,6 +399,7 @@ export interface ResourcesTypeMap {
   mutatingwebhookconfigurations: KubernetesResourceList
   mutatingadmissionpolicies: KubernetesResourceList
   mutatingadmissionpolicybindings: KubernetesResourceList
+  policies: KubernetesResourceList
   resourceslices: KubernetesResourceList
   resourceclaims: KubernetesResourceList
   deviceclasses: KubernetesResourceList
@@ -510,6 +511,7 @@ export interface ResourceTypeMap {
   mutatingwebhookconfigurations: KubernetesResource
   mutatingadmissionpolicies: KubernetesResource
   mutatingadmissionpolicybindings: KubernetesResource
+  policies: KubernetesResource
   resourceslices: KubernetesResource
   resourceclaims: KubernetesResource
   deviceclasses: KubernetesResource
