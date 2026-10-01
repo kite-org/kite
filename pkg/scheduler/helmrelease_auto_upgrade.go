@@ -122,6 +122,12 @@ func HelmReleaseAutoUpgradeTaskKey(namespace, releaseName string) string {
 	return namespace + "/" + releaseName
 }
 
+func DeleteHelmReleaseAutoUpgradeTask(clusterName, namespace, releaseName string) error {
+	return model.DB.
+		Where("cluster_name = ? AND type = ? AND key = ?", clusterName, HelmReleaseAutoUpgradeTaskType, HelmReleaseAutoUpgradeTaskKey(namespace, releaseName)).
+		Delete(&model.ScheduledTask{}).Error
+}
+
 func HelmReleaseAutoUpgradeTaskName(namespace, releaseName string) string {
 	return fmt.Sprintf("Helm release auto upgrade %s/%s", namespace, releaseName)
 }
