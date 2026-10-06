@@ -5,8 +5,22 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "kite.labels" . | nindent 4 }}
+    {{- with .Values.service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   type: {{ .Values.service.type }}
+  {{- if .Values.service.ipDualStack.enabled }}
+  {{- with .Values.service.ipDualStack.ipFamilies }}
+  ipFamilies:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  ipFamilyPolicy: {{ .Values.service.ipDualStack.ipFamilyPolicy }}
+  {{- end }}
   ports:
     - port: {{ .Values.service.port }}
       targetPort: http
