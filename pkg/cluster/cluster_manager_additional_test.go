@@ -112,6 +112,7 @@ func TestK8sProxyTransportRoundTrip(t *testing.T) {
 		apiServerURL: "https://apiserver.example.com",
 		namespace:    "monitoring",
 		svcName:      "prometheus",
+		scheme:       "https",
 		port:         "443",
 	}
 
@@ -135,8 +136,8 @@ func TestK8sProxyTransportRoundTrip(t *testing.T) {
 	if gotHost != "apiserver.example.com" {
 		t.Fatalf("host = %q, want %q", gotHost, "apiserver.example.com")
 	}
-	if gotPath != "/api/v1/namespaces/monitoring/services/prometheus:443/proxy/api/v1/query" {
-		t.Fatalf("path = %q, want %q", gotPath, "/api/v1/namespaces/monitoring/services/prometheus:443/proxy/api/v1/query")
+	if gotPath != "/api/v1/namespaces/monitoring/services/https:prometheus:443/proxy/api/v1/query" {
+		t.Fatalf("path = %q, want %q", gotPath, "/api/v1/namespaces/monitoring/services/https:prometheus:443/proxy/api/v1/query")
 	}
 }
 

@@ -176,7 +176,7 @@ func (t *k8sProxyTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	req.URL.Scheme = proxyURL.Scheme
 	req.URL.Host = proxyURL.Host
 
-	servicePath := fmt.Sprintf("/api/v1/namespaces/%s/services/%s:%s/proxy", t.namespace, t.svcName, t.port)
+	servicePath := fmt.Sprintf("/api/v1/namespaces/%s/services/%s:%s:%s/proxy", t.namespace, t.scheme, t.svcName, t.port)
 	req.URL.Path = servicePath + req.URL.Path
 
 	return t.transport.RoundTrip(req)
