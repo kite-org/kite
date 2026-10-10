@@ -1175,6 +1175,21 @@
     "deleting": "删除中..."
   },
   "aiChat": {
+    "title": "AI 助手",
+    "thinking": "正在思考",
+    "thoughtProcess": "思考过程",
+    "running": "执行中",
+    "completed": "已完成",
+    "cancelled": "已取消",
+    "failed": "失败",
+    "awaitingInput": "等待输入",
+    "needsApproval": "需要确认",
+    "promptPlaceholder": "问问集群的情况…",
+    "send": "发送消息",
+    "stop": "停止生成",
+    "continue": "继续",
+    "selectOption": "请选择",
+    "openInNewTab": "在新标签页打开",
     "disclaimer": "AI 回复仅供参考，请仔细核实。",
     "suggestedPrompts": {
       "hint": "从一个具体的问题开始",

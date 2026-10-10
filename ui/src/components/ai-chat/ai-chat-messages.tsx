@@ -3,6 +3,8 @@ import {
   Bot,
   CheckCircle2,
   ChevronRight,
+  CircleHelp,
+  CornerDownLeft,
   Loader2,
   Wrench,
   XCircle,
@@ -24,6 +26,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 
+import { AIChatThinking } from './ai-chat-thinking'
 import { ChatMessage, PageContext } from './ai-chat-types'
 import {
   buildInputDefaults,
@@ -58,18 +61,29 @@ function ToolCallMessage({
   const isError = message.actionStatus === 'error'
   const inputRequest = message.inputRequest
   const title = inputRequest?.title || message.toolName
+  const statusLabel = isError
+    ? t('aiChat.failed')
+    : isDenied
+      ? t('aiChat.cancelled')
+      : inputRequest
+        ? t('aiChat.awaitingInput')
+        : isPending && message.pendingAction
+          ? t('aiChat.needsApproval')
+          : isConfirmed || message.toolResult
+            ? t('aiChat.completed')
+            : t('aiChat.running')
 
   const statusIcon = () => {
-    if (isPending) {
-      return <Loader2 className="h-3 w-3 animate-spin text-yellow-500" />
+    if (isError) return <XCircle className="h-3 w-3 text-red-500" />
+    if (isDenied) return <XCircle className="h-3 w-3 text-muted-foreground" />
+    if (inputRequest || (isPending && message.pendingAction)) {
+      return <CircleHelp className="h-3.5 w-3.5 text-muted-foreground" />
     }
     if (isConfirmed) return <CheckCircle2 className="h-3 w-3 text-green-500" />
-    if (isDenied) return <XCircle className="h-3 w-3 text-muted-foreground" />
-    if (isError) return <XCircle className="h-3 w-3 text-red-500" />
     if (message.toolResult) {
       return <CheckCircle2 className="h-3 w-3 text-green-500" />
     }
-    return <Loader2 className="h-3 w-3 animate-spin" />
+    return <Loader2 className="h-3 w-3 motion-safe:animate-spin" />
   }
 
   useEffect(() => {
@@ -113,35 +127,43 @@ function ToolCallMessage({
   }
 
   return (
-    <div className="mx-3 my-1">
+    <div className="mx-5 my-1 border-l pl-3.5">
       <button
-        className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={`tool-details-${message.id}`}
+        className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onClick={() => setExpanded(!expanded)}
       >
-        <Wrench className="h-3 w-3" />
-        <span className="font-medium">{title}</span>
+        <Wrench className="h-3.5 w-3.5 shrink-0" />
+        <span className="min-w-0 truncate font-medium text-foreground/85">
+          {title}
+        </span>
+        <span className="ml-auto shrink-0 text-[11px]">{statusLabel}</span>
         {statusIcon()}
         <ChevronRight
           className={`h-3 w-3 transition-transform ${expanded ? 'rotate-90' : ''}`}
         />
       </button>
-      {expanded && toolPreview && (
-        <div className="mt-1 rounded border bg-muted/40 p-2">
-          <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            {toolPreview.label}
+      <div id={`tool-details-${message.id}`} hidden={!expanded}>
+        {expanded && toolPreview && (
+          <div className="my-2 rounded-lg border bg-muted/30 p-3">
+            <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              {toolPreview.label}
+            </div>
+            <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all text-xs">
+              {toolPreview.content}
+            </pre>
           </div>
-          <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all text-xs">
-            {toolPreview.content}
+        )}
+        {expanded && message.toolResult && (
+          <pre className="my-2 max-h-40 overflow-auto rounded-lg border bg-muted/30 p-3 text-xs whitespace-pre-wrap break-all">
+            {message.toolResult}
           </pre>
-        </div>
-      )}
-      {expanded && message.toolResult && (
-        <pre className="mt-1 max-h-40 overflow-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap break-all">
-          {message.toolResult}
-        </pre>
-      )}
+        )}
+      </div>
       {inputRequest && (
-        <div className="mt-1.5 rounded border border-primary/20 bg-primary/5 p-3">
+        <div className="my-2 rounded-xl border bg-card p-4 shadow-xs">
           <p className="text-sm font-medium text-foreground">
             {inputRequest.title}
           </p>
@@ -155,7 +177,7 @@ function ToolCallMessage({
               {inputRequest.options?.map((option) => (
                 <button
                   key={option.value}
-                  className="rounded-md border bg-background px-3 py-2 text-left transition-colors hover:bg-muted"
+                  className="rounded-lg border bg-background px-3 py-2.5 text-left transition-colors hover:border-ring/40 hover:bg-muted"
                   onClick={() =>
                     onSubmitInput?.(message.id, {
                       [inputRequest.name || 'value']: option.value,
@@ -237,7 +259,7 @@ function ToolCallMessage({
                             >
                               <SelectValue
                                 placeholder={
-                                  field.placeholder || 'Select an option'
+                                  field.placeholder || t('aiChat.selectOption')
                                 }
                               />
                             </SelectTrigger>
@@ -281,7 +303,7 @@ function ToolCallMessage({
               })}
               <div className="flex items-center gap-2">
                 <Button size="sm" className="h-8" onClick={submitForm}>
-                  {inputRequest.submitLabel || 'Continue'}
+                  {inputRequest.submitLabel || t('aiChat.continue')}
                 </Button>
                 <Button
                   size="sm"
@@ -297,31 +319,35 @@ function ToolCallMessage({
         </div>
       )}
       {isPending && message.pendingAction && (
-        <div className="mt-1.5 rounded border border-yellow-500/30 bg-yellow-500/5 p-2">
-          <p className="mb-1.5 text-xs font-medium text-foreground">
+        <div className="my-2 rounded-xl border bg-card p-4 shadow-xs">
+          <p className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+            <CircleHelp className="size-3.5" />
+            {t('aiChat.needsApproval')}
+          </p>
+          <p className="mb-3 text-sm font-medium text-foreground wrap-break-word">
             {describeAction(
               message.pendingAction.tool,
               message.pendingAction.args
-            )}
+            ).replace(/^(Patch .*?): .+$/, '$1')}
           </p>
           <div className="flex items-center gap-2">
             <Button
               size="sm"
               variant="default"
-              className="h-6 px-2 text-xs"
+              className="h-8 rounded-lg px-3 text-xs"
               onClick={() => onConfirm?.(message.id)}
             >
               <CheckCircle2 className="mr-1 h-3 w-3" />
-              Confirm
+              {t('common.actions.confirm')}
             </Button>
             <Button
               size="sm"
               variant="outline"
-              className="h-6 px-2 text-xs"
+              className="h-8 rounded-lg px-3 text-xs"
               onClick={() => onDeny?.(message.id)}
             >
               <XCircle className="mr-1 h-3 w-3" />
-              Cancel
+              {t('common.actions.cancel')}
             </Button>
           </div>
         </div>
@@ -332,17 +358,17 @@ function ToolCallMessage({
 
 function MessageBubble({
   message,
+  isThinking,
   onConfirm,
   onDeny,
   onSubmitInput,
 }: {
   message: ChatMessage
+  isThinking: boolean
   onConfirm?: (id: string) => void
   onDeny?: (id: string) => void
   onSubmitInput?: (id: string, values: Record<string, unknown>) => void
 }) {
-  const [thinkingExpanded, setThinkingExpanded] = useState(false)
-
   if (message.role === 'tool') {
     return (
       <ToolCallMessage
@@ -365,13 +391,13 @@ function MessageBubble({
 
   return (
     <div
-      className={`mx-3 my-2 flex ${isUser ? 'justify-end' : 'justify-start'}`}
+      className={`mx-5 my-4 flex ${isUser ? 'justify-end' : 'justify-start'}`}
     >
       <div
-        className={`min-w-0 max-w-[85%] overflow-hidden rounded-lg px-3 py-2 text-sm wrap-break-word ${
+        className={`min-w-0 overflow-hidden text-sm wrap-break-word ${
           isUser
-            ? 'bg-primary text-primary-foreground whitespace-pre-wrap'
-            : 'bg-muted text-foreground'
+            ? 'max-w-[85%] rounded-2xl bg-muted px-3.5 py-2.5 text-foreground whitespace-pre-wrap'
+            : 'w-full text-foreground'
         }`}
       >
         {isUser ? (
@@ -379,23 +405,11 @@ function MessageBubble({
         ) : (
           <>
             {hasThinking && (
-              <div className="mb-2">
-                <button
-                  className="mb-1 flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-                  onClick={() => setThinkingExpanded((prev) => !prev)}
-                >
-                  <ChevronRight
-                    className={`h-3 w-3 transition-transform ${thinkingExpanded ? 'rotate-90' : ''}`}
-                  />
-                  Thinking
-                </button>
-                {thinkingExpanded && (
-                  <div className="rounded border border-dashed bg-background/60 p-2 text-xs text-muted-foreground">
-                    <div className="wrap-break-word whitespace-pre-wrap">
-                      {message.thinking || ''}
-                    </div>
-                  </div>
-                )}
+              <div className={hasContent ? 'mb-3' : ''}>
+                <AIChatThinking
+                  content={message.thinking}
+                  isThinking={isThinking}
+                />
               </div>
             )}
             {hasContent && (
@@ -480,18 +494,19 @@ function SuggestedPrompts({
   }
 
   return (
-    <div className="flex flex-col items-center gap-2 p-4">
-      <Bot className="h-8 w-8 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">
+    <div className="flex min-h-full flex-col justify-center px-5 py-8">
+      <Bot className="mb-4 h-7 w-7 text-muted-foreground" />
+      <p className="text-sm font-medium text-foreground">
         {t('aiChat.suggestedPrompts.hint')}
       </p>
-      <div className="mt-2 flex flex-wrap justify-center gap-2">
+      <div className="mt-4 flex flex-col">
         {prompts[promptSetKey].map((promptKey) => (
           <button
             key={promptKey}
-            className="rounded-full border bg-background px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex items-start gap-2.5 rounded-lg py-2.5 text-left text-xs leading-5 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
             onClick={() => onSelect(t(promptKey, templateValues))}
           >
+            <CornerDownLeft className="mt-1 size-3 shrink-0" />
             {t(promptKey, templateValues)}
           </button>
         ))}
@@ -521,29 +536,32 @@ export function AIChatMessages({
   onPromptSelect: (prompt: string) => void
   messagesEndRef: RefObject<HTMLDivElement | null>
 }) {
+  const lastMessage = messages.at(-1)
+  const hasStreamingAssistant =
+    lastMessage?.role === 'assistant' &&
+    Boolean(lastMessage.thinking || lastMessage.content)
+
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+    <div className="flex-1 min-h-0 overflow-y-auto py-2 scrollbar-hide">
       {messages.length === 0 ? (
         <SuggestedPrompts pageContext={pageContext} onSelect={onPromptSelect} />
       ) : (
         <>
-          {messages.map((message) => (
+          {messages.map((message, index) => (
             <MessageBubble
               key={message.id}
               message={message}
+              isThinking={
+                isLoading && index === messages.length - 1 && !message.content
+              }
               onConfirm={onConfirm}
               onDeny={onDeny}
               onSubmitInput={onSubmitInput}
             />
           ))}
-          {isLoading && !hasActiveToolExecution && (
-            <div className="mx-3 my-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Bot className="h-3.5 w-3.5 animate-pulse" />
-              <span className="ai-thinking-dots">
-                <span />
-                <span />
-                <span />
-              </span>
+          {isLoading && !hasActiveToolExecution && !hasStreamingAssistant && (
+            <div className="mx-5 my-4">
+              <AIChatThinking isThinking />
             </div>
           )}
           <div ref={messagesEndRef} />

@@ -186,8 +186,8 @@ export function AIChatbox({
           ? 'fixed inset-0 z-50 flex flex-col bg-background'
           : `fixed z-50 flex flex-col border bg-background shadow-2xl ${
               isMobile
-                ? 'left-2 right-2 rounded-lg'
-                : 'bottom-4 right-4 rounded-lg'
+                ? 'left-2 right-2 rounded-2xl'
+                : 'bottom-4 right-4 rounded-2xl'
             }`
       }
       style={

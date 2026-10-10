@@ -1,5 +1,5 @@
 import { useEffect, type KeyboardEvent, type RefObject } from 'react'
-import { Send, Square } from 'lucide-react'
+import { ArrowUp, Square } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -36,12 +36,13 @@ export function AIChatComposer({
   }, [inputRef, value])
 
   return (
-    <div className="shrink-0 border-t p-2">
-      <div className="flex items-end gap-2">
+    <div className="shrink-0 px-3 pb-3 pt-2">
+      <div className="flex items-end gap-2 rounded-2xl border bg-muted/30 p-2 shadow-xs transition-colors focus-within:border-ring/50 focus-within:ring-2 focus-within:ring-ring/10">
         <textarea
           ref={inputRef}
-          className="flex-1 min-w-0 resize-none rounded-md border bg-background px-3 py-2 text-base leading-5 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm"
-          placeholder="Ask about your cluster..."
+          className="flex-1 min-w-0 resize-none bg-transparent px-2 py-2 text-base leading-5 placeholder:text-muted-foreground focus-visible:outline-none md:text-sm"
+          aria-label={t('aiChat.promptPlaceholder')}
+          placeholder={t('aiChat.promptPlaceholder')}
           rows={1}
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -52,7 +53,8 @@ export function AIChatComposer({
           <Button
             size="icon"
             variant="outline"
-            className="h-9 w-9 shrink-0"
+            className="h-9 w-9 shrink-0 rounded-full"
+            aria-label={t('aiChat.stop')}
             onClick={onStop}
           >
             <Square className="h-3.5 w-3.5" />
@@ -60,15 +62,16 @@ export function AIChatComposer({
         ) : (
           <Button
             size="icon"
-            className="h-9 w-9 shrink-0"
+            className="h-9 w-9 shrink-0 rounded-full bg-foreground text-background hover:bg-foreground/85"
+            aria-label={t('aiChat.send')}
             onClick={onSend}
             disabled={!value.trim()}
           >
-            <Send className="h-3.5 w-3.5" />
+            <ArrowUp className="h-4 w-4" />
           </Button>
         )}
       </div>
-      <p className="mt-1 text-center text-[10px] leading-4 text-muted-foreground">
+      <p className="mt-2 text-center text-[10px] leading-4 text-muted-foreground">
         {t('aiChat.disclaimer')}
       </p>
     </div>
