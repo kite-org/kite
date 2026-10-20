@@ -69,7 +69,7 @@ func TestDefaultGeneralAIModelByProvider(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"anthropic", GeneralAIProviderAnthropic, DefaultGeneralAnthropicModel},
+		{"anthropic", GeneralAIProviderAnthropic, "claude-sonnet-5-5"},
 		{"openai", GeneralAIProviderOpenAI, DefaultGeneralAIModel},
 		{"unknown", "anything else", DefaultGeneralAIModel},
 	}

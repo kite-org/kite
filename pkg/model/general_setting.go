@@ -13,7 +13,7 @@ import (
 )
 
 const DefaultGeneralAIModel = "gpt-4o-mini"
-const DefaultGeneralAnthropicModel = "claude-sonnet-4-5"
+const DefaultGeneralAnthropicModel = "claude-sonnet-5-5"
 const DefaultGeneralKubectlImage = "zzde/kubectl:latest"
 const DefaultGeneralNodeTerminalImage = "busybox:latest"
 const DefaultGeneralClusterAgentImage = "ghcr.io/kite-org/kite:latest"
