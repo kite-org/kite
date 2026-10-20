@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import * as yaml from 'js-yaml'
 import { Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -15,6 +15,7 @@ import {
   installHelmRelease,
   useHelmChartContent,
 } from '@/lib/api'
+import { parseRecordYaml, pruneDefaultsDeep } from '@/lib/helm-values'
 import { translateError } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -29,7 +30,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NamespaceSelector } from '@/components/selector/namespace-selector'
-import { SimpleYamlEditor } from '@/components/simple-yaml-editor'
+import { ValuesDiffEditor } from '@/components/values-diff-editor'
 import { YamlFileTreeViewerNative as YamlFileTreeViewer } from '@/components/yaml-file-tree-viewer-native'
 
 function defaultReleaseName(name: string) {
@@ -59,6 +60,8 @@ export function HelmInstallDialog({
   const [isNamespaceManual, setIsNamespaceManual] = useState(false)
   const [createNamespace, setCreateNamespace] = useState(true)
   const [valuesYaml, setValuesYaml] = useState('')
+  const [valuesTouched, setValuesTouched] = useState(false)
+  const [sideBySide, setSideBySide] = useState(false)
   const [error, setError] = useState('')
   const [isInstalling, setIsInstalling] = useState(false)
   const [isDryRunning, setIsDryRunning] = useState(false)
@@ -72,10 +75,16 @@ export function HelmInstallDialog({
     chart.source,
     open
   )
-  const defaultValues = defaultValuesQuery.isLoading
-    ? t('common.messages.loading')
-    : defaultValuesQuery.data?.content || ''
+  const defaultValues = defaultValuesQuery.data?.content || ''
   const readableError = error.replace(/\s&&\s/g, '\n')
+
+  // kubeapps-style: prefill the editor with the chart's default values so the
+  // inline diff against the package values starts clean and highlights edits.
+  useEffect(() => {
+    if (!valuesTouched) {
+      setValuesYaml(defaultValues)
+    }
+  }, [defaultValues, valuesTouched])
 
   const buildInstallRequest = (): {
     targetNamespace: string
@@ -104,7 +113,13 @@ export function HelmInstallDialog({
           )
           return null
         }
-        values = (parsed || {}) as Record<string, unknown>
+        // The editor is prefilled with the chart defaults; submit only the
+        // minimal override set so future default changes stay effective.
+        const pruned = pruneDefaultsDeep(
+          parsed || {},
+          parseRecordYaml(defaultValues)
+        )
+        values = (pruned || {}) as Record<string, unknown>
       } catch (err) {
         setError(translateError(err, t))
         return null
@@ -288,29 +303,44 @@ export function HelmInstallDialog({
                 fillHeight
               />
             ) : (
-              <div className="grid min-h-0 gap-4 lg:grid-cols-2">
-                <div className="grid min-h-0 gap-2">
-                  <Label>{t('helmCharts.fields.defaultValues')}</Label>
-                  <SimpleYamlEditor
-                    value={defaultValues}
-                    onChange={() => undefined}
-                    disabled
-                    height="calc(100dvh - 20rem)"
-                  />
-                </div>
-
-                <div className="grid min-h-0 gap-2">
+              <div className="grid min-h-0 gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <Label>{t('helmCharts.fields.customValues')}</Label>
-                  <SimpleYamlEditor
-                    value={valuesYaml}
-                    onChange={(value) => {
-                      setValuesYaml(value || '')
-                      setDryRunPreview(null)
-                    }}
-                    disabled={isInstalling || isDryRunning}
-                    height="calc(100dvh - 20rem)"
-                  />
+                  <div className="flex flex-wrap items-center gap-3 text-sm">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      {t('helm.fields.compareAgainst')}:{' '}
+                      {t('helm.fields.packageValues')}
+                      {defaultValuesQuery.isLoading ? (
+                        <Loader2 className="size-3 animate-spin" />
+                      ) : null}
+                    </span>
+                    <Label
+                      htmlFor="helm-install-side-by-side"
+                      className="flex items-center gap-2 font-normal text-muted-foreground"
+                    >
+                      <Checkbox
+                        id="helm-install-side-by-side"
+                        checked={sideBySide}
+                        onCheckedChange={(value) =>
+                          setSideBySide(value === true)
+                        }
+                      />
+                      {t('helm.fields.sideBySide')}
+                    </Label>
+                  </div>
                 </div>
+                <ValuesDiffEditor
+                  original={defaultValues}
+                  modified={valuesYaml}
+                  renderSideBySide={sideBySide}
+                  onModifiedChange={(value) => {
+                    setValuesTouched(true)
+                    setValuesYaml(value)
+                    setDryRunPreview(null)
+                  }}
+                  readOnly={isInstalling || isDryRunning}
+                  height="calc(100dvh - 20rem)"
+                />
               </div>
             )}
 
