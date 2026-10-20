@@ -85,7 +85,7 @@ db:
   # leave empty for use existingSecret to provide it when type is not sqlite
   # Example: "mysql://user:password@tcp(host:port)/dbname"
   dsn: ""
-  
+
   # sqlite-specific options
   sqlite:
     # If true, the chart will create a PVC and mount it into the pod for the sqlite DB file.
@@ -246,12 +246,10 @@ podAnnotations: {}
 # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 podLabels: {}
 
-podSecurityContext:
-  {}
+podSecurityContext: {}
   # fsGroup: 2000
 
-securityContext:
-  {}
+securityContext: {}
   # capabilities:
   #   drop:
   #   - ALL
@@ -263,8 +261,17 @@ securityContext:
 service:
   # This sets the service type more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
   type: ClusterIP
+  annotations: {}
+  labels: {}
   # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
   port: 8080
+  # If enabled, the service will be configured to support both IPv4 and IPv6.
+  ipDualStack:
+    enabled: false
+    # ipFamilies can be one or both of "IPv4" and "IPv6".
+    ipFamilies: ["IPv4", "IPv6"]
+    # ipFamilyPolicy can be one of "SingleStack", "PreferDualStack", or "RequireDualStack".
+    ipFamilyPolicy: "PreferDualStack"
 
 # This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
@@ -347,8 +354,7 @@ gateway:
     #             type: PathPrefix
     #             value: /api
 
-resources:
-  {}
+resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
