@@ -1,13 +1,47 @@
 package resources
 
 import (
+	"errors"
+	"fmt"
+	"strings"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilexec "k8s.io/client-go/util/exec"
 	metricsv1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 )
+
+func TestPodExecExitCode(t *testing.T) {
+	tests := []struct {
+		name      string
+		err       error
+		wantCode  int
+		wantFound bool
+	}{
+		{
+			name:      "wrapped process exit",
+			err:       fmt.Errorf("failed to stream execution: %w", utilexec.CodeExitError{Err: errors.New("command failed"), Code: 2}),
+			wantCode:  2,
+			wantFound: true,
+		},
+		{
+			name: "transport error",
+			err:  errors.New("connection refused"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			code, found := podExecExitCode(tt.err)
+			if code != tt.wantCode || found != tt.wantFound {
+				t.Fatalf("podExecExitCode() = (%d, %v), want (%d, %v)", code, found, tt.wantCode, tt.wantFound)
+			}
+		})
+	}
+}
 
 func TestParseLsOutput(t *testing.T) {
 	output := `
@@ -29,6 +63,92 @@ ignored line
 	}
 	if files[1].Name != "alpha" || files[1].IsDir {
 		t.Fatalf("expected file second, got %#v", files[1])
+	}
+}
+
+func TestValidatePodExecRequest(t *testing.T) {
+	timeoutSeconds := func(seconds int) *int {
+		return &seconds
+	}
+	tests := []struct {
+		name    string
+		request PodExecRequest
+		wantErr bool
+	}{
+		{
+			name:    "valid command",
+			request: PodExecRequest{Command: []string{"echo", "hello"}, TimeoutSeconds: timeoutSeconds(30)},
+		},
+		{
+			name:    "missing command",
+			request: PodExecRequest{TimeoutSeconds: timeoutSeconds(30)},
+			wantErr: true,
+		},
+		{
+			name:    "blank executable",
+			request: PodExecRequest{Command: []string{" "}, TimeoutSeconds: timeoutSeconds(30)},
+			wantErr: true,
+		},
+		{
+			name:    "too many arguments",
+			request: PodExecRequest{Command: make([]string, maxPodExecArgs+1), TimeoutSeconds: timeoutSeconds(30)},
+			wantErr: true,
+		},
+		{
+			name:    "too long argument",
+			request: PodExecRequest{Command: []string{"echo", strings.Repeat("x", maxPodExecArgSize+1)}, TimeoutSeconds: timeoutSeconds(30)},
+			wantErr: true,
+		},
+		{
+			name:    "timeout zero",
+			request: PodExecRequest{Command: []string{"true"}, TimeoutSeconds: timeoutSeconds(0)},
+			wantErr: true,
+		},
+		{
+			name:    "timeout above maximum",
+			request: PodExecRequest{Command: []string{"true"}, TimeoutSeconds: timeoutSeconds(int(maxPodExecTimeout/time.Second) + 1)},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validatePodExecRequest(tt.request)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("validatePodExecRequest() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestApplyPodExecRequestDefaults(t *testing.T) {
+	request := PodExecRequest{Command: []string{"echo", "hello"}}
+	applyPodExecRequestDefaults(&request)
+
+	if request.TimeoutSeconds == nil || *request.TimeoutSeconds != defaultPodExecTimeoutSeconds {
+		t.Fatalf("timeoutSeconds = %v, want %d", request.TimeoutSeconds, defaultPodExecTimeoutSeconds)
+	}
+	if err := validatePodExecRequest(request); err != nil {
+		t.Fatalf("validatePodExecRequest() with default timeout returned error: %v", err)
+	}
+}
+
+func TestPodExecOutputWriterCapsCombinedOutput(t *testing.T) {
+	limit := &podExecOutputLimit{remaining: 5}
+	stdout := &podExecOutputWriter{limit: limit}
+	stderr := &podExecOutputWriter{limit: limit}
+
+	if _, err := stdout.Write([]byte("1234")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := stderr.Write([]byte("5678")); err != nil {
+		t.Fatal(err)
+	}
+	if got := stdout.buffer.String() + stderr.buffer.String(); got != "12345" {
+		t.Fatalf("combined output = %q, want %q", got, "12345")
+	}
+	if !limit.truncated {
+		t.Fatal("expected output to be marked truncated")
 	}
 }
 

@@ -1,6 +1,8 @@
 package resources
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	semver "github.com/blang/semver/v4"
@@ -24,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/watch"
+	utilexec "k8s.io/client-go/util/exec"
 	"k8s.io/klog/v2"
 	metricsv1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,6 +35,54 @@ import (
 
 type PodHandler struct {
 	*GenericResourceHandler[*corev1.Pod, *corev1.PodList]
+}
+
+const (
+	defaultPodExecTimeoutSeconds = 60
+	maxPodExecTimeout            = 15 * time.Minute
+	maxPodExecOutput             = 1 << 20
+	maxPodExecArgs               = 128
+	maxPodExecArgSize            = 4096
+)
+
+type PodExecRequest struct {
+	Container      string   `json:"container"`
+	Command        []string `json:"command"`
+	TimeoutSeconds *int     `json:"timeoutSeconds"`
+}
+
+type PodExecResponse struct {
+	Stdout    string `json:"stdout"`
+	Stderr    string `json:"stderr"`
+	Truncated bool   `json:"truncated"`
+	ExitCode  int    `json:"exitCode"`
+}
+
+type podExecOutputLimit struct {
+	mu        sync.Mutex
+	remaining int
+	truncated bool
+}
+
+type podExecOutputWriter struct {
+	limit  *podExecOutputLimit
+	buffer bytes.Buffer
+}
+
+func (w *podExecOutputWriter) Write(p []byte) (int, error) {
+	w.limit.mu.Lock()
+	defer w.limit.mu.Unlock()
+
+	written := len(p)
+	if len(p) > w.limit.remaining {
+		p = p[:w.limit.remaining]
+		w.limit.truncated = true
+	}
+	if len(p) > 0 {
+		_, _ = w.buffer.Write(p)
+		w.limit.remaining -= len(p)
+	}
+	return written, nil
 }
 
 func NewPodHandler() *PodHandler {
@@ -257,22 +309,112 @@ func (h *PodHandler) registerCustomRoutes(group *gin.RouterGroup) {
 	group.PATCH("/:namespace/:name/resize", h.Resize)
 	group.PATCH("/:namespace/:name/debug", h.Debug)
 	group.POST("/:namespace/:name/debug-copy", h.DebugCopy)
+	execGroup := group.Group("/:namespace/:name/exec")
+	execGroup.Use(requirePodExecAccess)
+	execGroup.POST("", h.Exec)
 	filesGroup := group.Group("/:namespace/:name/files")
-	filesGroup.Use(func(c *gin.Context) {
-		user := c.MustGet("user").(model.User)
-		cs := c.MustGet("cluster").(*cluster.ClientSet)
-		namespace := c.Param("namespace")
-		if !rbac.CanAccess(user, string(common.Pods), string(common.VerbExec), cs.Name, namespace) {
-			c.JSON(http.StatusForbidden, gin.H{"error": rbac.NoAccess(user.Key(), string(common.VerbExec), string(common.Pods), namespace, cs.Name)})
-			c.Abort()
-			return
-		}
-		c.Next()
-	})
+	filesGroup.Use(requirePodExecAccess)
 	filesGroup.GET("", h.ListFiles)
 	filesGroup.GET("/preview", h.PreviewFile)
 	filesGroup.GET("/download", h.DownloadFile)
 	filesGroup.PUT("/upload", h.UploadFile)
+}
+
+func requirePodExecAccess(c *gin.Context) {
+	user := c.MustGet("user").(model.User)
+	cs := c.MustGet("cluster").(*cluster.ClientSet)
+	namespace := c.Param("namespace")
+	if !rbac.CanAccess(user, string(common.Pods), string(common.VerbExec), cs.Name, namespace) {
+		c.JSON(http.StatusForbidden, gin.H{"error": rbac.NoAccess(user.Key(), string(common.VerbExec), string(common.Pods), namespace, cs.Name)})
+		c.Abort()
+		return
+	}
+	c.Next()
+}
+
+func validatePodExecRequest(request PodExecRequest) error {
+	if len(request.Command) == 0 || strings.TrimSpace(request.Command[0]) == "" {
+		return errors.New("command is required")
+	}
+	if len(request.Command) > maxPodExecArgs {
+		return fmt.Errorf("command cannot contain more than %d arguments", maxPodExecArgs)
+	}
+	for _, argument := range request.Command {
+		if len(argument) > maxPodExecArgSize {
+			return fmt.Errorf("command arguments cannot exceed %d bytes", maxPodExecArgSize)
+		}
+	}
+	if request.TimeoutSeconds == nil || *request.TimeoutSeconds <= 0 || *request.TimeoutSeconds > int(maxPodExecTimeout/time.Second) {
+		return fmt.Errorf("timeoutSeconds must be between 1 and %d", int(maxPodExecTimeout/time.Second))
+	}
+	return nil
+}
+
+func applyPodExecRequestDefaults(request *PodExecRequest) {
+	if request.TimeoutSeconds == nil {
+		timeoutSeconds := defaultPodExecTimeoutSeconds
+		request.TimeoutSeconds = &timeoutSeconds
+	}
+}
+
+func podExecExitCode(err error) (int, bool) {
+	var exitErr utilexec.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitStatus(), true
+	}
+	return 0, false
+}
+
+func (h *PodHandler) Exec(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 64*1024)
+	var request PodExecRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("invalid exec request: %v", err)})
+		return
+	}
+	applyPodExecRequestDefaults(&request)
+	if err := validatePodExecRequest(request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), time.Duration(*request.TimeoutSeconds)*time.Second)
+	defer cancel()
+	limit := &podExecOutputLimit{remaining: maxPodExecOutput}
+	stdout := &podExecOutputWriter{limit: limit}
+	stderr := &podExecOutputWriter{limit: limit}
+	cs := c.MustGet("cluster").(*cluster.ClientSet)
+	err := cs.K8sClient.ExecCommand(ctx, kube.ExecOptions{
+		Namespace:     c.Param("namespace"),
+		PodName:       c.Param("name"),
+		ContainerName: request.Container,
+		Command:       request.Command,
+		Stdout:        stdout,
+		Stderr:        stderr,
+	})
+	if err != nil {
+		if exitCode, ok := podExecExitCode(err); ok && ctx.Err() == nil {
+			c.JSON(http.StatusOK, PodExecResponse{
+				Stdout:    stdout.buffer.String(),
+				Stderr:    stderr.buffer.String(),
+				Truncated: limit.truncated,
+				ExitCode:  exitCode,
+			})
+			return
+		}
+		status := http.StatusInternalServerError
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			status = http.StatusGatewayTimeout
+		}
+		c.JSON(status, gin.H{"error": fmt.Sprintf("pod command failed: %v", err)})
+		return
+	}
+	c.JSON(http.StatusOK, PodExecResponse{
+		Stdout:    stdout.buffer.String(),
+		Stderr:    stderr.buffer.String(),
+		Truncated: limit.truncated,
+		ExitCode:  0,
+	})
 }
 
 type FileInfo struct {
