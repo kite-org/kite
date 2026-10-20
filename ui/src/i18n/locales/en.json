@@ -802,6 +802,7 @@
     "aiAgent": {
       "title": "AI Agent",
       "description": "Enable AI assistant and configure model endpoint.",
+      "managedByConfig": "AI settings are managed by the configuration file and are read-only here.",
       "form": {
         "model": "Model",
         "apiKey": "API Key",

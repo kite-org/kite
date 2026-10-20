@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
 )
 
@@ -18,6 +19,7 @@ func HandleGetGeneralSetting(c *gin.Context) {
 	}
 	hasAIAPIKey := strings.TrimSpace(string(setting.AIAPIKey)) != ""
 	c.JSON(http.StatusOK, gin.H{
+		"aiManaged":             common.IsSectionManaged("ai"),
 		"aiAgentEnabled":        setting.AIAgentEnabled,
 		"aiProvider":            setting.AIProvider,
 		"aiModel":               setting.AIModel,
@@ -63,6 +65,11 @@ func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 	var req UpdateGeneralSettingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid request: %v", err)})
+		return
+	}
+	if common.IsSectionManaged("ai") && (req.AIAgentEnabled != nil || req.AIProvider != nil ||
+		req.AIModel != nil || req.AIAPIKey != nil || req.AIBaseURL != nil || req.AIMaxTokens != nil) {
+		c.JSON(http.StatusForbidden, gin.H{"error": common.ManagedSectionError})
 		return
 	}
 	currentSetting, err := model.GetGeneralSetting()
@@ -215,6 +222,7 @@ func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 
 	hasAIAPIKey := strings.TrimSpace(string(updated.AIAPIKey)) != ""
 	c.JSON(http.StatusOK, gin.H{
+		"aiManaged":             common.IsSectionManaged("ai"),
 		"aiAgentEnabled":        updated.AIAgentEnabled,
 		"aiProvider":            updated.AIProvider,
 		"aiModel":               updated.AIModel,

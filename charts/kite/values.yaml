@@ -204,6 +204,15 @@ config:
   #   userBaseDn: "ou=users,dc=example,dc=com"
   #   groupBaseDn: "ou=groups,dc=example,dc=com"
   #
+  # AI assistant configuration
+  # ai:
+  #   enabled: true
+  #   provider: openai # openai or anthropic
+  #   model: gpt-4o-mini
+  #   apiKey: "${AI_API_KEY}" # Inject from a Secret using extraEnvs
+  #   baseUrl: "https://api.openai.com/v1"
+  #   maxTokens: 16384
+  #
   # RBAC configuration (roles and role mappings)
   # rbac:
   #   roles:

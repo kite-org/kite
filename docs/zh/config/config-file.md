@@ -1,6 +1,6 @@
 # 配置文件
 
-Kite 支持通过 YAML 配置文件来管理集群、OAuth/LDAP 和 RBAC 配置。通过配置文件管理的部分在 UI 中将变为**只读**——用户可以查看配置但无法通过界面修改。
+Kite 支持通过 YAML 配置文件来管理集群、OAuth/LDAP、AI 和 RBAC 配置。通过配置文件管理的部分在 UI 中将变为**只读**——用户可以查看配置但无法通过界面修改。
 
 这对于 GitOps 工作流非常有用，配置可以版本控制并通过 Helm 部署。
 
@@ -70,6 +70,14 @@ ldap:
   groupFilter: "(member=%s)"
   groupNameAttribute: "cn"
 
+ai:
+  enabled: true
+  provider: openai
+  model: gpt-4o-mini
+  apiKey: "${AI_API_KEY}"
+  baseUrl: "https://api.openai.com/v1"
+  maxTokens: 16384
+
 rbac:
   roles:
     - name: admin
@@ -100,7 +108,7 @@ rbac:
       oidcGroups: ["developers"]
 ```
 
-你只需包含想要管理的部分。例如，如果只想通过配置文件管理集群，只需包含 `clusters` 部分——OAuth、LDAP 和 RBAC 仍然可以通过 UI 编辑。
+你只需包含想要管理的部分。例如，如果只想通过配置文件管理集群，只需包含 `clusters` 部分——OAuth、LDAP、AI 和 RBAC 仍然可以通过 UI 编辑。
 
 ## 通过 Helm 使用
 
@@ -270,6 +278,21 @@ config:
 | `groupBaseDn`          | string  | 组搜索 Base DN      |                |
 | `groupFilter`          | string  | 组成员过滤器        | `(member=%s)`  |
 | `groupNameAttribute`   | string  | 组名属性            | `cn`           |
+
+### AI 配置
+
+| 字段        | 类型    | 描述                                            | 默认值                            |
+| ----------- | ------- | ----------------------------------------------- | --------------------------------- |
+| `enabled`   | boolean | 启用 AI 助手                                    | `false`                           |
+| `provider`  | string  | `openai` 或 `anthropic`                          | `openai`                          |
+| `model`     | string  | 模型名称                                        | `gpt-4o-mini` / `claude-sonnet-5-5` |
+| `apiKey`    | string  | API Key；启用时必填，支持 `${ENV_VAR}` 占位符     |                                   |
+| `baseUrl`   | string  | 自定义 API 地址                                 | 提供者的默认地址                  |
+| `maxTokens` | integer | 最大输出 Token 数                               | `16384`                           |
+
+默认模型随提供者变化。`ai` 部分管理全部 AI 字段，省略的字段使用默认值或空值。API Key 在数据库中加密存储。
+
+AI 设置沿用现有配置文件的自动重载机制，并在 UI 中变为只读。其他通用设置仍可编辑。使用 Helm 内联配置时，将这些字段放在 `config.ai` 下。
 
 ### RBAC 配置
 

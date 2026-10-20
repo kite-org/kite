@@ -813,6 +813,7 @@
     "aiAgent": {
       "title": "AI Agent",
       "description": "启用 AI 助手，配置模型和接口地址。",
+      "managedByConfig": "AI 设置由配置文件管理，在此处只读。",
       "form": {
         "model": "模型",
         "apiKey": "API Key",
