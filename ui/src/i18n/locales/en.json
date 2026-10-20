@@ -1168,6 +1168,26 @@
     }
   },
   "aiChat": {
+    "title": "AI Assistant",
+    "thinking": {
+      "active": "Thinking",
+      "done": "Thought",
+      "done_one": "Thought for {{count}} second",
+      "done_other": "Thought for {{count}} seconds"
+    },
+    "thoughtProcess": "Thought process",
+    "running": "Running",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "failed": "Failed",
+    "awaitingInput": "Awaiting input",
+    "needsApproval": "Needs approval",
+    "promptPlaceholder": "Ask about your cluster…",
+    "send": "Send message",
+    "stop": "Stop generating",
+    "continue": "Continue",
+    "selectOption": "Select an option",
+    "openInNewTab": "Open in new tab",
     "disclaimer": "AI may make mistakes. Please verify carefully before use.",
     "suggestedPrompts": {
       "hint": "Start with a focused check",
