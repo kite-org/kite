@@ -151,9 +151,7 @@ export function useHelmReleaseChartSelection({
       ? t('helm.messages.chartSourceSelectChart', {
           defaultValue: 'Select a chart to use a different chart package.',
         })
-      : t('helm.messages.chartSourceCurrentRelease', {
-          defaultValue: 'Using the chart stored in the current release.',
-        })
+      : ''
 
   return {
     chartName,

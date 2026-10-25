@@ -303,8 +303,12 @@ func (h *HelmReleaseHandler) runUpgrade(c *gin.Context, dryRun bool) (result hel
 	ctx := c.Request.Context()
 	namespace, name := c.Param("namespace"), c.Param("name")
 	var req helmReleaseActionRequest
-	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		return helmReleaseRunResult{}, http.StatusBadRequest, err
+	}
+	req.ChartURL = strings.TrimSpace(req.ChartURL)
+	if req.ChartURL == "" {
+		return helmReleaseRunResult{}, http.StatusBadRequest, fmt.Errorf("chartUrl is required")
 	}
 
 	cfg, err := h.actionConfig(c, namespace)
@@ -325,20 +329,16 @@ func (h *HelmReleaseHandler) runUpgrade(c *gin.Context, dryRun bool) (result hel
 		}()
 	}
 
-	chartToUpgrade := current.Chart
-	if strings.TrimSpace(req.ChartURL) != "" {
-		req.ChartURL = strings.TrimSpace(req.ChartURL)
-		repository, err := helmutil.ResolveChartRepository(
-			strings.TrimSpace(req.RepositoryName),
-			strings.TrimSpace(req.Source),
-		)
-		if err != nil {
-			return helmReleaseRunResult{}, http.StatusBadRequest, fmt.Errorf("repository not found")
-		}
-		chartToUpgrade, err = helmutil.LoadArchive(req.ChartURL, repository)
-		if err != nil {
-			return helmReleaseRunResult{}, http.StatusBadRequest, err
-		}
+	repository, err := helmutil.ResolveChartRepository(
+		strings.TrimSpace(req.RepositoryName),
+		strings.TrimSpace(req.Source),
+	)
+	if err != nil {
+		return helmReleaseRunResult{}, http.StatusBadRequest, fmt.Errorf("repository not found")
+	}
+	chartToUpgrade, err := helmutil.LoadArchive(req.ChartURL, repository)
+	if err != nil {
+		return helmReleaseRunResult{}, http.StatusBadRequest, err
 	}
 
 	values := req.Values

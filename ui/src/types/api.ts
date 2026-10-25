@@ -245,7 +245,7 @@ export interface HelmReleaseInstallRequest {
 }
 
 export interface HelmReleaseUpgradeRequest {
-  chartUrl?: string
+  chartUrl: string
   repositoryName?: string
   source?: 'repository' | 'artifacthub'
   values?: Record<string, unknown>

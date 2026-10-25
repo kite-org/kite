@@ -1345,7 +1345,6 @@
       "chartSourceArtifactHubVerifiedShort": "Artifact Hub (verified)",
       "chartSourceArtifactHub": "Using Artifact Hub chart from {{repository}}.",
       "chartDetailsLink": "Chart details",
-      "chartSourceCurrentRelease": "Using the chart stored in the current release.",
       "chartSourceSelectChart": "Select a chart to use a different chart package. Defaults to the current chart.",
       "newVersionAvailable": "New {{version}}",
       "loadingChart": "Loading chart...",
