@@ -17,6 +17,7 @@ type ExecOptions struct {
 	Namespace     string
 	PodName       string
 	ContainerName string
+	UserKey       string
 	Command       []string
 	Stdin         io.Reader
 	Stdout        io.Writer
@@ -41,7 +42,7 @@ func (c *K8sClient) ExecCommand(ctx context.Context, opts ExecOptions) error {
 		TTY:       opts.TTY,
 	}, scheme.ParameterCodec)
 
-	exec, err := newRemoteCommandExecutor(c.Configuration, req.URL())
+	exec, err := newRemoteCommandExecutor(c.Configuration, req.URL(), opts.UserKey)
 	if err != nil {
 		return fmt.Errorf("failed to create executor: %w", err)
 	}

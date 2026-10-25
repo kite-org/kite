@@ -91,7 +91,7 @@ func (h *KubectlTerminalHandler) HandleKubectlTerminalWebSocket(c *gin.Context) 
 		}
 
 		session := kube.NewTerminalSession(cs.K8sClient, ws.Conn, common.AgentPodNamespace, podName, common.KubectlTerminalPodName)
-		if err := session.Start(ctx, "attach"); err != nil {
+		if err := session.Start(ctx, "attach", user.Key()); err != nil {
 			klog.Errorf("Kubectl terminal session error: %v", err)
 		}
 	})

@@ -623,7 +623,7 @@ func parseExecInPodOptions(args map[string]interface{}) (execInPodOptions, error
 	}, nil
 }
 
-func executeExecInPod(ctx context.Context, cs *cluster.ClientSet, args map[string]interface{}) (string, bool) {
+func executeExecInPod(ctx context.Context, cs *cluster.ClientSet, user pkgmodel.User, args map[string]interface{}) (string, bool) {
 	options, err := parseExecInPodOptions(args)
 	if err != nil {
 		return "Error: " + err.Error(), true
@@ -638,6 +638,7 @@ func executeExecInPod(ctx context.Context, cs *cluster.ClientSet, args map[strin
 		Namespace:     options.Namespace,
 		PodName:       options.Name,
 		ContainerName: options.Container,
+		UserKey:       user.Key(),
 		Command:       options.Command,
 		Stdout:        stdout,
 		Stderr:        stderr,

@@ -228,7 +228,7 @@ func ExecuteTool(ctx context.Context, c *gin.Context, cs *cluster.ClientSet, too
 	case "get_pod_logs":
 		return executeGetPodLogs(ctx, cs, args)
 	case "exec_in_pod":
-		return executeExecInPod(ctx, cs, args)
+		return executeExecInPod(ctx, cs, user, args)
 	case "get_cluster_overview":
 		return executeGetClusterOverview(ctx, cs)
 	case "create_resource":

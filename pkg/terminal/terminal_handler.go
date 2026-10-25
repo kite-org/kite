@@ -64,7 +64,7 @@ func (h *TerminalHandler) HandleTerminalWebSocket(c *gin.Context) {
 			}
 		}
 
-		if err := session.Start(ws.Context, subResource); err != nil {
+		if err := session.Start(ws.Context, subResource, user.Key()); err != nil {
 			klog.Errorf("Terminal session error: %v", err)
 		}
 	})

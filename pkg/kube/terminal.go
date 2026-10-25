@@ -45,7 +45,7 @@ func NewTerminalSession(client *K8sClient, conn *wsutil.Conn, namespace, podName
 	}
 }
 
-func (session *TerminalSession) Start(ctx context.Context, subResource string) error {
+func (session *TerminalSession) Start(ctx context.Context, subResource, userKey string) error {
 	attach := subResource == "attach"
 	if attach {
 		ctx, session.cancel = context.WithCancel(ctx)
@@ -78,7 +78,7 @@ func (session *TerminalSession) Start(ctx context.Context, subResource string) e
 		}, scheme.ParameterCodec)
 	}
 
-	exec, err := newRemoteCommandExecutor(session.k8sClient.Configuration, req.URL())
+	exec, err := newRemoteCommandExecutor(session.k8sClient.Configuration, req.URL(), userKey)
 	if err != nil {
 		log.Printf("Failed to create executor: %v", err)
 		session.SendErrorMessage(fmt.Sprintf("Failed to create executor: %v", err))

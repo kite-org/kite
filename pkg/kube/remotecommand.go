@@ -12,7 +12,12 @@ import (
 	httpstreamspdy "k8s.io/streaming/pkg/httpstream/spdy"
 )
 
-func newRemoteCommandExecutor(config *rest.Config, targetURL *url.URL) (remotecommand.Executor, error) {
+func newRemoteCommandExecutor(config *rest.Config, targetURL *url.URL, userKey string) (remotecommand.Executor, error) {
+	config = rest.CopyConfig(config)
+	if userKey != "" {
+		config.UserAgent += " user/" + url.QueryEscape(userKey)
+	}
+
 	spdyExecutor, err := newSPDYExecutor(config, targetURL)
 	if err != nil {
 		return nil, err
