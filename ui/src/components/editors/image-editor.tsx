@@ -68,7 +68,7 @@ export function ImageEditor({ container, onUpdate }: ImageEditorProps) {
   return (
     <div className="space-y-4">
       <div className="space-y-2 relative">
-        <Label htmlFor="container-image">Container Image</Label>
+        <Label htmlFor="container-image">Container Image *</Label>
         <Input
           id="container-image"
           ref={inputRef}
