@@ -16,6 +16,8 @@ import {
   HelmReleaseUpgradeRequest,
   HelmRepository,
   ImageTagInfo,
+  PodExecRequest,
+  PodExecResponse,
   RelatedResources,
   ResourceHistoryResponse,
   ResourcesTypeMap,
@@ -558,6 +560,17 @@ export const copyDebugPod = async (
   }
 ): Promise<{ pod: Pod; containerName: string }> => {
   return apiClient.post(`/pods/${namespace}/${name}/debug-copy`, body)
+}
+
+export const execPodCommand = async (
+  namespace: string,
+  name: string,
+  body: PodExecRequest
+): Promise<PodExecResponse> => {
+  return apiClient.post<PodExecResponse>(
+    `/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/exec`,
+    body
+  )
 }
 
 type DeepPartial<T> = T extends object
