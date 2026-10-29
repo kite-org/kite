@@ -1,0 +1,32 @@
+.desktop-shell {
+  --desktop-toolbar-height: 3rem;
+}
+
+.desktop-shell > .desktop-titlebar {
+  --app-region: drag;
+  height: var(--desktop-toolbar-height);
+  padding-left: var(--mygo-titlebar-inset-left, 5rem);
+  padding-right: var(--mygo-titlebar-inset-right, 0px);
+  background: var(--sidebar);
+  backdrop-filter: none;
+  transition: none;
+}
+
+.desktop-titlebar [data-desktop-controls] {
+  --app-region: no-drag;
+}
+
+.desktop-shell [data-slot='sidebar-container'] {
+  top: var(--desktop-toolbar-height);
+  height: calc(100dvh - var(--desktop-toolbar-height));
+  transition: none;
+}
+
+.desktop-shell [data-slot='sidebar-gap'] {
+  transition: none;
+}
+
+.desktop-shell [data-slot='sidebar-inset'] {
+  --header-height: 0px;
+  min-width: 0;
+}

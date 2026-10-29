@@ -3,12 +3,13 @@ package common
 type Verb string
 
 const (
-	VerbGet    Verb = "get"
-	VerbCreate Verb = "create"
-	VerbUpdate Verb = "update"
-	VerbDelete Verb = "delete"
-	VerbLog    Verb = "log"
-	VerbExec   Verb = "exec"
+	VerbGet         Verb = "get"
+	VerbCreate      Verb = "create"
+	VerbUpdate      Verb = "update"
+	VerbDelete      Verb = "delete"
+	VerbLog         Verb = "log"
+	VerbExec        Verb = "exec"
+	VerbPortForward Verb = "portforward"
 )
 
 type Role struct {

@@ -1,6 +1,19 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { ReactNode } from 'react'
+import {
+  createBrowserRouter,
+  Navigate,
+  type RouteObject,
+} from 'react-router-dom'
 
-import App, { StandaloneAIChatApp } from './App'
+import {
+  DesktopAIChatApp,
+  DesktopApp,
+  DesktopOverview,
+  DesktopReady,
+  DesktopWorkspaceApp,
+  StandaloneAIChatApp,
+  WebApp,
+} from './App'
 import { InitCheckRoute } from './components/init-check-route'
 import { ProtectedRoute } from './components/protected-route'
 import { getSubPath } from './lib/subpath'
@@ -13,101 +26,89 @@ import { Overview } from './pages/overview'
 import { PluginManagementPage } from './pages/plugins'
 import { ResourceDetail } from './pages/resource-detail'
 import { ResourceList } from './pages/resource-list'
-import { SettingsPage } from './pages/settings'
+import { DesktopSettingsPage, SettingsPage } from './pages/settings'
 import { PluginPage } from './plugins/plugin-page'
 
-const subPath = getSubPath()
+function resourceRoutes(
+  overview: ReactNode,
+  settings: ReactNode
+): RouteObject[] {
+  return [
+    { index: true, element: overview },
+    { path: 'dashboard', element: <Overview /> },
+    { path: 'plugins', element: <PluginManagementPage /> },
+    { path: 'plugins/:pluginId/*', element: <PluginPage /> },
+    { path: 'settings', element: settings },
+    { path: 'crds/:crd', element: <CRListPage /> },
+    { path: 'charts', element: <HelmChartListPage /> },
+    { path: 'charts/:repository/:name', element: <HelmChartDetailPage /> },
+    { path: 'crds/:resource/:namespace/:name', element: <ResourceDetail /> },
+    { path: 'crds/:resource/:name', element: <ResourceDetail /> },
+    { path: ':resource/:name', element: <ResourceDetail /> },
+    { path: ':resource', element: <ResourceList /> },
+    { path: ':resource/:namespace/:name', element: <ResourceDetail /> },
+  ]
+}
 
-export const router = createBrowserRouter(
-  [
-    {
-      path: '/setup',
-      element: <InitializationPage />,
-    },
-    {
-      path: '/login',
-      element: (
-        <InitCheckRoute allowIncompleteSetup>
-          <LoginPage />
-        </InitCheckRoute>
-      ),
-    },
-    {
-      path: '/ai-chat-box',
-      element: (
-        <InitCheckRoute>
-          <ProtectedRoute>
-            <StandaloneAIChatApp />
-          </ProtectedRoute>
-        </InitCheckRoute>
-      ),
-    },
-    {
-      path: '/',
-      element: (
-        <InitCheckRoute>
-          <ProtectedRoute>
-            <App />
-          </ProtectedRoute>
-        </InitCheckRoute>
-      ),
-      children: [
-        {
-          index: true,
-          element: <Overview />,
-        },
-        {
-          path: 'dashboard',
-          element: <Overview />,
-        },
-        {
-          path: 'plugins',
-          element: <PluginManagementPage />,
-        },
-        {
-          path: 'plugins/:pluginId/*',
-          element: <PluginPage />,
-        },
-        {
-          path: 'settings',
-          element: <SettingsPage />,
-        },
-        {
-          path: 'crds/:crd',
-          element: <CRListPage />,
-        },
-        {
-          path: 'charts',
-          element: <HelmChartListPage />,
-        },
-        {
-          path: 'charts/:repository/:name',
-          element: <HelmChartDetailPage />,
-        },
-        {
-          path: 'crds/:resource/:namespace/:name',
-          element: <ResourceDetail />,
-        },
-        {
-          path: 'crds/:resource/:name',
-          element: <ResourceDetail />,
-        },
-        {
-          path: ':resource/:name',
-          element: <ResourceDetail />,
-        },
-        {
-          path: ':resource',
-          element: <ResourceList />,
-        },
-        {
-          path: ':resource/:namespace/:name',
-          element: <ResourceDetail />,
-        },
-      ],
-    },
-  ],
-  {
-    basename: subPath,
-  }
-)
+export function createWebRouter() {
+  return createBrowserRouter(
+    [
+      { path: '/setup', element: <InitializationPage /> },
+      {
+        path: '/login',
+        element: (
+          <InitCheckRoute allowIncompleteSetup>
+            <LoginPage />
+          </InitCheckRoute>
+        ),
+      },
+      {
+        path: '/ai-chat-box',
+        element: (
+          <InitCheckRoute>
+            <ProtectedRoute>
+              <StandaloneAIChatApp />
+            </ProtectedRoute>
+          </InitCheckRoute>
+        ),
+      },
+      {
+        path: '/',
+        element: (
+          <InitCheckRoute>
+            <ProtectedRoute>
+              <WebApp />
+            </ProtectedRoute>
+          </InitCheckRoute>
+        ),
+        children: resourceRoutes(<Overview />, <SettingsPage />),
+      },
+    ],
+    { basename: getSubPath() }
+  )
+}
+
+export function createDesktopRouter() {
+  return createBrowserRouter(
+    [
+      {
+        element: <DesktopReady />,
+        children: [
+          { path: '/setup', element: <Navigate to="/" replace /> },
+          { path: '/login', element: <Navigate to="/" replace /> },
+          { path: '/desktop/workspace', element: <DesktopWorkspaceApp /> },
+          { path: '/ai-chat-box', element: <DesktopAIChatApp /> },
+          {
+            path: '/',
+            element: <DesktopApp />,
+            children: resourceRoutes(
+              <DesktopOverview />,
+              <DesktopSettingsPage />
+            ),
+          },
+        ],
+      },
+    ],
+    { basename: getSubPath() }
+  )
+}

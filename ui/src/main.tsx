@@ -6,16 +6,23 @@ import './index.css'
 import './i18n'
 
 import { AppearanceProvider } from './components/appearance-provider'
+import { WebSessionRefresh } from './components/web-session-refresh'
 import { AuthProvider } from './contexts/auth-context'
 import { SidebarConfigProvider } from './contexts/sidebar-config-context'
+import { disableAuthRefresh } from './lib/api-client'
+import { isDesktop } from './lib/desktop'
 import { QueryProvider } from './lib/query-provider'
 import { PluginRuntime } from './plugins/plugin-runtime'
-import { router } from './routes'
+import { createDesktopRouter, createWebRouter } from './routes'
+
+if (isDesktop) disableAuthRefresh()
+const router = isDesktop ? createDesktopRouter() : createWebRouter()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryProvider>
       <AuthProvider>
+        {!isDesktop && <WebSessionRefresh />}
         <PluginRuntime>
           <AppearanceProvider
             defaultTheme="system"

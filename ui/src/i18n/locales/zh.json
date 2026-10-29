@@ -1,4 +1,39 @@
 {
+  "desktop": {
+    "settingsDescription": "管理集群和应用设置",
+    "containerUnavailable": "此 Pod 中已没有容器 {{container}}。",
+    "openLogs": "在独立窗口中打开日志",
+    "openTerminal": "在独立窗口中打开终端",
+    "clusterUnavailable": "集群 {{cluster}} 不可用，此窗口不会自动切换到其他集群。",
+    "workspaceUnavailable": "此桌面窗口不可用，请从 Kite 对应的资源页面打开。"
+  },
+  "portForward": {
+    "title": "端口转发",
+    "manage": "本地端口转发",
+    "manageCount": "本地端口转发（{{count}} 个运行中）",
+    "servicePort": "Service 端口（TCP）",
+    "podPort": "Pod 端口（TCP）",
+    "localPort": "本地端口",
+    "automatic": "自动分配",
+    "localHint": "留空或填写 0 自动分配空闲端口，仅监听 127.0.0.1。",
+    "lifetime": "切换页面或关闭窗口后连接继续保持，可从顶部入口或 macOS 菜单栏停止，选择“退出 Kite”时全部关闭。目标 Pod 停止后，需要重新启动转发。",
+    "start": "启动转发",
+    "starting": "连接中…",
+    "started": "本地端口已就绪，可通过以下地址连接：",
+    "cancel": "取消",
+    "done": "完成",
+    "copyAddress": "复制本地地址",
+    "copied": "已复制本地地址",
+    "copyFailed": "复制失败，请选中地址手动复制。",
+    "openHTTP": "在浏览器中以 HTTP 打开",
+    "loading": "正在加载连接…",
+    "retry": "重试",
+    "empty": "暂无端口转发，可从 Pod 或 Service 详情页启动。",
+    "active": "监听中",
+    "disconnected": "已断开",
+    "stop": "停止",
+    "remove": "移除"
+  },
   "common": {
     "actions": {
       "add": "添加",
@@ -1176,6 +1211,13 @@
     "deleting": "删除中..."
   },
   "aiChat": {
+    "title": "AI 助手",
+    "openInWindow": "打开 AI 助手窗口",
+    "setupHint": "请先在设置中配置模型并启用 AI，即可开始对话。",
+    "disabledHint": "AI 尚未启用，请联系管理员配置模型。",
+    "openSettings": "打开 AI 设置",
+    "windowContext": "上下文：{{context}}",
+    "windowContextHint": "使用打开此窗口时选中的集群和资源。",
     "disclaimer": "AI 回复仅供参考，请仔细核实。",
     "suggestedPrompts": {
       "hint": "从一个具体的问题开始",

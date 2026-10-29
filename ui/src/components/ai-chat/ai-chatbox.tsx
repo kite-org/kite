@@ -7,9 +7,14 @@ import {
 } from 'react'
 import { useAIChatContext } from '@/contexts/ai-chat-context'
 import { useAuth } from '@/contexts/auth-context'
+import { Bot } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useLocation, useSearchParams } from 'react-router-dom'
 
+import { withSubPath } from '@/lib/subpath'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { usePageTitle } from '@/hooks/use-page-title'
+import { Button } from '@/components/ui/button'
 import { AIChatPanel } from '@/components/ai-chat/ai-chat-panel'
 import { AIChatTrigger } from '@/components/ai-chat/ai-chat-trigger'
 
@@ -20,11 +25,27 @@ const DEFAULT_WIDTH = 420
 const DESKTOP_MARGIN = 16
 const MOBILE_DEFAULT_HEIGHT_RATIO = 0.62
 
-export function StandaloneAIChatbox() {
+export function StandaloneAIChatbox({
+  desktop = false,
+}: {
+  desktop?: boolean
+}) {
+  const { t } = useTranslation()
+  const { checkAuth } = useAuth()
   const [searchParams] = useSearchParams()
+  usePageTitle(desktop ? t('aiChat.title') : '')
+
+  useEffect(() => {
+    if (!desktop) return
+    const refreshAuth = () => void checkAuth()
+    window.addEventListener('focus', refreshAuth)
+    return () => window.removeEventListener('focus', refreshAuth)
+  }, [checkAuth, desktop])
+
   return (
     <AIChatbox
       standalone
+      desktopStandalone={desktop}
       sessionId={searchParams.get('sessionId')?.trim() || ''}
     />
   )
@@ -32,14 +53,17 @@ export function StandaloneAIChatbox() {
 
 export function AIChatbox({
   standalone = false,
+  desktopStandalone = false,
   sessionId = '',
 }: {
   standalone?: boolean
+  desktopStandalone?: boolean
   sessionId?: string
 }) {
+  const { t } = useTranslation()
   const isMobile = useIsMobile()
   const { isOpen, openChat, closeChat } = useAIChatContext()
-  const { capabilities } = useAuth()
+  const { capabilities, user } = useAuth()
   const aiEnabled = capabilities.aiEnabled
   const { pathname } = useLocation()
   const shouldShowAIChatbox = standalone || !/^\/settings\/?$/.test(pathname)
@@ -173,7 +197,29 @@ export function AIChatbox({
   }, [])
 
   if (!shouldShowAIChatbox) return null
-  if (!aiEnabled) return null
+  if (!aiEnabled) {
+    if (!standalone || !desktopStandalone) return null
+    return (
+      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-background p-8 text-center">
+        <Bot className="size-8 text-muted-foreground" />
+        <h1 className="text-balance text-lg font-semibold">
+          {t('aiChat.title')}
+        </h1>
+        <p className="text-pretty text-sm text-muted-foreground">
+          {t(user?.isAdmin() ? 'aiChat.setupHint' : 'aiChat.disabledHint')}
+        </p>
+        {user?.isAdmin() && (
+          <Button
+            onClick={() =>
+              window.open(withSubPath('/settings?tab=general'), 'kite-main')
+            }
+          >
+            {t('aiChat.openSettings')}
+          </Button>
+        )}
+      </div>
+    )
+  }
 
   if (!standalone && !isOpen) {
     return <AIChatTrigger onOpen={openChat} />
@@ -223,6 +269,7 @@ export function AIChatbox({
 
       <AIChatPanel
         standalone={standalone}
+        showWindowContext={desktopStandalone}
         sessionId={sessionId}
         onClose={standalone ? () => window.close() : closeChat}
       />

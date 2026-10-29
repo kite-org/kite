@@ -67,6 +67,7 @@ const VERB_SUGGESTIONS = [
   'delete',
   'log',
   'exec',
+  'portforward',
 ]
 
 function ListEditor({

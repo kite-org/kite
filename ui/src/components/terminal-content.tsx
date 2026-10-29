@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   IconClearAll,
+  IconExternalLink,
   IconMaximize,
   IconMinimize,
   IconPalette,
@@ -15,6 +16,7 @@ import { Container, EphemeralContainer, Pod } from 'kubernetes-types/core/v1'
 
 import '@xterm/xterm/css/xterm.css'
 
+import { useWorkspace } from '@/contexts/workspace-context'
 import { useTranslation } from 'react-i18next'
 
 import { TERMINAL_THEMES, TerminalTheme } from '@/types/themes'
@@ -72,6 +74,7 @@ export function Terminal({
   type = 'pod',
   embedded = false,
 }: TerminalProps) {
+  const openWorkspace = useWorkspace()
   const containers = useMemo(() => {
     return toSimpleContainer(initContainers, _containers, ephemeralContainers)
   }, [_containers, initContainers, ephemeralContainers])
@@ -737,6 +740,23 @@ export function Terminal({
             </Popover>
 
             {/* Clear Terminal */}
+            {openWorkspace && type === 'pod' && selectedPod && (
+              <Button
+                variant="outline"
+                size="sm"
+                title={t('desktop.openTerminal')}
+                aria-label={t('desktop.openTerminal')}
+                onClick={() =>
+                  openWorkspace('terminal', {
+                    namespace,
+                    name: selectedPod,
+                    container: selectedContainer,
+                  })
+                }
+              >
+                <IconExternalLink className="size-4" />
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={clearTerminal}>
               <IconClearAll className="h-4 w-4" />
             </Button>

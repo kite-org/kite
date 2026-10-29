@@ -3,11 +3,23 @@ import { useTranslation } from 'react-i18next'
 
 import { usePageTitle } from '@/hooks/use-page-title'
 import { ResponsiveTabs } from '@/components/ui/responsive-tabs'
-import { createSettingsTabs } from '@/components/settings/settings-sections'
+import {
+  createSettingsTabs,
+  desktopSettingsSectionRegistry,
+  type SettingsSectionDefinition,
+} from '@/components/settings/settings-sections'
 
-export function SettingsPage() {
+export function SettingsPage({
+  sections,
+  description = 'settings.description',
+}: {
+  sections?: SettingsSectionDefinition[]
+  description?: string
+}) {
   const { t } = useTranslation()
-  const tabs = useMemo(() => createSettingsTabs(t), [t])
+  const tabs = useMemo(() => {
+    return createSettingsTabs(t, sections)
+  }, [t, sections])
 
   usePageTitle('Settings')
 
@@ -18,11 +30,20 @@ export function SettingsPage() {
           <h1 className="text-3xl">{t('settings.title', 'Settings')}</h1>
         </div>
         <p className="text-muted-foreground">
-          {t('settings.description', 'Manage clusters, roles and permissions')}
+          {t(description, 'Manage clusters, roles and permissions')}
         </p>
       </div>
 
       <ResponsiveTabs tabs={tabs} />
     </div>
+  )
+}
+
+export function DesktopSettingsPage() {
+  return (
+    <SettingsPage
+      sections={desktopSettingsSectionRegistry}
+      description="desktop.settingsDescription"
+    />
   )
 }

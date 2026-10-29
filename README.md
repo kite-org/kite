@@ -93,7 +93,7 @@ The manifest grants its service account `cluster-admin`. Review and restrict the
 
 ### Build from Source
 
-Building Kite requires Go 1.26, Node.js `^20.19.0` or `>=22.12.0`, pnpm, and Make.
+Building Kite requires Go 1.27.3, Node.js `^20.19.0` or `>=22.12.0`, pnpm, and Make.
 
 ```bash
 git clone https://github.com/kite-org/kite.git
@@ -102,6 +102,65 @@ make deps
 make build
 ./kite
 ```
+
+### macOS desktop prototype
+
+On macOS, build and open the MyGo desktop app:
+
+```bash
+make desktop
+```
+
+`make desktop-build` builds only. The app is created at
+`bin/desktop/darwin-<architecture>/Kite MyGo.app` with an ad hoc signature for local use.
+It runs the existing Kite backend on a locally assigned, persistent loopback port.
+The desktop app opens without a Kite account and uses the selected cluster's
+credentials and Kubernetes permissions. The main toolbar shares the title bar with the macOS
+window controls; the sidebar and content scroll independently. Closing the main
+window hides it and keeps the backend running. Reopen it from the Kite menu bar
+item or Dock. Choose Quit Kite (or Cmd+Q) to stop the app and all connections.
+
+The toolbar's AI button opens a separate chat window. Opening it again focuses
+the existing window without interrupting the conversation. Its cluster and resource
+context stays fixed to the selection at opening; close and reopen it to change context.
+AI actions that modify cluster resources still require confirmation.
+
+Pod log and terminal toolbars have an open-in-window action. These windows keep
+their cluster and Pod context while the main window navigates elsewhere. Opening
+the same target again focuses its existing window; window bounds are remembered.
+The main toolbar's kubectl terminal also opens in a separate window per cluster.
+Closing a log or terminal window ends that window's connection.
+
+Pod and Service detail pages offer local TCP port forwarding. Choose a target port
+and leave the local port blank to assign a free port, or specify one. Connections
+listen only on `127.0.0.1`; the toolbar lists them with copy, open-as-HTTP, and stop
+actions. They survive page changes and close when the app quits. Services require
+a Pod selector and resolve to one running Pod; restart the forward if that Pod
+stops. The cluster credentials need Kubernetes permission to use `pods/portforward`.
+The native Kite menu bar item lists this desktop app's local forwards, including
+when the main window is hidden, with copy-address, open-as-HTTP, and stop actions.
+
+The database, plugins and local encryption key live in
+`~/Library/Application Support/Kite MyGo Local`. The encryption key is stored
+as a file readable by the current macOS user, not in Keychain.
+The initial launch imports `~/.kube/config` (or `KUBECONFIG`) when available.
+The saved port keeps the browser origin and local preferences stable across restarts;
+preferences from earlier builds with random ports are not migrated. The app also
+looks for credential helpers in Homebrew's usual locations, `~/.krew/bin` and
+`~/.local/bin`. Other helper locations must be available in the app's `PATH`,
+or specified as an absolute path in the kubeconfig. Downloads use the Downloads
+folder. Cloud credential helpers still need desktop validation. This prototype
+does not include notarization or automatic updates.
+
+Replacing or reinstalling the app on the same Mac keeps the data directory. To
+back up or restore the data, quit Kite first and copy the entire directory,
+including its key files; treat the backup as sensitive. If `encryption.key` is
+missing, Kite stops rather than creating a new key for an existing database.
+Browser-local preferences are kept separately by the macOS WebView and are not
+included in this directory backup.
+Earlier prototypes used `~/Library/Application Support/Kite MyGo` and Keychain;
+those data are left in place and are not imported. Import clusters again in this
+version if they are not found in the local kubeconfig.
 
 ## Documentation
 

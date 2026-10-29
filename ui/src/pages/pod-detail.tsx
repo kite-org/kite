@@ -38,6 +38,7 @@ import { PodDebugDialog } from '@/components/pod-debug-dialog'
 import { PodFileBrowser } from '@/components/pod-file-browser'
 import { PodMonitoring } from '@/components/pod-monitoring'
 import { PodOverview } from '@/components/pod-overview'
+import { PortForwardButton } from '@/components/port-forward'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
 import { ResourceYaml } from '@/components/resource-yaml'
 import { ContainerSelector } from '@/components/selector/container-selector'
@@ -368,6 +369,33 @@ export function PodDetail(props: { namespace: string; name: string }) {
         ]}
         headerActions={
           <>
+            {pod && (
+              <PortForwardButton
+                resource="pods"
+                namespace={namespace}
+                name={name}
+                disabled={
+                  pod.status?.phase !== 'Running' ||
+                  !!pod.metadata?.deletionTimestamp
+                }
+                ports={Array.from(
+                  new Map(
+                    [
+                      ...(pod.spec?.containers ?? []),
+                      ...(pod.spec?.initContainers ?? []),
+                    ]
+                      .flatMap((container) => container.ports ?? [])
+                      .filter(
+                        (port) => !port.protocol || port.protocol === 'TCP'
+                      )
+                      .map((port) => [
+                        port.containerPort,
+                        { port: port.containerPort, name: port.name },
+                      ])
+                  ).values()
+                )}
+              />
+            )}
             {debugAvailable && (
               <Button
                 variant="outline"

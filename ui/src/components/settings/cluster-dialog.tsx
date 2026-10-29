@@ -25,6 +25,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 
 interface ClusterDialogProps {
+  showClusterTypeSelector?: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
   cluster?: Cluster | null
@@ -45,6 +46,7 @@ function createClusterFormData(cluster?: Cluster | null) {
 }
 
 export function ClusterDialog({
+  showClusterTypeSelector = true,
   open,
   onOpenChange,
   cluster,
@@ -54,6 +56,7 @@ export function ClusterDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {open ? (
         <ClusterDialogContent
+          showClusterTypeSelector={showClusterTypeSelector}
           key={cluster?.id ?? 'new'}
           cluster={cluster}
           onOpenChange={onOpenChange}
@@ -65,6 +68,7 @@ export function ClusterDialog({
 }
 
 function ClusterDialogContent({
+  showClusterTypeSelector,
   cluster,
   onOpenChange,
   onSubmit,
@@ -119,7 +123,7 @@ function ClusterDialogContent({
             />
           </div>
 
-          {!isEditMode && (
+          {!isEditMode && showClusterTypeSelector && (
             <div className="space-y-2">
               <Label htmlFor="cluster-type">
                 {t('clusterManagement.dialog.type', 'Cluster Type')}

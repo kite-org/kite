@@ -21,21 +21,19 @@ interface AIChatContextType {
 
 const AIChatContext = createContext<AIChatContextType | undefined>(undefined)
 
-export function AIChatProvider({ children }: { children: ReactNode }) {
+export function AIChatProvider({
+  children,
+  openWindow,
+}: {
+  children: ReactNode
+  openWindow?: (context: PageContext) => void
+}) {
   const [isOpen, setIsOpen] = useState(false)
   const location = useLocation()
   const params = useParams()
 
-  const openChat = useCallback(() => {
-    setIsOpen(true)
-  }, [])
-
   const closeChat = useCallback(() => {
     setIsOpen(false)
-  }, [])
-
-  const toggleChat = useCallback(() => {
-    setIsOpen((prev) => !prev)
   }, [])
 
   const pageContext = useMemo<PageContext>(() => {
@@ -80,6 +78,22 @@ export function AIChatProvider({ children }: { children: ReactNode }) {
     params.name,
     params.namespace,
   ])
+
+  const openChat = useCallback(() => {
+    if (openWindow) {
+      openWindow(pageContext)
+      return
+    }
+    setIsOpen(true)
+  }, [openWindow, pageContext])
+
+  const toggleChat = useCallback(() => {
+    if (openWindow) {
+      openChat()
+      return
+    }
+    setIsOpen((prev) => !prev)
+  }, [openChat, openWindow])
 
   return (
     <AIChatContext.Provider

@@ -82,8 +82,29 @@ export const settingsSectionRegistry: SettingsSectionDefinition[] = [
   ),
 ]
 
-export function createSettingsTabs(t: TFunction) {
-  return settingsSectionRegistry.map((section) => ({
+export const desktopSettingsSectionRegistry: SettingsSectionDefinition[] = [
+  {
+    value: 'general',
+    labelKey: 'settings.tabs.general',
+    defaultLabel: 'General',
+    render: () => <GeneralManagement showLoginPrompt={false} />,
+  },
+  {
+    value: 'clusters',
+    labelKey: 'settings.tabs.clusters',
+    defaultLabel: 'Cluster',
+    render: () => <ClusterManagement showClusterTypeSelector={false} />,
+  },
+  ...settingsSectionRegistry.filter((section) =>
+    ['templates', 'audit'].includes(section.value)
+  ),
+]
+
+export function createSettingsTabs(
+  t: TFunction,
+  sections = settingsSectionRegistry
+) {
+  return sections.map((section) => ({
     value: section.value,
     label: t(section.labelKey, section.defaultLabel),
     content: section.render(),

@@ -93,7 +93,7 @@ kubectl port-forward --namespace kube-system svc/kite 8080:8080
 
 ### 从源码构建
 
-构建 Kite 需要 Go 1.26、Node.js `^20.19.0` 或 `>=22.12.0`、pnpm 和 Make。
+构建 Kite 需要 Go 1.27.3、Node.js `^20.19.0` 或 `>=22.12.0`、pnpm 和 Make。
 
 ```bash
 git clone https://github.com/kite-org/kite.git
@@ -102,6 +102,49 @@ make deps
 make build
 ./kite
 ```
+
+### macOS 桌面端原型
+
+在 macOS 上构建并打开 MyGo 桌面应用：
+
+```bash
+make desktop
+```
+
+`make desktop-build` 只构建应用，产物位于
+`bin/desktop/darwin-<architecture>/Kite MyGo.app`，使用供本机运行的临时签名。
+应用在首次启动时分配并保存本机端口，无需 Kite 账户，使用所选集群的凭据和 Kubernetes 权限。
+关闭主窗口会隐藏窗口，选择“退出 Kite”才会停止后端。
+
+顶部工具栏的 AI 按钮会打开独立聊天窗口。再次点击会聚焦已有窗口，保留当前对话。
+聊天窗口固定使用打开时的集群和资源上下文；关闭后重新打开即可切换上下文。
+AI 修改集群资源前仍需用户确认。
+
+Pod 和 Service 详情页支持本地 TCP 端口转发。选择目标端口，本地端口留空可自动分配，
+也可以手动指定。连接只监听 `127.0.0.1`，顶部入口可查看、复制地址、以 HTTP 打开和停止。
+切换页面不会中断连接，退出应用时全部关闭。Service 必须有 Pod 选择器，转发会绑定到一个
+运行中的 Pod；该 Pod 停止后需要重新启动转发。集群凭据需要具备 Kubernetes 的
+`pods/portforward` 权限。
+
+桌面工具栏与 macOS 红黄绿窗口按钮合并为一行，侧栏和内容独立滚动。关闭主窗口会隐藏
+窗口并保留后台连接，可从菜单栏 Kite 或 Dock 恢复；选择“退出 Kite”或按 Cmd+Q 才会
+停止应用及所有连接。菜单栏显示本应用的本地转发，提供复制地址、以 HTTP 打开和停止。
+Pod 日志和终端工具栏提供独立开窗按钮，新窗口固定集群和 Pod 上下文，重复打开相同目标
+会聚焦已有窗口，并记住窗口位置和大小。顶部 kubectl 入口也会按集群独立开窗。
+关闭日志或终端窗口时，仅结束该窗口自己的连接。
+
+数据库、插件和本地加密密钥保存在 `~/Library/Application Support/Kite MyGo Local`。
+加密密钥由当前 macOS 用户以文件形式保存，不再使用钥匙串。首次启动会尝试导入
+`~/.kube/config`（或 `KUBECONFIG` 指定的文件）。保存的端口使浏览器本地偏好在重启后
+保持；旧版随机端口下的偏好不会自动迁移。应用会在 Homebrew 常用目录、`~/.krew/bin` 和
+`~/.local/bin` 查找凭据工具；其他位置需要加入应用的 `PATH`，或在 kubeconfig 中使用绝对路径。
+下载文件保存到下载目录。云集群凭据插件仍需桌面端验证。此原型尚未接入公证和自动更新。
+
+在同一台 Mac 上替换或重装应用会保留数据目录。备份或恢复时请先退出 Kite，再复制整个
+数据目录，包括密钥文件；备份应作为敏感数据保管。如果 `encryption.key` 丢失，Kite 会停止
+启动，不会为已有数据库生成新密钥。浏览器本地偏好由 macOS WebView 单独保存，不包含在
+此目录备份中。旧版原型的 `~/Library/Application Support/Kite MyGo` 和
+钥匙串条目仍然保留，但不会自动导入；如果本机 kubeconfig 中没有对应集群，需要重新导入。
 
 ## 文档
 

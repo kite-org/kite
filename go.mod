@@ -1,11 +1,12 @@
 module github.com/zxh326/kite
 
-go 1.26.0
+go 1.27.3
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.66.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bytedance/mockey v1.4.6
+	github.com/egoist/mygo v0.6.4
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-contrib/gzip v1.2.6
 	github.com/gin-gonic/gin v1.12.0
@@ -23,8 +24,8 @@ require (
 	github.com/samber/lo v1.53.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.12.1
-	golang.org/x/crypto v0.55.0
-	golang.org/x/sync v0.22.0
+	golang.org/x/crypto v0.57.0
+	golang.org/x/sync v0.24.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.2
@@ -65,7 +66,7 @@ require (
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/tinylib/msgp v1.6.4 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
-	golang.org/x/net v0.57.0 // indirect
+	golang.org/x/net v0.59.0 // indirect
 )
 
 require (
@@ -95,6 +96,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dylibso/observe-sdk/go v0.0.0-20240819160327-2d926c5d788a // indirect
+	github.com/ebitengine/purego v0.11.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
 	github.com/evanphx/json-patch v5.9.11+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
@@ -193,9 +195,9 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/arch v0.22.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/term v0.45.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/term v0.46.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
