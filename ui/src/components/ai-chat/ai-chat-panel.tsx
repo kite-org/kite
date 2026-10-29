@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next'
 
 import { withSubPath } from '@/lib/subpath'
 import { useAIChat } from '@/hooks/use-ai-chat'
+import { useCluster } from '@/hooks/use-cluster'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -25,15 +26,18 @@ import { AIChatMessages } from './ai-chat-messages'
 
 export function AIChatPanel({
   standalone = false,
+  showWindowContext = false,
   sessionId = '',
   onClose,
 }: {
   standalone?: boolean
+  showWindowContext?: boolean
   sessionId?: string
   onClose: () => void
 }) {
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { closeChat, pageContext } = useAIChatContext()
+  const { currentCluster } = useCluster()
   const {
     messages,
     isLoading,
@@ -233,6 +237,25 @@ export function AIChatPanel({
           onNewSession={handleNewSession}
           onClose={() => setShowHistory(false)}
         />
+      )}
+
+      {standalone && showWindowContext && (
+        <p
+          className="shrink-0 truncate border-b px-4 py-2 text-xs text-muted-foreground"
+          title={t('aiChat.windowContextHint')}
+        >
+          {t('aiChat.windowContext', {
+            context: [
+              currentCluster,
+              pageContext.namespace,
+              [pageContext.resourceKind, pageContext.resourceName]
+                .filter(Boolean)
+                .join('/'),
+            ]
+              .filter(Boolean)
+              .join(' · '),
+          })}
+        </p>
       )}
 
       <AIChatMessages

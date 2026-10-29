@@ -1,33 +1,71 @@
 import './App.css'
+import './desktop.css'
 
 import { ReactNode } from 'react'
+import { AIChatProvider, useAIChatContext } from '@/contexts/ai-chat-context'
+import { useAuth } from '@/contexts/auth-context'
+import { ClusterProvider } from '@/contexts/cluster-context'
+import { TerminalProvider, useTerminal } from '@/contexts/terminal-context'
+import { WorkspaceProvider } from '@/contexts/workspace-context'
+import { Overview } from '@/pages/overview'
+import { Bot } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Outlet, useSearchParams } from 'react-router-dom'
+import { Navigate, Outlet, useSearchParams } from 'react-router-dom'
 
-import { AIChatbox, StandaloneAIChatbox } from './components/ai-chat/ai-chatbox'
-import { AppSidebar } from './components/app-sidebar'
-import { ErrorBoundary } from './components/error-boundary'
-import { FloatingTerminal } from './components/floating-terminal'
-import { GlobalSearch } from './components/global-search'
+import { openDesktopChat, openDesktopWorkspace } from '@/lib/desktop'
+import { useCluster } from '@/hooks/use-cluster'
+import { Button } from '@/components/ui/button'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import { Toaster } from '@/components/ui/sonner'
+import type { PageContext } from '@/components/ai-chat/ai-chat-types'
+import { AIChatbox, StandaloneAIChatbox } from '@/components/ai-chat/ai-chatbox'
+import { AppSidebar } from '@/components/app-sidebar'
+import { DesktopWorkspace } from '@/components/desktop-workspace'
+import { ErrorBoundary } from '@/components/error-boundary'
+import { FloatingTerminal } from '@/components/floating-terminal'
+import { GlobalSearch } from '@/components/global-search'
 import {
   GlobalSearchProvider,
   useGlobalSearch,
-} from './components/global-search-provider'
-import { SiteHeader } from './components/site-header'
-import { SidebarInset, SidebarProvider } from './components/ui/sidebar'
-import { Toaster } from './components/ui/sonner'
-import { AIChatProvider } from './contexts/ai-chat-context'
-import { ClusterProvider } from './contexts/cluster-context'
-import { TerminalProvider, useTerminal } from './contexts/terminal-context'
-import { useCluster } from './hooks/use-cluster'
+} from '@/components/global-search-provider'
+import { PortForwardManager } from '@/components/port-forward'
+import { SiteHeader } from '@/components/site-header'
+import { UserMenu } from '@/components/user-menu'
 
-function ClusterGate({ children }: { children: ReactNode }) {
+export function DesktopReady() {
+  const { isLoading } = useAuth()
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary" />
+      </div>
+    )
+  }
+  return <Outlet />
+}
+
+export function DesktopOverview() {
+  const { clusters } = useCluster()
+  return clusters.length === 0 ? (
+    <Navigate to="/settings?tab=clusters" replace />
+  ) : (
+    <Overview />
+  )
+}
+
+function ClusterGate({
+  children,
+  expectedCluster,
+}: {
+  children: ReactNode
+  expectedCluster?: string
+}) {
   const { t } = useTranslation()
-  const { isLoading, error } = useCluster()
+  const { isLoading, error, currentCluster, clusters } = useCluster()
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-dvh items-center justify-center">
         <div className="flex items-center space-x-2">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
           <span>{t('cluster.loading')}</span>
@@ -38,7 +76,7 @@ function ClusterGate({ children }: { children: ReactNode }) {
 
   if (error) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-dvh items-center justify-center">
         <div className="text-red-500">
           <p>{t('cluster.error', { error: error.message })}</p>
         </div>
@@ -46,70 +84,153 @@ function ClusterGate({ children }: { children: ReactNode }) {
     )
   }
 
+  if (
+    expectedCluster &&
+    (currentCluster !== expectedCluster ||
+      !clusters.some((cluster) => cluster.name === expectedCluster))
+  ) {
+    return (
+      <p role="alert" className="p-6 text-sm text-destructive">
+        {t('desktop.clusterUnavailable', { cluster: expectedCluster })}
+      </p>
+    )
+  }
+
   return <>{children}</>
 }
 
-function AppContent() {
-  const { isOpen, closeSearch } = useGlobalSearch()
+function MainContent() {
+  return (
+    <div className="@container/main flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 py-4 md:gap-6">
+        <div className="flex min-h-0 flex-1 flex-col px-4 lg:px-6">
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function WebLayout() {
   const { isOpen: isTerminalOpen } = useTerminal()
-  const [searchParams] = useSearchParams()
-  const isIframe = searchParams.get('iframe') === 'true'
-
-  if (isIframe) {
-    return <Outlet />
-  }
-
   return (
     <>
       <SidebarProvider>
         <AppSidebar variant="inset" />
         <SidebarInset className="h-dvh overflow-y-auto overscroll-none scrollbar-hide">
           <SiteHeader />
-          <div className="@container/main flex min-h-0 flex-1 flex-col">
-            <div className="flex min-h-0 flex-1 flex-col gap-4 py-4 md:gap-6">
-              <div className="flex min-h-0 flex-1 flex-col px-4 lg:px-6">
-                <ErrorBoundary>
-                  <Outlet />
-                </ErrorBoundary>
-              </div>
-            </div>
-          </div>
+          <MainContent />
         </SidebarInset>
       </SidebarProvider>
-      {isOpen ? (
-        <GlobalSearch open={isOpen} onOpenChange={closeSearch} />
-      ) : null}
-      {isTerminalOpen ? (
+      {isTerminalOpen && (
         <ErrorBoundary fallback={null}>
           <FloatingTerminal />
         </ErrorBoundary>
-      ) : null}
+      )}
       <ErrorBoundary fallback={null}>
         <AIChatbox />
       </ErrorBoundary>
+    </>
+  )
+}
+
+function DesktopHeaderActions() {
+  const { t } = useTranslation()
+  const { openChat } = useAIChatContext()
+  return (
+    <>
+      <PortForwardManager />
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={openChat}
+        aria-label={t('aiChat.openInWindow')}
+        title={t('aiChat.openInWindow')}
+      >
+        <Bot className="size-5" />
+      </Button>
+    </>
+  )
+}
+
+function DesktopLayout() {
+  return (
+    <SidebarProvider className="desktop-shell min-h-0 flex-col">
+      <SiteHeader
+        className="desktop-titlebar"
+        extraActions={<DesktopHeaderActions />}
+        openKubectl={() => openDesktopWorkspace('kubectl')}
+        userMenu={<UserMenu showAccount={false} />}
+      />
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <AppSidebar variant="sidebar" />
+        <SidebarInset className="min-h-0 overflow-y-auto overscroll-none">
+          <MainContent />
+        </SidebarInset>
+      </div>
+    </SidebarProvider>
+  )
+}
+
+function AppContent({ children }: { children: ReactNode }) {
+  const { isOpen, closeSearch } = useGlobalSearch()
+  const [searchParams] = useSearchParams()
+  if (searchParams.get('iframe') === 'true') return <Outlet />
+  return (
+    <>
+      {children}
+      {isOpen && <GlobalSearch open={isOpen} onOpenChange={closeSearch} />}
       <Toaster />
     </>
   )
 }
 
-function AppProviders({ children }: { children: ReactNode }) {
+function AppProviders({
+  children,
+  initialCluster,
+  openChatWindow,
+}: {
+  children: ReactNode
+  initialCluster?: string
+  openChatWindow?: (context: PageContext) => void
+}) {
   return (
     <TerminalProvider>
-      <ClusterProvider>
+      <ClusterProvider initialCluster={initialCluster}>
         <GlobalSearchProvider>
-          <AIChatProvider>{children}</AIChatProvider>
+          <AIChatProvider openWindow={openChatWindow}>
+            {children}
+          </AIChatProvider>
         </GlobalSearchProvider>
       </ClusterProvider>
     </TerminalProvider>
   )
 }
 
-function App() {
+export function WebApp() {
   return (
     <AppProviders>
       <ClusterGate>
-        <AppContent />
+        <AppContent>
+          <WebLayout />
+        </AppContent>
       </ClusterGate>
+    </AppProviders>
+  )
+}
+
+export function DesktopApp() {
+  return (
+    <AppProviders openChatWindow={openDesktopChat}>
+      <WorkspaceProvider openWorkspace={openDesktopWorkspace}>
+        <ClusterGate>
+          <AppContent>
+            <DesktopLayout />
+          </AppContent>
+        </ClusterGate>
+      </WorkspaceProvider>
     </AppProviders>
   )
 }
@@ -124,4 +245,26 @@ export function StandaloneAIChatApp() {
   )
 }
 
-export default App
+export function DesktopAIChatApp() {
+  const [searchParams] = useSearchParams()
+  const cluster = searchParams.get('cluster') || undefined
+  return (
+    <AppProviders initialCluster={cluster}>
+      <ClusterGate expectedCluster={cluster}>
+        <StandaloneAIChatbox desktop />
+      </ClusterGate>
+    </AppProviders>
+  )
+}
+
+export function DesktopWorkspaceApp() {
+  const [searchParams] = useSearchParams()
+  const cluster = searchParams.get('cluster') || undefined
+  return (
+    <AppProviders initialCluster={cluster}>
+      <ClusterGate expectedCluster={cluster}>
+        <DesktopWorkspace />
+      </ClusterGate>
+    </AppProviders>
+  )
+}

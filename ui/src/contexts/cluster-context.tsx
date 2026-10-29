@@ -25,12 +25,13 @@ export const ClusterContext = createContext<ClusterContextType | undefined>(
   undefined
 )
 
-export const ClusterProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+export const ClusterProvider: React.FC<{
+  children: React.ReactNode
+  initialCluster?: string
+}> = ({ children, initialCluster }) => {
   const [clusters, setClusters] = useState<Cluster[]>([])
   const [currentCluster, setCurrentClusterState] = useState<string | null>(
-    getCurrentCluster()
+    initialCluster || getCurrentCluster()
   )
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)

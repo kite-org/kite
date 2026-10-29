@@ -43,7 +43,7 @@ const DISPLAY_SCALE_MIN = 80
 const DISPLAY_SCALE_MAX = 120
 const DISPLAY_SCALE_STEP = 5
 
-export function UserMenu() {
+export function UserMenu({ showAccount = true }: { showAccount?: boolean }) {
   const { t, i18n } = useTranslation()
   const { user, logout, hasGlobalSidebarPreference } = useAuth()
   const {
@@ -58,7 +58,8 @@ export function UserMenu() {
   const [open, setOpen] = useState(false)
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false)
   const [scaleInput, setScaleInput] = useState(String(displayScale))
-  const isPasswordUser = !user?.provider || user.provider === 'password'
+  const isPasswordUser =
+    showAccount && (!user?.provider || user.provider === 'password')
   const pluginThemeGroups = useMemo(() => {
     const groups = new Map<
       string,
@@ -127,40 +128,48 @@ export function UserMenu() {
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
           <Button
-            aria-label="User menu"
+            aria-label={
+              showAccount ? 'User menu' : t('settings.title', 'Settings')
+            }
             variant="ghost"
             className="relative h-10 w-10 rounded-full"
           >
-            <Avatar className="size-sm">
-              <AvatarImage
-                src={user.avatar_url}
-                alt={user.name || user.username}
-              />
-              <AvatarFallback className="bg-primary text-primary-foreground">
-                {getInitials(user.name || user.username)}
-              </AvatarFallback>
-            </Avatar>
+            {!showAccount ? (
+              <Palette className="size-4" />
+            ) : (
+              <Avatar className="size-sm">
+                <AvatarImage
+                  src={user.avatar_url}
+                  alt={user.name || user.username}
+                />
+                <AvatarFallback className="bg-primary text-primary-foreground">
+                  {getInitials(user.name || user.username)}
+                </AvatarFallback>
+              </Avatar>
+            )}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56" align="end" forceMount>
-          <div className="flex items-center justify-start gap-2 p-2">
-            <div className="flex flex-col space-y-1 leading-none">
-              {user.name && <p className="font-medium">{user.name}</p>}
-              <p className="text-xs text-muted-foreground">{user.username}</p>
-              {user.provider && (
-                <p className="text-xs text-muted-foreground capitalize">
-                  via {user.provider}
-                </p>
-              )}
-              {user.roles && user.roles.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Role: {user.roles.map((role) => role.name).join(', ')}
-                </p>
-              )}
+          {showAccount && (
+            <div className="flex items-center justify-start gap-2 p-2">
+              <div className="flex flex-col space-y-1 leading-none">
+                {user.name && <p className="font-medium">{user.name}</p>}
+                <p className="text-xs text-muted-foreground">{user.username}</p>
+                {user.provider && (
+                  <p className="text-xs text-muted-foreground capitalize">
+                    via {user.provider}
+                  </p>
+                )}
+                {user.roles && user.roles.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Role: {user.roles.map((role) => role.name).join(', ')}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
-          <DropdownMenuSeparator />
+          {showAccount && <DropdownMenuSeparator />}
 
           {user.isAdmin() && (
             <DropdownMenuItem asChild>
@@ -346,10 +355,13 @@ export function UserMenu() {
           </DropdownMenuSub>
 
           {(user.isAdmin() || !hasGlobalSidebarPreference) && (
-            <SidebarCustomizer onOpenChange={(d) => setOpen(d)} />
+            <SidebarCustomizer
+              allowGlobal={showAccount}
+              onOpenChange={(d) => setOpen(d)}
+            />
           )}
 
-          {user.provider !== 'Anonymous' && (
+          {showAccount && user.provider !== 'Anonymous' && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem

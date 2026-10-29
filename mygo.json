@@ -1,0 +1,10 @@
+{
+  "name": "Kite MyGo",
+  "identifier": "dev.kitehq.mygo",
+  "version": "0.1.0",
+  "icon": "bin/desktop-icon/logo.svg.png",
+  "out": "bin/desktop",
+  "macos": {
+    "signingIdentity": "-"
+  }
+}

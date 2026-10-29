@@ -7,9 +7,14 @@ class ApiClient {
   private baseUrl: string = ''
   private isRefreshing = false
   private refreshPromise: Promise<void> | null = null
+  private refreshOnUnauthorized = true
 
   constructor(baseUrl: string = '') {
     this.baseUrl = baseUrl
+  }
+
+  disableAuthRefresh() {
+    this.refreshOnUnauthorized = false
   }
 
   private async refreshToken(): Promise<void> {
@@ -63,7 +68,11 @@ class ApiClient {
     try {
       let response = await fetch(fullUrl, defaultOptions)
 
-      if (response.status === 401 && options.retryOnUnauthorized !== false) {
+      if (
+        this.refreshOnUnauthorized &&
+        response.status === 401 &&
+        options.retryOnUnauthorized !== false
+      ) {
         try {
           await this.refreshToken()
           response = await fetch(fullUrl, defaultOptions)
@@ -169,3 +178,8 @@ export const API_BASE_URL = '/api/v1'
 // Create a singleton instance
 export const apiClient = new ApiClient(API_BASE_URL)
 export const authApiClient = new ApiClient('/api')
+
+export function disableAuthRefresh() {
+  apiClient.disableAuthRefresh()
+  authApiClient.disableAuthRefresh()
+}

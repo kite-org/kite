@@ -55,7 +55,11 @@ interface GeneralSettingsFormData {
   loginPrompt: string
 }
 
-export function GeneralManagement() {
+export function GeneralManagement({
+  showLoginPrompt = true,
+}: {
+  showLoginPrompt?: boolean
+}) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { data, isLoading } = useGeneralSetting()
@@ -556,40 +560,42 @@ export function GeneralManagement() {
           </div>
         </div>
 
-        <div className="rounded-lg border p-3">
-          <div className="space-y-1">
-            <Label className="flex items-center gap-2 text-sm font-medium">
-              <IconMessage className="h-4 w-4" />
-              {t('generalManagement.loginPrompt.title', 'Login Prompt')}
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              {t(
-                'generalManagement.loginPrompt.description',
-                'Show a custom message on the login page.'
-              )}
-            </p>
-          </div>
+        {showLoginPrompt && (
+          <div className="rounded-lg border p-3">
+            <div className="space-y-1">
+              <Label className="flex items-center gap-2 text-sm font-medium">
+                <IconMessage className="h-4 w-4" />
+                {t('generalManagement.loginPrompt.title', 'Login Prompt')}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t(
+                  'generalManagement.loginPrompt.description',
+                  'Show a custom message on the login page.'
+                )}
+              </p>
+            </div>
 
-          <div className="mt-3 space-y-2">
-            <Label htmlFor="general-login-prompt">
-              {t('generalManagement.loginPrompt.form.message', 'Message')}
-            </Label>
-            <Textarea
-              id="general-login-prompt"
-              value={formData.loginPrompt}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  loginPrompt: e.target.value,
-                }))
-              }
-              placeholder={t(
-                'generalManagement.loginPrompt.form.placeholder',
-                'Leave empty to hide the login prompt'
-              )}
-            />
+            <div className="mt-3 space-y-2">
+              <Label htmlFor="general-login-prompt">
+                {t('generalManagement.loginPrompt.form.message', 'Message')}
+              </Label>
+              <Textarea
+                id="general-login-prompt"
+                value={formData.loginPrompt}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    loginPrompt: e.target.value,
+                  }))
+                }
+                placeholder={t(
+                  'generalManagement.loginPrompt.form.placeholder',
+                  'Leave empty to hide the login prompt'
+                )}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex justify-end">
           <Button onClick={handleSave} disabled={mutation.isPending}>

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useWorkspace } from '@/contexts/workspace-context'
 import type { OnMount } from '@monaco-editor/react'
 import {
   IconClearAll,
   IconDownload,
+  IconExternalLink,
   IconMaximize,
   IconMinimize,
   IconPalette,
@@ -85,6 +87,7 @@ export function LogViewer({
   onClose,
   labelSelector,
 }: LogViewerProps) {
+  const openWorkspace = useWorkspace()
   const [logTheme, setLogTheme] = useState<TerminalTheme>(() => {
     const saved = localStorage.getItem('log-viewer-theme')
     return (saved as TerminalTheme) || 'classic'
@@ -787,6 +790,23 @@ export function LogViewer({
             </Button>
 
             {/* Fullscreen Toggle */}
+            {openWorkspace && selectPodName && selectPodName !== '_all' && (
+              <Button
+                variant="outline"
+                size="sm"
+                title={t('desktop.openLogs')}
+                aria-label={t('desktop.openLogs')}
+                onClick={() =>
+                  openWorkspace('logs', {
+                    namespace,
+                    name: selectPodName,
+                    container: selectedContainer,
+                  })
+                }
+              >
+                <IconExternalLink className="size-4" />
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"

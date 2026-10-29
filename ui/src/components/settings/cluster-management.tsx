@@ -50,7 +50,11 @@ import { Action, ActionTable } from '../action-table'
 import { ClusterDialog } from './cluster-dialog'
 import { ClusterImportDialog } from './cluster-import-dialog'
 
-export function ClusterManagement() {
+export function ClusterManagement({
+  showClusterTypeSelector = true,
+}: {
+  showClusterTypeSelector?: boolean
+}) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { refreshClusters } = useCluster()
@@ -493,6 +497,7 @@ export function ClusterManagement() {
 
       {/* Cluster Dialog (Add/Edit) */}
       <ClusterDialog
+        showClusterTypeSelector={showClusterTypeSelector}
         open={showClusterDialog}
         onOpenChange={(open) => {
           setShowClusterDialog(open)

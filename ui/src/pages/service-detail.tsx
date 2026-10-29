@@ -11,6 +11,7 @@ import {
   useResourcesWatch,
 } from '@/lib/api'
 import { EventTable } from '@/components/event-table'
+import { PortForwardButton } from '@/components/port-forward'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
 import { ResourceHistoryTable } from '@/components/resource-history-table'
 import { ResourceYaml } from '@/components/resource-yaml'
@@ -80,6 +81,24 @@ export function ServiceDetail(props: { name: string; namespace?: string }) {
       isLoading={isLoading}
       error={isError ? error : null}
       onRefresh={handleRefresh}
+      headerActions={
+        data && namespace ? (
+          <PortForwardButton
+            resource="services"
+            namespace={namespace}
+            name={name}
+            disabled={
+              !Object.keys(data.spec?.selector ?? {}).length ||
+              !data.spec?.ports?.some(
+                (port) => !port.protocol || port.protocol === 'TCP'
+              )
+            }
+            ports={(data.spec?.ports ?? [])
+              .filter((port) => !port.protocol || port.protocol === 'TCP')
+              .map((port) => ({ port: port.port, name: port.name }))}
+          />
+        ) : null
+      }
       tabs={[
         {
           value: 'overview',

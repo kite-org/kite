@@ -1,5 +1,5 @@
 # Makefile for Kite project
-.PHONY: help dev build clean test docker-build docker-run frontend backend install deps e2e-install e2e-install-browser e2e-kind-up e2e-kind-down e2e-stop-app e2e-setup-ldap e2e-setup-dex e2e-run e2e-run-headed e2e-test e2e-test-headed
+.PHONY: help dev build desktop desktop-build clean test docker-build docker-run frontend backend install deps e2e-install e2e-install-browser e2e-kind-up e2e-kind-down e2e-stop-app e2e-setup-ldap e2e-setup-dex e2e-run e2e-run-headed e2e-test e2e-test-headed
 
 # Variables
 BINARY_NAME=kite
@@ -56,6 +56,15 @@ deps: ## Install frontend and backend dependencies
 build: frontend backend ## Build both frontend and backend
 	@echo "✅ Build completed successfully!"
 	@echo "🚀 Run './$(BINARY_NAME)' to start the server"
+
+desktop-build: frontend ## Build the macOS desktop prototype
+	@test "$$(uname -s)" = "Darwin" || (echo "Desktop builds currently require macOS"; exit 1)
+	mkdir -p bin/desktop-icon
+	qlmanage -t -s 1024 -o bin/desktop-icon docs/assets/logo.svg >/dev/null
+	GOFLAGS="-tags=desktop" MYGO_LDFLAGS="-X github.com/zxh326/kite/pkg/version.Version=$(VERSION) -X github.com/zxh326/kite/pkg/version.BuildDate=$(BUILD_DATE) -X github.com/zxh326/kite/pkg/version.CommitID=$(COMMIT_ID)" go run github.com/egoist/mygo/cmd/mygo build -platform darwin/$$(go env GOARCH) -skip-dmg -skip-notarize
+
+desktop: desktop-build ## Build and open the macOS desktop prototype
+	open "bin/desktop/darwin-$$(go env GOARCH)/Kite MyGo.app"
 
 clean-frontend: ## Clean frontend build artifacts
 	cd $(UI_DIR) && rm -rf dist node_modules/.vite

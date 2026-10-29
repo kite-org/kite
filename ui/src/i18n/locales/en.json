@@ -1,4 +1,39 @@
 {
+  "desktop": {
+    "settingsDescription": "Manage clusters and application settings",
+    "containerUnavailable": "Container {{container}} is no longer available in this Pod.",
+    "openLogs": "Open logs in a separate window",
+    "openTerminal": "Open terminal in a separate window",
+    "clusterUnavailable": "Cluster {{cluster}} is unavailable. This window will not switch to another cluster.",
+    "workspaceUnavailable": "This desktop window is unavailable. Open it from the relevant resource in Kite."
+  },
+  "portForward": {
+    "title": "Port forward",
+    "manage": "Local port forwards",
+    "manageCount": "Local port forwards ({{count}} active)",
+    "servicePort": "Service port (TCP)",
+    "podPort": "Pod port (TCP)",
+    "localPort": "Local port",
+    "automatic": "Automatically assign",
+    "localHint": "Leave blank or enter 0 to assign a free port. Listens only on 127.0.0.1.",
+    "lifetime": "Connections stay active when you change pages or close windows. Stop them from the toolbar or macOS menu bar; Quit Kite closes all connections. If the target Pod stops, start a new forward.",
+    "start": "Start forwarding",
+    "starting": "Connecting…",
+    "started": "Local port is ready. Use this address to connect:",
+    "cancel": "Cancel",
+    "done": "Done",
+    "copyAddress": "Copy local address",
+    "copied": "Local address copied",
+    "copyFailed": "Could not copy. Select and copy the address manually.",
+    "openHTTP": "Open as HTTP in browser",
+    "loading": "Loading connections…",
+    "retry": "Retry",
+    "empty": "No port forwards. Start one from a Pod or Service detail page.",
+    "active": "Listening",
+    "disconnected": "Disconnected",
+    "stop": "Stop",
+    "remove": "Remove"
+  },
   "common": {
     "actions": {
       "add": "Add",
@@ -1168,6 +1203,13 @@
     }
   },
   "aiChat": {
+    "title": "AI Assistant",
+    "openInWindow": "Open AI assistant window",
+    "setupHint": "Configure a model and enable AI in Settings to start a conversation.",
+    "disabledHint": "AI is not enabled. Ask an administrator to configure a model.",
+    "openSettings": "Open AI settings",
+    "windowContext": "Context: {{context}}",
+    "windowContextHint": "Uses the cluster and resource selected when this window was opened.",
     "disclaimer": "AI may make mistakes. Please verify carefully before use.",
     "suggestedPrompts": {
       "hint": "Start with a focused check",

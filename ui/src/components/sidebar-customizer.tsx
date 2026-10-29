@@ -63,8 +63,10 @@ const DRAG_SCROLL_MAX_STEP = 12
 
 export function SidebarCustomizer({
   onOpenChange,
+  allowGlobal = true,
 }: {
   onOpenChange?: (open: boolean) => void
+  allowGlobal?: boolean
 }) {
   const { t } = useTranslation()
   const { user, globalSidebarPreference } = useAuth()
@@ -684,16 +686,18 @@ export function SidebarCustomizer({
             {t('sidebar.resetToDefault', 'Reset to Default')}
           </Button>
           <div className="flex flex-col gap-2 sm:flex-row">
-            {user?.isAdmin() && hasPublishedGlobalSidebarPreference && (
-              <Button
-                variant="outline"
-                onClick={handleUnsetGlobalSidebar}
-                disabled={isPublishingGlobal || isClearingGlobal}
-              >
-                {t('sidebar.unsetGlobal', 'Unset global sidebar')}
-              </Button>
-            )}
-            {user?.isAdmin() && (
+            {allowGlobal &&
+              user?.isAdmin() &&
+              hasPublishedGlobalSidebarPreference && (
+                <Button
+                  variant="outline"
+                  onClick={handleUnsetGlobalSidebar}
+                  disabled={isPublishingGlobal || isClearingGlobal}
+                >
+                  {t('sidebar.unsetGlobal', 'Unset global sidebar')}
+                </Button>
+              )}
+            {allowGlobal && user?.isAdmin() && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span
