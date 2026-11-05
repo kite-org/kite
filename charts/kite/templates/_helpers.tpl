@@ -82,7 +82,7 @@ or generate a random 32-character key on first install.
 {{- else -}}
   {{- $secretName := printf "%s-secret" (include "kite.fullname" .) -}}
   {{- $existingSecret := lookup "v1" "Secret" .Release.Namespace $secretName -}}
-  {{- if and $existingSecret (hasKey $existingSecret.data "KITE_ENCRYPT_KEY") -}}
+  {{- if and $existingSecret $existingSecret.data (hasKey $existingSecret.data "KITE_ENCRYPT_KEY") -}}
     {{- index $existingSecret.data "KITE_ENCRYPT_KEY" | b64dec -}}
   {{- else -}}
     {{- randAlphaNum 32 -}}
