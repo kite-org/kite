@@ -52,12 +52,8 @@
 
 ################################################################################
 # WARNING: Insecure default encryption key in use!                             #
-# You have explicitly set encryptKey to the known default value.               #
+# You are using the default key "kite-default-encryption-key-change-in-production".#
 # Stored cluster credentials and secrets may be compromised.                   #
-# Leave encryptKey empty to auto-generate a secure random 32-character key.    #
+# Please set a unique encryptKey or use secret.existingSecret in production.   #
 ################################################################################
-{{- else if not .Values.encryptKey }}
-
-NOTE: encryptKey was auto-generated. For GitOps workflows (ArgoCD/Flux) or multi-replica
-deployments, provide a fixed encryptKey or use secret.existingSecret to prevent key drift.
 {{- end }}

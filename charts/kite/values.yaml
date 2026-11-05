@@ -53,12 +53,10 @@ anonymousUserEnabled: false
 # Ignored if using existingSecret
 jwtSecret: ""
 
-# This is the key used for encrypting sensitive data.
-# Auto-generated (32 random characters) if left empty.
-# For GitOps workflows (ArgoCD/Flux) or production deployments, provide a fixed key
-# or use secret.existingSecret to prevent key drift across offline template syncs.
-# Ignored if using existingSecret
-encryptKey: ""
+# This is the key used for encrypting sensitive data
+# WARNING: Change this in production or use secret.existingSecret.
+# Using the default key exposes stored cluster credentials and secrets to unauthorized decryption.
+encryptKey: "kite-default-encryption-key-change-in-production"
 
 # Secret handling
 # By default the chart will create a Kubernetes Secret containing sensitive values.

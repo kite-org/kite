@@ -69,23 +69,3 @@ Create the name of the service account to use
 {{- printf "%s-secret" (include "kite.fullname" .) }}
 {{- end }}
 {{- end }}
-
-{{/*
-Get or generate encryption key.
-If .Values.encryptKey is provided, use it.
-Otherwise, reuse existing secret's KITE_ENCRYPT_KEY on upgrade,
-or generate a random 32-character key on first install.
-*/}}
-{{- define "kite.encryptKey" -}}
-{{- if .Values.encryptKey -}}
-  {{- .Values.encryptKey -}}
-{{- else -}}
-  {{- $secretName := printf "%s-secret" (include "kite.fullname" .) -}}
-  {{- $existingSecret := lookup "v1" "Secret" .Release.Namespace $secretName -}}
-  {{- if and $existingSecret $existingSecret.data (hasKey $existingSecret.data "KITE_ENCRYPT_KEY") -}}
-    {{- index $existingSecret.data "KITE_ENCRYPT_KEY" | b64dec -}}
-  {{- else -}}
-    {{- randAlphaNum 32 -}}
-  {{- end -}}
-{{- end -}}
-{{- end }}
