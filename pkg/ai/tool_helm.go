@@ -263,6 +263,27 @@ func helmRevisionFromArgs(args map[string]interface{}) (int, error) {
 	return int(revision), nil
 }
 
+// releaseRendersSubcharts reports whether the release's manifest or hooks came
+// from a subchart template. Helm renders every chart under charts/, declared
+// in Chart.yaml or not, and names its templates "<chart>/charts/<subchart>/...".
+func releaseRendersSubcharts(rel *release.Release) bool {
+	fromSubchart := func(templatePath string) bool {
+		_, rest, _ := strings.Cut(templatePath, "/")
+		return strings.HasPrefix(rest, "charts/")
+	}
+	for _, hook := range rel.Hooks {
+		if fromSubchart(hook.Path) {
+			return true
+		}
+	}
+	for line := range strings.SplitSeq(rel.Manifest, "\n") {
+		if source, ok := strings.CutPrefix(line, "# Source: "); ok && fromSubchart(source) {
+			return true
+		}
+	}
+	return false
+}
+
 func executeGetHelmReleaseHistory(_ context.Context, cs *cluster.ClientSet, args map[string]interface{}) (string, bool) {
 	name, err := getRequiredString(args, "name")
 	if err != nil {
@@ -346,10 +367,11 @@ func executeUpdateHelmReleaseValues(ctx context.Context, cs *cluster.ClientSet, 
 		return fmt.Sprintf("Error: Helm release %s/%s has no chart recorded", namespace, name), true
 	}
 	// The release stores its chart without subchart contents (kite-org/kite#768),
-	// so re-rendering a chart with dependencies drops their resources and Helm
-	// deletes them.
-	if current.Chart.Metadata != nil && len(current.Chart.Metadata.Dependencies) > 0 {
-		return fmt.Sprintf("Error: Helm release %s/%s uses a chart with dependencies, which the stored release chart does not include; updating its values here would delete the dependencies' resources. Upgrade it from the Helm release page with a chart package instead", namespace, name), true
+	// so re-rendering a chart with subcharts drops their resources and Helm
+	// deletes them. Declared dependencies cover subcharts that values could
+	// enable; the rendered output covers ones vendored without a declaration.
+	if (current.Chart.Metadata != nil && len(current.Chart.Metadata.Dependencies) > 0) || releaseRendersSubcharts(current) {
+		return fmt.Sprintf("Error: Helm release %s/%s uses a chart with subcharts, which the stored release chart does not include; updating its values here would delete the subcharts' resources. Upgrade it from the Helm release page with a chart package instead", namespace, name), true
 	}
 
 	rel, err := helmutil.UpgradeRelease(ctx, cfg, name, current.Chart, values, helmutil.UpgradeReleaseOptions{
