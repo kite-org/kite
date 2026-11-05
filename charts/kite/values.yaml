@@ -53,10 +53,10 @@ anonymousUserEnabled: false
 # Ignored if using existingSecret
 jwtSecret: ""
 
-# This is the key used for encrypting sensitive data
-# Change this in production
+# This is the key used for encrypting sensitive data.
+# Auto-generated (32 random characters) if left empty.
 # Ignored if using existingSecret
-encryptKey: "kite-default-encryption-key-change-in-production"
+encryptKey: ""
 
 # Secret handling
 # By default the chart will create a Kubernetes Secret containing sensitive values.

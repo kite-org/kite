@@ -47,3 +47,13 @@
   echo "Visit http://127.0.0.1:8080 to use your application"
   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
 {{- end }}
+
+{{- if eq .Values.encryptKey "kite-default-encryption-key-change-in-production" }}
+
+################################################################################
+# WARNING: Insecure default encryption key in use!                             #
+# You have explicitly set encryptKey to the known default value.               #
+# Stored cluster credentials and secrets may be compromised.                   #
+# Leave encryptKey empty to auto-generate a secure random 32-character key.    #
+################################################################################
+{{- end }}
