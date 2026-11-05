@@ -54,8 +54,8 @@ anonymousUserEnabled: false
 jwtSecret: ""
 
 # This is the key used for encrypting sensitive data
-# Change this in production
-# Ignored if using existingSecret
+# WARNING: Change this in production or use secret.existingSecret.
+# Using the default key exposes stored cluster credentials and secrets to unauthorized decryption.
 encryptKey: "kite-default-encryption-key-change-in-production"
 
 # Secret handling
