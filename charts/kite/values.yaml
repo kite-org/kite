@@ -55,6 +55,8 @@ jwtSecret: ""
 
 # This is the key used for encrypting sensitive data.
 # Auto-generated (32 random characters) if left empty.
+# For GitOps workflows (ArgoCD/Flux) or production deployments, provide a fixed key
+# or use secret.existingSecret to prevent key drift across offline template syncs.
 # Ignored if using existingSecret
 encryptKey: ""
 
