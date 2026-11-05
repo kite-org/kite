@@ -172,4 +172,17 @@ func TestSetupStatic(t *testing.T) {
 			t.Fatalf("body = %q, want %q", got, `{"error":"API endpoint not found"}`)
 		}
 	})
+
+	t.Run("returns 404 for assets directory index", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/kite/assets/", nil)
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+		}
+		if strings.Contains(rec.Body.String(), "<pre>") {
+			t.Fatalf("directory listing should not be exposed")
+		}
+	})
 }
