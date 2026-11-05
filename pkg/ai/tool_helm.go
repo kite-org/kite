@@ -263,10 +263,12 @@ func helmRevisionFromArgs(args map[string]interface{}) (int, error) {
 	return int(revision), nil
 }
 
-// releaseRendersSubcharts reports whether the release's manifest or hooks came
-// from a subchart template. Helm renders every chart under charts/, declared
-// in Chart.yaml or not, and names its templates "<chart>/charts/<subchart>/...".
-func releaseRendersSubcharts(rel *release.Release) bool {
+// releaseMayRenderSubcharts reports whether the release's manifest or hooks came
+// from a subchart template, or whether the manifest cannot rule that out. Helm
+// also renders charts under charts/ that Chart.yaml does not declare, and names
+// their templates "<chart>/charts/<subchart>/..." in "# Source:" headers; a
+// manifest from a Helm 3 post-renderer carries no such headers.
+func releaseMayRenderSubcharts(rel *release.Release) bool {
 	fromSubchart := func(templatePath string) bool {
 		_, rest, _ := strings.Cut(templatePath, "/")
 		return strings.HasPrefix(rest, "charts/")
@@ -276,12 +278,16 @@ func releaseRendersSubcharts(rel *release.Release) bool {
 			return true
 		}
 	}
+	sourced := false
 	for line := range strings.SplitSeq(rel.Manifest, "\n") {
-		if source, ok := strings.CutPrefix(line, "# Source: "); ok && fromSubchart(source) {
-			return true
+		if source, ok := strings.CutPrefix(line, "# Source: "); ok {
+			if fromSubchart(source) {
+				return true
+			}
+			sourced = true
 		}
 	}
-	return false
+	return !sourced && strings.TrimSpace(rel.Manifest) != ""
 }
 
 func executeGetHelmReleaseHistory(_ context.Context, cs *cluster.ClientSet, args map[string]interface{}) (string, bool) {
@@ -367,11 +373,13 @@ func executeUpdateHelmReleaseValues(ctx context.Context, cs *cluster.ClientSet, 
 		return fmt.Sprintf("Error: Helm release %s/%s has no chart recorded", namespace, name), true
 	}
 	// The release stores its chart without subchart contents (kite-org/kite#768),
-	// so re-rendering a chart with subcharts drops their resources and Helm
-	// deletes them. Declared dependencies cover subcharts that values could
-	// enable; the rendered output covers ones vendored without a declaration.
-	if (current.Chart.Metadata != nil && len(current.Chart.Metadata.Dependencies) > 0) || releaseRendersSubcharts(current) {
-		return fmt.Sprintf("Error: Helm release %s/%s uses a chart with subcharts, which the stored release chart does not include; updating its values here would delete the subcharts' resources. Upgrade it from the Helm release page with a chart package instead", namespace, name), true
+	// so re-rendering a chart with subcharts leaves their resources out and Helm
+	// deletes the deployed ones. Helm prunes disabled dependencies from the
+	// stored metadata, but the lock still lists them for values to enable; the
+	// rendered output reveals subcharts vendored without a declaration.
+	meta, lock := current.Chart.Metadata, current.Chart.Lock
+	if (meta != nil && len(meta.Dependencies) > 0) || (lock != nil && len(lock.Dependencies) > 0) || releaseMayRenderSubcharts(current) {
+		return fmt.Sprintf("Error: Helm release %s/%s cannot be updated here: its chart has subcharts, or its manifest cannot rule them out, and the stored release chart does not include them, so re-rendering would leave their resources out and delete any already deployed. Upgrade it from the Helm release page with a chart package instead", namespace, name), true
 	}
 
 	rel, err := helmutil.UpgradeRelease(ctx, cfg, name, current.Chart, values, helmutil.UpgradeReleaseOptions{
