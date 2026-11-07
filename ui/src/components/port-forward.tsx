@@ -1,14 +1,14 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Cable, Copy, ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { apiClient } from '@/lib/api-client'
 import { withCurrentClusterPath } from '@/lib/current-cluster'
 import { isDesktop } from '@/lib/desktop'
+import { events } from '@/lib/mygo'
 import { useCluster } from '@/hooks/use-cluster'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -280,10 +280,15 @@ export function PortForwardButton({
 export function PortForwardManager() {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const location = useLocation()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+  useEffect(
+    () =>
+      events.desktopCommand.on((command) => {
+        if (command.action === 'port-forwards') setOpen(true)
+      }),
+    []
+  )
   const forwards = useQuery({
     queryKey: [...queryKey, user?.Key()],
     queryFn: () => apiClient.get<Forward[]>(endpoint),
@@ -309,22 +314,7 @@ export function PortForwardManager() {
         <Cable className="size-5" />
         {count > 0 && <span className="tabular-nums">{count}</span>}
       </Button>
-      <Dialog
-        open={open || location.hash === '#port-forwards'}
-        onOpenChange={(value) => {
-          setOpen(value)
-          if (!value && location.hash === '#port-forwards') {
-            navigate(
-              {
-                pathname: location.pathname,
-                search: location.search,
-                hash: '',
-              },
-              { replace: true }
-            )
-          }
-        }}
-      >
+      <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-xl max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('portForward.manage')}</DialogTitle>

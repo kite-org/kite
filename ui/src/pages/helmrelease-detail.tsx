@@ -32,6 +32,7 @@ import {
   useResource,
   useResourcesWatch,
 } from '@/lib/api'
+import { isDesktopChild } from '@/lib/desktop'
 import { getCRDResourcePath } from '@/lib/k8s'
 import {
   getResourceDetailPath,
@@ -154,7 +155,7 @@ function HelmReleaseResourceLink({
   const label = resource.namespace
     ? `${resource.namespace}/${resource.name}`
     : resource.name
-  const isIframe = searchParams.get('iframe') === 'true'
+  const isIframe = searchParams.get('iframe') === 'true' || isDesktopChild
 
   if (!path) {
     return <span className="font-medium">{label}</span>

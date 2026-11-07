@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   IconCopy,
   IconEdit,
@@ -10,6 +10,7 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { Cluster } from '@/types/api'
@@ -22,6 +23,8 @@ import {
   updateCluster,
   useClusterList,
 } from '@/lib/api'
+import { pendingDesktopImport, setPendingDesktopImport } from '@/lib/desktop'
+import { DesktopService } from '@/lib/mygo'
 import { useCluster } from '@/hooks/use-cluster'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -52,8 +55,10 @@ import { ClusterImportDialog } from './cluster-import-dialog'
 
 export function ClusterManagement({
   showClusterTypeSelector = true,
+  desktop = false,
 }: {
   showClusterTypeSelector?: boolean
+  desktop?: boolean
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -69,6 +74,21 @@ export function ClusterManagement({
 
   const [showClusterDialog, setShowClusterDialog] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
+  const [importConfig, setImportConfig] = useState('')
+  const [importVersion, setImportVersion] = useState(0)
+  const location = useLocation()
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (!desktop || !location.state?.desktopImport) return
+    setImportConfig(pendingDesktopImport?.config ?? '')
+    setImportVersion((version) => version + 1)
+    setPendingDesktopImport(undefined)
+    setShowImportDialog(true)
+    navigate(location.pathname + location.search, {
+      replace: true,
+      state: null,
+    })
+  }, [desktop, location, navigate])
   const [editingCluster, setEditingCluster] = useState<Cluster | null>(null)
   const [deletingCluster, setDeletingCluster] = useState<Cluster | null>(null)
   const [clusterAgentCommand, setClusterAgentCommand] = useState('')
@@ -510,10 +530,16 @@ export function ClusterManagement({
       />
 
       <ClusterImportDialog
+        key={importVersion}
         open={showImportDialog}
+        initialConfig={importConfig}
+        pickKubeconfig={desktop ? DesktopService.pickKubeconfig : undefined}
         onOpenChange={(open) => {
           setShowImportDialog(open)
-          if (!open) importMutation.reset()
+          if (!open) {
+            setImportConfig('')
+            importMutation.reset()
+          }
         }}
         onSubmit={(config) => importMutation.mutate(config)}
         isSubmitting={importMutation.isPending}

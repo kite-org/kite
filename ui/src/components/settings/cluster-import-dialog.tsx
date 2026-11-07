@@ -21,6 +21,8 @@ interface ClusterImportDialogProps {
   onSubmit: (config: string) => void
   isSubmitting: boolean
   error?: string
+  initialConfig?: string
+  pickKubeconfig?: (title: string) => Promise<string>
 }
 
 export function ClusterImportDialog({
@@ -29,6 +31,8 @@ export function ClusterImportDialog({
   onSubmit,
   isSubmitting,
   error,
+  initialConfig,
+  pickKubeconfig,
 }: ClusterImportDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -38,6 +42,8 @@ export function ClusterImportDialog({
           onSubmit={onSubmit}
           isSubmitting={isSubmitting}
           error={error}
+          initialConfig={initialConfig}
+          pickKubeconfig={pickKubeconfig}
         />
       ) : null}
     </Dialog>
@@ -49,9 +55,11 @@ function ClusterImportDialogContent({
   onSubmit,
   isSubmitting,
   error,
+  initialConfig,
+  pickKubeconfig,
 }: Omit<ClusterImportDialogProps, 'open'>) {
   const { t } = useTranslation()
-  const [config, setConfig] = useState('')
+  const [config, setConfig] = useState(initialConfig ?? '')
   const [fileError, setFileError] = useState('')
 
   const handleFileSelect = async (
@@ -98,14 +106,36 @@ function ClusterImportDialogContent({
           <Label htmlFor="cluster-import-file">
             {t('clusterManagement.dialog.importFile', 'Kubeconfig File')}
           </Label>
-          <Input
-            id="cluster-import-file"
-            type="file"
-            onChange={handleFileSelect}
-          />
+          {pickKubeconfig ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={async () => {
+                try {
+                  const content = await pickKubeconfig(
+                    t('clusterManagement.dialog.importFile')
+                  )
+                  if (content) setConfig(content)
+                  setFileError('')
+                } catch {
+                  setFileError(t('clusterManagement.messages.fileReadError'))
+                }
+              }}
+            >
+              {t('clusterManagement.dialog.chooseFile')}
+            </Button>
+          ) : (
+            <Input
+              id="cluster-import-file"
+              type="file"
+              onChange={handleFileSelect}
+            />
+          )}
           <p className="text-xs text-muted-foreground text-pretty">
             {t(
-              'clusterManagement.dialog.importFileHint',
+              pickKubeconfig
+                ? 'clusterManagement.dialog.desktopImportFileHint'
+                : 'clusterManagement.dialog.importFileHint',
               'Choose a kubeconfig file, or paste its content below.'
             )}
           </p>

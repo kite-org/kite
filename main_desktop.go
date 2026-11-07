@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	_ "embed"
 	"errors"
 	"flag"
 	"fmt"
@@ -16,11 +17,14 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/plugins/updater"
+	updaternative "github.com/egoist/mygo/plugins/updater/native"
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/portforward"
@@ -28,11 +32,76 @@ import (
 	"k8s.io/klog/v2"
 )
 
+type DesktopCommand struct {
+	Action string `json:"action"`
+	Config string `json:"config,omitempty"`
+	Error  string `json:"error,omitempty"`
+}
+
+var desktopCommands = mygo.NewEvent[DesktopCommand]("desktop-command")
+
+//go:embed ui/src/assets/tray-icon.png
+var trayIcon []byte
+
+//go:embed ui/src/assets/desktop-icon.png
+var desktopIcon []byte
+
+type DesktopService struct {
+	shellEnv       []string
+	path           string
+	kubectlWindows map[string]*mygo.Window
+}
+
+var desktopService = &DesktopService{kubectlWindows: make(map[string]*mygo.Window)}
+
+func (*DesktopService) PickKubeconfig(ctx context.Context, title string) (string, error) {
+	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: mygo.CallerWindow(ctx), Title: title, ShowHiddenFiles: true})
+	if err != nil || len(paths) == 0 {
+		return "", err
+	}
+	content, err := os.ReadFile(paths[0])
+	return string(content), err
+}
+
+func (*DesktopService) SaveText(ctx context.Context, title, filename, content string) error {
+	path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{Parent: mygo.CallerWindow(ctx), Title: title, DefaultPath: filepath.Base(filename)})
+	if err != nil || path == "" {
+		return err
+	}
+	return os.WriteFile(path, []byte(content), 0600)
+}
+
+func (*DesktopService) SetDisplayScale(scale int) {
+	if scale < 80 || scale > 125 {
+		return
+	}
+	for _, window := range mygo.Windows() {
+		if page := window.Page(); page != nil {
+			page.SetZoomFactor(float64(scale) / 100)
+		}
+	}
+}
+
 func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
-	mygo.App.SetName("Kite MyGo")
-	mygo.App.SetVersion(version.Version)
+	mygo.App.SetName("Kite")
+	if desktopVersion := mygo.App.Version(); desktopVersion != "" {
+		version.Version = desktopVersion
+	}
+	dataDir, err := mygo.App.Path(mygo.PathAppData)
+	if err != nil {
+		log.Fatal(err)
+	}
+	mygo.App.SetPath(mygo.PathUserData, filepath.Join(dataDir, "Kite"))
+	mygo.Bind(desktopService)
+	mygo.Use(updaternative.New(updater.Options{Icon: desktopIcon}))
+	if os.Getenv("MYGO_GENERATE") != "" {
+		if err := mygo.App.Run(); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	if !mygo.App.RequestSingleInstanceLock() {
 		return
 	}
@@ -60,15 +129,14 @@ func main() {
 }
 
 func runDesktop(ctx context.Context) error {
-	dataDir, err := mygo.App.Path(mygo.PathAppData)
+	shellEnv := os.Environ()
+	dataDir, err := mygo.App.Path(mygo.PathUserData)
 	if err != nil {
 		return err
 	}
-	dataDir = filepath.Join(dataDir, "Kite MyGo Local")
 	if err := os.MkdirAll(dataDir, 0700); err != nil {
 		return err
 	}
-	mygo.App.SetPath(mygo.PathUserData, dataDir)
 	dbPath := filepath.Join(dataDir, "kite.db")
 
 	keyPath := filepath.Join(dataDir, "encryption.key")
@@ -93,9 +161,9 @@ func runDesktop(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	paths := []string{"/opt/homebrew/bin", "/usr/local/bin", filepath.Join(home, ".krew", "bin"), filepath.Join(home, ".local", "bin")}
-	if path := os.Getenv("PATH"); path != "" {
-		paths = append([]string{path}, paths...)
+	paths := []string{os.Getenv("PATH")}
+	if runtime.GOOS == "darwin" {
+		paths = append(paths, "/opt/homebrew/bin", "/usr/local/bin", filepath.Join(home, ".krew", "bin"), filepath.Join(home, ".local", "bin"))
 	}
 	path := strings.Join(paths, string(os.PathListSeparator))
 	if err := os.Setenv("PATH", path); err != nil {
@@ -132,6 +200,7 @@ func runDesktop(ctx context.Context) error {
 		"HOST":                   origin,
 		"TRUSTED_PROXIES":        "none",
 		"ANONYMOUS_USER_ENABLED": "true",
+		"DISABLE_VERSION_CHECK":  "true",
 	} {
 		if err := os.Setenv(name, value); err != nil {
 			return err
@@ -153,6 +222,8 @@ func runDesktop(ctx context.Context) error {
 	defer db.Close()
 
 	engine := buildEngine(cm)
+	desktopService.shellEnv = shellEnv
+	desktopService.path = path
 	forwards := portforward.New(ctx)
 	defer forwards.Close()
 	forwards.RegisterRoutes(engine, cm)
@@ -202,7 +273,15 @@ func runDesktop(ctx context.Context) error {
 	}()
 	klog.Infof("Kite desktop listening on %s", origin)
 
-	desktopPage := mygo.PageOptions{PreloadScript: "window.__kiteDesktop = true"}
+	desktopPage := mygo.PageOptions{PreloadScript: `
+		window.__kiteDesktop = true;
+		document.addEventListener('contextmenu', (event) => {
+			const target = event.target;
+			if (target instanceof Element && !target.closest('a[href], input, textarea') && !target.isContentEditable) {
+				event.preventDefault();
+			}
+		});
+	`, TrustedOrigins: []string{origin}, ZoomFactor: 0.9}
 	var mainWindow *mygo.Window
 	var aiWindow *mygo.Window
 	workspaces := make(map[string]*mygo.Window)
@@ -227,6 +306,22 @@ func runDesktop(ctx context.Context) error {
 			window.OnClosed(func() { delete(workspaces, key) })
 		}
 		page := window.Page()
+		if page == nil {
+			return
+		}
+		page.OnContextMenu(func(event *mygo.ContextMenuEvent) {
+			if event.LinkURL == "" || event.Editable {
+				return
+			}
+			var items []*mygo.MenuItem
+			for _, item := range event.Menu.Items() {
+				if item.ID == mygo.ContextMenuOpenLink || item.ID == mygo.ContextMenuOpenLinkInNewWindow {
+					items = append(items, item)
+				}
+			}
+			event.Menu = mygo.NewMenu(items)
+		})
+		window.OnReadyToShow(func() { window.Show() })
 		page.SetWindowOpenHandler(func(req mygo.WindowOpenRequest) *mygo.WindowOptions {
 			target, err := url.Parse(req.URL)
 			if err != nil || (target.Scheme != "http" && target.Scheme != "https") {
@@ -235,6 +330,7 @@ func runDesktop(ctx context.Context) error {
 			if target.Scheme+"://"+target.Host == origin {
 				if target.Path == common.Base+"/ai-chat-box" {
 					if aiWindow != nil {
+						aiWindow.Show()
 						aiWindow.Restore()
 						aiWindow.Focus()
 						return nil
@@ -248,16 +344,17 @@ func runDesktop(ctx context.Context) error {
 						MinWidth:  380,
 						MinHeight: 480,
 						StateKey:  "ai-chat",
+						Hidden:    true,
 						Page:      desktopPage,
 					}
 				}
 				if target.Path == common.Base+"/desktop/workspace" {
 					query := target.Query()
 					view := query.Get("view")
-					if query.Get("cluster") == "" || (view != "logs" && view != "terminal" && view != "kubectl") {
+					if query.Get("cluster") == "" || (view != "logs" && view != "terminal") {
 						return nil
 					}
-					if view != "kubectl" && (query.Get("namespace") == "" || query.Get("name") == "") {
+					if query.Get("namespace") == "" || query.Get("name") == "" {
 						return nil
 					}
 					key := fmt.Sprintf("workspace-%x", sha256.Sum256([]byte(query.Encode())))
@@ -270,7 +367,7 @@ func runDesktop(ctx context.Context) error {
 					creatingWindow = key
 					return &mygo.WindowOptions{
 						Title: "Kite", Width: 1100, Height: 760, MinWidth: 720, MinHeight: 480,
-						StateKey: key, Page: desktopPage,
+						StateKey: key, Page: desktopPage, Hidden: true,
 					}
 				}
 				if window == aiWindow && target.Path == common.Base+"/settings" && mainWindow != nil {
@@ -278,7 +375,16 @@ func runDesktop(ctx context.Context) error {
 					showMain()
 					return nil
 				}
-				return &mygo.WindowOptions{Title: "Kite", Width: 1100, Height: 800, Page: desktopPage}
+				if strings.HasPrefix(target.Path, common.Base+"/api/") {
+					return &mygo.WindowOptions{Title: "Kite", Width: 1100, Height: 800, Page: desktopPage, Hidden: true}
+				}
+				childPage := desktopPage
+				childPage.PreloadScript += "; window.__kiteDesktopChild = true"
+				return &mygo.WindowOptions{
+					Title: "Kite", Width: 1100, Height: 800, Page: childPage, Hidden: true,
+					TitleBarStyle: mygo.TitleBarHidden, TrafficLightPosition: &mygo.Point{X: 14, Y: 17},
+					BackgroundColor: "light-dark(#ffffff, #171717)",
+				}
 			}
 			go func() {
 				if err := mygo.Shell.OpenExternal(req.URL); err != nil {
@@ -316,10 +422,25 @@ func runDesktop(ctx context.Context) error {
 			MinWidth:             960,
 			MinHeight:            640,
 			StateKey:             "main",
+			Hidden:               true,
 			Page:                 desktopPage,
 			TitleBarStyle:        mygo.TitleBarHidden,
 			TrafficLightPosition: &mygo.Point{X: 14, Y: 17},
 			BackgroundColor:      "light-dark(#ffffff, #171717)",
+		})
+		mainWindow.OnFileDrop(func(event *mygo.FileDropEvent) {
+			if len(event.Paths) == 0 {
+				return
+			}
+			window := mainWindow
+			go func() {
+				content, err := os.ReadFile(event.Paths[0])
+				command := DesktopCommand{Action: "import-kubeconfig", Config: string(content)}
+				if err != nil {
+					command.Error = err.Error()
+				}
+				_ = desktopCommands.Emit(window, command)
+			}()
 		})
 		mainWindow.OnClose(func(event *mygo.CloseEvent) {
 			if !quitting {
@@ -329,30 +450,58 @@ func runDesktop(ctx context.Context) error {
 		})
 		mainWindow.OnClosed(func() { mainWindow = nil })
 	})
-	tray, err := mygo.NewTray(mygo.TrayOptions{ID: "kite", Title: "Kite", ToolTip: "Kite"})
+	text := func(en, zh string) string {
+		if strings.HasPrefix(mygo.App.Locale(), "zh") {
+			return zh
+		}
+		return en
+	}
+	command := func(action string) func(*mygo.MenuItem, *mygo.Window) {
+		return func(*mygo.MenuItem, *mygo.Window) {
+			showMain()
+			if mainWindow != nil {
+				_ = desktopCommands.Emit(mainWindow, DesktopCommand{Action: action})
+			}
+		}
+	}
+	zoomCommand := func(action string) func(*mygo.MenuItem, *mygo.Window) {
+		return func(_ *mygo.MenuItem, window *mygo.Window) {
+			if window != nil && window.Page() != nil {
+				_ = desktopCommands.Emit(window, DesktopCommand{Action: action})
+			}
+		}
+	}
+	updateMenu := func() {
+		mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
+			{Role: mygo.RoleAppMenu},
+			{Label: text("File", "文件"), Submenu: []*mygo.MenuItem{
+				{Label: text("Import kubeconfig…", "导入 kubeconfig…"), Accelerator: "CmdOrCtrl+O", Click: command("import-kubeconfig")},
+				mygo.Separator(), {Role: mygo.RoleClose},
+			}},
+			{Role: mygo.RoleEditMenu},
+			{Label: text("View", "显示"), Submenu: []*mygo.MenuItem{
+				{Label: text("Open AI", "打开 AI"), Accelerator: "CmdOrCtrl+Shift+A", Click: command("open-ai")},
+				{Label: text("Manage port forwards…", "管理端口转发…"), Click: command("port-forwards")},
+				updater.MenuItem(),
+				mygo.Separator(),
+				{Label: text("Zoom In", "放大"), Accelerator: "CmdOrCtrl+Plus", Click: zoomCommand("zoom-in")},
+				{Label: text("Zoom Out", "缩小"), Accelerator: "CmdOrCtrl+-", Click: zoomCommand("zoom-out")},
+				{Label: text("Actual Size", "实际大小"), Accelerator: "CmdOrCtrl+0", Click: zoomCommand("zoom-reset")},
+				mygo.Separator(), {Role: mygo.RoleReload}, {Role: mygo.RoleToggleFullScreen},
+			}},
+			{Role: mygo.RoleWindowMenu},
+		}))
+	}
+	mygo.RunOnMain(updateMenu)
+	mygo.App.OnLocaleChanged(func(string) { updateMenu() })
+	tray, err := mygo.NewTray(mygo.TrayOptions{ID: "kite", Icon: trayIcon, IconIsTemplate: true, ToolTip: "Kite"})
 	if err != nil {
 		return fmt.Errorf("create menu bar item: %w", err)
 	}
 	updateTray := func() {
-		text := func(en, zh string) string {
-			if strings.HasPrefix(mygo.App.Locale(), "zh") {
-				return zh
-			}
-			return en
-		}
 		items := []*mygo.MenuItem{
 			{Label: text("Open Kite", "打开 Kite"), Click: func(*mygo.MenuItem, *mygo.Window) { showMain() }},
-			{Label: text("Manage port forwards…", "管理端口转发…"), Click: func(*mygo.MenuItem, *mygo.Window) {
-				showMain()
-				if mainWindow != nil {
-					page := mainWindow.Page()
-					go func() {
-						if _, err := page.Eval("window.location.hash = 'port-forwards'"); err != nil {
-							klog.Errorf("Open port forward manager: %v", err)
-						}
-					}()
-				}
-			}},
+			{Label: text("Manage port forwards…", "管理端口转发…"), Click: command("port-forwards")},
 			mygo.Separator(),
 		}
 		count := 0
@@ -393,9 +542,9 @@ func runDesktop(ctx context.Context) error {
 		}
 		items = append(items, mygo.Separator(), &mygo.MenuItem{Label: text("Quit Kite", "退出 Kite"), Role: mygo.RoleQuit})
 		tray.SetMenu(mygo.NewMenu(items))
-		title := "Kite"
+		title := ""
 		if count > 0 {
-			title = fmt.Sprintf("Kite · %d", count)
+			title = strconv.Itoa(count)
 		}
 		tray.SetTitle(title)
 	}

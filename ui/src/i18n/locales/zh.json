@@ -1,5 +1,12 @@
 {
   "desktop": {
+    "kubectlNotInstalled": "未找到 kubectl，请先安装并确保它在 PATH 中。",
+    "localKubeconfigUnavailable": "此集群没有可供本地终端使用的 kubeconfig。",
+    "localKubeconfigError": "无法为本地终端准备集群配置。",
+    "localTerminalStartError": "无法启动本地终端。",
+    "saveFile": "保存文件",
+    "saveFileError": "保存文件失败",
+    "exportYaml": "导出 YAML",
     "settingsDescription": "管理集群和应用设置",
     "containerUnavailable": "此 Pod 中已没有容器 {{container}}。",
     "openLogs": "在独立窗口中打开日志",
@@ -1023,6 +1030,8 @@
       "importDescription": "从 kubeconfig 文件导入集群列表，同名集群将被更新。",
       "importFile": "Kubeconfig 文件",
       "importFileHint": "选择 kubeconfig 文件，或在下方粘贴文件内容。",
+      "desktopImportFileHint": "选择 kubeconfig 文件、将文件拖入窗口，或在下方粘贴文件内容。",
+      "chooseFile": "选择文件…",
       "name": "名称",
       "namePlaceholder": "输入集群名称",
       "description": "描述",

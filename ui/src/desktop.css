@@ -1,5 +1,45 @@
+.desktop.color-default[data-system-accent] {
+  --primary: var(--mygo-accent);
+  --primary-foreground: var(--desktop-accent-foreground);
+  --ring: var(--mygo-accent);
+  --sidebar-primary: var(--mygo-accent);
+  --sidebar-primary-foreground: var(--desktop-accent-foreground);
+  accent-color: var(--mygo-accent);
+}
+
+.desktop[data-reduce-motion] *,
+.desktop[data-reduce-motion] *::before,
+.desktop[data-reduce-motion] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+.desktop[data-reduce-transparency] [class*='backdrop-blur'] {
+  backdrop-filter: none;
+}
+
+.desktop[data-high-contrast] {
+  --border: #767676;
+  --input: #767676;
+}
+
 .desktop-shell {
   --desktop-toolbar-height: 3rem;
+}
+
+.desktop-child-titlebar {
+  --app-region: drag;
+  height: 3rem;
+  padding-left: calc(var(--mygo-titlebar-inset-left, 5rem) + 0.75rem);
+  padding-right: var(--mygo-titlebar-inset-right, 1rem);
+}
+
+.desktop-shell .desktop-fullscreen-panel,
+.desktop-child .desktop-fullscreen-panel {
+  top: 3rem;
+  height: calc(100dvh - 3rem);
 }
 
 .desktop-shell > .desktop-titlebar {

@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { type ResourceType } from '@/types/api'
+import { isDesktopChild } from '@/lib/desktop'
 import { getResourceDetailPath } from '@/lib/resource-catalog'
 import { cn } from '@/lib/utils'
 import { usePageTitle } from '@/hooks/use-page-title'
@@ -62,7 +63,7 @@ export function ResourceDetailShell<T>({
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const pluginNamespace = useContext(PluginNamespaceContext)
-  const isIframe = searchParams.get('iframe') === 'true'
+  const isIframe = searchParams.get('iframe') === 'true' || isDesktopChild
 
   usePageTitle(name ? `${name} (${resourceLabel})` : resourceLabel)
 
@@ -157,7 +158,11 @@ export function ResourceDetailShell<T>({
       <div
         className={cn(
           'flex min-h-0 flex-col',
-          isIframe ? 'h-dvh px-4 py-3 lg:px-6' : 'h-full'
+          isDesktopChild
+            ? 'h-full'
+            : isIframe
+              ? 'h-dvh px-4 py-3 lg:px-6'
+              : 'h-full'
         )}
       >
         <ResponsiveTabs

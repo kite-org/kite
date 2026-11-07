@@ -116,6 +116,9 @@ importers:
       lucide-react:
         specifier: ^0.577.0
         version: 0.577.0(react@19.3.0)
+      mygo-runtime:
+        specifier: 0.7.4
+        version: 0.7.4
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -2680,6 +2683,9 @@ packages:
 
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
+
+  mygo-runtime@0.7.4:
+    resolution: {integrity: sha512-11BHbfdLp3OdVb5691zkj4xKtU6Qk9ZCVxbi2xOxPvtGTVo1xwKs1cx61Ow/p95qmJvUp8p+DjeXRnVkeSnFww==}
 
   nanoid@3.3.18:
     resolution: {integrity: sha512-DTg4MJbGMWkfi6VZFdNt2/caMbQy4Ou+Op/hJQvGEWcnVfoA1QA+xzRKAzw9jD6+GVOOeYr/mIcuDSdug6F6+w==}
@@ -5853,6 +5859,8 @@ snapshots:
       marked: 14.0.0
 
   ms@2.1.3: {}
+
+  mygo-runtime@0.7.4: {}
 
   nanoid@3.3.18: {}
 
