@@ -141,10 +141,15 @@ rbac:
 
 ## 服务配置
 
-| 参数           | 描述     | 默认值      |
-| -------------- | -------- | ----------- |
-| `service.type` | 服务类型 | `ClusterIP` |
-| `service.port` | 服务端口 | `8080`      |
+| 参数                                 | 描述                | 默认值            |
+| ------------------------------------ | ------------------- | ----------------- |
+| `service.type`                       | 服务类型            | `ClusterIP`       |
+| `service.port`                       | 服务端口            | `8080`            |
+| `service.annotations`                | Kubernetes 服务注解 | `{}`              |
+| `service.labels`                     | Kubernetes 服务标签 | `{}`              |
+| `service.ipDualStack.enabled`        | 启用双栈 IP 地址族  | `false`           |
+| `service.ipDualStack.ipFamilies`     | 服务 IP 地址族      | `[IPv4, IPv6]`    |
+| `service.ipDualStack.ipFamilyPolicy` | 服务 IP 地址族策略  | `PreferDualStack` |
 
 ## Ingress 配置
 
