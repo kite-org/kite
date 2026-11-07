@@ -16,6 +16,9 @@ E2E_LDAP_PORT ?= 3389
 E2E_DEX_CONTAINER ?= kite-e2e-dex
 E2E_OAUTH_PORT ?= 5556
 SPEC ?=
+DESKTOP_MAC_ARCH ?= $(shell go env GOARCH)
+DESKTOP_WINDOWS_ARCH ?= amd64
+DESKTOP_VERSION = $(patsubst v%,%,$(VERSION))
 
 # Version information
 VERSION=$(shell scripts/get-version.sh)
@@ -57,14 +60,25 @@ build: frontend backend ## Build both frontend and backend
 	@echo "✅ Build completed successfully!"
 	@echo "🚀 Run './$(BINARY_NAME)' to start the server"
 
-desktop-build: frontend ## Build the macOS desktop prototype
+desktop-build: ## Build macOS and Windows desktop packages into bin/desktop
 	@test "$$(uname -s)" = "Darwin" || (echo "Desktop builds currently require macOS"; exit 1)
-	mkdir -p bin/desktop-icon
-	qlmanage -t -s 1024 -o bin/desktop-icon docs/assets/logo.svg >/dev/null
-	GOFLAGS="-tags=desktop" MYGO_LDFLAGS="-X github.com/zxh326/kite/pkg/version.Version=$(VERSION) -X github.com/zxh326/kite/pkg/version.BuildDate=$(BUILD_DATE) -X github.com/zxh326/kite/pkg/version.CommitID=$(COMMIT_ID)" go run github.com/egoist/mygo/cmd/mygo build -platform darwin/$$(go env GOARCH) -skip-dmg -skip-notarize
+	@command -v makensis >/dev/null || (echo "Windows packaging requires NSIS (brew install makensis)"; exit 1)
+	$(MAKE) frontend
+	KITE_DESKTOP_VERSION="$(DESKTOP_VERSION)" GOFLAGS="-tags=desktop" go run github.com/egoist/mygo/cmd/mygo generate
+	$(MAKE) frontend
+	KITE_DESKTOP_VERSION="$(DESKTOP_VERSION)" GOFLAGS="-tags=desktop" MYGO_LDFLAGS="-X github.com/zxh326/kite/pkg/version.Version=$(VERSION) -X github.com/zxh326/kite/pkg/version.BuildDate=$(BUILD_DATE) -X github.com/zxh326/kite/pkg/version.CommitID=$(COMMIT_ID)" go run github.com/egoist/mygo/cmd/mygo build -platform darwin/$(DESKTOP_MAC_ARCH),windows/$(DESKTOP_WINDOWS_ARCH)
+	@test -f "bin/desktop/windows-$(DESKTOP_WINDOWS_ARCH)/kite-setup-$(DESKTOP_VERSION)-$(DESKTOP_WINDOWS_ARCH).exe"
+	cd "bin/desktop/windows-$(DESKTOP_WINDOWS_ARCH)" && zip -q -T "kite-$(DESKTOP_VERSION)-windows-$(DESKTOP_WINDOWS_ARCH).zip" Kite.exe ghostty-vt.dll && rm -f Kite.exe ghostty-vt.dll
+	@for dir in "bin/desktop/darwin-$(DESKTOP_MAC_ARCH)" "bin/desktop/windows-$(DESKTOP_WINDOWS_ARCH)"; do \
+		mkdir -p "$$dir/.updates"; \
+		for file in "$$dir"/update-*.json "$$dir"/*.tar.gz "$$dir"/*.delta "$$dir"/install.sh "$$dir"/install.ps1; do \
+			if [ -f "$$file" ]; then mv "$$file" "$$dir/.updates/"; fi; \
+		done; \
+	done
+	cd bin/desktop && shasum -a 256 darwin-$(DESKTOP_MAC_ARCH)/kite-$(DESKTOP_VERSION)*.dmg "windows-$(DESKTOP_WINDOWS_ARCH)/kite-setup-$(DESKTOP_VERSION)-$(DESKTOP_WINDOWS_ARCH).exe" "windows-$(DESKTOP_WINDOWS_ARCH)/kite-$(DESKTOP_VERSION)-windows-$(DESKTOP_WINDOWS_ARCH).zip" > SHA256SUMS
 
 desktop: desktop-build ## Build and open the macOS desktop prototype
-	open "bin/desktop/darwin-$$(go env GOARCH)/Kite MyGo.app"
+	open "bin/desktop/darwin-$(DESKTOP_MAC_ARCH)/Kite.app"
 
 clean-frontend: ## Clean frontend build artifacts
 	cd $(UI_DIR) && rm -rf dist node_modules/.vite
@@ -103,7 +117,7 @@ package-binaries: ## Package each kite binary file separately
 
 frontend: static ## Build frontend only
 
-static: ui/src/**/*.tsx ui/src/**/*.ts ui/index.html ui/**/*.css ui/package.json ui/vite.config.ts
+static: ui/src/*.tsx ui/src/*.ts ui/src/**/*.tsx ui/src/**/*.ts ui/index.html ui/**/*.css ui/package.json ui/vite.config.ts
 	@echo "📦 Ensuring static files are built..."
 	cd $(UI_DIR) && pnpm run build
 
@@ -140,7 +154,7 @@ lint: golangci-lint ## Run linters
 	cd $(UI_DIR) && pnpm run lint
 
 golangci-lint: ## Download golangci-lint locally if necessary.
-	test -f $(GOLANGCI_LINT) || curl -sSfL https://golangci-lint.run/install.sh | sh -s v2.12.1
+	test "$$($(GOLANGCI_LINT) version --short 2>/dev/null)" = "2.14.0" || curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b $(LOCALBIN) v2.14.0
 
 format: ## Format code
 	@echo "✨ Formatting code..."

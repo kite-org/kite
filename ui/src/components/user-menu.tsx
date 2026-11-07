@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { pluginLabel } from '@/plugins/sidebar'
 import {
@@ -15,6 +15,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
+import { isDesktop } from '@/lib/desktop'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -35,12 +36,13 @@ import {
   colorThemes,
   PluginColorThemeEntry,
 } from '@/components/color-theme-provider'
+import { nextDisplayScale } from '@/components/display-scale-provider'
 
 import { AccountSettingsDialog } from './account-settings-dialog'
 import { SidebarCustomizer } from './sidebar-customizer'
 
 const DISPLAY_SCALE_MIN = 80
-const DISPLAY_SCALE_MAX = 120
+const DISPLAY_SCALE_MAX = isDesktop ? 125 : 120
 const DISPLAY_SCALE_STEP = 5
 
 export function UserMenu({ showAccount = true }: { showAccount?: boolean }) {
@@ -58,6 +60,7 @@ export function UserMenu({ showAccount = true }: { showAccount?: boolean }) {
   const [open, setOpen] = useState(false)
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false)
   const [scaleInput, setScaleInput] = useState(String(displayScale))
+  useEffect(() => setScaleInput(String(displayScale)), [displayScale])
   const isPasswordUser =
     showAccount && (!user?.provider || user.provider === 'password')
   const pluginThemeGroups = useMemo(() => {
@@ -314,7 +317,7 @@ export function UserMenu({ showAccount = true }: { showAccount?: boolean }) {
                   type="button"
                   variant="outline"
                   onClick={() =>
-                    handleDisplayScaleChange(displayScale - DISPLAY_SCALE_STEP)
+                    handleDisplayScaleChange(nextDisplayScale(displayScale, -1))
                   }
                 >
                   <Minus className="h-4 w-4" />
@@ -345,7 +348,7 @@ export function UserMenu({ showAccount = true }: { showAccount?: boolean }) {
                   type="button"
                   variant="outline"
                   onClick={() =>
-                    handleDisplayScaleChange(displayScale + DISPLAY_SCALE_STEP)
+                    handleDisplayScaleChange(nextDisplayScale(displayScale, 1))
                   }
                 >
                   <Plus className="h-4 w-4" />

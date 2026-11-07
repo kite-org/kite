@@ -15,6 +15,7 @@ import {
 import { Container, EphemeralContainer, Pod } from 'kubernetes-types/core/v1'
 import type { editor } from 'monaco-editor'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import { TERMINAL_THEMES, TerminalTheme } from '@/types/themes'
 import {
@@ -24,6 +25,7 @@ import {
   parseAnsi,
 } from '@/lib/ansi-parser'
 import { useLogsWebSocket } from '@/lib/api'
+import { saveTextFile } from '@/lib/desktop'
 import { toSimpleContainer } from '@/lib/k8s'
 import { MonacoEditor } from '@/lib/monaco-loader'
 import { defineMonacoLogThemes } from '@/lib/monaco-theme'
@@ -445,16 +447,12 @@ export function LogViewer({
     const model = editorRef?.current?.getModel()
     if (model) {
       const content = model.getValue()
-      const blob = new Blob([content], { type: 'text/plain' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
       const podFileName = selectPodName || 'all-pods'
-      a.download = `${podFileName}-${selectedContainer || 'pod'}-logs.txt`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      void saveTextFile(
+        t('desktop.saveFile'),
+        `${podFileName}-${selectedContainer || 'pod'}-logs.txt`,
+        content
+      ).catch(() => toast.error(t('desktop.saveFileError')))
     }
   }
 
@@ -524,7 +522,7 @@ export function LogViewer({
 
   return (
     <Card
-      className={`h-full min-h-0 flex flex-col py-4 gap-0 ${isFullscreen ? 'fixed inset-0 z-50 m-0 rounded-none' : ''} ${wordWrap ? 'whitespace-pre-wrap' : 'whitespace-pre'} `}
+      className={`h-full min-h-0 flex flex-col py-4 gap-0 ${isFullscreen ? 'desktop-fullscreen-panel fixed inset-0 z-50 m-0 rounded-none' : ''} ${wordWrap ? 'whitespace-pre-wrap' : 'whitespace-pre'} `}
     >
       <style>{ANSI_CSS}</style>
       <CardHeader>

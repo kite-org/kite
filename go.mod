@@ -5,8 +5,9 @@ go 1.27.3
 require (
 	github.com/anthropics/anthropic-sdk-go v1.66.0
 	github.com/blang/semver/v4 v4.0.0
-	github.com/bytedance/mockey v1.4.6
-	github.com/egoist/mygo v0.6.4
+	github.com/bytedance/mockey v1.4.8
+	github.com/creack/pty v1.1.24
+	github.com/egoist/mygo v0.7.4
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-contrib/gzip v1.2.6
 	github.com/gin-gonic/gin v1.12.0
@@ -119,6 +120,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.30.1 // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
+	github.com/go-text/typesetting v0.3.5 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
@@ -193,7 +195,8 @@ require (
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/arch v0.22.0 // indirect
+	golang.org/x/arch v0.23.0 // indirect
+	golang.org/x/image v0.46.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/term v0.46.0 // indirect

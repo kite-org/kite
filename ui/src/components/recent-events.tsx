@@ -4,14 +4,9 @@ import { formatDistanceToNow } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 
 import { useResources } from '@/lib/api'
+import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export function RecentEvents() {
   const { t } = useTranslation()
@@ -44,11 +39,11 @@ export function RecentEvents() {
   const getEventBadgeVariant = (type: string) => {
     switch (type.toLowerCase()) {
       case 'warning':
-        return 'secondary' as const
+        return 'outline' as const
       case 'error':
         return 'destructive' as const
       default:
-        return 'default' as const
+        return 'secondary' as const
     }
   }
 
@@ -57,7 +52,6 @@ export function RecentEvents() {
       <Card>
         <CardHeader className="animate-pulse">
           <div className="h-6  bg-muted rounded w-1/3 mb-2"></div>
-          <div className="h-4  bg-muted rounded w-1/2"></div>
         </CardHeader>
         <CardContent>
           <div className="space-y-2 scrollbar-hide overflow-auto">
@@ -81,7 +75,6 @@ export function RecentEvents() {
       <Card>
         <CardHeader>
           <CardTitle>{t('overview.recentEvents')}</CardTitle>
-          <CardDescription>Latest cluster events</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-32 text-muted-foreground">
@@ -96,48 +89,32 @@ export function RecentEvents() {
     <Card>
       <CardHeader>
         <CardTitle>{t('overview.recentEvents')}</CardTitle>
-        <CardDescription>Latest cluster events</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="max-h-72 overflow-y-auto scrollbar-hide">
-          <div className="space-y-4">
+          <div className="divide-y divide-border">
             {events.map((event, index) => (
               <div
                 key={index}
-                className="flex items-start gap-3 pb-3 border-b border-border last:border-0"
+                className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"
               >
                 <div className="mt-1">{getEventIcon(event.type ?? '')}</div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge
-                          variant={getEventBadgeVariant(event.type ?? '')}
-                          className="text-xs"
-                        >
-                          {event.type ?? ''}
-                        </Badge>
-                        <span className="text-sm font-medium">
-                          {event.reason}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground break-words">
-                        {event.message}
-                      </p>
-                      <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                        <span>
-                          {event.involvedObject.kind}:{' '}
-                          {event.involvedObject.namespace ? (
-                            <>{event.involvedObject.namespace}/</>
-                          ) : null}
-                          {event.involvedObject.name}
-                        </span>
-                        {event.reportingComponent && (
-                          <span className="text-xs">
-                            Reporter: {event.reportingComponent}
-                          </span>
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="min-w-0 break-words text-sm font-medium">
+                        {event.reason}
+                      </span>
+                      <Badge
+                        variant={getEventBadgeVariant(event.type ?? '')}
+                        className={cn(
+                          'font-normal',
+                          event.type?.toLowerCase() === 'warning' &&
+                            'border-yellow-600/30 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400'
                         )}
-                      </div>
+                      >
+                        {event.type ?? ''}
+                      </Badge>
                     </div>
                     <div className="text-xs text-muted-foreground whitespace-nowrap">
                       {formatDistanceToNow(
@@ -151,6 +128,23 @@ export function RecentEvents() {
                         }
                       )}
                     </div>
+                  </div>
+                  <p className="mt-1 break-words text-pretty text-sm text-muted-foreground">
+                    {event.message}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span className="min-w-0 [overflow-wrap:anywhere]">
+                      {event.involvedObject.kind}:{' '}
+                      {event.involvedObject.namespace ? (
+                        <>{event.involvedObject.namespace}/</>
+                      ) : null}
+                      {event.involvedObject.name}
+                    </span>
+                    {event.reportingComponent && (
+                      <span className="min-w-0 [overflow-wrap:anywhere]">
+                        Reporter: {event.reportingComponent}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

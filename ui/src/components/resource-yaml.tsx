@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ResourceYamlProps } from '@kite-dev/plugin-sdk/ui'
-import { IconCheck, IconEdit, IconLoader, IconX } from '@tabler/icons-react'
+import {
+  IconCheck,
+  IconDownload,
+  IconEdit,
+  IconLoader,
+  IconX,
+} from '@tabler/icons-react'
 import * as yaml from 'js-yaml'
 import type { editor as monacoEditor } from 'monaco-editor'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { isDesktop, saveTextFile } from '@/lib/desktop'
 import { MonacoEditor } from '@/lib/monaco-loader'
 import {
   defineMonacoBackgroundThemes,
@@ -124,6 +131,22 @@ export function ResourceYaml<T>({
         </div>
         <div className="flex items-center gap-4">
           {actions}
+          {isDesktop && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                void saveTextFile(
+                  t('desktop.saveFile'),
+                  'resource.yaml',
+                  editorValue
+                ).catch(() => toast.error(t('desktop.saveFileError')))
+              }}
+            >
+              <IconDownload className="w-4 h-4 mr-2" />
+              {t('desktop.exportYaml')}
+            </Button>
+          )}
           {onSave && (
             <div className="flex gap-2">
               {isEditing ? (

@@ -1,4 +1,3 @@
-import { useAuth } from '@/contexts/auth-context'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 
@@ -77,23 +76,19 @@ function PodWorkspace({
 export function DesktopWorkspace() {
   const [params] = useSearchParams()
   const { t } = useTranslation()
-  const { user, capabilities } = useAuth()
   const view = params.get('view')
   const cluster = params.get('cluster')
   const namespace = params.get('namespace')
   const name = params.get('name')
   const container = params.get('container') || undefined
-  const title =
-    view === 'kubectl'
-      ? 'Kubectl'
-      : t(view === 'logs' ? 'common.tabs.logs' : 'common.tabs.terminal')
+  const title = t(view === 'logs' ? 'common.tabs.logs' : 'common.tabs.terminal')
   usePageTitle([title, name, container, cluster].filter(Boolean).join(' · '))
 
   if (
     !cluster ||
-    !['logs', 'terminal', 'kubectl'].includes(view || '') ||
-    (view !== 'kubectl' && (!namespace || !name)) ||
-    (view === 'kubectl' && (!user?.isAdmin() || !capabilities.kubectlEnabled))
+    !['logs', 'terminal'].includes(view || '') ||
+    !namespace ||
+    !name
   ) {
     return (
       <p role="alert" className="p-6 text-sm text-destructive">
@@ -116,16 +111,12 @@ export function DesktopWorkspace() {
       </div>
       <div className="min-h-0 flex-1 p-3">
         <ErrorBoundary>
-          {view === 'kubectl' ? (
-            <Terminal type="kubectl" />
-          ) : (
-            <PodWorkspace
-              view={view as 'logs' | 'terminal'}
-              namespace={namespace!}
-              name={name!}
-              container={container}
-            />
-          )}
+          <PodWorkspace
+            view={view as 'logs' | 'terminal'}
+            namespace={namespace}
+            name={name}
+            container={container}
+          />
         </ErrorBoundary>
       </div>
     </div>

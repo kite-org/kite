@@ -93,7 +93,7 @@ export const desktopSettingsSectionRegistry: SettingsSectionDefinition[] = [
     value: 'clusters',
     labelKey: 'settings.tabs.clusters',
     defaultLabel: 'Cluster',
-    render: () => <ClusterManagement showClusterTypeSelector={false} />,
+    render: () => <ClusterManagement showClusterTypeSelector={false} desktop />,
   },
   ...settingsSectionRegistry.filter((section) =>
     ['templates', 'audit'].includes(section.value)

@@ -8,6 +8,7 @@ import type { RelatedResources } from '@/types/api'
 import { useRelatedResources } from '@/lib/api'
 import { API_BASE_URL } from '@/lib/api-client'
 import { withCurrentClusterPath } from '@/lib/current-cluster'
+import { isDesktopChild } from '@/lib/desktop'
 import {
   getCRDResourcePath,
   getEventTime,
@@ -121,7 +122,7 @@ function CompactRelatedResourceRow({
   const metadata = getResourceMetadata(resource.type)
   const Icon = metadata?.icon ? resourceIconMap[metadata.icon] : IconBox
   const path = useMemo(() => getRelatedResourcePath(resource), [resource])
-  const isIframe = searchParams.get('iframe') === 'true'
+  const isIframe = searchParams.get('iframe') === 'true' || isDesktopChild
   const rowContent = (
     <>
       <span className="inline-flex min-w-0 items-center gap-2 text-muted-foreground">

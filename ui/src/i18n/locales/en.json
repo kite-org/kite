@@ -1,5 +1,12 @@
 {
   "desktop": {
+    "kubectlNotInstalled": "kubectl was not found. Install kubectl and make it available in PATH.",
+    "localKubeconfigUnavailable": "This cluster does not have a local kubeconfig.",
+    "localKubeconfigError": "Could not prepare the cluster configuration for the local terminal.",
+    "localTerminalStartError": "Could not start the local terminal.",
+    "saveFile": "Save file",
+    "saveFileError": "Failed to save file",
+    "exportYaml": "Export YAML",
     "settingsDescription": "Manage clusters and application settings",
     "containerUnavailable": "Container {{container}} is no longer available in this Pod.",
     "openLogs": "Open logs in a separate window",
@@ -1012,6 +1019,8 @@
       "importDescription": "Import the cluster list from a kubeconfig file. Clusters with the same name will be updated.",
       "importFile": "Kubeconfig File",
       "importFileHint": "Choose a kubeconfig file, or paste its content below.",
+      "desktopImportFileHint": "Choose or drag a kubeconfig file into the window, or paste its content below.",
+      "chooseFile": "Choose file…",
       "name": "Name",
       "namePlaceholder": "Enter cluster name",
       "description": "Description",

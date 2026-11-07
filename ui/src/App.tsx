@@ -1,7 +1,7 @@
 import './App.css'
 import './desktop.css'
 
-import { ReactNode } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
 import { AIChatProvider, useAIChatContext } from '@/contexts/ai-chat-context'
 import { useAuth } from '@/contexts/auth-context'
 import { ClusterProvider } from '@/contexts/cluster-context'
@@ -10,9 +10,21 @@ import { WorkspaceProvider } from '@/contexts/workspace-context'
 import { Overview } from '@/pages/overview'
 import { Bot } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Navigate, Outlet, useSearchParams } from 'react-router-dom'
+import {
+  Navigate,
+  Outlet,
+  useNavigate,
+  useSearchParams,
+} from 'react-router-dom'
+import { toast } from 'sonner'
 
-import { openDesktopChat, openDesktopWorkspace } from '@/lib/desktop'
+import {
+  isDesktopChild,
+  openDesktopChat,
+  openDesktopWorkspace,
+  setPendingDesktopImport,
+} from '@/lib/desktop'
+import { DesktopService, events } from '@/lib/mygo'
 import { useCluster } from '@/hooks/use-cluster'
 import { Button } from '@/components/ui/button'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
@@ -156,12 +168,35 @@ function DesktopHeaderActions() {
 }
 
 function DesktopLayout() {
+  const navigate = useNavigate()
+  const { openChat } = useAIChatContext()
+  const { currentCluster } = useCluster()
+  const { t } = useTranslation()
+  useEffect(
+    () =>
+      events.desktopCommand.on((command) => {
+        if (command.action === 'open-ai') openChat()
+        if (command.action === 'import-kubeconfig') {
+          if (command.error) {
+            toast.error(t('clusterManagement.messages.fileReadError'))
+            return
+          }
+          setPendingDesktopImport(command)
+          navigate('/settings?tab=clusters', { state: { desktopImport: true } })
+        }
+      }),
+    [navigate, openChat, t]
+  )
   return (
     <SidebarProvider className="desktop-shell min-h-0 flex-col">
       <SiteHeader
         className="desktop-titlebar"
         extraActions={<DesktopHeaderActions />}
-        openKubectl={() => openDesktopWorkspace('kubectl')}
+        openKubectl={() => {
+          void DesktopService.openKubectl(currentCluster || '').catch(
+            (error: Error) => toast.error(t(error.message))
+          )
+        }}
         userMenu={<UserMenu showAccount={false} />}
       />
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -174,9 +209,34 @@ function DesktopLayout() {
   )
 }
 
+function DesktopChildLayout() {
+  const [title, setTitle] = useState(document.title)
+  useEffect(() => {
+    const titleElement = document.querySelector('title')!
+    const observer = new MutationObserver(() => setTitle(document.title))
+    observer.observe(titleElement, { childList: true })
+    setTitle(document.title)
+    return () => observer.disconnect()
+  }, [])
+  return (
+    <div className="desktop-child flex h-dvh flex-col bg-background">
+      <header className="desktop-child-titlebar flex shrink-0 items-center border-b bg-sidebar">
+        <span className="truncate text-sm font-medium text-muted-foreground">
+          {title.replace(/ - Kite$/, '')}
+        </span>
+      </header>
+      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-3 lg:px-6">
+        <Outlet />
+      </main>
+      <Toaster />
+    </div>
+  )
+}
+
 function AppContent({ children }: { children: ReactNode }) {
   const { isOpen, closeSearch } = useGlobalSearch()
   const [searchParams] = useSearchParams()
+  if (isDesktopChild) return <DesktopChildLayout />
   if (searchParams.get('iframe') === 'true') return <Outlet />
   return (
     <>

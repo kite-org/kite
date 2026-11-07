@@ -12,6 +12,7 @@ import type {
   HelmChartVersion,
 } from '@/types/api'
 import { useHelmChart, useHelmChartContent } from '@/lib/api'
+import { isDesktopChild } from '@/lib/desktop'
 import { cn, formatDate } from '@/lib/utils'
 import { usePageTitle } from '@/hooks/use-page-title'
 import { Badge } from '@/components/ui/badge'
@@ -394,7 +395,7 @@ export function HelmChartDetailPage() {
     searchParams.get('source') === artifactHubSource
       ? artifactHubSource
       : undefined
-  const isIframe = searchParams.get('iframe') === 'true'
+  const isIframe = searchParams.get('iframe') === 'true' || isDesktopChild
   const tabParam = searchParams.get('tab')
   const activeTab =
     tabParam === 'values' || tabParam === 'template' || tabParam === 'versions'
@@ -485,7 +486,7 @@ export function HelmChartDetailPage() {
   }
 
   return (
-    <div className={cn(isIframe && 'px-4 py-3 lg:px-6')}>
+    <div className={cn(isIframe && !isDesktopChild && 'px-4 py-3 lg:px-6')}>
       <ResponsiveTabs
         className="gap-4"
         stickyHeader={
