@@ -38,18 +38,21 @@ func Metrics() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		c.Next()
-		route := c.FullPath()
-		if route == "" {
-			route = c.Request.URL.Path
-		}
 		method := c.Request.Method
 		if method == http.MethodOptions {
 			return
 		}
-		for _, path := range unlogPath {
-			if strings.HasPrefix(route, path) {
+
+		path := c.Request.URL.Path
+		for _, unlog := range unlogPath {
+			if path == unlog || strings.HasPrefix(path, unlog) {
 				return
 			}
+		}
+
+		route := c.FullPath()
+		if route == "" {
+			route = "unknown"
 		}
 
 		status := strconv.Itoa(c.Writer.Status())
