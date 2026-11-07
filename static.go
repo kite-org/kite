@@ -15,6 +15,27 @@ import (
 //go:embed static
 var staticFiles embed.FS
 
+type neuteredFileSystem struct {
+	fs http.FileSystem
+}
+
+func (nfs neuteredFileSystem) Open(name string) (http.File, error) {
+	f, err := nfs.fs.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	s, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	if s.IsDir() {
+		_ = f.Close()
+		return nil, fs.ErrNotExist
+	}
+	return f, nil
+}
+
 func setupStatic(r *gin.Engine) {
 	base := common.Base
 	if base != "" && base != "/" {
@@ -30,7 +51,7 @@ func setupStatic(r *gin.Engine) {
 
 	assetsGroup := r.Group(base + "/assets")
 	assetsGroup.Use(middleware.StaticCache())
-	assetsGroup.StaticFS("/", http.FS(assetsFS))
+	assetsGroup.StaticFS("/", neuteredFileSystem{fs: http.FS(assetsFS)})
 
 	r.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
