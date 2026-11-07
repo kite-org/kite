@@ -14,6 +14,7 @@ import (
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/kube"
 	"github.com/zxh326/kite/pkg/model"
+	"github.com/zxh326/kite/pkg/prometheus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -142,6 +143,48 @@ func TestRequiredToolPermissions(t *testing.T) {
 			args:     map[string]interface{}{"query": "up"},
 			want:     []toolPermission{{Resource: "pods", Verb: "get", Namespace: "_all"}},
 		},
+		{
+			name:     "list helm releases across namespaces",
+			toolName: "list_helm_releases",
+			args:     map[string]interface{}{},
+			want:     []toolPermission{{Resource: "helmrelease", Verb: "get", Namespace: "_all"}},
+		},
+		{
+			name:     "list helm releases in namespace",
+			toolName: "list_helm_releases",
+			args:     map[string]interface{}{"namespace": "default"},
+			want:     []toolPermission{{Resource: "helmrelease", Verb: "get", Namespace: "default"}},
+		},
+		{
+			name:     "get helm release",
+			toolName: "get_helm_release",
+			args:     map[string]interface{}{"name": "nginx", "namespace": "default"},
+			want:     []toolPermission{{Resource: "helmrelease", Verb: "get", Namespace: "default"}},
+		},
+		{
+			name:     "get helm release history",
+			toolName: "get_helm_release_history",
+			args:     map[string]interface{}{"name": "nginx", "namespace": "default"},
+			want:     []toolPermission{{Resource: "helmrelease", Verb: "get", Namespace: "default"}},
+		},
+		{
+			name:     "update helm release values",
+			toolName: "update_helm_release_values",
+			args:     map[string]interface{}{"name": "nginx", "namespace": "default", "values_yaml": "replicaCount: 2\n"},
+			want:     []toolPermission{{Resource: "helmrelease", Verb: "update", Namespace: "default"}},
+		},
+		{
+			name:     "rollback helm release",
+			toolName: "rollback_helm_release",
+			args:     map[string]interface{}{"name": "nginx", "namespace": "default"},
+			want:     []toolPermission{{Resource: "helmrelease", Verb: "update", Namespace: "default"}},
+		},
+		{
+			name:     "uninstall helm release",
+			toolName: "uninstall_helm_release",
+			args:     map[string]interface{}{"name": "nginx", "namespace": "default"},
+			want:     []toolPermission{{Resource: "helmrelease", Verb: "delete", Namespace: "default"}},
+		},
 	}
 
 	for _, tc := range tests {
@@ -154,6 +197,57 @@ func TestRequiredToolPermissions(t *testing.T) {
 				t.Fatalf("unexpected permissions:\nwant: %#v\ngot:  %#v", tc.want, got)
 			}
 		})
+	}
+}
+
+func TestRequiredToolPermissionsCoverAllTools(t *testing.T) {
+	args := map[string]interface{}{
+		"kind":        "Pod",
+		"name":        "example",
+		"namespace":   "default",
+		"yaml":        "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: example\n  namespace: default\n",
+		"patch":       `{"metadata":{}}`,
+		"query":       "up",
+		"values_yaml": "replicaCount: 2\n",
+		// exec_in_pod parses its options before resolving permissions, so the
+		// shared fixture has to satisfy its required arguments too.
+		"command":         []interface{}{"cat", "/etc/os-release"},
+		"timeout_seconds": float64(30),
+	}
+	mutatingVerbs := map[string]bool{
+		string(common.VerbCreate): true,
+		string(common.VerbUpdate): true,
+		string(common.VerbDelete): true,
+	}
+	for _, def := range toolDefinitions(&cluster.ClientSet{PromClient: &prometheus.Client{}}) {
+		if InteractionTools[def.Name] {
+			continue
+		}
+		perms, err := requiredToolPermissions(context.Background(), &cluster.ClientSet{}, def.Name, args)
+		if err != nil {
+			t.Fatalf("tool %s: unexpected error: %v", def.Name, err)
+		}
+		if len(perms) == 0 {
+			t.Fatalf("tool %s resolves to no required permissions; it would bypass RBAC", def.Name)
+		}
+		for _, perm := range perms {
+			if mutatingVerbs[perm.Verb] && !MutationTools[def.Name] {
+				t.Fatalf("tool %s requires verb %s but is not in MutationTools; it would skip user confirmation", def.Name, perm.Verb)
+			}
+		}
+	}
+}
+
+func TestRequiredToolPermissionsRejectAllNamespaceForNamedHelmTools(t *testing.T) {
+	tools := []string{
+		"get_helm_release", "get_helm_release_history",
+		"update_helm_release_values", "rollback_helm_release", "uninstall_helm_release",
+	}
+	args := map[string]interface{}{"name": "nginx", "namespace": "_all", "values_yaml": "replicaCount: 2\n"}
+	for _, tool := range tools {
+		if _, err := requiredToolPermissions(context.Background(), &cluster.ClientSet{}, tool, args); err == nil {
+			t.Fatalf("tool %s: expected _all namespace to be rejected", tool)
+		}
 	}
 }
 

@@ -288,9 +288,10 @@ The super user is created on first startup if it doesn't exist. On subsequent st
 | `model`     | string  | Model name                                       | `gpt-4o-mini` / `claude-sonnet-5-5` |
 | `apiKey`    | string  | API key; required when enabled; supports `${ENV_VAR}` |                              |
 | `baseUrl`   | string  | Custom API endpoint                              | Provider's default endpoint     |
-| `maxTokens` | integer | Maximum output tokens                            | `16384`                         |
+| `maxTokens` | integer | Maximum output tokens                            | `8192` / `64000`                |
+| `effort`    | string  | Anthropic only: `low`, `medium`, `high`, `xhigh`, or `max` | `xhigh`               |
 
-The default model follows the selected provider. The `ai` section manages all AI fields; omitted fields use their defaults or empty values. API keys are stored encrypted in the database.
+The default model and `maxTokens` follow the selected provider. The `ai` section manages all AI fields; omitted fields use their defaults or empty values. API keys are stored encrypted in the database.
 
 AI settings follow the existing config file reload mechanism and become read-only in the UI. Other general settings remain editable. In inline Helm values, configure these fields under `config.ai`.
 

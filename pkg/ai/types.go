@@ -103,6 +103,10 @@ type providerRequest struct {
 	Tools        []agentToolDefinition
 	Model        string
 	MaxTokens    int
+	// Effort is the reasoning-depth knob on the modern Anthropic request
+	// surface. budget_tokens was removed there and 400s, so this is the only
+	// way to ask for more thinking. Providers that do not expose it ignore it.
+	Effort string
 }
 
 type modelProvider interface {
@@ -150,9 +154,14 @@ func toolResultBlock(result ToolResult) ContentBlock {
 	}
 }
 
-func normalizeAgentMessages(messages []AgentMessage) []AgentMessage {
-	if len(messages) > maxConversationMessages {
-		messages = messages[len(messages)-maxConversationMessages:]
+// normalizeAgentMessages bounds a replayed transcript before it is handed to a
+// provider. Limits are per-provider: an Anthropic-class context window absorbs
+// a far longer history than the smaller windows the OpenAI path is realistically
+// pointed at, and collapsing both onto one budget would silently truncate long
+// agent conversations on the provider that can afford them.
+func normalizeAgentMessages(messages []AgentMessage, limits conversationLimits) []AgentMessage {
+	if len(messages) > limits.maxMessages {
+		messages = messages[len(messages)-limits.maxMessages:]
 	}
 
 	normalized := make([]AgentMessage, 0, len(messages))
@@ -169,21 +178,25 @@ func normalizeAgentMessages(messages []AgentMessage) []AgentMessage {
 					continue
 				}
 				block.Text = strings.TrimSpace(block.Text)
+				if message.Role == messageRoleAssistant {
+					// Defensive rescue: strip tool calls a previous (broken)
+					// turn leaked as text/XML, so a poisoned history does not
+					// re-poison the model into emitting textual calls again.
+					block.Text = strings.TrimSpace(stripLeakedToolCalls(block.Text))
+				}
 				if block.Text == "" {
 					continue
 				}
-				if len(block.Text) > maxMessageChars {
-					block.Text = block.Text[:maxMessageChars]
-				}
+				block.Text = truncateWithNotice(block.Text, limits.maxChars, message.Role+" message")
 			case contentBlockThinking:
 				if message.Role != messageRoleAssistant {
 					continue
 				}
 				if block.Signature == "" {
-					block.Text = strings.TrimSpace(block.Text)
-					if len(block.Text) > maxMessageChars {
-						block.Text = block.Text[:maxMessageChars]
-					}
+					// An unsigned thinking block cannot be replayed to the
+					// provider verbatim, so it is safe to cut; a signed one is
+					// left byte-identical or its signature stops verifying.
+					block.Text = truncateRunes(strings.TrimSpace(block.Text), limits.maxChars)
 				}
 				if block.Text == "" {
 					continue
@@ -200,9 +213,7 @@ func normalizeAgentMessages(messages []AgentMessage) []AgentMessage {
 				if message.Role != messageRoleTool || block.ToolCallID == "" || block.ToolName == "" {
 					continue
 				}
-				if len(block.Text) > maxMessageChars {
-					block.Text = block.Text[:maxMessageChars]
-				}
+				block.Text = truncateWithNotice(block.Text, limits.maxToolResultChars, "tool result "+block.ToolName)
 			default:
 				continue
 			}
@@ -214,6 +225,11 @@ func normalizeAgentMessages(messages []AgentMessage) []AgentMessage {
 		message.Content = blocks
 		normalized = append(normalized, message)
 	}
+
+	// Per-message caps bound one message; only the aggregate budget bounds the
+	// request, which is what the provider's context window actually limits.
+	normalized = trimToTotalBudget(normalized, limits.maxTotalChars)
+
 	for len(normalized) > 0 && normalized[0].Role == messageRoleTool {
 		normalized = normalized[1:]
 	}
