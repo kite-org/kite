@@ -334,7 +334,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
         {pinnedItems.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {t('sidebar.pinned', 'Pinned')}
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -353,7 +353,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <SidebarGroupLabel asChild>
                 <CollapsibleTrigger className="flex items-center justify-between w-full text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors group-data-[state=open]:text-foreground">
                   <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="truncate uppercase tracking-wide text-xs font-bold">
+                    <span className="truncate uppercase tracking-wide text-xs font-semibold">
                       {group.nameKey
                         ? t(group.nameKey, { defaultValue: group.nameKey })
                         : ''}

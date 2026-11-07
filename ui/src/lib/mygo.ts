@@ -25,6 +25,9 @@ export const DesktopService = {
   setDisplayScale(scale: number): Promise<void> {
     return call('DesktopService.SetDisplayScale', scale)
   },
+  setLanguage(language: string): Promise<void> {
+    return call('DesktopService.SetLanguage', language)
+  },
 } as const
 
 // ---- Events ----

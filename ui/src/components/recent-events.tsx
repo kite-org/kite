@@ -102,7 +102,7 @@ export function RecentEvents() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="min-w-0 break-words text-sm font-medium">
+                      <span className="min-w-0 break-words text-sm font-normal">
                         {event.reason}
                       </span>
                       <Badge

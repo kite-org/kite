@@ -1,5 +1,16 @@
 {
   "desktop": {
+    "setup": {
+      "subtitle": "连接你的 Kubernetes 集群。",
+      "heading": "选择集群",
+      "loadingDescription": "正在查找集群…",
+      "description": "选择一个集群开始使用，或导入其他 kubeconfig。",
+      "emptyDescription": "未找到集群，请导入 kubeconfig 文件开始使用。",
+      "defaultCluster": "默认",
+      "connectionError": "连接失败",
+      "continue": "进入集群",
+      "noContexts": "此 kubeconfig 中没有 Kubernetes context。"
+    },
     "kubectlNotInstalled": "未找到 kubectl，请先安装并确保它在 PATH 中。",
     "localKubeconfigUnavailable": "此集群没有可供本地终端使用的 kubeconfig。",
     "localKubeconfigError": "无法为本地终端准备集群配置。",

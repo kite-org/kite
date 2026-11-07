@@ -1,0 +1,18 @@
+{
+  "openAI": "Open AI",
+  "managePortForwards": "Manage port forwards…",
+  "zoomIn": "Zoom In",
+  "zoomOut": "Zoom Out",
+  "actualSize": "Actual Size",
+  "file": "File",
+  "importKubeconfig": "Import kubeconfig…",
+  "view": "View",
+  "openKite": "Open Kite",
+  "noPortForwards": "No port forwards",
+  "copyAddress": "Copy address",
+  "openAsHTTP": "Open as HTTP",
+  "disconnected": " (disconnected)",
+  "stop": "Stop",
+  "remove": "Remove",
+  "quitKite": "Quit Kite"
+}
