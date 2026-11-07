@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v[0-9]+\.[0-9]+\.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 env:
   IMAGE_NAME: kite
@@ -71,9 +71,6 @@ jobs:
       - name: Build
         run: make cross-compile
 
-      - name: Package binaries
-        run: make package-binaries
-
       - name: Build and push image
         uses: docker/build-push-action@v7
         with:
@@ -111,10 +108,111 @@ jobs:
           prerelease: false
           generate_release_notes: true
           files: |
-            bin/kite-*-${{ steps.check_version.outputs.tag_name }}.tar.gz
             kite-*.tgz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  desktop:
+    name: Desktop (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    needs: push
+    if: ${{ github.repository_owner == 'kite-org' }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+            platform: darwin/arm64
+            output: darwin-arm64
+          - name: Windows
+            os: ubuntu-latest
+            platform: windows/amd64
+            output: windows-amd64
+    steps:
+      - name: Checkout desktop branch
+        uses: actions/checkout@v5
+        with:
+          ref: desktop
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install desktop dependencies
+        run: pnpm --dir ui install --frozen-lockfile
+
+      - name: Install NSIS
+        if: matrix.name == 'Windows'
+        run: sudo apt-get update && sudo apt-get install -y nsis zip unzip
+
+      - name: Prepare update notes
+        env:
+          RELEASE_TAG: ${{ needs.push.outputs.tag_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="$RUNNER_TEMP/kite-desktop-changelog.md"
+          printf '## %s\n\n' "${RELEASE_TAG#v}" > "$notes"
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body | sed 's/^## /### /' >> "$notes"
+          printf '\n[Release on GitHub](%s/%s/releases/tag/%s)\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$RELEASE_TAG" >> "$notes"
+          echo "KITE_DESKTOP_CHANGELOG=$notes" >> "$GITHUB_ENV"
+
+      - name: Build desktop packages and signed updates
+        env:
+          RELEASE_TAG: ${{ needs.push.outputs.tag_name }}
+          GH_TOKEN: ${{ github.token }}
+          MYGO_UPDATER_PRIVATE_KEY: ${{ secrets.MYGO_UPDATER_PRIVATE_KEY }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          test -n "$MYGO_UPDATER_PRIVATE_KEY"
+          export KITE_DESKTOP_VERSION="${RELEASE_TAG#v}"
+          export GOFLAGS="-tags=desktop"
+          export MYGO_LDFLAGS="-X github.com/zxh326/kite/pkg/version.Version=$KITE_DESKTOP_VERSION -X github.com/zxh326/kite/pkg/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X github.com/zxh326/kite/pkg/version.CommitID=$(git rev-parse HEAD)"
+          make frontend
+          go run github.com/egoist/mygo/cmd/mygo generate
+          make frontend
+          go run github.com/egoist/mygo/cmd/mygo build -platform "$PLATFORM"
+
+      - name: Prepare desktop release assets
+        env:
+          RELEASE_TAG: ${{ needs.push.outputs.tag_name }}
+          PLATFORM: ${{ matrix.output }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          stage="$RUNNER_TEMP/kite-desktop-release"
+          output="bin/desktop/$PLATFORM"
+          mkdir -p "$stage"
+          if [[ "$PLATFORM" == darwin-arm64 ]]; then
+            cp "$output/kite-$version-arm64.dmg" "$stage/kite-$version-darwin-arm64.dmg"
+          else
+            cp "$output/kite-setup-$version-amd64.exe" "$stage/"
+            (cd "$output" && zip -q -T "$RUNNER_TEMP/kite-$version-windows-amd64.zip" Kite.exe ghostty-vt.dll)
+            cp "$RUNNER_TEMP/kite-$version-windows-amd64.zip" "$stage/"
+          fi
+          cp "$output/update-$PLATFORM.json" "$output/kite-$version-$PLATFORM.tar.gz" "$stage/"
+          for delta in "$output"/*.delta; do
+            if [ -f "$delta" ]; then cp "$delta" "$stage/"; fi
+          done
+
+      - name: Add desktop assets to the release
+        env:
+          RELEASE_TAG: ${{ needs.push.outputs.tag_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          stage="$RUNNER_TEMP/kite-desktop-release"
+          gh release upload "$RELEASE_TAG" "$stage"/kite-* --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$RELEASE_TAG" "$stage"/update-*.json --repo "$GITHUB_REPOSITORY" --clobber
 
   update-helm-index:
     runs-on: ubuntu-latest
