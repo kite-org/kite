@@ -260,7 +260,7 @@ func resolvePod(ctx context.Context, cs *cluster.ClientSet, input forwardRequest
 			return nil, 0, err
 		}
 		if pod.Status.Phase != v1.PodRunning || pod.DeletionTimestamp != nil {
-			return nil, 0, fmt.Errorf("Pod must be running and not terminating")
+			return nil, 0, fmt.Errorf("pod must be running and not terminating")
 		}
 		return pod, input.RemotePort, nil
 	}
@@ -269,7 +269,7 @@ func resolvePod(ctx context.Context, cs *cluster.ClientSet, input forwardRequest
 		return nil, 0, err
 	}
 	if len(svc.Spec.Selector) == 0 || svc.Spec.Type == v1.ServiceTypeExternalName {
-		return nil, 0, fmt.Errorf("Port forwarding requires a Service with a Pod selector")
+		return nil, 0, fmt.Errorf("port forwarding requires a Service with a Pod selector")
 	}
 	var servicePort *v1.ServicePort
 	for i := range svc.Spec.Ports {
@@ -280,7 +280,7 @@ func resolvePod(ctx context.Context, cs *cluster.ClientSet, input forwardRequest
 		}
 	}
 	if servicePort == nil {
-		return nil, 0, fmt.Errorf("Service does not expose TCP port %d", input.RemotePort)
+		return nil, 0, fmt.Errorf("service does not expose TCP port %d", input.RemotePort)
 	}
 	pods, err := client.Pods(input.Namespace).List(ctx, metav1.ListOptions{LabelSelector: labels.SelectorFromSet(svc.Spec.Selector).String()})
 	if err != nil {
@@ -304,7 +304,7 @@ func resolvePod(ctx context.Context, cs *cluster.ClientSet, input forwardRequest
 		}
 	}
 	if pod == nil {
-		return nil, 0, fmt.Errorf("No running Pod matches this Service")
+		return nil, 0, fmt.Errorf("no running Pod matches this Service")
 	}
 	if servicePort.TargetPort.Type == intstr.String {
 		for _, container := range append(pod.Spec.Containers, pod.Spec.InitContainers...) {
@@ -314,7 +314,7 @@ func resolvePod(ctx context.Context, cs *cluster.ClientSet, input forwardRequest
 				}
 			}
 		}
-		return nil, 0, fmt.Errorf("Pod %s has no TCP port named %s", pod.Name, servicePort.TargetPort.StrVal)
+		return nil, 0, fmt.Errorf("pod %s has no TCP port named %s", pod.Name, servicePort.TargetPort.StrVal)
 	}
 	port := int(servicePort.TargetPort.IntVal)
 	if port == 0 {
