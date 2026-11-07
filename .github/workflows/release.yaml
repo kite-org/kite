@@ -11,24 +11,6 @@ env:
   NODE_VERSION: "24"
 
 jobs:
-  desktop-ref:
-    runs-on: ubuntu-latest
-    if: ${{ github.repository_owner == 'kite-org' }}
-    permissions:
-      contents: read
-    outputs:
-      sha: ${{ steps.desktop.outputs.sha }}
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - name: Pin the desktop branch
-        id: desktop
-        run: |
-          git fetch origin +refs/heads/feat/desktop:refs/remotes/origin/feat/desktop
-          desktop_sha=$(git rev-parse refs/remotes/origin/feat/desktop)
-          echo "sha=$desktop_sha" >> "$GITHUB_OUTPUT"
-
   # Push image to GitHub Packages.
   # See also https://docs.docker.com/docker-hub/builds/
   push:
@@ -135,7 +117,7 @@ jobs:
   desktop:
     name: Desktop (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
-    needs: [push, desktop-ref]
+    needs: push
     if: ${{ github.repository_owner == 'kite-org' }}
     permissions:
       contents: write
@@ -152,10 +134,10 @@ jobs:
             platform: windows/amd64
             output: windows-amd64
     steps:
-      - name: Checkout the pinned desktop commit
+      - name: Checkout desktop branch
         uses: actions/checkout@v5
         with:
-          ref: ${{ needs.desktop-ref.outputs.sha }}
+          ref: desktop
           fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
