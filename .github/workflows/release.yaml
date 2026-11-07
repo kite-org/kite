@@ -66,8 +66,7 @@ jobs:
         id: check_version
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/}
-          [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
 
       - name: Build
         run: make cross-compile
@@ -93,8 +92,7 @@ jobs:
 
       - name: Package Helm chart
         run: |
-          TAG_NAME="${{ steps.check_version.outputs.tag_name }}"
-          helm package charts/kite/ --version "${TAG_NAME#v}" --app-version "$TAG_NAME"
+          helm package charts/kite/
 
       - name: Push Helm chart to OCI registry
         run: |
@@ -138,7 +136,6 @@ jobs:
         uses: actions/checkout@v5
         with:
           ref: desktop
-          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
         with:
@@ -179,7 +176,6 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
         run: |
           test -n "$MYGO_UPDATER_PRIVATE_KEY"
-          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           export KITE_DESKTOP_VERSION="${RELEASE_TAG#v}"
           export GOFLAGS="-tags=desktop"
           export MYGO_LDFLAGS="-X github.com/zxh326/kite/pkg/version.Version=$KITE_DESKTOP_VERSION -X github.com/zxh326/kite/pkg/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X github.com/zxh326/kite/pkg/version.CommitID=$(git rev-parse HEAD)"
