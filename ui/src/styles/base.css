@@ -242,6 +242,7 @@ body {
 
 .ai-markdown ol {
   list-style-type: decimal;
+  padding-left: 2em;
 }
 
 .ai-markdown li {
