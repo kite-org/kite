@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next'
 import {
   Navigate,
   Outlet,
+  useLocation,
   useNavigate,
   useSearchParams,
 } from 'react-router-dom'
@@ -46,12 +47,19 @@ import { UserMenu } from '@/components/user-menu'
 
 export function DesktopReady() {
   const { isLoading } = useAuth()
+  const location = useLocation()
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary" />
       </div>
     )
+  }
+  if (
+    location.pathname === '/' &&
+    !localStorage.getItem('kite-desktop-setup-complete')
+  ) {
+    return <Navigate to="/setup" replace />
   }
   return <Outlet />
 }

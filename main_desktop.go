@@ -25,6 +25,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/plugins/updater"
 	updaternative "github.com/egoist/mygo/plugins/updater/native"
+	"github.com/zxh326/kite/desktoplocales"
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/portforward"
@@ -79,6 +80,15 @@ func (*DesktopService) SetDisplayScale(scale int) {
 		if page := window.Page(); page != nil {
 			page.SetZoomFactor(float64(scale) / 100)
 		}
+	}
+}
+
+func (*DesktopService) SetLanguage(language string) {
+	switch language {
+	case "en":
+		mygo.App.SetLocale("en")
+	case "zh":
+		mygo.App.SetLocale("zh-Hans")
 	}
 }
 
@@ -200,6 +210,7 @@ func runDesktop(ctx context.Context) error {
 		"HOST":                   origin,
 		"TRUSTED_PROXIES":        "none",
 		"ANONYMOUS_USER_ENABLED": "true",
+		"ENABLE_ANALYTICS":       "true",
 		"DISABLE_VERSION_CHECK":  "true",
 	} {
 		if err := os.Setenv(name, value); err != nil {
@@ -450,12 +461,6 @@ func runDesktop(ctx context.Context) error {
 		})
 		mainWindow.OnClosed(func() { mainWindow = nil })
 	})
-	text := func(en, zh string) string {
-		if strings.HasPrefix(mygo.App.Locale(), "zh") {
-			return zh
-		}
-		return en
-	}
 	command := func(action string) func(*mygo.MenuItem, *mygo.Window) {
 		return func(*mygo.MenuItem, *mygo.Window) {
 			showMain()
@@ -472,23 +477,37 @@ func runDesktop(ctx context.Context) error {
 		}
 	}
 	updateMenu := func() {
+		appMenu := &mygo.MenuItem{Role: mygo.RoleAppMenu}
+		if runtime.GOOS == "darwin" {
+			appMenu.Submenu = []*mygo.MenuItem{
+				{Role: mygo.RoleAbout}, updater.MenuItem(), mygo.Separator(),
+				{Role: mygo.RoleServices}, mygo.Separator(),
+				{Role: mygo.RoleHide}, {Role: mygo.RoleHideOthers}, {Role: mygo.RoleUnhide},
+				mygo.Separator(), {Role: mygo.RoleQuit},
+			}
+		}
+		viewItems := []*mygo.MenuItem{
+			{Label: desktoplocales.OpenAI(), Click: command("open-ai")},
+			{Label: desktoplocales.ManagePortForwards(), Click: command("port-forwards")},
+		}
+		if runtime.GOOS != "darwin" {
+			viewItems = append(viewItems, updater.MenuItem())
+		}
+		viewItems = append(viewItems,
+			mygo.Separator(),
+			&mygo.MenuItem{Label: desktoplocales.ZoomIn(), Accelerator: "CmdOrCtrl+Plus", Click: zoomCommand("zoom-in")},
+			&mygo.MenuItem{Label: desktoplocales.ZoomOut(), Accelerator: "CmdOrCtrl+-", Click: zoomCommand("zoom-out")},
+			&mygo.MenuItem{Label: desktoplocales.ActualSize(), Accelerator: "CmdOrCtrl+0", Click: zoomCommand("zoom-reset")},
+			mygo.Separator(), &mygo.MenuItem{Role: mygo.RoleReload}, &mygo.MenuItem{Role: mygo.RoleToggleFullScreen},
+		)
 		mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
-			{Role: mygo.RoleAppMenu},
-			{Label: text("File", "文件"), Submenu: []*mygo.MenuItem{
-				{Label: text("Import kubeconfig…", "导入 kubeconfig…"), Accelerator: "CmdOrCtrl+O", Click: command("import-kubeconfig")},
+			appMenu,
+			{Label: desktoplocales.File(), Submenu: []*mygo.MenuItem{
+				{Label: desktoplocales.ImportKubeconfig(), Click: command("import-kubeconfig")},
 				mygo.Separator(), {Role: mygo.RoleClose},
 			}},
 			{Role: mygo.RoleEditMenu},
-			{Label: text("View", "显示"), Submenu: []*mygo.MenuItem{
-				{Label: text("Open AI", "打开 AI"), Accelerator: "CmdOrCtrl+Shift+A", Click: command("open-ai")},
-				{Label: text("Manage port forwards…", "管理端口转发…"), Click: command("port-forwards")},
-				updater.MenuItem(),
-				mygo.Separator(),
-				{Label: text("Zoom In", "放大"), Accelerator: "CmdOrCtrl+Plus", Click: zoomCommand("zoom-in")},
-				{Label: text("Zoom Out", "缩小"), Accelerator: "CmdOrCtrl+-", Click: zoomCommand("zoom-out")},
-				{Label: text("Actual Size", "实际大小"), Accelerator: "CmdOrCtrl+0", Click: zoomCommand("zoom-reset")},
-				mygo.Separator(), {Role: mygo.RoleReload}, {Role: mygo.RoleToggleFullScreen},
-			}},
+			{Label: desktoplocales.View(), Submenu: viewItems},
 			{Role: mygo.RoleWindowMenu},
 		}))
 	}
@@ -500,14 +519,14 @@ func runDesktop(ctx context.Context) error {
 	}
 	updateTray := func() {
 		items := []*mygo.MenuItem{
-			{Label: text("Open Kite", "打开 Kite"), Click: func(*mygo.MenuItem, *mygo.Window) { showMain() }},
-			{Label: text("Manage port forwards…", "管理端口转发…"), Click: command("port-forwards")},
+			{Label: desktoplocales.OpenKite(), Click: func(*mygo.MenuItem, *mygo.Window) { showMain() }},
+			{Label: desktoplocales.ManagePortForwards(), Click: command("port-forwards")},
 			mygo.Separator(),
 		}
 		count := 0
 		connections := forwards.Snapshot()
 		if len(connections) == 0 {
-			items = append(items, &mygo.MenuItem{Label: text("No port forwards", "暂无端口转发"), Disabled: true})
+			items = append(items, &mygo.MenuItem{Label: desktoplocales.NoPortForwards(), Disabled: true})
 		}
 		for _, connection := range connections {
 			address := fmt.Sprintf("127.0.0.1:%d", connection.LocalPort)
@@ -516,8 +535,8 @@ func runDesktop(ctx context.Context) error {
 			if connection.Status == "active" {
 				count++
 				children = append(children,
-					&mygo.MenuItem{Label: text("Copy address", "复制地址"), Click: func(*mygo.MenuItem, *mygo.Window) { mygo.Clipboard.WriteText(address) }},
-					&mygo.MenuItem{Label: text("Open as HTTP", "以 HTTP 打开"), Click: func(*mygo.MenuItem, *mygo.Window) {
+					&mygo.MenuItem{Label: desktoplocales.CopyAddress(), Click: func(*mygo.MenuItem, *mygo.Window) { mygo.Clipboard.WriteText(address) }},
+					&mygo.MenuItem{Label: desktoplocales.OpenAsHTTP(), Click: func(*mygo.MenuItem, *mygo.Window) {
 						go func() {
 							if err := mygo.Shell.OpenExternal("http://" + address); err != nil {
 								klog.Errorf("Open forwarded address: %v", err)
@@ -526,21 +545,21 @@ func runDesktop(ctx context.Context) error {
 					}},
 				)
 			} else {
-				label += text(" (disconnected)", "（已断开）")
+				label += desktoplocales.Disconnected()
 				if connection.Error != "" {
 					children = append(children, &mygo.MenuItem{Label: connection.Error, Disabled: true})
 				}
 			}
-			stopLabel := text("Stop", "停止")
+			stopLabel := desktoplocales.Stop()
 			if connection.Status != "active" {
-				stopLabel = text("Remove", "移除")
+				stopLabel = desktoplocales.Remove()
 			}
 			children = append(children, &mygo.MenuItem{Label: stopLabel, Click: func(*mygo.MenuItem, *mygo.Window) {
 				go forwards.StopLocal(connection.ID)
 			}})
 			items = append(items, &mygo.MenuItem{Label: label, Submenu: children})
 		}
-		items = append(items, mygo.Separator(), &mygo.MenuItem{Label: text("Quit Kite", "退出 Kite"), Role: mygo.RoleQuit})
+		items = append(items, mygo.Separator(), &mygo.MenuItem{Label: desktoplocales.QuitKite(), Role: mygo.RoleQuit})
 		tray.SetMenu(mygo.NewMenu(items))
 		title := ""
 		if count > 0 {

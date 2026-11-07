@@ -11,6 +11,7 @@ export default {
   icon: "ui/src/assets/desktop-icon.png",
   out: "bin/desktop",
   bindings: "ui/src/lib/mygo.ts",
+  i18n: { dir: "desktoplocales", source: "en" },
   updates: {
     publicKey: "J6Gj81LvnrQNfqhPx/zBeWc8eUb2hkyMTjpKS5QR6Fk=",
     github: "kite-org/kite",

@@ -1,0 +1,18 @@
+{
+  "openAI": "打开 AI",
+  "managePortForwards": "管理端口转发…",
+  "zoomIn": "放大",
+  "zoomOut": "缩小",
+  "actualSize": "实际大小",
+  "file": "文件",
+  "importKubeconfig": "导入 kubeconfig…",
+  "view": "显示",
+  "openKite": "打开 Kite",
+  "noPortForwards": "暂无端口转发",
+  "copyAddress": "复制地址",
+  "openAsHTTP": "以 HTTP 打开",
+  "disconnected": "（已断开）",
+  "stop": "停止",
+  "remove": "移除",
+  "quitKite": "退出 Kite"
+}

@@ -54,7 +54,7 @@ createRoot(document.getElementById('root')!).render(
         <PluginRuntime>
           <AppearanceProvider
             defaultTheme="system"
-            defaultColorTheme="default"
+            defaultColorTheme="clean-slate"
             defaultFont={isDesktop ? 'system' : 'maple'}
             defaultDisplayScale={isDesktop ? 90 : 95}
           >

@@ -32,6 +32,8 @@
   - --app-font-sans controls the app's primary font; default to Maple to keep current look
 */
 :root {
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
     Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif,

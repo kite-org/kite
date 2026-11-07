@@ -1,5 +1,16 @@
 {
   "desktop": {
+    "setup": {
+      "subtitle": "Connect to your Kubernetes clusters.",
+      "heading": "Choose a cluster",
+      "loadingDescription": "Looking for your clusters...",
+      "description": "Select a cluster to get started, or import another kubeconfig.",
+      "emptyDescription": "No clusters were found. Import a kubeconfig file to get started.",
+      "defaultCluster": "Default",
+      "connectionError": "Connection failed",
+      "continue": "Open cluster",
+      "noContexts": "No Kubernetes contexts were found in this kubeconfig."
+    },
     "kubectlNotInstalled": "kubectl was not found. Install kubectl and make it available in PATH.",
     "localKubeconfigUnavailable": "This cluster does not have a local kubeconfig.",
     "localKubeconfigError": "Could not prepare the cluster configuration for the local terminal.",

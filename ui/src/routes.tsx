@@ -18,6 +18,7 @@ import { InitCheckRoute } from './components/init-check-route'
 import { ProtectedRoute } from './components/protected-route'
 import { getSubPath } from './lib/subpath'
 import { CRListPage } from './pages/cr-list-page'
+import { DesktopInitializationPage } from './pages/desktop-initialization'
 import { HelmChartDetailPage } from './pages/helm-chart-detail-page'
 import { HelmChartListPage } from './pages/helm-chart-list-page'
 import { InitializationPage } from './pages/initialization'
@@ -94,7 +95,7 @@ export function createDesktopRouter() {
       {
         element: <DesktopReady />,
         children: [
-          { path: '/setup', element: <Navigate to="/" replace /> },
+          { path: '/setup', element: <DesktopInitializationPage /> },
           { path: '/login', element: <Navigate to="/" replace /> },
           { path: '/desktop/workspace', element: <DesktopWorkspaceApp /> },
           { path: '/ai-chat-box', element: <DesktopAIChatApp /> },
