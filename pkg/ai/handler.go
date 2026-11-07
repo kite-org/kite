@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/cluster"
+	"k8s.io/klog/v2"
 )
 
 func HandleChat(c *gin.Context) {
@@ -42,8 +45,14 @@ func HandleChat(c *gin.Context) {
 		return
 	}
 
-	sendEvent := prepareSSE(c)
+	sendEvent, stopKeepalive := prepareSSE(c)
+	defer stopKeepalive()
+
 	agent.ProcessChat(c, &req, sendEvent)
+
+	// Stop the ticker before "done" so a keepalive can never trail the
+	// terminating event.
+	stopKeepalive()
 	sendEvent(AgentEvent{Type: "done", Data: struct{}{}})
 }
 
@@ -91,22 +100,69 @@ func HandleContinue(c *gin.Context) {
 		return
 	}
 
-	sendEvent := prepareSSE(c)
+	sendEvent, stopKeepalive := prepareSSE(c)
+	defer stopKeepalive()
+
 	if err := agent.ContinuePending(c, req.SessionID, req.Action, req.Values, sendEvent); err != nil {
 		sendEvent(AgentEvent{Type: "error", Data: ErrorEvent{Message: err.Error()}})
 	}
+
+	stopKeepalive()
 	sendEvent(AgentEvent{Type: "done", Data: struct{}{}})
 }
 
-func prepareSSE(c *gin.Context) func(AgentEvent) {
+// sseKeepaliveInterval is how often an idle stream emits a comment line. An
+// agent turn is legitimately silent while a tool runs or the model thinks, and
+// ingress-nginx closes a connection after 60s with no bytes from the backend
+// (proxy-read-timeout), so silence has to be broken well inside that window.
+const sseKeepaliveInterval = 20 * time.Second
+
+// prepareSSE wires the SSE headers and returns a send function plus a stop
+// function. Writes are mutex-guarded because the keepalive ticker runs on its
+// own goroutine and gin's ResponseWriter is not safe for concurrent use. Always
+// `defer stop()` — it ends the ticker goroutine.
+func prepareSSE(c *gin.Context) (send func(AgentEvent), stop func()) {
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
-	return func(event AgentEvent) {
-		_, _ = fmt.Fprint(c.Writer, MarshalSSEEvent(event))
+
+	var mu sync.Mutex
+	send = func(event AgentEvent) {
+		data := MarshalSSEEvent(event)
+		mu.Lock()
+		defer mu.Unlock()
+		_, _ = fmt.Fprint(c.Writer, data)
 		c.Writer.Flush()
 	}
+
+	done := make(chan struct{})
+	var once sync.Once
+	ticker := time.NewTicker(sseKeepaliveInterval)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-c.Request.Context().Done():
+				return
+			case <-ticker.C:
+				// An SSE comment line: clients ignore it per spec, proxies see
+				// traffic. Written through the same lock as real events.
+				mu.Lock()
+				_, err := fmt.Fprint(c.Writer, ": keepalive\n\n")
+				c.Writer.Flush()
+				mu.Unlock()
+				if err != nil {
+					klog.V(4).Infof("SSE keepalive write failed, stopping: %v", err)
+					return
+				}
+			}
+		}
+	}()
+
+	return send, func() { once.Do(func() { close(done) }) }
 }
 
 func getClusterClientSet(c *gin.Context) (*cluster.ClientSet, bool) {
