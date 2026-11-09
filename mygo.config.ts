@@ -13,7 +13,7 @@ export default {
   bindings: "ui/src/lib/mygo.ts",
   i18n: { dir: "desktoplocales", source: "en" },
   updates: {
-    publicKey: "J6Gj81LvnrQNfqhPx/zBeWc8eUb2hkyMTjpKS5QR6Fk=",
+    publicKey: "smvQ8XpfHJ63wEcLQNdXnl9Qyi9QVKH9Ky/xj4L5U3w=",
     github: "kite-org/kite",
     ...(process.env.KITE_DESKTOP_CHANGELOG && {
       changelog: process.env.KITE_DESKTOP_CHANGELOG,
