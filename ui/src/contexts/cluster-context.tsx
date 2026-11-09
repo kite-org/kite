@@ -10,6 +10,7 @@ import {
   getCurrentCluster,
   setCurrentCluster as persistCurrentCluster,
 } from '@/lib/current-cluster'
+import { isDesktop } from '@/lib/desktop'
 
 interface ClusterContextType {
   clusters: Cluster[]
@@ -39,9 +40,18 @@ export const ClusterProvider: React.FC<{
   const [pendingClusterNames, setPendingClusterNames] = useState<string[]>([])
   const isRefreshingClusters = pendingClusterNames.length > 0
   const queryClient = useQueryClient()
-  const { refetch: refetchClusters } = useCurrentClusterList({
-    enabled: false,
-  })
+  const { data: liveClusters, refetch: refetchClusters } =
+    useCurrentClusterList({
+      enabled: isDesktop,
+      refetchInterval: isDesktop ? 3000 : false,
+    })
+
+  useEffect(() => {
+    if (isDesktop && liveClusters) {
+      setClusters(liveClusters)
+      setError(null)
+    }
+  }, [liveClusters])
 
   const refreshClusters = useCallback(
     async (clusterNames: string[]) => {
@@ -52,6 +62,7 @@ export const ClusterProvider: React.FC<{
       if (result.isSuccess) {
         const selectedCluster = getCurrentCluster()
         if (
+          !isDesktop &&
           selectedCluster &&
           !result.data.some((cluster) => cluster.name === selectedCluster)
         ) {
@@ -136,6 +147,7 @@ export const ClusterProvider: React.FC<{
     }
 
     if (
+      !isDesktop &&
       currentCluster &&
       clusters.length > 0 &&
       !clusters.some((cluster) => cluster.name === currentCluster)

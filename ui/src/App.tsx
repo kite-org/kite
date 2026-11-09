@@ -20,6 +20,7 @@ import {
 import { toast } from 'sonner'
 
 import {
+  isDesktop,
   isDesktopChild,
   openDesktopChat,
   openDesktopWorkspace,
@@ -120,12 +121,26 @@ function ClusterGate({
 }
 
 function MainContent() {
+  const { t } = useTranslation()
+  const { currentCluster, clusters } = useCluster()
+  const location = useLocation()
+  const clusterUnavailable =
+    isDesktop &&
+    currentCluster &&
+    !clusters.some((cluster) => cluster.name === currentCluster) &&
+    location.pathname !== '/settings'
   return (
     <div className="@container/main flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1 flex-col gap-4 py-4 md:gap-6">
         <div className="flex min-h-0 flex-1 flex-col px-4 lg:px-6">
           <ErrorBoundary>
-            <Outlet />
+            {clusterUnavailable ? (
+              <p role="alert" className="text-sm text-destructive">
+                {t('desktop.clusterUnavailable', { cluster: currentCluster })}
+              </p>
+            ) : (
+              <Outlet />
+            )}
           </ErrorBoundary>
         </div>
       </div>

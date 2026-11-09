@@ -26,10 +26,16 @@ import { ClusterImportDialog } from '@/components/settings/cluster-import-dialog
 export function DesktopInitializationPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
-  const { data: clusters = [], isLoading, error, refetch } = useClusterList()
+  const {
+    data: clusters = [],
+    isLoading,
+    error,
+    refetch,
+  } = useClusterList({ refetchInterval: 3000 })
   const [selected, setSelected] = useState('')
   const [importOpen, setImportOpen] = useState(false)
   const [importConfig, setImportConfig] = useState('')
+  const [importPath, setImportPath] = useState('')
   const [importVersion, setImportVersion] = useState(0)
   const [importError, setImportError] = useState('')
   const [isImporting, setIsImporting] = useState(false)
@@ -43,6 +49,7 @@ export function DesktopInitializationPage() {
       events.desktopCommand.on((command) => {
         if (command.action !== 'import-kubeconfig') return
         setImportConfig(command.config ?? '')
+        setImportPath(command.path ?? '')
         setImportError(
           command.error ? t('clusterManagement.messages.fileReadError') : ''
         )
@@ -52,11 +59,13 @@ export function DesktopInitializationPage() {
     [t]
   )
 
-  const handleImport = async (config: string) => {
+  const handleImport = async (config: string, path?: string) => {
     setImportError('')
     setIsImporting(true)
     try {
-      const { importedCount } = await importClusters({ config })
+      const importedCount = path
+        ? await DesktopService.importKubeconfig(path)
+        : (await importClusters({ config })).importedCount
       if (!importedCount) {
         setImportError(t('desktop.setup.noContexts'))
         return
@@ -217,6 +226,7 @@ export function DesktopInitializationPage() {
                 disabled={isLoading || !!error}
                 onClick={() => {
                   setImportConfig('')
+                  setImportPath('')
                   setImportError('')
                   setImportVersion((version) => version + 1)
                   setImportOpen(true)
@@ -236,6 +246,7 @@ export function DesktopInitializationPage() {
         isSubmitting={isImporting}
         error={importError}
         initialConfig={importConfig}
+        initialPath={importPath}
         pickKubeconfig={DesktopService.pickKubeconfig}
       />
     </div>

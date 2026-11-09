@@ -620,6 +620,7 @@ export interface Cluster {
   description?: string
   version?: string
   config?: string
+  kubeconfigSourceId?: number
   enabled: boolean
   inCluster: boolean
   clusterAgent: boolean

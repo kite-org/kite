@@ -94,7 +94,7 @@ func reportIfDue(ctx context.Context, cm *cluster.ClusterManager) error {
 	}
 	body, err := json.Marshal(telemetryReport{
 		InstallationID:     setting.AnalyticsInstallationID,
-		KiteVersion:        version.Version,
+		KiteVersion:        version.Version + versionSuffix,
 		KubernetesVersions: versions,
 		Plugins:            plugins,
 		OS:                 runtime.GOOS,

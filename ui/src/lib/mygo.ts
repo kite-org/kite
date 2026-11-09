@@ -7,17 +7,40 @@ import { call, event } from 'mygo-runtime'
 export interface DesktopCommand {
   action: string
   config?: string
+  path?: string
+  error?: string
+}
+
+export interface KubeconfigFile {
+  path: string
+  config: string
+}
+
+export interface KubeconfigSource {
+  id: number
+  createdAt: string
+  updatedAt: string
+  paths: string[]
   error?: string
 }
 
 // ---- Services ----
 
 export const DesktopService = {
+  importKubeconfig(path: string): Promise<number> {
+    return call('DesktopService.ImportKubeconfig', path)
+  },
+  kubeconfigSources(): Promise<KubeconfigSource[]> {
+    return call('DesktopService.KubeconfigSources')
+  },
   openKubectl(clusterName: string): Promise<void> {
     return call('DesktopService.OpenKubectl', clusterName)
   },
-  pickKubeconfig(title: string): Promise<string> {
+  pickKubeconfig(title: string): Promise<KubeconfigFile> {
     return call('DesktopService.PickKubeconfig', title)
+  },
+  removeKubeconfigSource(id: number): Promise<void> {
+    return call('DesktopService.RemoveKubeconfigSource', id)
   },
   saveText(title: string, filename: string, content: string): Promise<void> {
     return call('DesktopService.SaveText', title, filename, content)

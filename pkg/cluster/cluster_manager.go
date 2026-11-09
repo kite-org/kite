@@ -283,6 +283,7 @@ func syncClusters(cm *ClusterManager, readyCh chan<- struct{}) error {
 		time.Sleep(5 * time.Second)
 		return err
 	}
+	defaultContext := ""
 	dbClusterMap := make(map[string]interface{})
 	type buildResult struct {
 		cluster   *model.Cluster
@@ -293,9 +294,7 @@ func syncClusters(cm *ClusterManager, readyCh chan<- struct{}) error {
 	for _, cluster := range clusters {
 		dbClusterMap[cluster.Name] = cluster
 		if cluster.IsDefault {
-			cm.mu.Lock()
-			cm.defaultContext = cluster.Name
-			cm.mu.Unlock()
+			defaultContext = cluster.Name
 		}
 		cm.mu.RLock()
 		current, currentExist := cm.clusters[cluster.Name]
@@ -371,6 +370,7 @@ func syncClusters(cm *ClusterManager, readyCh chan<- struct{}) error {
 		cm.mu.Unlock()
 	}
 	cm.mu.Lock()
+	cm.defaultContext = defaultContext
 	for name, clientSet := range cm.clusters {
 		if _, ok := dbClusterMap[name]; !ok {
 			delete(cm.clusters, name)

@@ -1,5 +1,12 @@
 {
   "desktop": {
+    "kubeconfig": {
+      "sources": "自动同步的 kubeconfig 文件",
+      "synced": "文件同步",
+      "fileHint": "{{path}} — 此文件的后续更改将自动同步。编辑下方内容将改为导入独立副本。",
+      "managedHint": "此集群由本地 kubeconfig 文件同步。请编辑源文件修改配置或删除 context，也可以在这里禁用集群。",
+      "removeHint": "停止同步这些文件，并从 Kite 移除其中的集群。不会修改源文件或 Kubernetes 资源。"
+    },
     "setup": {
       "subtitle": "连接你的 Kubernetes 集群。",
       "heading": "选择集群",

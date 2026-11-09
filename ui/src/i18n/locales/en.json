@@ -1,5 +1,12 @@
 {
   "desktop": {
+    "kubeconfig": {
+      "sources": "Synced kubeconfig files",
+      "synced": "File sync",
+      "fileHint": "{{path}} — changes to this file will sync automatically. Editing the content below imports a separate copy.",
+      "managedHint": "This cluster is synced from a local kubeconfig file. Edit the file to change its configuration or remove its context. You can disable the cluster here.",
+      "removeHint": "Stop syncing these files and remove their clusters from Kite. The files and Kubernetes resources will remain unchanged."
+    },
     "setup": {
       "subtitle": "Connect to your Kubernetes clusters.",
       "heading": "Choose a cluster",

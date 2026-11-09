@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { IconUpload } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 
+import type { KubeconfigFile } from '@/lib/mygo'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -18,11 +19,12 @@ import { Textarea } from '@/components/ui/textarea'
 interface ClusterImportDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSubmit: (config: string) => void
+  onSubmit: (config: string, path?: string) => void
   isSubmitting: boolean
   error?: string
   initialConfig?: string
-  pickKubeconfig?: (title: string) => Promise<string>
+  initialPath?: string
+  pickKubeconfig?: (title: string) => Promise<KubeconfigFile>
 }
 
 export function ClusterImportDialog({
@@ -32,6 +34,7 @@ export function ClusterImportDialog({
   isSubmitting,
   error,
   initialConfig,
+  initialPath,
   pickKubeconfig,
 }: ClusterImportDialogProps) {
   return (
@@ -43,6 +46,7 @@ export function ClusterImportDialog({
           isSubmitting={isSubmitting}
           error={error}
           initialConfig={initialConfig}
+          initialPath={initialPath}
           pickKubeconfig={pickKubeconfig}
         />
       ) : null}
@@ -56,10 +60,12 @@ function ClusterImportDialogContent({
   isSubmitting,
   error,
   initialConfig,
+  initialPath,
   pickKubeconfig,
 }: Omit<ClusterImportDialogProps, 'open'>) {
   const { t } = useTranslation()
   const [config, setConfig] = useState(initialConfig ?? '')
+  const [path, setPath] = useState(initialPath ?? '')
   const [fileError, setFileError] = useState('')
 
   const handleFileSelect = async (
@@ -83,7 +89,7 @@ function ClusterImportDialogContent({
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault()
-    onSubmit(config)
+    onSubmit(config, path || undefined)
   }
 
   return (
@@ -112,10 +118,13 @@ function ClusterImportDialogContent({
               variant="outline"
               onClick={async () => {
                 try {
-                  const content = await pickKubeconfig(
+                  const file = await pickKubeconfig(
                     t('clusterManagement.dialog.importFile')
                   )
-                  if (content) setConfig(content)
+                  if (file.path) {
+                    setConfig(file.config)
+                    setPath(file.path)
+                  }
                   setFileError('')
                 } catch {
                   setFileError(t('clusterManagement.messages.fileReadError'))
@@ -139,6 +148,11 @@ function ClusterImportDialogContent({
               'Choose a kubeconfig file, or paste its content below.'
             )}
           </p>
+          {path && (
+            <p className="break-all text-xs text-muted-foreground">
+              {t('desktop.kubeconfig.fileHint', { path })}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -150,6 +164,7 @@ function ClusterImportDialogContent({
             value={config}
             onChange={(event) => {
               setConfig(event.target.value)
+              setPath('')
               setFileError('')
             }}
             placeholder={t(

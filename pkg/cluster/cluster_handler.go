@@ -80,16 +80,17 @@ func (cm *ClusterManager) GetClusterList(c *gin.Context) {
 	result := make([]gin.H, 0, len(clusters))
 	for _, cluster := range clusters {
 		clusterInfo := gin.H{
-			"id":            cluster.ID,
-			"name":          cluster.Name,
-			"description":   cluster.Description,
-			"enabled":       cluster.Enable,
-			"inCluster":     cluster.InCluster,
-			"clusterAgent":  cluster.ClusterAgent,
-			"connected":     cluster.ClusterAgent && cm.clusterAgentManager.Connected(cluster.ID),
-			"isDefault":     cluster.IsDefault,
-			"prometheusURL": cluster.PrometheusURL,
-			"config":        "",
+			"id":                 cluster.ID,
+			"name":               cluster.Name,
+			"description":        cluster.Description,
+			"enabled":            cluster.Enable,
+			"inCluster":          cluster.InCluster,
+			"clusterAgent":       cluster.ClusterAgent,
+			"connected":          cluster.ClusterAgent && cm.clusterAgentManager.Connected(cluster.ID),
+			"isDefault":          cluster.IsDefault,
+			"prometheusURL":      cluster.PrometheusURL,
+			"config":             "",
+			"kubeconfigSourceId": cluster.KubeconfigSourceID,
 		}
 		if cluster.ClusterAgent {
 			clusterInfo["clusterAgentVersion"] = cm.clusterAgentManager.Version(cluster.ID)
@@ -245,6 +246,10 @@ func (cm *ClusterManager) UpdateCluster(c *gin.Context) {
 		return
 	}
 
+	if cluster.KubeconfigSourceID != 0 && (req.Config != "" || req.InCluster || (req.Name != "" && req.Name != cluster.Name)) {
+		c.JSON(http.StatusConflict, gin.H{"error": "edit the source kubeconfig file to change this cluster's name or configuration"})
+		return
+	}
 	if req.IsDefault && !cluster.IsDefault {
 		if err := model.ClearDefaultCluster(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -305,6 +310,10 @@ func (cm *ClusterManager) DeleteCluster(c *gin.Context) {
 		return
 	}
 
+	if cluster.KubeconfigSourceID != 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": "remove the kubeconfig source or delete the context from its file"})
+		return
+	}
 	if cluster.IsDefault {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot delete default cluster"})
 		return
@@ -420,6 +429,12 @@ func (cm *ClusterManager) ImportClustersFromKubeconfig(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+	for name := range kubeconfig.Contexts {
+		if existing, err := model.GetClusterByName(name); err == nil && existing.KubeconfigSourceID != 0 {
+			c.JSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("cluster %q is synced from a kubeconfig file; edit that file instead", name)})
+			return
+		}
 	}
 
 	importedCount := ImportClustersFromKubeconfig(kubeconfig, cc == 0)

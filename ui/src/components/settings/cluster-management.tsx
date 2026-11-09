@@ -48,6 +48,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'
+import { DesktopKubeconfigSources } from '@/components/desktop-kubeconfig-sources'
 
 import { Action, ActionTable } from '../action-table'
 import { ClusterDialog } from './cluster-dialog'
@@ -75,12 +76,14 @@ export function ClusterManagement({
   const [showClusterDialog, setShowClusterDialog] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [importConfig, setImportConfig] = useState('')
+  const [importPath, setImportPath] = useState('')
   const [importVersion, setImportVersion] = useState(0)
   const location = useLocation()
   const navigate = useNavigate()
   useEffect(() => {
     if (!desktop || !location.state?.desktopImport) return
     setImportConfig(pendingDesktopImport?.config ?? '')
+    setImportPath(pendingDesktopImport?.path ?? '')
     setImportVersion((version) => version + 1)
     setPendingDesktopImport(undefined)
     setShowImportDialog(true)
@@ -186,6 +189,11 @@ export function ClusterManagement({
             <div className="flex items-center gap-2">
               <span className="font-medium">{cluster.name}</span>
               {cluster.isDefault && <Badge variant="secondary">Default</Badge>}
+              {!!cluster.kubeconfigSourceId && (
+                <Badge variant="outline">
+                  {t('desktop.kubeconfig.synced')}
+                </Badge>
+              )}
             </div>
             {cluster.description && (
               <div className="text-sm text-muted-foreground">
@@ -269,7 +277,8 @@ export function ClusterManagement({
             {t('common.actions.delete', 'Delete')}
           </div>
         ),
-        shouldDisable: (cluster) => cluster.isDefault,
+        shouldDisable: (cluster) =>
+          cluster.isDefault || !!cluster.kubeconfigSourceId,
         onClick: (cluster) => {
           setDeletingCluster(cluster)
         },
@@ -355,7 +364,10 @@ export function ClusterManagement({
   })
 
   const importMutation = useMutation({
-    mutationFn: (config: string) => importClusters({ config }),
+    mutationFn: async ({ config, path }: { config: string; path?: string }) =>
+      path
+        ? { importedCount: await DesktopService.importKubeconfig(path) }
+        : importClusters({ config }),
     onSuccess: async ({ importedCount }) => {
       await queryClient.invalidateQueries({
         queryKey: ['cluster-list'],
@@ -497,6 +509,11 @@ export function ClusterManagement({
           </div>
         </CardHeader>
         <CardContent>
+          {desktop && (
+            <div className="mb-4">
+              <DesktopKubeconfigSources />
+            </div>
+          )}
           <ActionTable data={clusters} columns={columns} actions={actions} />
           {clusters.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
@@ -533,15 +550,17 @@ export function ClusterManagement({
         key={importVersion}
         open={showImportDialog}
         initialConfig={importConfig}
+        initialPath={importPath}
         pickKubeconfig={desktop ? DesktopService.pickKubeconfig : undefined}
         onOpenChange={(open) => {
           setShowImportDialog(open)
           if (!open) {
             setImportConfig('')
+            setImportPath('')
             importMutation.reset()
           }
         }}
-        onSubmit={(config) => importMutation.mutate(config)}
+        onSubmit={(config, path) => importMutation.mutate({ config, path })}
         isSubmitting={importMutation.isPending}
         error={importMutation.error?.message}
       />

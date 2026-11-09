@@ -143,7 +143,15 @@ when the main window is hidden, with copy-address, open-as-HTTP, and stop action
 The database, plugins and local encryption key live in
 `~/Library/Application Support/Kite MyGo Local`. The encryption key is stored
 as a file readable by the current macOS user, not in Keychain.
-The initial launch imports `~/.kube/config` (or `KUBECONFIG`) when available.
+The desktop app follows `~/.kube/config` (or the file list in `KUBECONFIG`).
+Files selected or dropped into the import dialog are also kept in sync across
+restarts. Pasted content is a one-time import. File changes update cluster
+credentials and add or remove contexts without changing the selected cluster.
+Unreadable or invalid files keep the last valid configuration and show an error
+under **Synced kubeconfig files** in cluster settings. Removing a source
+there stops syncing and removes its Kite connections, leaving the files and
+Kubernetes resources untouched. Configurations imported by earlier builds need
+to be imported from a file again to establish the link.
 The saved port keeps the browser origin and local preferences stable across restarts;
 preferences from earlier builds with random ports are not migrated. The app also
 looks for credential helpers in Homebrew's usual locations, `~/.krew/bin` and

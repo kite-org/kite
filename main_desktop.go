@@ -26,6 +26,7 @@ import (
 	"github.com/egoist/mygo/plugins/updater"
 	updaternative "github.com/egoist/mygo/plugins/updater/native"
 	"github.com/zxh326/kite/desktoplocales"
+	"github.com/zxh326/kite/internal"
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
 	"github.com/zxh326/kite/pkg/portforward"
@@ -36,7 +37,13 @@ import (
 type DesktopCommand struct {
 	Action string `json:"action"`
 	Config string `json:"config,omitempty"`
+	Path   string `json:"path,omitempty"`
 	Error  string `json:"error,omitempty"`
+}
+
+type KubeconfigFile struct {
+	Path   string `json:"path"`
+	Config string `json:"config"`
 }
 
 var desktopCommands = mygo.NewEvent[DesktopCommand]("desktop-command")
@@ -51,17 +58,43 @@ type DesktopService struct {
 	shellEnv       []string
 	path           string
 	kubectlWindows map[string]*mygo.Window
+	kubectlConfigs map[string]string
 }
 
-var desktopService = &DesktopService{kubectlWindows: make(map[string]*mygo.Window)}
+var desktopService = &DesktopService{
+	kubectlWindows: make(map[string]*mygo.Window),
+	kubectlConfigs: make(map[string]string),
+}
 
-func (*DesktopService) PickKubeconfig(ctx context.Context, title string) (string, error) {
+func (*DesktopService) PickKubeconfig(ctx context.Context, title string) (KubeconfigFile, error) {
 	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: mygo.CallerWindow(ctx), Title: title, ShowHiddenFiles: true})
 	if err != nil || len(paths) == 0 {
-		return "", err
+		return KubeconfigFile{}, err
 	}
 	content, err := os.ReadFile(paths[0])
-	return string(content), err
+	return KubeconfigFile{Path: paths[0], Config: string(content)}, err
+}
+
+func (s *DesktopService) ImportKubeconfig(path string) (int64, error) {
+	count, err := internal.ImportKubeconfigFile(path)
+	if err == nil {
+		s.syncKubectlConfigs()
+	}
+	return count, err
+}
+
+func (*DesktopService) KubeconfigSources() ([]model.KubeconfigSource, error) {
+	sources := make([]model.KubeconfigSource, 0)
+	err := model.DB.Where("enabled = ?", true).Order("id").Find(&sources).Error
+	return sources, err
+}
+
+func (s *DesktopService) RemoveKubeconfigSource(id uint) error {
+	err := internal.RemoveKubeconfigSource(id)
+	if err == nil {
+		s.syncKubectlConfigs()
+	}
+	return err
 }
 
 func (*DesktopService) SaveText(ctx context.Context, title, filename, content string) error {
@@ -231,6 +264,9 @@ func runDesktop(ctx context.Context) error {
 		return err
 	}
 	defer db.Close()
+	if err := internal.StartKubeconfigWatcher(ctx, desktopService.syncKubectlConfigs); err != nil {
+		return err
+	}
 
 	engine := buildEngine(cm)
 	desktopService.shellEnv = shellEnv
@@ -446,7 +482,7 @@ func runDesktop(ctx context.Context) error {
 			window := mainWindow
 			go func() {
 				content, err := os.ReadFile(event.Paths[0])
-				command := DesktopCommand{Action: "import-kubeconfig", Config: string(content)}
+				command := DesktopCommand{Action: "import-kubeconfig", Config: string(content), Path: event.Paths[0]}
 				if err != nil {
 					command.Error = err.Error()
 				}

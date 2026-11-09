@@ -24,11 +24,15 @@ export const fetchCurrentClusters = async (): Promise<Cluster[]> => {
   return response.json()
 }
 
-export const useCurrentClusterList = (options?: { enabled?: boolean }) => {
+export const useCurrentClusterList = (options?: {
+  enabled?: boolean
+  refetchInterval?: number | false
+}) => {
   return useQuery({
     queryKey: ['clusters'],
     queryFn: fetchCurrentClusters,
     enabled: options?.enabled ?? true,
+    refetchInterval: options?.refetchInterval,
     retry: false,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,

@@ -114,6 +114,7 @@ function ClusterDialogContent({
             <Input
               id="cluster-name"
               value={formData.name}
+              readOnly={!!cluster?.kubeconfigSourceId}
               onChange={(e) => handleChange('name', e.target.value)}
               placeholder={t(
                 'clusterManagement.dialog.namePlaceholder',
@@ -180,36 +181,43 @@ function ClusterDialogContent({
           />
         </div>
 
-        {!formData.inCluster && !formData.clusterAgent && (
-          <div className="space-y-2">
-            <Label htmlFor="cluster-config">
-              {t('clusterManagement.dialog.config', 'Kubeconfig')}
-              {!isEditMode && ' *'}
-            </Label>
-            {isEditMode && (
-              <p className="text-xs text-muted-foreground">
-                {t(
-                  'common.messages.keepCurrentConfiguration',
-                  'Leave empty to keep current configuration'
-                )}
-              </p>
-            )}
-            <Textarea
-              id="cluster-config"
-              value={formData.config}
-              onChange={(e) => handleChange('config', e.target.value)}
-              placeholder={t(
-                'clusterManagement.dialog.configPlaceholder',
-                'Paste your kubeconfig content here...'
-              )}
-              rows={8}
-              className="text-sm"
-              required={
-                !isEditMode && !formData.inCluster && !formData.clusterAgent
-              }
-            />
-          </div>
+        {!!cluster?.kubeconfigSourceId && (
+          <p className="text-sm text-muted-foreground">
+            {t('desktop.kubeconfig.managedHint')}
+          </p>
         )}
+        {!formData.inCluster &&
+          !formData.clusterAgent &&
+          !cluster?.kubeconfigSourceId && (
+            <div className="space-y-2">
+              <Label htmlFor="cluster-config">
+                {t('clusterManagement.dialog.config', 'Kubeconfig')}
+                {!isEditMode && ' *'}
+              </Label>
+              {isEditMode && (
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    'common.messages.keepCurrentConfiguration',
+                    'Leave empty to keep current configuration'
+                  )}
+                </p>
+              )}
+              <Textarea
+                id="cluster-config"
+                value={formData.config}
+                onChange={(e) => handleChange('config', e.target.value)}
+                placeholder={t(
+                  'clusterManagement.dialog.configPlaceholder',
+                  'Paste your kubeconfig content here...'
+                )}
+                rows={8}
+                className="text-sm"
+                required={
+                  !isEditMode && !formData.inCluster && !formData.clusterAgent
+                }
+              />
+            </div>
+          )}
 
         <div className="space-y-2">
           <Label htmlFor="prometheus-url">

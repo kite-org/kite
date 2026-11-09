@@ -94,6 +94,7 @@ func InitDB() {
 		User{},
 		PasskeyCredential{},
 		Cluster{},
+		KubeconfigSource{},
 		GeneralSetting{},
 		LDAPSetting{},
 		OAuthProvider{},

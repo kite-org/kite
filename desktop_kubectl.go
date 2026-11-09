@@ -13,7 +13,27 @@ import (
 	"github.com/egoist/mygo/plugins/terminal"
 	"github.com/egoist/mygo/ui"
 	"github.com/zxh326/kite/pkg/model"
+	"gorm.io/gorm"
+	"k8s.io/klog/v2"
 )
+
+func (s *DesktopService) syncKubectlConfigs() {
+	mygo.RunOnMain(func() {
+		for name, path := range s.kubectlConfigs {
+			cluster, err := model.GetClusterByName(name)
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				s.kubectlWindows[name].Close()
+				continue
+			}
+			if err == nil {
+				err = os.WriteFile(path, []byte(cluster.Config), 0600)
+			}
+			if err != nil {
+				klog.Errorf("Failed to update local terminal kubeconfig for %s: %v", name, err)
+			}
+		}
+	})
+}
 
 func (s *DesktopService) OpenKubectl(clusterName string) error {
 	var result error
@@ -89,8 +109,10 @@ func (s *DesktopService) OpenKubectl(clusterName string) error {
 		})
 		window.OnReadyToShow(func() { window.Show() })
 		s.kubectlWindows[clusterName] = window
+		s.kubectlConfigs[clusterName] = config.Name()
 		window.OnClosed(func() {
 			delete(s.kubectlWindows, clusterName)
+			delete(s.kubectlConfigs, clusterName)
 			_ = term.Close()
 			_ = os.Remove(config.Name())
 		})
