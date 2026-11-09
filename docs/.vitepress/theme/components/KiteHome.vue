@@ -1,6 +1,8 @@
 <script setup>
 import {
   IconArrowUpRight,
+  IconBrandApple,
+  IconBrandWindows,
   IconChartLine,
   IconCode,
   IconGitBranch,
@@ -13,7 +15,7 @@ import {
   IconWorld,
 } from "@tabler/icons-vue";
 import { useData } from "vitepress";
-import { computed } from "vue";
+import { computed, onMounted, ref } from "vue";
 import auditScreenshot from "../../../screenshots/audit.webp";
 import detailScreenshot from "../../../screenshots/detail.webp";
 import helmScreenshot from "../../../screenshots/helm.webp";
@@ -25,11 +27,13 @@ const content = {
     docsHref: "/guide/",
     pluginsHref: "/plugins/",
     installHref: "/guide/installation",
+    desktopHref: "/guide/desktop",
     homeLabel: "Kite home",
     navigationLabel: "Primary navigation",
     skipLabel: "Skip to content",
     starLabel: "View Kite stars on GitHub",
     nav: {
+      desktop: "Desktop",
       docs: "Docs",
       plugins: "Plugins",
       community: "Community",
@@ -40,8 +44,25 @@ const content = {
       secondLine: "One workspace.",
       description:
         "Kite is the lightweight, open-source Kubernetes workspace for clusters, observability, access control, and AI operations.",
-      primaryAction: "Get started",
-      secondaryAction: "View on GitHub",
+      secondaryAction: "Self-host Kite",
+    },
+    desktop: {
+      eyebrow: "Kite Desktop · Beta",
+      title: "Your clusters. Right on your desktop.",
+      description:
+        "Open your kubeconfig and get to work. Kite runs locally on your computer, using your existing cluster credentials. No server deployment or Kite account required.",
+      features: [
+        "Keep clusters and credentials in sync with your kubeconfig files.",
+        "Open logs, terminals, and AI chat in their own windows.",
+        "Forward local ports and manage connections from the menu bar or system tray.",
+      ],
+      mac: "Apple Silicon · macOS 13+ · DMG",
+      windows: "x64 · Installer or portable ZIP",
+      download: "Download Desktop",
+      downloadMac: "Download for Mac",
+      downloadWindows: "Download for Windows",
+      otherPlatforms: "Other platforms",
+      guide: "Setup & desktop guide",
     },
     strengths: [
       { icon: IconCode, label: "Single binary" },
@@ -142,11 +163,13 @@ const content = {
     docsHref: "/zh/guide/",
     pluginsHref: "/zh/plugins/",
     installHref: "/zh/guide/installation",
+    desktopHref: "/zh/guide/desktop",
     homeLabel: "Kite 首页",
     navigationLabel: "主导航",
     skipLabel: "跳至主要内容",
     starLabel: "在 GitHub 上查看 Kite 星标数",
     nav: {
+      desktop: "桌面版",
       docs: "文档",
       plugins: "插件",
       community: "社区",
@@ -157,8 +180,25 @@ const content = {
       secondLine: "一个工作空间。",
       description:
         "Kite 是轻量、开源的 Kubernetes 工作空间，将集群管理、可观测性、访问控制和 AI 运维整合在一起。",
-      primaryAction: "快速开始",
-      secondaryAction: "查看 GitHub",
+      secondaryAction: "自行部署",
+    },
+    desktop: {
+      eyebrow: "Kite Desktop · Beta",
+      title: "在桌面上，连接你的集群。",
+      description:
+        "打开 kubeconfig，即可开始。Kite 在你的电脑上运行，使用已有的集群凭据，无需部署服务，也无需创建 Kite 账号。",
+      features: [
+        "跟随 kubeconfig 文件变化，自动同步集群与认证配置。",
+        "在独立窗口中查看日志、使用终端和 AI 对话。",
+        "将集群端口转发到本机，通过菜单栏或系统托盘管理连接。",
+      ],
+      mac: "Apple Silicon · macOS 13+ · DMG",
+      windows: "x64 · 安装程序或便携 ZIP",
+      download: "下载桌面版",
+      downloadMac: "下载 Mac 版",
+      downloadWindows: "下载 Windows 版",
+      otherPlatforms: "其他平台",
+      guide: "安装与桌面版指南",
     },
     strengths: [
       { icon: IconCode, label: "单一二进制" },
@@ -219,7 +259,8 @@ const content = {
         description:
           "在同一处查看状态、配置、事件、条件和相关工作负载，从异常现象直接抵达排障所需的信息。",
         image: detailScreenshot,
-        imageAlt: "Kite Kubernetes 资源详情页展示状态、Pod、事件、关联资源、标签和配置",
+        imageAlt:
+          "Kite Kubernetes 资源详情页展示状态、Pod、事件、关联资源、标签和配置",
         imageWidth: 3118,
         imageHeight: 2250,
         mediaLeft: true,
@@ -231,7 +272,8 @@ const content = {
         description:
           "浏览 Chart、管理仓库，并在其创建的 Kubernetes 资源旁完成 Release 的安装、升级与检查。",
         image: helmScreenshot,
-        imageAlt: "Kite Helm Release 页面展示部署状态、关联资源、发布历史和配置",
+        imageAlt:
+          "Kite Helm Release 页面展示部署状态、关联资源、发布历史和配置",
         imageWidth: 3118,
         imageHeight: 2250,
         mediaLeft: false,
@@ -243,7 +285,8 @@ const content = {
         description:
           "通过基于角色的权限和清晰的审计记录，管理用户访问与跨集群资源变更。",
         image: auditScreenshot,
-        imageAlt: "Kite 审计日志展示操作用户、Kubernetes 资源变更、集群、状态和差异",
+        imageAlt:
+          "Kite 审计日志展示操作用户、Kubernetes 资源变更、集群、状态和差异",
         imageWidth: 3118,
         imageHeight: 2250,
         mediaLeft: true,
@@ -256,6 +299,44 @@ const { lang } = useData();
 const copy = computed(() =>
   lang.value.startsWith("zh") ? content.zh : content.en,
 );
+const platform = ref("");
+const desktopDownloads = {
+  mac: "https://github.com/kite-org/kite/releases/latest/download/kite-darwin-arm64.dmg",
+  windows:
+    "https://github.com/kite-org/kite/releases/latest/download/kite-windows-amd64.exe",
+};
+const download = computed(() => {
+  if (platform.value === "mac") {
+    return {
+      label: copy.value.desktop.downloadMac,
+      icon: IconBrandApple,
+      href: desktopDownloads.mac,
+    };
+  }
+  if (platform.value === "windows") {
+    return {
+      label: copy.value.desktop.downloadWindows,
+      icon: IconBrandWindows,
+      href: desktopDownloads.windows,
+    };
+  }
+  return {
+    label: copy.value.desktop.download,
+    icon: null,
+    href: "#desktop",
+  };
+});
+
+onMounted(() => {
+  if (/Windows NT/.test(navigator.userAgent)) {
+    platform.value = "windows";
+  } else if (
+    /Macintosh/.test(navigator.userAgent) &&
+    navigator.maxTouchPoints <= 1
+  ) {
+    platform.value = "mac";
+  }
+});
 </script>
 
 <template>
@@ -270,6 +351,7 @@ const copy = computed(() =>
         </a>
 
         <nav class="site-nav" :aria-label="copy.navigationLabel">
+          <a href="#desktop">{{ copy.nav.desktop }}</a>
           <a :href="copy.docsHref">{{ copy.nav.docs }}</a>
           <a :href="copy.pluginsHref">{{ copy.nav.plugins }}</a>
           <a
@@ -281,6 +363,7 @@ const copy = computed(() =>
             {{ copy.nav.community }}
           </a>
           <a
+            class="nav__optional"
             href="https://github.com/kite-org/kite"
             target="_blank"
             rel="noreferrer"
@@ -301,17 +384,22 @@ const copy = computed(() =>
           </h1>
           <p>{{ copy.hero.description }}</p>
           <div class="hero__actions">
-            <a class="button button--primary" :href="copy.installHref">
-              {{ copy.hero.primaryAction }}
+            <a class="button button--primary" :href="download.href">
+              <component
+                :is="download.icon"
+                v-if="download.icon"
+                aria-hidden="true"
+                :size="22"
+                :stroke-width="1.5"
+              />
+              {{ download.label }}
             </a>
-            <a
-              class="button button--secondary"
-              href="https://github.com/kite-org/kite"
-              target="_blank"
-              rel="noreferrer"
-            >
+            <a class="button button--secondary" :href="copy.installHref">
               {{ copy.hero.secondaryAction }}
             </a>
+          </div>
+          <div class="hero__download-details">
+            <a href="#desktop">{{ copy.desktop.otherPlatforms }}</a>
           </div>
         </div>
 
@@ -335,6 +423,73 @@ const copy = computed(() =>
             :stroke-width="1.5"
           />
           <span>{{ item.label }}</span>
+        </div>
+      </section>
+
+      <section
+        id="desktop"
+        class="site-shell desktop"
+        aria-labelledby="desktop-heading"
+      >
+        <div class="desktop__copy">
+          <span class="eyebrow">{{ copy.desktop.eyebrow }}</span>
+          <h2 id="desktop-heading">{{ copy.desktop.title }}</h2>
+          <p>{{ copy.desktop.description }}</p>
+          <ul>
+            <li v-for="feature in copy.desktop.features" :key="feature">
+              {{ feature }}
+            </li>
+          </ul>
+          <a class="arrow-link" :href="copy.desktopHref">
+            {{ copy.desktop.guide }}
+            <IconArrowUpRight
+              aria-hidden="true"
+              :size="16"
+              :stroke-width="1.6"
+            />
+          </a>
+        </div>
+        <div class="desktop__downloads">
+          <div class="desktop__platform">
+            <IconBrandApple aria-hidden="true" :size="30" :stroke-width="1.5" />
+            <div>
+              <h3>macOS</h3>
+              <p>{{ copy.desktop.mac }}</p>
+              <a
+                class="arrow-link desktop__download-link"
+                :href="desktopDownloads.mac"
+              >
+                {{ copy.desktop.downloadMac }}
+                <IconArrowUpRight
+                  aria-hidden="true"
+                  :size="16"
+                  :stroke-width="1.6"
+                />
+              </a>
+            </div>
+          </div>
+          <div class="desktop__platform">
+            <IconBrandWindows
+              aria-hidden="true"
+              :size="30"
+              :stroke-width="1.5"
+            />
+            <div>
+              <h3>Windows</h3>
+              <p>{{ copy.desktop.windows }}</p>
+              <a
+                class="arrow-link desktop__download-link"
+                :href="desktopDownloads.windows"
+              >
+                {{ copy.desktop.downloadWindows }}
+                <IconArrowUpRight
+                  aria-hidden="true"
+                  :size="16"
+                  :stroke-width="1.6"
+                />
+              </a>
+            </div>
+          </div>
         </div>
       </section>
 

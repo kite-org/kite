@@ -2,6 +2,8 @@
 
 This guide provides detailed instructions for installing Kite in a Kubernetes environment.
 
+Looking for a local app? [Kite Desktop (Beta)](./desktop) connects to your clusters using your kubeconfig, without deploying Kite to Kubernetes. [Download from the latest release](https://github.com/kite-org/kite/releases/latest).
+
 ## Prerequisites
 
 - `kubectl` with cluster administrator privileges
