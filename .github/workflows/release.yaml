@@ -194,11 +194,10 @@ jobs:
           output="bin/desktop/$PLATFORM"
           mkdir -p "$stage"
           if [[ "$PLATFORM" == darwin-arm64 ]]; then
-            cp "$output/kite-$version-arm64.dmg" "$stage/kite-$version-darwin-arm64.dmg"
+            cp "$output/kite-$version-arm64.dmg" "$stage/kite-darwin-arm64.dmg"
           else
-            cp "$output/kite-setup-$version-amd64.exe" "$stage/"
-            (cd "$output" && zip -q -T "$RUNNER_TEMP/kite-$version-windows-amd64.zip" Kite.exe ghostty-vt.dll)
-            cp "$RUNNER_TEMP/kite-$version-windows-amd64.zip" "$stage/"
+            cp "$output/kite-setup-$version-amd64.exe" "$stage/kite-windows-amd64.exe"
+            (cd "$output" && zip -q -T "$stage/kite-windows-amd64.zip" Kite.exe ghostty-vt.dll)
           fi
           cp "$output/update-$PLATFORM.json" "$output/kite-$version-$PLATFORM.tar.gz" "$stage/"
           for delta in "$output"/*.delta; do
