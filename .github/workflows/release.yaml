@@ -104,7 +104,7 @@ jobs:
         with:
           tag_name: ${{ steps.check_version.outputs.tag_name }}
           name: ${{ steps.check_version.outputs.tag_name }}
-          draft: false
+          draft: true
           prerelease: false
           generate_release_notes: true
           files: |
