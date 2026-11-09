@@ -127,6 +127,7 @@ export default defineConfig({
           items: [
             { text: "What is Kite?", link: "/guide/" },
             { text: "Getting Started", link: "/guide/installation" },
+            { text: "Desktop (Beta)", link: "/guide/desktop" },
           ],
         },
         {
@@ -191,6 +192,7 @@ export default defineConfig({
           items: [
             { text: "什么是 Kite?", link: "/zh/guide/" },
             { text: "开始", link: "/zh/guide/installation" },
+            { text: "桌面版（Beta）", link: "/zh/guide/desktop" },
           ],
         },
         {

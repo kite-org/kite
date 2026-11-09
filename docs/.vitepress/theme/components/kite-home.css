@@ -166,6 +166,7 @@ a:focus-visible {
 .platform h2,
 .product-proof h2,
 .product-detail h2,
+.desktop h2,
 .feature h3 {
   margin: 0;
   border: 0;
@@ -206,11 +207,31 @@ a:focus-visible {
   margin-top: 42px;
 }
 
+.hero__download-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.hero__download-details a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.hero__download-details a:hover {
+  color: var(--blue);
+}
+
 .button {
   min-height: 55px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   padding: 0 25px;
   border: 1px solid var(--line-strong);
   font-size: 14px;
@@ -278,6 +299,88 @@ a:focus-visible {
 .strength svg {
   flex: 0 0 auto;
   color: var(--blue);
+}
+
+.desktop {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.7fr);
+  align-items: center;
+  gap: 80px;
+  padding: 84px 12px;
+  border-bottom: 1px solid var(--line);
+  scroll-margin-top: 100px;
+}
+
+.desktop h2 {
+  max-width: 650px;
+  font-size: clamp(40px, 3.7vw, 56px);
+  line-height: 1.05;
+}
+
+.desktop__copy > p,
+.desktop__copy ul {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.75;
+  text-wrap: pretty;
+}
+
+.desktop__copy > p {
+  margin: 26px 0 20px;
+}
+
+.desktop__copy ul {
+  list-style: disc;
+  padding-left: 20px;
+  margin: 0 0 26px;
+}
+
+.desktop__copy li + li {
+  margin-top: 10px;
+}
+
+.desktop__downloads {
+  padding: 32px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.desktop__platform {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding-bottom: 26px;
+}
+
+.desktop__platform + .desktop__platform {
+  padding-top: 26px;
+  border-top: 1px solid var(--line);
+}
+
+.desktop__platform svg {
+  flex: 0 0 auto;
+}
+
+.desktop__platform h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.desktop__platform p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  text-wrap: pretty;
+}
+
+.desktop__download-link {
+  margin-top: 16px;
+}
+
+.desktop__platform:last-of-type {
+  padding-bottom: 0;
 }
 
 .platform {
@@ -540,6 +643,11 @@ a:focus-visible {
     gap: 20px;
   }
 
+  .desktop {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+
   .product-detail,
   .product-detail--media-left {
     grid-template-columns: 1fr;
@@ -567,6 +675,7 @@ a:focus-visible {
 
   .site-header__inner {
     min-height: 72px;
+    gap: 16px;
   }
 
   .brand {
@@ -640,6 +749,15 @@ a:focus-visible {
 
   .platform {
     padding-block: 70px;
+  }
+
+  .desktop {
+    padding: 58px 0;
+    scroll-margin-top: 88px;
+  }
+
+  .desktop__downloads {
+    padding: 24px;
   }
 
   .platform__intro {

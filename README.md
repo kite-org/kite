@@ -8,6 +8,8 @@
 
 Kite is a lightweight, open-source Kubernetes workspace for multi-cluster operations, observability, access control, and AI-assisted troubleshooting.
 
+Use **Kite Desktop (Beta)** on macOS and Windows, or deploy Kite as a shared web console.
+
 [![Release](https://img.shields.io/github/v/release/kite-org/kite?style=flat-square&logo=github&label=Release)](https://github.com/kite-org/kite/releases)
 [![Stars](https://img.shields.io/github/stars/kite-org/kite?style=flat-square&logo=github&label=Stars)](https://github.com/kite-org/kite/stargazers)
 [![Downloads](https://img.shields.io/github/downloads/kite-org/kite/total?style=flat-square&logo=github&label=Downloads)](https://github.com/kite-org/kite/releases)
@@ -46,7 +48,25 @@ Kite is a lightweight, open-source Kubernetes workspace for multi-cluster operat
 
 ## Quick Start
 
-### Helm
+### Kite Desktop (Beta)
+
+Manage your clusters with local kubeconfig files on macOS and Windows, without deploying a Kite server.
+
+Download: [macOS DMG](https://github.com/kite-org/kite/releases/latest/download/kite-darwin-arm64.dmg) · [Windows x64 installer](https://github.com/kite-org/kite/releases/latest/download/kite-windows-amd64.exe).
+
+On macOS (Apple Silicon, macOS 13+), you can also install with Homebrew:
+
+```bash
+brew install --cask kite-org/tap/kite
+```
+
+The macOS beta is not yet signed or notarized. If the first launch is blocked, run:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Kite.app"
+```
+
+### Self-hosted with Helm
 
 For a quick evaluation, install Kite from the OCI registry into a dedicated namespace:
 
@@ -107,6 +127,7 @@ make build
 
 | Topic                                  | Guide                                                                                                                           |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Desktop (Beta)                         | [Desktop guide](./docs/guide/desktop.md)                                                                                        |
 | Installation and exposure              | [Installation](https://kitehq.dev/guide/installation)                                                                           |
 | Users, authentication, and permissions | [User management](https://kitehq.dev/config/user-management) · [RBAC](https://kitehq.dev/config/rbac-config)                    |
 | Monitoring                             | [Prometheus setup](https://kitehq.dev/config/prometheus-setup)                                                                  |

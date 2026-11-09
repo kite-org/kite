@@ -2,6 +2,8 @@
 
 本指南详细介绍如何在 Kubernetes 环境下安装 Kite。
 
+想直接在电脑上使用？[Kite 桌面版（Beta）](./desktop) 使用本地 kubeconfig 连接集群，无需在 Kubernetes 中部署 Kite。[前往最新 Release 下载](https://github.com/kite-org/kite/releases/latest)。
+
 ## 前提条件
 
 - 拥有集群管理员权限的 `kubectl`
