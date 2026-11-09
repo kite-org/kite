@@ -8,6 +8,8 @@
 
 Kite 是一个轻量、开源的 Kubernetes 工作空间，面向多集群运维、可观测性、访问控制与 AI 辅助排障。
 
+你可以在 macOS 和 Windows 上使用 **Kite 桌面版（Beta）**，也可以将 Kite 部署为共享 Web 控制台。
+
 [![Release](https://img.shields.io/github/v/release/kite-org/kite?style=flat-square&logo=github&label=Release)](https://github.com/kite-org/kite/releases)
 [![Stars](https://img.shields.io/github/stars/kite-org/kite?style=flat-square&logo=github&label=Stars)](https://github.com/kite-org/kite/stargazers)
 [![Downloads](https://img.shields.io/github/downloads/kite-org/kite/total?style=flat-square&logo=github&label=Downloads)](https://github.com/kite-org/kite/releases)
@@ -46,7 +48,25 @@ Kite 是一个轻量、开源的 Kubernetes 工作空间，面向多集群运维
 
 ## 快速开始
 
-### Helm
+### Kite 桌面版（Beta）
+
+在 macOS 和 Windows 上使用本地 kubeconfig 管理集群，无需部署 Kite 服务。
+
+下载安装包：[macOS DMG](https://github.com/kite-org/kite/releases/latest/download/kite-darwin-arm64.dmg) · [Windows x64](https://github.com/kite-org/kite/releases/latest/download/kite-windows-amd64.exe)。
+
+macOS（Apple Silicon，macOS 13+）也可以通过 Homebrew 安装：
+
+```bash
+brew install --cask kite-org/tap/kite
+```
+
+macOS Beta 版尚未签名和公证，首次打开如被系统拦截，请执行：
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Kite.app"
+```
+
+### 通过 Helm 自行部署
 
 如需快速体验，可通过 OCI Registry 将 Kite 安装到独立的命名空间：
 
@@ -107,6 +127,7 @@ make build
 
 | 主题             | 指南                                                                                                                            |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 桌面版（Beta）   | [桌面版指南](./docs/zh/guide/desktop.md)                                                                                       |
 | 安装与访问       | [安装指南](https://kitehq.dev/zh/guide/installation)                                                                            |
 | 用户、认证和权限 | [用户管理](https://kitehq.dev/zh/config/user-management) · [RBAC](https://kitehq.dev/zh/config/rbac-config)                     |
 | 监控             | [Prometheus 配置](https://kitehq.dev/zh/config/prometheus-setup)                                                                |
