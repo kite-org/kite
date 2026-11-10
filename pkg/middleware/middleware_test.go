@@ -218,6 +218,22 @@ func TestMetrics(t *testing.T) {
 			t.Fatalf("healthz counter = %v, want %v", got, beforeHealth)
 		}
 	})
+
+	t.Run("normalizes unmatched route to unknown", func(t *testing.T) {
+		unknownCounter := httpRequestsTotal.WithLabelValues("GET", "unknown", "404")
+		beforeUnknown := counterValue(unknownCounter)
+
+		r := gin.New()
+		r.Use(Metrics())
+
+		req := httptest.NewRequest(http.MethodGet, "/random/unmatched/path/12345", nil)
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+
+		if got := counterValue(unknownCounter); got != beforeUnknown+1 {
+			t.Fatalf("unknown counter = %v, want %v", got, beforeUnknown+1)
+		}
+	})
 }
 
 func TestClusterMiddlewareNoClusters(t *testing.T) {
