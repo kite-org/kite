@@ -53,7 +53,7 @@
     "jsonpath": "^1.3.0",
     "kubernetes-types": "^1.30.0",
     "lucide-react": "^0.577.0",
-    "mygo-runtime": "0.8.3",
+    "mygo-runtime": "0.9.0",
     "next-themes": "^0.4.6",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
