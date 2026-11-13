@@ -25,13 +25,14 @@ type TerminalMessage struct {
 
 // TerminalSession manages a WebSocket connection for terminal communication
 type TerminalSession struct {
-	k8sClient *K8sClient
-	conn      *wsutil.Conn
-	sizeChan  chan *remotecommand.TerminalSize
-	namespace string
-	podName   string
-	container string
-	cancel    context.CancelFunc
+	k8sClient    *K8sClient
+	conn         *wsutil.Conn
+	sizeChan     chan *remotecommand.TerminalSize
+	namespace    string
+	podName      string
+	container    string
+	cancel       context.CancelFunc
+	pendingInput string
 }
 
 func NewTerminalSession(client *K8sClient, conn *wsutil.Conn, namespace, podName, container string) *TerminalSession {
@@ -110,6 +111,11 @@ func (session *TerminalSession) Close() {
 }
 
 func (session *TerminalSession) Read(p []byte) (int, error) {
+	if len(session.pendingInput) > 0 {
+		n := copy(p, session.pendingInput)
+		session.pendingInput = session.pendingInput[n:]
+		return n, nil
+	}
 	var msg TerminalMessage
 	err := session.conn.ReadJSON(&msg)
 	if err != nil {
@@ -122,8 +128,9 @@ func (session *TerminalSession) Read(p []byte) (int, error) {
 
 	switch msg.Type {
 	case "stdin":
-		data := []byte(msg.Data)
-		return copy(p, data), nil
+		n := copy(p, msg.Data)
+		session.pendingInput = msg.Data[n:]
+		return n, nil
 	case "resize":
 		if msg.Rows > 0 && msg.Cols > 0 {
 			select {
