@@ -99,7 +99,7 @@ func (h *NodeHandler) DrainNode(c *gin.Context) {
 		}
 	}
 
-	if err := drain.RunCordonOrUncordon(drainer, &node, false); err != nil {
+	if err := drain.RunCordonOrUncordon(drainer, &node, true); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cordon node: " + err.Error()})
 		return
 	}
