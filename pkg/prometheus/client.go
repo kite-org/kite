@@ -18,16 +18,8 @@ type Client struct {
 }
 
 type promAPI interface {
-	Config(ctx context.Context) (v1.ConfigResult, error)
 	Query(ctx context.Context, query string, ts time.Time, opts ...v1.Option) (model.Value, v1.Warnings, error)
 	QueryRange(ctx context.Context, query string, r v1.Range, opts ...v1.Option) (model.Value, v1.Warnings, error)
-}
-
-type ResourceMetrics struct {
-	CPURequest    float64
-	CPUTotal      float64
-	MemoryRequest float64
-	MemoryTotal   float64
 }
 
 // UsageDataPoint represents a single time point in usage metrics
@@ -55,13 +47,6 @@ type PodMetrics struct {
 	DiskRead   []UsageDataPoint `json:"diskRead"`
 	DiskWrite  []UsageDataPoint `json:"diskWrite"`
 	Fallback   bool             `json:"fallback"`
-}
-
-type PodCurrentMetrics struct {
-	PodName   string  `json:"podName"`
-	Namespace string  `json:"namespace"`
-	CPU       float64 `json:"cpu"`    // CPU cores
-	Memory    float64 `json:"memory"` // Memory in MB
 }
 
 func NewClientWithRoundTripper(prometheusURL string, rt http.RoundTripper) (*Client, error) {
@@ -208,12 +193,6 @@ func (c *Client) queryRange(ctx context.Context, query string, start, end time.T
 	}
 
 	return dataPoints, nil
-}
-
-// HealthCheck verifies if Prometheus is accessible
-func (c *Client) HealthCheck(ctx context.Context) error {
-	_, err := c.client.Config(ctx)
-	return err
 }
 
 // Query executes an instant query against Prometheus

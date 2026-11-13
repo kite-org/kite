@@ -55,14 +55,6 @@ func ClearDefaultCluster() error {
 	return DB.Model(&Cluster{}).Where("is_default = ?", true).Update("is_default", false).Error
 }
 
-func DisableCluster(cluster *Cluster) error {
-	return DB.Model(cluster).Update("enable", false).Error
-}
-
-func EnableCluster(cluster *Cluster) error {
-	return DB.Model(cluster).Update("enable", true).Error
-}
-
 func ListClusters() ([]*Cluster, error) {
 	var clusters []*Cluster
 	if err := DB.Find(&clusters).Error; err != nil {

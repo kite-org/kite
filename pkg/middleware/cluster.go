@@ -11,8 +11,6 @@ import (
 const (
 	ClusterNameHeader = "x-cluster-name"
 	ClusterNameKey    = "cluster-name"
-	K8sClientKey      = "k8s-client"
-	PromClientKey     = "prom-client"
 )
 
 type clusterClientSetProvider interface {
