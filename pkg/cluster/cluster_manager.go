@@ -90,10 +90,11 @@ func newClientSet(name string, k8sConfig *rest.Config, prometheusURL string) (*C
 		var rt = http.DefaultTransport
 		var err error
 		if isClusterLocalURL(prometheusURL) {
-			rt, err = createK8sProxyTransport(k8sConfig, prometheusURL)
+			proxyTransport, err := createK8sProxyTransport(k8sConfig, prometheusURL)
 			if err != nil {
 				klog.Warningf("Failed to create k8s proxy transport for cluster %s: %v, using direct connection", name, err)
 			} else {
+				rt = proxyTransport
 				klog.Infof("Using k8s API proxy for Prometheus in cluster %s", name)
 			}
 		} else if k8sConfig.Dial != nil {
@@ -290,12 +291,11 @@ func syncClusters(cm *ClusterManager, readyCh chan<- struct{}) error {
 		err       error
 	}
 	buildQueue := make([]*model.Cluster, 0)
+	defaultContext := ""
 	for _, cluster := range clusters {
 		dbClusterMap[cluster.Name] = cluster
 		if cluster.IsDefault {
-			cm.mu.Lock()
-			cm.defaultContext = cluster.Name
-			cm.mu.Unlock()
+			defaultContext = cluster.Name
 		}
 		cm.mu.RLock()
 		current, currentExist := cm.clusters[cluster.Name]
@@ -371,6 +371,7 @@ func syncClusters(cm *ClusterManager, readyCh chan<- struct{}) error {
 		cm.mu.Unlock()
 	}
 	cm.mu.Lock()
+	cm.defaultContext = defaultContext
 	for name, clientSet := range cm.clusters {
 		if _, ok := dbClusterMap[name]; !ok {
 			delete(cm.clusters, name)
