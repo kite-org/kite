@@ -309,10 +309,6 @@ func discoverPodsByPodDisruptionBudgetV1Beta1(ctx context.Context, k8sClient *ku
 }
 
 func discoverPodDisruptionBudgetsByPod(ctx context.Context, k8sClient *kube.K8sClient, namespace string, podLabels map[string]string) ([]common.RelatedResource, error) {
-	if len(podLabels) == 0 {
-		return []common.RelatedResource{}, nil
-	}
-
 	var pdbList policyv1.PodDisruptionBudgetList
 	if err := k8sClient.List(ctx, &pdbList, client.InNamespace(namespace)); err == nil {
 		return matchingPodDisruptionBudgetsByPod(pdbList.Items, podLabels), nil
@@ -409,10 +405,13 @@ func getPersistentVolumeClaimRelatedResources(pvc *corev1.PersistentVolumeClaim)
 			Name: *pvc.Spec.StorageClassName,
 		})
 	}
-	return append(result, common.RelatedResource{
-		Type: string(common.PersistentVolumes),
-		Name: pvc.Spec.VolumeName,
-	})
+	if pvc.Spec.VolumeName != "" {
+		result = append(result, common.RelatedResource{
+			Type: string(common.PersistentVolumes),
+			Name: pvc.Spec.VolumeName,
+		})
+	}
+	return result
 }
 
 func GetRelatedResources(c *gin.Context) { //nolint:gocyclo // resource-specific discovery is intentionally centralized
@@ -485,7 +484,7 @@ func GetRelatedResources(c *gin.Context) { //nolint:gocyclo // resource-specific
 		}
 	}
 
-	if podSpec != nil && selector != nil {
+	if podSpec != nil {
 		// discoverServices (I/O) and discoverConfigs (CPU-only) are independent;
 		// run them in parallel so the I/O overlaps with the CPU work.
 		g, gctx := errgroup.WithContext(ctx)
