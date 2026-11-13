@@ -294,8 +294,9 @@ func (h *PodHandler) ListFiles(c *gin.Context) {
 		path = "/"
 	}
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
+	user := c.MustGet("user").(model.User)
 	cmd := []string{"ls", "-lah", "--full-time", path}
-	stdout, stderr, err := cs.K8sClient.ExecCommandBuffered(c.Request.Context(), namespace, podName, container, cmd)
+	stdout, stderr, err := cs.K8sClient.ExecCommandBuffered(c.Request.Context(), namespace, podName, container, user.Key(), cmd)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") || strings.Contains(stderr, "not found") {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -366,6 +367,7 @@ func (h *PodHandler) PreviewFile(c *gin.Context) {
 	container := c.Query("container")
 	path := c.Query("path")
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
+	user := c.MustGet("user").(model.User)
 	if path == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
 		return
@@ -387,6 +389,7 @@ func (h *PodHandler) PreviewFile(c *gin.Context) {
 		Namespace:     namespace,
 		PodName:       podName,
 		ContainerName: container,
+		UserKey:       user.Key(),
 		Command:       cmd,
 		Stdout:        c.Writer,
 		Stderr:        nil,
@@ -405,6 +408,7 @@ func (h *PodHandler) DownloadFile(c *gin.Context) {
 	path := c.Query("path")
 
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
+	user := c.MustGet("user").(model.User)
 
 	if path == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
@@ -413,7 +417,7 @@ func (h *PodHandler) DownloadFile(c *gin.Context) {
 	if strings.Contains(path, "->") {
 		path = strings.TrimSpace(strings.SplitN(path, "->", 2)[0])
 	}
-	_, _, err := cs.K8sClient.ExecCommandBuffered(c.Request.Context(), namespace, podName, container, []string{"test", "-d", path})
+	_, _, err := cs.K8sClient.ExecCommandBuffered(c.Request.Context(), namespace, podName, container, user.Key(), []string{"test", "-d", path})
 	isDir := err == nil
 
 	var cmd []string
@@ -431,6 +435,7 @@ func (h *PodHandler) DownloadFile(c *gin.Context) {
 		Namespace:     namespace,
 		PodName:       podName,
 		ContainerName: container,
+		UserKey:       user.Key(),
 		Command:       cmd,
 		Stdout:        c.Writer,
 		Stderr:        nil,
@@ -448,6 +453,7 @@ func (h *PodHandler) UploadFile(c *gin.Context) {
 	container := c.Query("container")
 	path := c.Query("path")
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
+	user := c.MustGet("user").(model.User)
 	if path == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
 		return
@@ -477,6 +483,7 @@ func (h *PodHandler) UploadFile(c *gin.Context) {
 		Namespace:     namespace,
 		PodName:       podName,
 		ContainerName: container,
+		UserKey:       user.Key(),
 		Command:       cmd,
 		Stdin:         file, // Stream file content directly
 		Stdout:        nil,
