@@ -242,6 +242,7 @@ func GetScheme() *runtime.Scheme {
 }
 
 func WaitForResourceDeletion(ctx context.Context, client client.Client, obj client.Object, timeout time.Duration) error {
+	uid := obj.GetUID()
 	key := types.NamespacedName{
 		Namespace: obj.GetNamespace(),
 		Name:      obj.GetName(),
@@ -251,6 +252,8 @@ func WaitForResourceDeletion(ctx context.Context, client client.Client, obj clie
 	timeoutCh := time.After(timeout)
 	for {
 		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case <-timeoutCh:
 			return fmt.Errorf("timed out waiting for resource deletion: %s", key)
 		case <-ticker.C:
@@ -259,10 +262,8 @@ func WaitForResourceDeletion(ctx context.Context, client client.Client, obj clie
 					return nil
 				}
 				return fmt.Errorf("failed to get resource: %w", err)
-			} else if obj.GetDeletionTimestamp().IsZero() {
-				// resource still exist, but deletion timestamp is not set
-				// may be created again after deletion
-				// we can consider it successfully deleted.
+			} else if obj.GetUID() != uid {
+				// A replacement with the same name means the original was deleted.
 				return nil
 			}
 		}

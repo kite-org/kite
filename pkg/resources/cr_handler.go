@@ -685,6 +685,7 @@ func (h *CRHandler) Delete(c *gin.Context) {
 				err = kube.WaitForResourceDeletion(ctx, cs.K8sClient, cr, 1*time.Second)
 				if err == nil {
 					success = true
+					c.JSON(http.StatusOK, gin.H{"message": "Custom resource deleted successfully"})
 					return
 				}
 			}
