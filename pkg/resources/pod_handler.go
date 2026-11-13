@@ -219,6 +219,10 @@ func (h *PodHandler) Resize(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if updatedPod.Name != oldPod.Name || updatedPod.Namespace != oldPod.Namespace {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "pod name and namespace must not change during resize"})
+		return
+	}
 
 	resizedPod, err := cs.K8sClient.ClientSet.CoreV1().Pods(updatedPod.Namespace).UpdateResize(
 		c.Request.Context(),

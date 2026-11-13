@@ -524,18 +524,21 @@ func (h *CRHandler) ListHistory(c *gin.Context) {
 		return
 	}
 
+	if !validateCRNamespace(c, crd) {
+		return
+	}
 	if crd.Spec.Scope == apiextensionsv1.NamespaceScoped && (namespace == "" || namespace == common.AllNamespaces) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "namespace is required for namespaced custom resources"})
 		return
 	}
 
 	pageSize, err := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
-	if err != nil {
+	if err != nil || pageSize < 1 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid pageSize parameter"})
 		return
 	}
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
-	if err != nil {
+	if err != nil || page < 1 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid page parameter"})
 		return
 	}

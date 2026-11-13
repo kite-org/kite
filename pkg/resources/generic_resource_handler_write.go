@@ -10,6 +10,8 @@ import (
 	"github.com/zxh326/kite/pkg/cluster"
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/kube"
+	"github.com/zxh326/kite/pkg/model"
+	"github.com/zxh326/kite/pkg/rbac"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
@@ -29,6 +31,12 @@ func (h *GenericResourceHandler[T, V]) Create(c *gin.Context) {
 		namespace := c.Param("namespace")
 		if namespace != "" && namespace != common.AllNamespaces {
 			resource.SetNamespace(namespace)
+		} else {
+			user := c.MustGet("user").(model.User)
+			if !rbac.CanAccess(user, h.name, string(common.VerbCreate), cs.Name, resource.GetNamespace()) {
+				c.JSON(http.StatusForbidden, gin.H{"error": rbac.NoAccess(user.Key(), string(common.VerbCreate), h.name, resource.GetNamespace(), cs.Name)})
+				return
+			}
 		}
 	}
 

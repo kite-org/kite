@@ -19,12 +19,12 @@ func (h *GenericResourceHandler[T, V]) ListHistory(c *gin.Context) {
 	namespace := c.Param("namespace")
 	resourceName := c.Param("name")
 	pageSize, err := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
-	if err != nil {
+	if err != nil || pageSize < 1 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid pageSize parameter"})
 		return
 	}
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
-	if err != nil {
+	if err != nil || page < 1 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid page parameter"})
 		return
 	}
