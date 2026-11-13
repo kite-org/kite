@@ -230,6 +230,7 @@ func (h *SearchHandler) searchCachedPrefix(clusterName, userKey, query string, l
 	}
 
 	prefix := h.createCacheKeyPrefix(clusterName, userKey, limit)
+	resourceType, _ := utils.GuessSearchResources(query)
 	var bestQuery string
 	var bestResults []common.SearchResult
 	for _, key := range h.cache.Keys() {
@@ -238,6 +239,10 @@ func (h *SearchHandler) searchCachedPrefix(clusterName, userKey, query string, l
 		}
 		cachedQuery := strings.TrimPrefix(key, prefix)
 		if cachedQuery == query || !strings.HasPrefix(query, cachedQuery) || len(cachedQuery) <= len(bestQuery) {
+			continue
+		}
+		cachedResourceType, _ := utils.GuessSearchResources(cachedQuery)
+		if cachedResourceType != resourceType {
 			continue
 		}
 		results, found := h.cache.Get(key)
