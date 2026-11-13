@@ -152,11 +152,11 @@ func (h *Handler) fetchPodMetricsFromMetricsServer(c *gin.Context, namespace, po
 	if cs.K8sClient.MetricsClient == nil {
 		return nil, fmt.Errorf("metrics client not available")
 	}
-	h.metricsServerCacheLock.Lock()
-	defer h.metricsServerCacheLock.Unlock()
-
 	appendPoint := func(cache []prometheus.UsageDataPoint, value float64, ts time.Time) []prometheus.UsageDataPoint {
 		for i := len(cache) - 1; i >= 0; i-- {
+			if ts.Before(cache[i].Timestamp) {
+				return cache
+			}
 			if ts.Sub(cache[i].Timestamp) < 15*time.Second {
 				cache[i].Value = value
 				return cache
@@ -168,7 +168,7 @@ func (h *Handler) fetchPodMetricsFromMetricsServer(c *gin.Context, namespace, po
 	var cpuSeries, memSeries []prometheus.UsageDataPoint
 	handlePodMetrics := func(podMetrics *metricsv1beta1.PodMetrics, timestamp time.Time) {
 		for _, c := range podMetrics.Containers {
-			key := namespace + "/" + podMetrics.Name + "/" + c.Name
+			key := cs.Name + "/" + namespace + "/" + podMetrics.Name + "/" + c.Name
 			cpuUsage := float64(c.Usage.Cpu().MilliValue()) / 1000.0
 			memUsage := float64(c.Usage.Memory().Value()) / 1024.0 / 1024.0
 			cpuCacheKey := key + "/cpu"
@@ -191,6 +191,8 @@ func (h *Handler) fetchPodMetricsFromMetricsServer(c *gin.Context, namespace, po
 		if len(podMetricsList.Items) == 0 {
 			return nil, fmt.Errorf("no pod metrics found")
 		}
+		h.metricsServerCacheLock.Lock()
+		defer h.metricsServerCacheLock.Unlock()
 		timestamp := time.Now()
 		for _, podMetrics := range podMetricsList.Items {
 			handlePodMetrics(&podMetrics, timestamp)
@@ -207,10 +209,12 @@ func (h *Handler) fetchPodMetricsFromMetricsServer(c *gin.Context, namespace, po
 	if err != nil {
 		return nil, err
 	}
+	h.metricsServerCacheLock.Lock()
+	defer h.metricsServerCacheLock.Unlock()
 	handlePodMetrics(podMetrics, podMetrics.Timestamp.Time)
 	return &prometheus.PodMetrics{
-		CPU:      cpuSeries,
-		Memory:   memSeries,
+		CPU:      mergeUsageDataPointsSum(cpuSeries),
+		Memory:   mergeUsageDataPointsSum(memSeries),
 		Fallback: true,
 	}, nil
 }
