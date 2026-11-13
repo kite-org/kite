@@ -62,12 +62,13 @@ func (c *K8sClient) ExecCommand(ctx context.Context, opts ExecOptions) error {
 }
 
 // ExecCommandBuffered executes a command and returns stdout and stderr as strings
-func (c *K8sClient) ExecCommandBuffered(ctx context.Context, namespace, pod, container string, command []string) (string, string, error) {
+func (c *K8sClient) ExecCommandBuffered(ctx context.Context, namespace, pod, container, userKey string, command []string) (string, string, error) {
 	var stdout, stderr bytes.Buffer
 	err := c.ExecCommand(ctx, ExecOptions{
 		Namespace:     namespace,
 		PodName:       pod,
 		ContainerName: container,
+		UserKey:       userKey,
 		Command:       command,
 		Stdout:        &stdout,
 		Stderr:        &stderr,
