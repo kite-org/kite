@@ -1,11 +1,11 @@
 module github.com/zxh326/kite
 
-go 1.26.0
+go 1.27.0
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.66.0
 	github.com/blang/semver/v4 v4.0.0
-	github.com/bytedance/mockey v1.4.6
+	github.com/bytedance/mockey v1.4.8
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-contrib/gzip v1.2.6
 	github.com/gin-gonic/gin v1.12.0
@@ -191,7 +191,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/arch v0.22.0 // indirect
+	golang.org/x/arch v0.23.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/term v0.45.0 // indirect

@@ -131,7 +131,7 @@ lint: golangci-lint ## Run linters
 	cd $(UI_DIR) && pnpm run lint
 
 golangci-lint: ## Download golangci-lint locally if necessary.
-	test -f $(GOLANGCI_LINT) || curl -sSfL https://golangci-lint.run/install.sh | sh -s v2.12.1
+	test -f $(GOLANGCI_LINT) || curl -sSfL https://golangci-lint.run/install.sh | sh -s v2.14.0
 
 format: ## Format code
 	@echo "✨ Formatting code..."

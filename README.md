@@ -113,7 +113,7 @@ The manifest grants its service account `cluster-admin`. Review and restrict the
 
 ### Build from Source
 
-Building Kite requires Go 1.26, Node.js `^20.19.0` or `>=22.12.0`, pnpm, and Make.
+Building Kite requires Go 1.27, Node.js `^20.19.0` or `>=22.12.0`, pnpm, and Make.
 
 ```bash
 git clone https://github.com/kite-org/kite.git

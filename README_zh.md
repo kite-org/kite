@@ -113,7 +113,7 @@ kubectl port-forward --namespace kube-system svc/kite 8080:8080
 
 ### 从源码构建
 
-构建 Kite 需要 Go 1.26、Node.js `^20.19.0` 或 `>=22.12.0`、pnpm 和 Make。
+构建 Kite 需要 Go 1.27、Node.js `^20.19.0` 或 `>=22.12.0`、pnpm 和 Make。
 
 ```bash
 git clone https://github.com/kite-org/kite.git
