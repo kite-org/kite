@@ -121,7 +121,7 @@ func (h *PodHandler) ListMetrics(c *gin.Context) (map[string]metricsv1.PodMetric
 		}
 		listOpts = append(listOpts, client.MatchingLabelsSelector{Selector: labelSelectorOption})
 	}
-	if err := cs.K8sClient.List(c, &metricsList, listOpts...); err != nil {
+	if err := cs.K8sClient.List(c.Request.Context(), &metricsList, listOpts...); err != nil {
 		klog.Warningf("Failed to list pod metrics: %v", err)
 	}
 
