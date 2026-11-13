@@ -117,7 +117,7 @@ func FindWithSubOrUpsertUser(user *User) error {
 	var existingUser User
 	now := time.Now()
 	user.LastLoginAt = &now
-	if err := DB.Where("sub = ?", user.Sub).First(&existingUser).Error; err != nil {
+	if err := DB.Where("sub = ? AND provider = ?", user.Sub, user.Provider).First(&existingUser).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return DB.Create(user).Error
 		}

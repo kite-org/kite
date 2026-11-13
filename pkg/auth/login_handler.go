@@ -35,7 +35,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	state := h.manager.GenerateState()
 
-	klog.V(1).Infof("OAuth Login - Provider: %s, State: %s", provider, state)
+	klog.V(1).Infof("OAuth Login - Provider: %s", provider)
 
 	setCookieSecure(c, "oauth_state", state, 600)
 	setCookieSecure(c, "oauth_provider", provider, 600)
@@ -289,7 +289,7 @@ func (h *AuthHandler) Callback(c *gin.Context) {
 	klog.V(1).Infof("OAuth Callback - Using provider: %s\n", provider)
 
 	if stateErr != nil || stateParam == "" || cookieState == "" || stateParam != cookieState {
-		klog.Warningf("OAuth Callback - state mismatch or missing (cookieState=%v, stateParam=%v, err=%v)", cookieState, stateParam, stateErr)
+		klog.Warningf("OAuth Callback - state mismatch or missing (err=%v)", stateErr)
 		setCookieSecure(c, "oauth_state", "", -1)
 		setCookieSecure(c, "oauth_provider", "", -1)
 		c.Redirect(http.StatusFound, base+"/login?error=invalid_state&reason=state_mismatch")
@@ -435,5 +435,8 @@ func setCookieSecure(c *gin.Context, name, value string, maxAge int) {
 	secure := strings.HasPrefix(common.Host, "https://") || (c.Request != nil && (c.Request.TLS != nil || strings.EqualFold(c.Request.Header.Get("X-Forwarded-Proto"), "https")))
 
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(name, value, maxAge+60*60, "/", "", secure, true)
+	if maxAge > 0 {
+		maxAge += 60 * 60
+	}
+	c.SetCookie(name, value, maxAge, "/", "", secure, true)
 }
