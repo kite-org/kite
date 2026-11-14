@@ -19,6 +19,7 @@ export {
   cordonNode,
   debugPod,
   drainNode,
+  execPodCommand,
   podDownloadFile,
   podPreviewFile,
   podUploadFile,
