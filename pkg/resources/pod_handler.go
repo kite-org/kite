@@ -450,7 +450,9 @@ func (h *PodHandler) ListFiles(c *gin.Context) {
 			})
 			return
 		}
-		c.JSON(http.StatusOK, nil)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("Failed to list files: %v: %s", err, strings.TrimSpace(stderr)),
+		})
 		return
 	}
 

@@ -37,11 +37,14 @@ import {
 import { ErrorMessage } from './error-message'
 import { ContainerSelector } from './selector/container-selector'
 
-interface PodFileBrowserProps {
+export interface PodFileBrowserProps {
   namespace: string
   podName: string
   containers?: Container[]
   initContainers?: Container[]
+  container?: string
+  rootPath?: string
+  readOnly?: boolean
 }
 
 export function PodFileBrowser({
@@ -49,15 +52,21 @@ export function PodFileBrowser({
   podName,
   containers: _containers = [],
   initContainers = [],
+  container,
+  rootPath = '/',
+  readOnly = false,
 }: PodFileBrowserProps) {
   const containers = useMemo(() => {
     return toSimpleContainer(initContainers, _containers)
   }, [_containers, initContainers])
 
-  const [selectedContainer, setSelectedContainer] = useState<string>(
+  const [activeContainer, setActiveContainer] = useState<string>(
     containers[0]?.name || ''
   )
-  const [currentPath, setCurrentPath] = useState<string>('/')
+  const selectedContainer = container ?? activeContainer
+  const root = rootPath.replace(/\/+$/, '') || '/'
+  const [currentPath, setCurrentPath] = useState(root)
+  const [pathInput, setPathInput] = useState(root)
   const [isUploading, setIsUploading] = useState(false)
   const { t } = useTranslation()
 
@@ -69,10 +78,18 @@ export function PodFileBrowser({
   } = usePodFiles(namespace, podName, selectedContainer, currentPath)
 
   const handleNavigate = (path: string) => {
-    if (!path.startsWith('/')) {
-      path = '/' + path
+    const parts: string[] = []
+    for (const part of path.split('/')) {
+      if (part === '..') parts.pop()
+      else if (part && part !== '.') parts.push(part)
     }
-    setCurrentPath(path)
+    const normalized = '/' + parts.join('/')
+    const nextPath =
+      root === '/' || normalized === root || normalized.startsWith(root + '/')
+        ? normalized
+        : root
+    setCurrentPath(nextPath)
+    setPathInput(nextPath)
   }
 
   const handleEnterDirectory = (dirName: string) => {
@@ -82,7 +99,7 @@ export function PodFileBrowser({
   }
 
   const handleGoUp = () => {
-    if (currentPath === '/') return
+    if (currentPath === root) return
     const parts = currentPath.split('/')
     parts.pop()
     const newPath = parts.join('/') || '/'
@@ -126,19 +143,21 @@ export function PodFileBrowser({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
-        <ContainerSelector
-          containers={containers}
-          selectedContainer={selectedContainer}
-          showAllOption={false}
-          onContainerChange={(value) => setSelectedContainer(value!)}
-        />
+        {container === undefined && (
+          <ContainerSelector
+            containers={containers}
+            selectedContainer={selectedContainer}
+            showAllOption={false}
+            onContainerChange={(value) => setActiveContainer(value!)}
+          />
+        )}
         <div className="flex-1 flex items-center gap-2">
           <Button
             variant="outline"
             size="icon"
             aria-label="Go to parent directory"
             onClick={handleGoUp}
-            disabled={currentPath === '/'}
+            disabled={currentPath === root}
           >
             <IconArrowUp className="w-4 h-4" />
           </Button>
@@ -146,18 +165,18 @@ export function PodFileBrowser({
             variant="outline"
             size="icon"
             aria-label="Go to home directory"
-            onClick={() => handleNavigate('/')}
-            disabled={currentPath === '/'}
+            onClick={() => handleNavigate(root)}
+            disabled={currentPath === root}
           >
             <IconHome className="w-4 h-4" />
           </Button>
           <Input
-            value={currentPath}
+            value={pathInput}
             aria-label="Current path"
-            onChange={(e) => setCurrentPath(e.target.value)}
+            onChange={(e) => setPathInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                handleNavigate(currentPath)
+                handleNavigate(pathInput)
               }
             }}
             className="font-mono"
@@ -171,28 +190,30 @@ export function PodFileBrowser({
             <IconRefresh className="w-4 h-4" />
           </Button>
         </div>
-        <div>
-          <Input
-            type="file"
-            id="file-upload"
-            className="hidden"
-            onChange={handleUpload}
-            disabled={isUploading}
-          />
-          <Label
-            htmlFor="file-upload"
-            className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 cursor-pointer ${
-              isUploading ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            {isUploading ? (
-              <IconLoader className="w-4 h-4 animate-spin mr-2" />
-            ) : (
-              <IconUpload className="w-4 h-4 mr-2" />
-            )}
-            Upload
-          </Label>
-        </div>
+        {!readOnly && (
+          <div>
+            <Input
+              type="file"
+              id="file-upload"
+              className="hidden"
+              onChange={handleUpload}
+              disabled={isUploading}
+            />
+            <Label
+              htmlFor="file-upload"
+              className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 cursor-pointer ${
+                isUploading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            >
+              {isUploading ? (
+                <IconLoader className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <IconUpload className="w-4 h-4 mr-2" />
+              )}
+              Upload
+            </Label>
+          </div>
+        )}
       </div>
 
       {error ? (
