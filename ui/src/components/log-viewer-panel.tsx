@@ -125,6 +125,7 @@ export function LogViewerPanel({
     const saved = localStorage.getItem('log-viewer-font-size')
     return saved ? parseInt(saved, 10) : 14
   })
+  const panelRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const [editorReady, setEditorReady] = useState(false)
   const [following, setFollowing] = useState(true)
@@ -463,6 +464,8 @@ export function LogViewerPanel({
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!panelRef.current?.contains(e.target as Node)) return
+
       // Ctrl/Cmd + F to open Monaco search
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault()
@@ -497,6 +500,7 @@ export function LogViewerPanel({
 
   return (
     <Card
+      ref={panelRef}
       className={cn(
         'h-full min-h-0 flex flex-col gap-0',
         'py-0 overflow-hidden',
