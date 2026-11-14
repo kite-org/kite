@@ -48,6 +48,7 @@ func (h *LogsHandler) HandleLogsWebSocket(c *gin.Context) {
 		tailLines := c.DefaultQuery("tailLines", "100")
 		timestamps := c.DefaultQuery("timestamps", "true")
 		previous := c.DefaultQuery("previous", "false")
+		follow := c.DefaultQuery("follow", "true")
 		sinceSeconds := c.Query("sinceSeconds")
 
 		tail, err := strconv.ParseInt(tailLines, 10, 64)
@@ -65,7 +66,7 @@ func (h *LogsHandler) HandleLogsWebSocket(c *gin.Context) {
 		// Build log options
 		logOptions := &corev1.PodLogOptions{
 			Container:  container,
-			Follow:     true,
+			Follow:     follow == "true",
 			Timestamps: timestampsBool,
 			TailLines:  tailPtr,
 			Previous:   previousBool,

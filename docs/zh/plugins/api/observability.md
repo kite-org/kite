@@ -109,4 +109,6 @@ export function PodLogs() {
 }
 ```
 
-日志选项包括 `enabled`、`container`、`tailLines`、`timestamps`、`previous`、`sinceSeconds`、`labelSelector`，以及 `onNewLog`、`onClear` 回调；返回值是 `{ isLoading, error, isConnected, downloadSpeed, refetch, stopStreaming, clearLogs }`。
+日志选项包括 `enabled`、`container`、`tailLines`、`timestamps`、`previous`、`follow`、`sinceSeconds`、`labelSelector`，以及 `onNewLog`、`onClear` 回调。`follow` 默认为 `true`；设为 `false` 可读取日志快照，包括上一次容器实例。使用时间范围时，将 `tailLines` 设为 `-1`，避免结果被默认的 100 行截断；设为 `0` 可仅接收新日志。
+
+`onStreamError(error: Error)` 接收服务端日志错误，例如权限不足或容器不可用。`onStreamEnd(podName: string)` 在某个 Pod 的日志流结束时触发，并不表示 WebSocket 或标签选择器匹配的其他日志流已结束。读取单容器快照时，可在此回调之后将 `enabled` 设为 `false`，释放连接。返回值是 `{ isLoading, error, isConnected, downloadSpeed, refetch, stopStreaming, clearLogs }`；其中 `error` 表示连接错误，`onStreamError` 表示日志 API 错误。

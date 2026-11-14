@@ -229,6 +229,30 @@ import { LogViewer } from '@kite-dev/plugin-sdk/ui'
 
 `namespace` 必填。单 Pod 使用 `podName`，工作负载日志可传 `pods` 或 `labelSelector`；容器列表来自 Pod 的定义。`onClose` 提供关闭操作。查看器在渲染时按需加载。
 
+## LogViewerPanel
+
+`LogViewer` 使用的共享展示组件，只接收日志数据，不依赖 Kubernetes 或 WebSocket。自行管理订阅的插件直接使用此组件，共用 Monaco 编辑器、ANSI 颜色、筛选、查找、跟随／暂停、设置、下载和全屏操作。父容器需要提供明确高度。
+
+```tsx
+import { LogViewerPanel } from '@kite-dev/plugin-sdk/ui'
+
+<LogViewerPanel
+  entries={entries}
+  toolbar={<SourceSelector />}
+  status={<span>3 个日志流 ·</span>}
+  onClear={clearBuffer}
+  downloadFilename="aggregated-logs.txt"
+/>
+```
+
+每条日志为 `{ id: string | number, text: string, timestamp?: number }`。同一会话内的 ID 应保持稳定且唯一，`text` 支持 ANSI 颜色转义。`timestamp` 为 Unix 毫秒时间戳，由 Panel 按浏览器本地时区格式化为 `yyyy-MM-dd HH:mm:ss.SSS`。默认隐藏时间戳，切换仅改变显示，不会重启订阅。
+
+调用方按显示顺序提供日志并限制缓存大小。筛选可逆，向上滚动时暂停自动跟随，但继续接收日志。缓存裁剪旧记录时，Panel 按日志 ID 和视口偏移保持阅读位置；如果正在阅读的记录已被移除，则保持暂停并显示最早保留的记录。
+
+`toolbar` 在筛选框前插入控件，`status` 补充底部状态，`onClear` 清空调用方缓存。`header` 提供标题，`settings` 插入订阅专属设置，`onClose` 提供关闭操作。`downloadFilename` 默认为 `logs.txt`。`defaultTheme` 默认为 `classic`，仅在用户尚未保存主题偏好时生效。Panel 自身不提供 Pod 或容器选择器。
+
+`@kite-dev/plugin-sdk/ui` 同时导出 `Popover`、`PopoverTrigger`、`PopoverContent`，复用 Kite 基于 Radix 的弹出面板，用于紧凑的来源选择器。
+
 ## PodFileBrowser
 
 `PodFileBrowser` 复用 Kite 的 Pod 文件浏览器，支持列表、预览、下载和上传。必填 `namespace` 和 `podName`；传入 `containers` / `initContainers` 可使用原生容器选择器，传入 `container` 则固定容器并隐藏选择器。`rootPath` 默认为 `/`，指定初始目录、Home 目标和导航范围。`readOnly` 隐藏上传入口。切换 Pod、固定容器或根目录时，用新的 `key` 重新挂载组件。导航范围不构成符号链接沙箱，也不会替代 Pod exec 权限校验。

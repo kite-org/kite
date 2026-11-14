@@ -1,8 +1,10 @@
 import { useState, type ReactNode } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { useTerminal } from '@/contexts/terminal-context'
+import { IconPuzzle } from '@tabler/icons-react'
 import { Plus, Settings, TerminalSquare } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -28,6 +30,7 @@ export function SiteHeader({
   openKubectl?: () => void
   userMenu?: ReactNode
 }) {
+  const { t } = useTranslation()
   const isMobile = useIsMobile()
   const navigate = useNavigate()
   const { user, capabilities } = useAuth()
@@ -93,6 +96,21 @@ export function SiteHeader({
                     <span className="sr-only">Settings</span>
                   </Button>
                 )}
+              </>
+            )}
+            {isAdmin && (
+              <Button variant="ghost" size="icon" asChild>
+                <Link
+                  to="/plugins"
+                  aria-label={t('plugins.title')}
+                  title={t('plugins.title')}
+                >
+                  <IconPuzzle className="size-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            )}
+            {!isMobile && (
+              <>
                 <LanguageToggle />
                 <ModeToggle />
               </>
