@@ -1501,6 +1501,11 @@
     "decodeValues": "解码值"
   },
   "logViewer": {
+    "title": "日志",
+    "reconnecting": "正在重新连接…",
+    "tailLines": "日志行数",
+    "allLines": "全部",
+    "previousContainer": "上一个容器",
     "filter": "筛选日志…",
     "following": "跟随中",
     "follow": "跟随日志",

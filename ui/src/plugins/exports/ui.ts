@@ -46,7 +46,10 @@ export { WorkloadPodsCard } from '@/components/workload-pods-card'
 export { SimpleYamlEditor as YamlEditor } from '@/components/simple-yaml-editor'
 export { toast } from 'sonner'
 export { Terminal } from '@/components/terminal'
-export { PluginLogViewer as LogViewer } from '../log-viewer'
+export {
+  PluginLogViewer as LogViewer,
+  PluginLogViewerPanel as LogViewerPanel,
+} from '../log-viewer'
 export {
   PluginResourceTable as ResourceTable,
   PluginResourceDetailShell as ResourceDetailShell,
