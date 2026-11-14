@@ -27,6 +27,7 @@ func HandleGetGeneralSetting(c *gin.Context) {
 		"aiApiKeyConfigured":    hasAIAPIKey,
 		"aiBaseUrl":             setting.AIBaseURL,
 		"aiMaxTokens":           setting.AIMaxTokens,
+		"aiEffort":              model.NormalizeGeneralAIEffort(setting.AIEffort),
 		"kubectlEnabled":        setting.KubectlEnabled,
 		"kubectlImage":          setting.KubectlImage,
 		"nodeTerminalImage":     setting.NodeTerminalImage,
@@ -48,6 +49,7 @@ type UpdateGeneralSettingRequest struct {
 	AIAPIKey              *string `json:"aiApiKey"`
 	AIBaseURL             *string `json:"aiBaseUrl"`
 	AIMaxTokens           *int    `json:"aiMaxTokens"`
+	AIEffort              *string `json:"aiEffort"`
 	KubectlEnabled        *bool   `json:"kubectlEnabled"`
 	KubectlImage          *string `json:"kubectlImage"`
 	NodeTerminalImage     *string `json:"nodeTerminalImage"`
@@ -68,7 +70,8 @@ func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 		return
 	}
 	if common.IsSectionManaged("ai") && (req.AIAgentEnabled != nil || req.AIProvider != nil ||
-		req.AIModel != nil || req.AIAPIKey != nil || req.AIBaseURL != nil || req.AIMaxTokens != nil) {
+		req.AIModel != nil || req.AIAPIKey != nil || req.AIBaseURL != nil || req.AIMaxTokens != nil ||
+		req.AIEffort != nil) {
 		c.JSON(http.StatusForbidden, gin.H{"error": common.ManagedSectionError})
 		return
 	}
@@ -150,7 +153,15 @@ func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 		aiMaxTokens = *req.AIMaxTokens
 	}
 	if aiMaxTokens <= 0 {
-		aiMaxTokens = 16384
+		aiMaxTokens = model.DefaultGeneralAIMaxTokensByProvider(aiProvider)
+	}
+	// No upper bound: max_tokens is a provider-side ceiling and only the provider
+	// knows the configured model's real limit. Rejecting a large value here would
+	// cap a model the operator deliberately chose for its bigger output budget.
+
+	aiEffort := model.NormalizeGeneralAIEffort(currentSetting.AIEffort)
+	if req.AIEffort != nil {
+		aiEffort = model.NormalizeGeneralAIEffort(*req.AIEffort)
 	}
 
 	updates := map[string]interface{}{}
@@ -168,6 +179,9 @@ func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 	}
 	if req.AIMaxTokens != nil {
 		updates["ai_max_tokens"] = aiMaxTokens
+	}
+	if req.AIEffort != nil {
+		updates["ai_effort"] = aiEffort
 	}
 	if req.KubectlEnabled != nil {
 		updates["kubectl_enabled"] = kubectlEnabled
@@ -230,6 +244,7 @@ func HandleUpdateGeneralSetting(c *gin.Context) { //nolint:gocyclo
 		"aiApiKeyConfigured":    hasAIAPIKey,
 		"aiBaseUrl":             updated.AIBaseURL,
 		"aiMaxTokens":           updated.AIMaxTokens,
+		"aiEffort":              model.NormalizeGeneralAIEffort(updated.AIEffort),
 		"kubectlEnabled":        updated.KubectlEnabled,
 		"kubectlImage":          updated.KubectlImage,
 		"nodeTerminalImage":     updated.NodeTerminalImage,

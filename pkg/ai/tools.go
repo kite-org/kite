@@ -1,6 +1,8 @@
 package ai
 
 import (
+	"fmt"
+
 	anthropic "github.com/anthropics/anthropic-sdk-go"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/shared"
@@ -116,7 +118,7 @@ func toolDefinitions(cs *cluster.ClientSet) []agentToolDefinition {
 		},
 		{
 			Name:        "list_resources",
-			Description: "List Kubernetes resources and return a compact diagnostic summary. Use get_resource when the full YAML of one resource is needed.",
+			Description: fmt.Sprintf("List Kubernetes resources of a given kind, optionally filtered by namespace and label selector. Returns a summary of matching resources, capped at %d items — narrow the query with namespace or label_selector when more are expected.", maxListedResourceItems),
 			Properties: map[string]any{
 				"kind": map[string]any{
 					"type":        "string",
@@ -170,7 +172,9 @@ func toolDefinitions(cs *cluster.ClientSet) []agentToolDefinition {
 				},
 				"tail_lines": map[string]any{
 					"type":        "integer",
-					"description": "Number of recent lines. Defaults to 100.",
+					"minimum":     1,
+					"maximum":     maxPodLogTailLines,
+					"description": fmt.Sprintf("Number of recent log lines to retrieve. Defaults to 100, maximum %d. Output is additionally capped at %d KB; request a smaller window to read a specific section.", maxPodLogTailLines, maxPodLogBytes/1024),
 				},
 				"previous": map[string]any{
 					"type":        "boolean",
@@ -348,20 +352,22 @@ func OpenAIToolDefs(defs []agentToolDefinition) []openai.ChatCompletionToolParam
 	return tools
 }
 
-func AnthropicToolDefs(defs []agentToolDefinition) []anthropic.ToolUnionParam {
-	tools := make([]anthropic.ToolUnionParam, 0, len(defs))
+// AnthropicToolDefs builds tool definitions for the Beta Messages API, which the
+// Anthropic path uses so it can enable context management (context editing)
+// alongside tool use.
+func AnthropicToolDefs(defs []agentToolDefinition) []anthropic.BetaToolUnionParam {
+	tools := make([]anthropic.BetaToolUnionParam, 0, len(defs))
 
 	for _, def := range defs {
-		tool := anthropic.ToolParam{
+		tool := anthropic.BetaToolParam{
 			Name:        def.Name,
 			Description: anthropic.String(def.Description),
-			InputSchema: anthropic.ToolInputSchemaParam{
-				Type:       "object",
+			InputSchema: anthropic.BetaToolInputSchemaParam{
 				Properties: def.Properties,
 				Required:   def.Required,
 			},
 		}
-		tools = append(tools, anthropic.ToolUnionParam{OfTool: &tool})
+		tools = append(tools, anthropic.BetaToolUnionParam{OfTool: &tool})
 	}
 
 	return tools
