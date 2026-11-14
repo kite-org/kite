@@ -1414,7 +1414,7 @@
     "decodeValues": "Decode Values"
   },
   "logViewer": {
-    "filter": "Filter logs…",
+    "filter": "Filter logs...",
     "following": "Following",
     "follow": "Follow logs",
     "theme": "Log theme",
