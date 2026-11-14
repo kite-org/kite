@@ -160,10 +160,15 @@ rbac:
 
 ## Service Configuration
 
-| Parameter      | Description  | Default     |
-| -------------- | ------------ | ----------- |
-| `service.type` | Service type | `ClusterIP` |
-| `service.port` | Service port | `8080`      |
+| Parameter                            | Description                        | Default           |
+| ------------------------------------ | ---------------------------------- | ----------------- |
+| `service.type`                       | Service type                       | `ClusterIP`       |
+| `service.port`                       | Service port                       | `8080`            |
+| `service.annotations`                | Kubernetes annotations for Service | `{}`              |
+| `service.labels`                     | Kubernetes labels for Service      | `{}`              |
+| `service.ipDualStack.enabled`        | Enable dual-stack IP families      | `false`           |
+| `service.ipDualStack.ipFamilies`     | Service IP families                | `[IPv4, IPv6]`    |
+| `service.ipDualStack.ipFamilyPolicy` | Service IP family policy           | `PreferDualStack` |
 
 ## Ingress Configuration
 
