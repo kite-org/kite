@@ -253,6 +253,25 @@ import { LogViewerPanel } from '@kite-dev/plugin-sdk/ui'
 
 `@kite-dev/plugin-sdk/ui` 同时导出 `Popover`、`PopoverTrigger`、`PopoverContent`，复用 Kite 基于 Radix 的弹出面板，用于紧凑的来源选择器。
 
+## PodFileBrowser
+
+`PodFileBrowser` 复用 Kite 的 Pod 文件浏览器，支持列表、预览、下载和上传。必填 `namespace` 和 `podName`；传入 `containers` / `initContainers` 可使用原生容器选择器，传入 `container` 则固定容器并隐藏选择器。`rootPath` 默认为 `/`，指定初始目录、Home 目标和导航范围。`readOnly` 隐藏上传入口。切换 Pod、固定容器或根目录时，用新的 `key` 重新挂载组件。导航范围不构成符号链接沙箱，也不会替代 Pod exec 权限校验。
+
+```tsx
+import { PodFileBrowser } from '@kite-dev/plugin-sdk/ui'
+
+<PodFileBrowser
+  key={`${podUID}:${container}:${mountPath}`}
+  namespace={namespace}
+  podName={podName}
+  container={container}
+  rootPath={mountPath}
+  readOnly={readOnly}
+/>
+```
+
+`DeleteConfirmationDialog` 导出 Kite 现有的资源删除确认框。必填 `open`、`onOpenChange`、`resourceName`、`resourceType` 和 `onConfirm`；可选 `namespace`、`additionalNote`、`isDeleting` 和 `showAdditionalOptions`。用户输入资源名称确认后，由调用方执行删除。
+
 ## Terminal
 
 嵌入 Kite 的 Pod、节点或 kubectl 终端。Pod exec 使用当前集群，并检查目标命名空间的 `pods/exec` 权限。
