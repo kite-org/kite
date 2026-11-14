@@ -253,6 +253,25 @@ Supply entries in display order and bound retained history in the caller. Filter
 
 `Popover`, `PopoverTrigger`, and `PopoverContent` are also exported from `@kite-dev/plugin-sdk/ui` for compact source selectors. They use Kite's existing Radix-backed components.
 
+## PodFileBrowser
+
+`PodFileBrowser` reuses Kite's Pod file browser, including listing, previews, downloads, and uploads. Pass `namespace` and `podName`; pass `containers` / `initContainers` for the native selector, or `container` to fix the container and hide that selector. `rootPath` defaults to `/` and sets the starting directory, Home destination, and navigation boundary. `readOnly` hides uploads. Remount the component with a new `key` when changing the Pod, fixed container, or root path. This navigation boundary does not sandbox symlinks or replace Pod exec permissions.
+
+```tsx
+import { PodFileBrowser } from '@kite-dev/plugin-sdk/ui'
+
+<PodFileBrowser
+  key={`${podUID}:${container}:${mountPath}`}
+  namespace={namespace}
+  podName={podName}
+  container={container}
+  rootPath={mountPath}
+  readOnly={readOnly}
+/>
+```
+
+`DeleteConfirmationDialog` also exposes Kite's existing resource deletion confirmation. Pass `open`, `onOpenChange`, `resourceName`, `resourceType`, and `onConfirm`; optional props are `namespace`, `additionalNote`, `isDeleting`, and `showAdditionalOptions`. The caller performs deletion after the user confirms the resource name.
+
 ## Terminal
 
 Embeds Kite's terminal for a Pod, node, or kubectl session. Pod exec uses the current cluster and requires `pods/exec` permission for the namespace.

@@ -46,6 +46,8 @@ export { WorkloadPodsCard } from '@/components/workload-pods-card'
 export { SimpleYamlEditor as YamlEditor } from '@/components/simple-yaml-editor'
 export { toast } from 'sonner'
 export { Terminal } from '@/components/terminal'
+export { PodFileBrowser } from '@/components/pod-file-browser'
+export { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'
 export {
   PluginLogViewer as LogViewer,
   PluginLogViewerPanel as LogViewerPanel,
