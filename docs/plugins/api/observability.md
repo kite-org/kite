@@ -109,4 +109,6 @@ export function PodLogs() {
 }
 ```
 
-Options include `enabled`, `container`, `tailLines`, `timestamps`, `previous`, `sinceSeconds`, and `labelSelector`, plus the `onNewLog` and `onClear` callbacks. The result is `{ isLoading, error, isConnected, downloadSpeed, refetch, stopStreaming, clearLogs }`.
+Options include `enabled`, `container`, `tailLines`, `timestamps`, `previous`, `follow`, `sinceSeconds`, and `labelSelector`, plus the `onNewLog` and `onClear` callbacks. `follow` defaults to `true`; set it to `false` to read a snapshot, including a previous container instance. Use `tailLines: -1` with `sinceSeconds` to avoid truncating a time range to the default 100 lines, or `tailLines: 0` to receive only new logs.
+
+`onStreamError(error: Error)` receives server-side log errors, such as permission failures or an unavailable container. `onStreamEnd(podName: string)` fires when a Pod's log stream ends; it does not mean that the WebSocket or other streams in a label-selected subscription have ended. For a single-container snapshot, set `enabled` to `false` after this callback to release the connection. The result is `{ isLoading, error, isConnected, downloadSpeed, refetch, stopStreaming, clearLogs }`; `error` reports transport errors, while `onStreamError` reports log API errors.

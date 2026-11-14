@@ -227,7 +227,24 @@ import { LogViewer } from '@kite-dev/plugin-sdk/ui'
 />
 ```
 
-`namespace` is required. Use `podName` for a single Pod, or `pods` / `labelSelector` for workload logs. Pass the Pod's container definitions to populate the selector. `onClose` adds a close action. The viewer loads when rendered.
+`namespace` is required when the viewer subscribes to Pod logs. Use `podName` for a single Pod, or `pods` / `labelSelector` for workload logs. Pass the Pod's container definitions to populate the selector. `onClose` adds a close action. The viewer loads when rendered.
+
+### External log entries
+
+Plugins that own log subscriptions can pass `entries` instead of Pod connection props. This disables the viewer's own subscription and reuses the same Monaco editor, ANSI colors, settings, selection/copy, find, download, and fullscreen controls. The parent must give the viewer an explicit height.
+
+```tsx
+<LogViewer
+  entries={entries}
+  toolbar={<SourceSelector />}
+  status={<span>3 streams ·</span>}
+  onClear={clearBuffer}
+/>
+```
+
+Each entry is `{ id: string | number, text: string, timestamp?: string }`. Keep IDs stable and unique within the session; `text` can contain ANSI color sequences. Pass a formatted display time in `timestamp` to use the viewer's Show timestamps setting; timestamps are hidden by default, and toggling them only changes the display without restarting subscriptions. Supply entries in display order and bound retained history in the plugin. The viewer updates the changed suffix, supports reversible filtering, and pauses auto-follow when the user scrolls up while continuing to receive entries. `toolbar` inserts source/time controls before the filter, `status` adds footer content, and `onClear` clears the plugin's buffer. External mode omits the built-in Pod subscription settings.
+
+`Popover`, `PopoverTrigger`, and `PopoverContent` are also exported from `@kite-dev/plugin-sdk/ui` for compact source selectors. They use Kite's existing Radix-backed components.
 
 ## Terminal
 

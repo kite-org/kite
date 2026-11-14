@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import type { OnMount } from '@monaco-editor/react'
 import {
   IconClearAll,
@@ -6,6 +13,8 @@ import {
   IconMaximize,
   IconMinimize,
   IconPalette,
+  IconPlayerPause,
+  IconPlayerPlay,
   IconSearch,
   IconSettings,
   IconX,
@@ -20,11 +29,13 @@ import {
   generateAnsiCss,
   getAnsiClassNames,
   parseAnsi,
+  stripAnsi,
 } from '@/lib/ansi-parser'
 import { useLogsWebSocket } from '@/lib/api'
 import { toSimpleContainer } from '@/lib/k8s'
 import { MonacoEditor } from '@/lib/monaco-loader'
 import { defineMonacoLogThemes } from '@/lib/monaco-theme'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -54,8 +65,14 @@ import { NetworkSpeedIndicator } from './network-speed-indicator'
 import { ContainerSelector } from './selector/container-selector'
 import { PodSelector } from './selector/pod-selector'
 
+export interface LogViewerEntry {
+  id: string | number
+  text: string
+  timestamp?: string
+}
+
 export interface LogViewerProps {
-  namespace: string
+  namespace?: string
   podName?: string
   pods?: Pod[]
   labelSelector?: string
@@ -64,6 +81,10 @@ export interface LogViewerProps {
   ephemeralContainers?: EphemeralContainer[]
   selectedContainerName?: string
   onClose?: () => void
+  entries?: readonly LogViewerEntry[]
+  toolbar?: ReactNode
+  status?: ReactNode
+  onClear?: () => void
 }
 
 const ANSI_CSS = generateAnsiCss()
@@ -75,7 +96,7 @@ const TERMINAL_THEME_ENTRIES = Object.entries(TERMINAL_THEMES) as Array<
 >
 
 export function LogViewer({
-  namespace,
+  namespace = '',
   podName,
   pods,
   containers: _containers,
@@ -84,10 +105,15 @@ export function LogViewer({
   selectedContainerName,
   onClose,
   labelSelector,
+  entries,
+  toolbar,
+  status,
+  onClear,
 }: LogViewerProps) {
+  const external = entries !== undefined
   const [logTheme, setLogTheme] = useState<TerminalTheme>(() => {
     const saved = localStorage.getItem('log-viewer-theme')
-    return (saved as TerminalTheme) || 'classic'
+    return (saved as TerminalTheme) || (external ? 'monokai' : 'classic')
   })
   const containers = useMemo(() => {
     return toSimpleContainer(initContainers, _containers, ephemeralContainers)
@@ -136,6 +162,33 @@ export function LogViewer({
   const decorationIdsRef = useRef<string[]>([])
   const normalizedFilterTermRef = useRef('')
   const pendingLogsRef = useRef<string[]>([])
+  const [editorReady, setEditorReady] = useState(false)
+  const [following, setFollowing] = useState(true)
+  const followingRef = useRef(true)
+  const updatingEditor = useRef(false)
+  const [newLines, setNewLines] = useState(0)
+  const previousInputEntries = useRef<readonly LogViewerEntry[]>([])
+  const renderedEntries = useRef<{
+    entries: readonly LogViewerEntry[]
+    lineStarts: number[]
+    decorations: string[][]
+  }>({ entries: [], lineStarts: [], decorations: [] })
+  const visibleEntries = useMemo(() => {
+    if (!entries) return []
+    const displayEntries = timestamps
+      ? entries.map((entry) =>
+          entry.timestamp
+            ? { ...entry, text: `${entry.timestamp} ${entry.text}` }
+            : entry
+        )
+      : entries
+    const query = filterTerm.toLocaleLowerCase()
+    return query
+      ? displayEntries.filter((entry) =>
+          stripAnsi(entry.text).toLocaleLowerCase().includes(query)
+        )
+      : displayEntries
+  }, [entries, filterTerm, timestamps])
   const sortedPods = useMemo(() => {
     if (!pods) {
       return undefined
@@ -328,6 +381,22 @@ export function LogViewer({
   const handleEditorMount: OnMount = useCallback(
     (editor) => {
       editorRef.current = editor
+      setEditorReady(true)
+      if (external) {
+        const listener = editor.onDidScrollChange(() => {
+          if (updatingEditor.current) return
+          const atBottom =
+            editor.getScrollHeight() -
+              editor.getScrollTop() -
+              editor.getLayoutInfo().height <=
+            8
+          followingRef.current = atBottom
+          setFollowing(atBottom)
+          setShowScrollToBottom(!atBottom)
+          if (atBottom) setNewLines(0)
+        })
+        editor.onDidDispose(() => listener.dispose())
+      }
 
       // Configure search widget
       editor.updateOptions({
@@ -342,8 +411,118 @@ export function LogViewer({
       pendingLogsRef.current = []
       pendingLogs.forEach((log) => writeLogToEditor(log))
     },
-    [writeLogToEditor]
+    [writeLogToEditor, external]
   )
+
+  useEffect(() => {
+    const instance = editorRef.current
+    const model = instance?.getModel()
+    if (!external || !editorReady || !instance || !model) return
+    const previous = renderedEntries.current
+    const previousInput = previousInputEntries.current
+    previousInputEntries.current = entries ?? []
+    let unchanged = 0
+    while (
+      unchanged < previous.entries.length &&
+      unchanged < visibleEntries.length &&
+      previous.entries[unchanged].id === visibleEntries[unchanged].id &&
+      previous.entries[unchanged].text === visibleEntries[unchanged].text
+    )
+      unchanged++
+    if (
+      unchanged === previous.entries.length &&
+      unchanged === visibleEntries.length
+    )
+      return
+
+    const viewState = instance.saveViewState()
+    const lineStarts = previous.lineStarts.slice(0, unchanged)
+    const decorationIds = previous.decorations.slice(0, unchanged)
+    const oldEnd = model.getLineCount()
+    const appending = unchanged === previous.entries.length && unchanged > 0
+    const trimming = unchanged === visibleEntries.length && unchanged > 0
+    const startLine = appending
+      ? oldEnd
+      : trimming
+        ? previous.lineStarts[unchanged] - 1
+        : (previous.lineStarts[unchanged] ?? 1)
+    const startColumn =
+      appending || trimming ? model.getLineMaxColumn(startLine) : 1
+    let line = appending ? oldEnd + 1 : startLine
+    const texts: string[] = []
+    const decorations: editor.IModelDeltaDecoration[][] = []
+    for (const entry of visibleEntries.slice(unchanged)) {
+      lineStarts.push(line)
+      const { segments } = parseAnsi(entry.text)
+      texts.push(segments.map((segment) => segment.text).join(''))
+      let column = 1
+      const entryDecorations: editor.IModelDeltaDecoration[] = []
+      for (const segment of segments) {
+        const lines = segment.text.split('\n')
+        const endLine = line + lines.length - 1
+        const endColumn =
+          lines.length === 1
+            ? column + segment.text.length
+            : lines[lines.length - 1].length + 1
+        const className = getAnsiClassNames(segment.styles)
+        if (className)
+          entryDecorations.push({
+            range: {
+              startLineNumber: line,
+              startColumn: column,
+              endLineNumber: endLine,
+              endColumn,
+            },
+            options: {
+              inlineClassName: className,
+              stickiness: NEVER_GROWS_WHEN_TYPING_AT_EDGES,
+            },
+          })
+        line = endLine
+        column = endColumn
+      }
+      decorations.push(entryDecorations)
+      line++
+    }
+    updatingEditor.current = true
+    model.deltaDecorations(previous.decorations.slice(unchanged).flat(), [])
+    // Edit only the changed suffix so streaming preserves selections and scroll position.
+    model.applyEdits([
+      {
+        range: {
+          startLineNumber: startLine,
+          startColumn,
+          endLineNumber: oldEnd,
+          endColumn: model.getLineMaxColumn(oldEnd),
+        },
+        text: (appending ? '\n' : '') + texts.join('\n'),
+        forceMoveMarkers: false,
+      },
+    ])
+    const ids = model.deltaDecorations([], decorations.flat())
+    let offset = 0
+    for (const entryDecorations of decorations) {
+      decorationIds.push(ids.slice(offset, offset + entryDecorations.length))
+      offset += entryDecorations.length
+    }
+    renderedEntries.current = {
+      entries: visibleEntries,
+      lineStarts,
+      decorations: decorationIds,
+    }
+    setLogCount(visibleEntries.length)
+    if (followingRef.current) {
+      instance.revealLine(model.getLineCount())
+    } else {
+      if (viewState) instance.restoreViewState(viewState)
+      const oldIds = new Set(previousInput.map((entry) => entry.id))
+      setNewLines(
+        (count) =>
+          count + visibleEntries.filter((entry) => !oldIds.has(entry.id)).length
+      )
+    }
+    updatingEditor.current = false
+  }, [external, editorReady, entries, visibleEntries])
 
   const appendLog = useCallback(
     (log: string) => {
@@ -371,10 +550,10 @@ export function LogViewer({
       tailLines,
       timestamps,
       previous: previous && !selectedContainerIsEphemeral,
-      enabled: !!selectPodName,
+      enabled: !external && !!selectPodName,
       labelSelector,
       onNewLog: appendLog,
-      onClear: cleanLog,
+      onClear: external ? undefined : cleanLog,
     }),
     [
       selectedContainer,
@@ -386,6 +565,7 @@ export function LogViewer({
       labelSelector,
       appendLog,
       cleanLog,
+      external,
     ]
   )
 
@@ -417,6 +597,7 @@ export function LogViewer({
     // clear here (in response to a real parameter change) instead of on
     // every WebSocket onopen, so that the historical tail buffer delivered
     // by the server immediately after connect is preserved.
+    if (external) return
     cleanLog()
 
     // Show reconnecting state when parameters change
@@ -428,6 +609,7 @@ export function LogViewer({
     timestamps,
     previous,
     cleanLog,
+    external,
   ])
 
   // Hide reconnecting state when loading completes
@@ -447,7 +629,9 @@ export function LogViewer({
       const a = document.createElement('a')
       a.href = url
       const podFileName = selectPodName || 'all-pods'
-      a.download = `${podFileName}-${selectedContainer || 'pod'}-logs.txt`
+      a.download = external
+        ? 'aggregated-logs.txt'
+        : `${podFileName}-${selectedContainer || 'pod'}-logs.txt`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -456,6 +640,9 @@ export function LogViewer({
   }
 
   const scrollToBottom = useCallback(() => {
+    followingRef.current = true
+    setFollowing(true)
+    setNewLines(0)
     if (editorRef.current) {
       const model = editorRef.current.getModel()
       if (model) {
@@ -521,46 +708,86 @@ export function LogViewer({
 
   return (
     <Card
-      className={`h-full min-h-0 flex flex-col py-4 gap-0 ${isFullscreen ? 'fixed inset-0 z-50 m-0 rounded-none' : ''} ${wordWrap ? 'whitespace-pre-wrap' : 'whitespace-pre'} `}
+      className={cn(
+        'h-full min-h-0 flex flex-col gap-0',
+        external ? 'py-0 overflow-hidden' : 'py-4',
+        isFullscreen && 'fixed inset-0 z-50 m-0 rounded-none',
+        wordWrap ? 'whitespace-pre-wrap' : 'whitespace-pre'
+      )}
     >
       <style>{ANSI_CSS}</style>
-      <CardHeader>
+      <CardHeader className={external ? 'px-3 py-2' : undefined}>
         <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-lg">Logs</CardTitle>
-            <CardDescription>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span>
-                  {logCount} lines {filterTerm.length > 0 && `(filtered)`}
-                </span>
-                <ConnectionIndicator
-                  isConnected={isConnected}
-                  onReconnect={refetch}
-                />
-                <NetworkSpeedIndicator
-                  downloadSpeed={downloadSpeed}
-                  uploadSpeed={0}
-                />
-                {isLoading && <span>Loading...</span>}
-                {isReconnecting && (
-                  <span className="text-blue-600">Reconnecting...</span>
-                )}
-              </div>
-            </CardDescription>
-          </div>
-          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 md:w-auto md:justify-end">
-            <div className="relative min-w-0 flex-1 basis-40 md:w-48 md:flex-none md:basis-auto">
+          {!external && (
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-lg">Logs</CardTitle>
+              <CardDescription>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <span>
+                    {logCount} lines {filterTerm.length > 0 && `(filtered)`}
+                  </span>
+                  <ConnectionIndicator
+                    isConnected={isConnected}
+                    onReconnect={refetch}
+                  />
+                  <NetworkSpeedIndicator
+                    downloadSpeed={downloadSpeed}
+                    uploadSpeed={0}
+                  />
+                  {isLoading && <span>Loading...</span>}
+                  {isReconnecting && (
+                    <span className="text-blue-600">Reconnecting...</span>
+                  )}
+                </div>
+              </CardDescription>
+            </div>
+          )}
+          <div
+            className={cn(
+              'flex w-full min-w-0 flex-wrap items-center gap-2',
+              !external && 'md:w-auto md:justify-end'
+            )}
+          >
+            {toolbar}
+            <div
+              className={cn(
+                'relative min-w-0 flex-1 basis-40',
+                !external && 'md:w-48 md:flex-none md:basis-auto'
+              )}
+            >
               <IconSearch className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder={'Filter logs...'}
+                aria-label={t('logViewer.filter')}
+                placeholder={t('logViewer.filter')}
                 value={filterTerm}
                 onChange={(e) => setFilterTerm(e.target.value)}
                 className="pl-8 w-full pr-8"
               />
             </div>
 
+            {external && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (following) {
+                    followingRef.current = false
+                    setFollowing(false)
+                    setShowScrollToBottom(true)
+                  } else scrollToBottom()
+                }}
+              >
+                {following ? (
+                  <IconPlayerPause className="size-4" />
+                ) : (
+                  <IconPlayerPlay className="size-4" />
+                )}
+                {t(following ? 'logViewer.following' : 'logViewer.follow')}
+              </Button>
+            )}
+
             {/* Container Selector */}
-            {containers.length > 1 && (
+            {!external && containers.length > 1 && (
               <ContainerSelector
                 containers={containers}
                 showAllOption={false}
@@ -570,7 +797,7 @@ export function LogViewer({
             )}
 
             {/* Pod Selector */}
-            {sortedPods && (
+            {!external && sortedPods && (
               <PodSelector
                 pods={sortedPods}
                 showAllOption={true}
@@ -585,6 +812,7 @@ export function LogViewer({
               size="sm"
               onClick={cycleTheme}
               title={`Current theme: ${currentTheme.name}`}
+              aria-label={t('logViewer.theme')}
               className="relative"
             >
               <IconPalette className="h-4 w-4" />
@@ -599,55 +827,63 @@ export function LogViewer({
             {/* Settings */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label={t('logViewer.settings')}
+                >
                   <IconSettings className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-80" align="end">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="tail-lines">Tail Lines</Label>
-                    <Select
-                      value={tailLines.toString()}
-                      onValueChange={(value) =>
-                        handleTailLinesChange(Number(value))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="50">50</SelectItem>
-                        <SelectItem value="100">100</SelectItem>
-                        <SelectItem value="200">200</SelectItem>
-                        <SelectItem value="500">500</SelectItem>
-                        <SelectItem value="1000">1000</SelectItem>
-                        <SelectItem value="-1">All</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {!external && (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="tail-lines">Tail Lines</Label>
+                        <Select
+                          value={tailLines.toString()}
+                          onValueChange={(value) =>
+                            handleTailLinesChange(Number(value))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="50">50</SelectItem>
+                            <SelectItem value="100">100</SelectItem>
+                            <SelectItem value="200">200</SelectItem>
+                            <SelectItem value="500">500</SelectItem>
+                            <SelectItem value="1000">1000</SelectItem>
+                            <SelectItem value="-1">All</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="previous">Previous Container</Label>
+                        <Switch
+                          id="previous"
+                          checked={previous && !selectedContainerIsEphemeral}
+                          disabled={selectedContainerIsEphemeral}
+                          onCheckedChange={setPrevious}
+                        />
+                      </div>
+                    </>
+                  )}
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="timestamps">Show Timestamps</Label>
+                    <Label htmlFor="timestamps">
+                      {t('logViewer.timestamps')}
+                    </Label>
                     <Switch
                       id="timestamps"
                       checked={timestamps}
                       onCheckedChange={setTimestamps}
                     />
                   </div>
-
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="previous">Previous Container</Label>
-                    <Switch
-                      id="previous"
-                      checked={previous && !selectedContainerIsEphemeral}
-                      disabled={selectedContainerIsEphemeral}
-                      onCheckedChange={setPrevious}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="word-wrap">Word Wrap</Label>
+                    <Label htmlFor="word-wrap">{t('logViewer.wordWrap')}</Label>
                     <Switch
                       id="word-wrap"
                       checked={wordWrap}
@@ -656,7 +892,9 @@ export function LogViewer({
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="show-line-numbers">Show Line Numbers</Label>
+                    <Label htmlFor="show-line-numbers">
+                      {t('logViewer.lineNumbers')}
+                    </Label>
                     <Switch
                       id="show-line-numbers"
                       checked={showLineNumbers}
@@ -667,7 +905,7 @@ export function LogViewer({
                   {/* Log Theme Selector */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="log-theme">Log Theme</Label>
+                      <Label htmlFor="log-theme">{t('logViewer.theme')}</Label>
                       <Select
                         value={logTheme}
                         onValueChange={handleThemeChange}
@@ -691,7 +929,9 @@ export function LogViewer({
                   {/* Font Size Selector */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="font-size">Font Size</Label>
+                      <Label htmlFor="font-size">
+                        {t('logViewer.fontSize')}
+                      </Label>
                       <Select
                         value={fontSize.toString()}
                         onValueChange={(value) =>
@@ -721,41 +961,41 @@ export function LogViewer({
                   {/* Keyboard Shortcuts */}
                   <div className="space-y-2 pt-2 border-t">
                     <Label className="text-xs font-medium text-muted-foreground">
-                      Keyboard Shortcuts
+                      {t('logViewer.shortcuts')}
                     </Label>
                     <div className="space-y-1 text-xs text-muted-foreground">
                       <div className="flex justify-between">
-                        <span>Open Search</span>
+                        <span>{t('logViewer.search')}</span>
                         <kbd className="px-1 py-0.5 bg-muted rounded text-xs">
                           Ctrl+F
                         </kbd>
                       </div>
                       <div className="flex justify-between">
-                        <span>Toggle Fullscreen</span>
+                        <span>{t('logViewer.fullscreen')}</span>
                         <kbd className="px-1 py-0.5 bg-muted rounded text-xs">
                           Ctrl+Enter
                         </kbd>
                       </div>
                       <div className="flex justify-between">
-                        <span>Toggle Word Wrap</span>
+                        <span>{t('logViewer.wordWrap')}</span>
                         <kbd className="px-1 py-0.5 bg-muted rounded text-xs">
                           Alt+Z
                         </kbd>
                       </div>
                       <div className="flex justify-between">
-                        <span>Increase Font Size</span>
+                        <span>{t('logViewer.increaseFont')}</span>
                         <kbd className="px-1 py-0.5 bg-muted rounded text-xs">
                           Ctrl++
                         </kbd>
                       </div>
                       <div className="flex justify-between">
-                        <span>Decrease Font Size</span>
+                        <span>{t('logViewer.decreaseFont')}</span>
                         <kbd className="px-1 py-0.5 bg-muted rounded text-xs">
                           Ctrl+-
                         </kbd>
                       </div>
                       <div className="flex justify-between">
-                        <span>Reset Font Size</span>
+                        <span>{t('logViewer.resetFont')}</span>
                         <kbd className="px-1 py-0.5 bg-muted rounded text-xs">
                           Ctrl+0
                         </kbd>
@@ -770,8 +1010,17 @@ export function LogViewer({
             <Button
               variant="outline"
               size="sm"
-              onClick={clearLogs}
-              title="Clear logs"
+              onClick={
+                external
+                  ? () => {
+                      onClear?.()
+                      setNewLines(0)
+                    }
+                  : clearLogs
+              }
+              disabled={external && !onClear}
+              title={t('logViewer.clear')}
+              aria-label={t('logViewer.clear')}
             >
               <IconClearAll className="h-4 w-4" />
             </Button>
@@ -782,6 +1031,7 @@ export function LogViewer({
               size="sm"
               onClick={downloadLogs}
               disabled={logCount === 0}
+              aria-label={t('logViewer.download')}
             >
               <IconDownload className="h-4 w-4" />
             </Button>
@@ -791,9 +1041,16 @@ export function LogViewer({
               variant="outline"
               size="sm"
               onClick={toggleFullscreen}
-              title={
-                isFullscreen ? 'Exit fullscreen (ESC)' : 'Enter fullscreen'
-              }
+              aria-label={t(
+                isFullscreen
+                  ? 'logViewer.exitFullscreen'
+                  : 'logViewer.fullscreen'
+              )}
+              title={t(
+                isFullscreen
+                  ? 'logViewer.exitFullscreen'
+                  : 'logViewer.fullscreen'
+              )}
             >
               {isFullscreen ? (
                 <IconMinimize className="h-4 w-4" />
@@ -804,7 +1061,12 @@ export function LogViewer({
 
             {/* Close */}
             {onClose && (
-              <Button variant="outline" size="sm" onClick={onClose}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onClose}
+                aria-label={t('logViewer.close')}
+              >
                 <IconX className="h-4 w-4" />
               </Button>
             )}
@@ -818,7 +1080,9 @@ export function LogViewer({
           theme={`log-theme-${logTheme}`}
           loading={
             <div className="flex h-full items-center justify-center">
-              <div className="text-center opacity-60">Loading editor...</div>
+              <div className="text-center opacity-60">
+                {t('logViewer.loading')}
+              </div>
             </div>
           }
           beforeMount={(monaco) => {
@@ -851,15 +1115,16 @@ export function LogViewer({
             overviewRulerBorder: false,
             automaticLayout: true,
             colorDecorators: false,
+            padding: external ? { top: 8, bottom: 8 } : undefined,
           }}
         />
         {showScrollToBottom && (
           <div
-            className={`absolute bottom-4 right-4 shadow-lg z-10  ml-auto w-fit animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ${
+            className={`absolute bottom-4 right-4 z-10 ml-auto w-fit ${
               logTheme === 'github'
                 ? 'bg-white/90 text-gray-600 border border-gray-200 shadow-sm'
                 : 'bg-gray-800/90 text-gray-300 border border-gray-600 shadow-sm'
-            } px-3 py-1.5 text-xs rounded-full backdrop-blur-sm`}
+            } px-3 py-1.5 text-xs rounded-full`}
           >
             <Button
               size="sm"
@@ -872,10 +1137,22 @@ export function LogViewer({
               onClick={scrollToBottom}
             >
               ↓ {t('common.actions.jumpToBottom', 'Jump to bottom')}
+              {external &&
+                newLines > 0 &&
+                ` · ${t('logViewer.newLines', { count: newLines })}`}
             </Button>
           </div>
         )}
       </CardContent>
+      {external && (
+        <div className="flex items-center justify-between gap-3 border-t px-3 py-1 text-xs text-muted-foreground tabular-nums">
+          <span className="flex items-center gap-2">
+            {status}
+            <span>{t('logViewer.lines', { count: logCount })}</span>
+          </span>
+          <span>{t('logViewer.searchHint')}</span>
+        </div>
+      )}
     </Card>
   )
 }

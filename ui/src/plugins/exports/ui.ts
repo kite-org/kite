@@ -34,6 +34,11 @@ export {
   SelectScrollUpButton,
   SelectScrollDownButton,
 } from '@/components/ui/select'
+export {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@/components/ui/popover'
 export { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 export { NamespaceSelector } from '@/components/selector/namespace-selector'
 export { ResourceYaml } from '@/components/resource-yaml'

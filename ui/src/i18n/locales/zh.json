@@ -1499,5 +1499,30 @@
   "secret": {
     "showBase64": "显示 Base64",
     "decodeValues": "解码值"
+  },
+  "logViewer": {
+    "filter": "筛选日志…",
+    "following": "跟随中",
+    "follow": "跟随日志",
+    "theme": "日志主题",
+    "settings": "日志设置",
+    "wordWrap": "自动换行",
+    "lineNumbers": "显示行号",
+    "timestamps": "显示时间戳",
+    "fontSize": "字体大小",
+    "shortcuts": "键盘快捷键",
+    "search": "查找日志",
+    "fullscreen": "进入全屏",
+    "exitFullscreen": "退出全屏",
+    "increaseFont": "增大字体",
+    "decreaseFont": "缩小字体",
+    "resetFont": "重置字体",
+    "clear": "清空日志",
+    "download": "下载当前显示的日志",
+    "close": "关闭日志",
+    "loading": "正在加载编辑器…",
+    "newLines": "{{count}} 条新日志",
+    "lines": "{{count}} 行",
+    "searchHint": "⌘ / Ctrl + F 查找"
   }
 }

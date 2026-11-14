@@ -475,11 +475,14 @@ export const useLogsWebSocket = (
     tailLines?: number
     timestamps?: boolean
     previous?: boolean
+    follow?: boolean
     sinceSeconds?: number
     enabled?: boolean
     labelSelector?: string
     onNewLog?: (log: string) => void
     onClear?: () => void
+    onStreamError?: (error: Error) => void
+    onStreamEnd?: (podName: string) => void
   }
 ) => {
   const { currentCluster } = useCluster()
@@ -489,10 +492,13 @@ export const useLogsWebSocket = (
     tailLines,
     timestamps,
     previous,
+    follow,
     sinceSeconds,
     labelSelector,
     onNewLog,
     onClear,
+    onStreamError,
+    onStreamEnd,
   } = options ?? {}
 
   // Build WebSocket URL
@@ -513,6 +519,9 @@ export const useLogsWebSocket = (
     if (previous !== undefined) {
       params.append('previous', previous.toString())
     }
+    if (follow !== undefined) {
+      params.append('follow', follow.toString())
+    }
     if (sinceSeconds !== undefined) {
       params.append('sinceSeconds', sinceSeconds.toString())
     }
@@ -531,6 +540,7 @@ export const useLogsWebSocket = (
     tailLines,
     timestamps,
     previous,
+    follow,
     sinceSeconds,
     enabled,
     labelSelector,
@@ -547,14 +557,18 @@ export const useLogsWebSocket = (
           }
           break
         case 'error':
+          onStreamError?.(new Error(message.data))
           console.error('Log streaming error:', message.data)
           break
         case 'close':
+          if (message.data) {
+            onStreamEnd?.(JSON.parse(message.data).pod)
+          }
           console.log('Log stream closed:', message.data)
           break
       }
     },
-    [onNewLog]
+    [onNewLog, onStreamError, onStreamEnd]
   )
 
   const handleOpen = useCallback(() => {

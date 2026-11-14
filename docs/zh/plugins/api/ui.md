@@ -227,7 +227,24 @@ import { LogViewer } from '@kite-dev/plugin-sdk/ui'
 />
 ```
 
-`namespace` 必填。单 Pod 使用 `podName`，工作负载日志可传 `pods` 或 `labelSelector`；容器列表来自 Pod 的定义。`onClose` 提供关闭操作。查看器在渲染时按需加载。
+`namespace` 在组件自行订阅 Pod 日志时必填。单 Pod 使用 `podName`，工作负载日志可传 `pods` 或 `labelSelector`；容器列表来自 Pod 的定义。`onClose` 提供关闭操作。查看器在渲染时按需加载。
+
+### 外部日志输入
+
+插件自行管理日志订阅时，可以传入 `entries`，无需传入 Pod 连接参数。此模式关闭组件内部订阅，共用原生 Monaco 编辑器、ANSI 颜色、设置、选择复制、查找、下载和全屏操作。父容器需要提供明确高度。
+
+```tsx
+<LogViewer
+  entries={entries}
+  toolbar={<SourceSelector />}
+  status={<span>3 个日志流 ·</span>}
+  onClear={clearBuffer}
+/>
+```
+
+每条日志为 `{ id: string | number, text: string, timestamp?: string }`。同一会话内的 ID 应保持稳定且唯一，`text` 支持 ANSI 颜色转义。通过 `timestamp` 传入格式化后的显示时间，即可使用组件的「显示时间戳」设置；默认隐藏时间戳，切换仅改变显示，不会重启订阅。插件按显示顺序提供日志并限制缓存大小。组件只更新变化的后缀，支持可逆筛选；用户向上滚动时暂停自动跟随，仍继续接收日志。`toolbar` 在筛选框前插入来源、时间等控件，`status` 补充底部状态，`onClear` 清空插件缓存。外部模式不显示内置 Pod 订阅设置。
+
+`@kite-dev/plugin-sdk/ui` 同时导出 `Popover`、`PopoverTrigger`、`PopoverContent`，复用 Kite 基于 Radix 的弹出面板，用于紧凑的来源选择器。
 
 ## Terminal
 
