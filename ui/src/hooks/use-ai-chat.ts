@@ -44,10 +44,7 @@ export function useAIChat() {
   const abortControllerRef = useRef<AbortController | null>(null)
   const activeAssistantMsgIdRef = useRef<string | null>(null)
   const startNewAssistantSegmentRef = useRef(false)
-
-  useEffect(() => {
-    messagesRef.current = state.messages
-  }, [state.messages])
+  const thinkingStartedAtRef = useRef<number | null>(null)
 
   useEffect(() => {
     historyRef.current = state.history
@@ -174,9 +171,25 @@ export function useAIChat() {
     [commitMessages]
   )
 
+  const finishThinking = useCallback(() => {
+    const startedAt = thinkingStartedAtRef.current
+    const messageId = activeAssistantMsgIdRef.current
+    if (startedAt === null || !messageId) return
+
+    const durationMs = performance.now() - startedAt
+    thinkingStartedAtRef.current = null
+    updateMessageById(messageId, (message) => ({
+      ...message,
+      thinkingDurationMs: (message.thinkingDurationMs || 0) + durationMs,
+    }))
+  }, [updateMessageById])
+
   const appendToAssistantStream = useCallback(
     (field: 'content' | 'thinking', chunk: string) => {
       if (typeof chunk !== 'string') return
+      if (field === 'thinking' && thinkingStartedAtRef.current === null) {
+        thinkingStartedAtRef.current = performance.now()
+      }
       if (
         startNewAssistantSegmentRef.current ||
         !activeAssistantMsgIdRef.current
@@ -218,6 +231,7 @@ export function useAIChat() {
             block_type: 'text' | 'thinking'
             content: string
           }
+          if (block_type === 'text') finishThinking()
           appendToAssistantStream(
             block_type === 'thinking' ? 'thinking' : 'content',
             content
@@ -225,6 +239,7 @@ export function useAIChat() {
           break
         }
         case 'tool_call': {
+          finishThinking()
           const { tool_call } = data as {
             tool_call: {
               id: string
@@ -434,6 +449,7 @@ export function useAIChat() {
           break
         }
         case 'error': {
+          finishThinking()
           const { message } = data as { message: string }
           appendAssistantError(message)
           break
@@ -444,15 +460,20 @@ export function useAIChat() {
       appendAssistantError,
       appendToAssistantStream,
       commitMessages,
+      finishThinking,
       updateToolMessage,
     ]
   )
 
   const readSSEStream = useCallback(
     async (response: Response) => {
-      return readAIChatSSEStream(response, handleSSEEvent)
+      try {
+        return await readAIChatSSEStream(response, handleSSEEvent)
+      } finally {
+        finishThinking()
+      }
     },
-    [handleSSEEvent]
+    [finishThinking, handleSSEEvent]
   )
 
   const streamChat = useCallback(
@@ -826,10 +847,11 @@ export function useAIChat() {
   }, [commitCurrentSessionId, commitLoading, commitMessages])
 
   const stopGeneration = useCallback(() => {
+    finishThinking()
     abortControllerRef.current?.abort()
     abortControllerRef.current = null
     commitLoading(false)
-  }, [commitLoading])
+  }, [commitLoading, finishThinking])
 
   const loadSession = useCallback(
     (sessionId: string) => {

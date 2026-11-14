@@ -32,7 +32,7 @@ export function AIChatPanel({
   sessionId?: string
   onClose: () => void
 }) {
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { closeChat, pageContext } = useAIChatContext()
   const {
     messages,
@@ -155,10 +155,10 @@ export function AIChatPanel({
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
-      <div className="flex h-11 shrink-0 items-center justify-between border-b bg-muted/50 px-3">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Bot className="h-4 w-4" />
-          AI Assistant
+          {t('aiChat.title')}
         </div>
 
         <div className="flex items-center gap-0.5">
@@ -168,12 +168,15 @@ export function AIChatPanel({
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7"
+                aria-label={t('common.fields.chatHistory')}
                 onClick={() => setShowHistory(true)}
               >
                 <Clock className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="top">Chat history</TooltipContent>
+            <TooltipContent side="top">
+              {t('common.fields.chatHistory')}
+            </TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -182,12 +185,15 @@ export function AIChatPanel({
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7"
+                aria-label={t('common.actions.newChat')}
                 onClick={handleNewSession}
               >
                 <MessageSquarePlus className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="top">New chat</TooltipContent>
+            <TooltipContent side="top">
+              {t('common.actions.newChat')}
+            </TooltipContent>
           </Tooltip>
 
           {!standalone && (
@@ -197,12 +203,15 @@ export function AIChatPanel({
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
+                  aria-label={t('aiChat.openInNewTab')}
                   onClick={openChatTab}
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">Open in new tab</TooltipContent>
+              <TooltipContent side="top">
+                {t('aiChat.openInNewTab')}
+              </TooltipContent>
             </Tooltip>
           )}
 
@@ -214,12 +223,15 @@ export function AIChatPanel({
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 hover:bg-destructive hover:text-destructive-foreground"
+                aria-label={t('common.actions.close')}
                 onClick={shouldCloseStandalone}
               >
                 <X className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="top">Close</TooltipContent>
+            <TooltipContent side="top">
+              {t('common.actions.close')}
+            </TooltipContent>
           </Tooltip>
         </div>
       </div>
