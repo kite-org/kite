@@ -1412,5 +1412,35 @@
   "secret": {
     "showBase64": "Show Base64",
     "decodeValues": "Decode Values"
+  },
+  "logViewer": {
+    "title": "Logs",
+    "reconnecting": "Reconnecting...",
+    "tailLines": "Tail Lines",
+    "allLines": "All",
+    "previousContainer": "Previous Container",
+    "filter": "Filter logs...",
+    "following": "Following",
+    "follow": "Follow logs",
+    "theme": "Log theme",
+    "settings": "Log settings",
+    "wordWrap": "Wrap lines",
+    "lineNumbers": "Show line numbers",
+    "timestamps": "Show timestamps",
+    "fontSize": "Font size",
+    "shortcuts": "Keyboard shortcuts",
+    "search": "Find in logs",
+    "fullscreen": "Enter fullscreen",
+    "exitFullscreen": "Exit fullscreen",
+    "increaseFont": "Increase font size",
+    "decreaseFont": "Decrease font size",
+    "resetFont": "Reset font size",
+    "clear": "Clear logs",
+    "download": "Download visible logs",
+    "close": "Close logs",
+    "loading": "Loading editor…",
+    "newLines": "{{count}} new lines",
+    "lines": "{{count}} lines",
+    "searchHint": "⌘ / Ctrl + F to find"
   }
 }

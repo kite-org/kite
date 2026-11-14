@@ -229,6 +229,30 @@ import { LogViewer } from '@kite-dev/plugin-sdk/ui'
 
 `namespace` is required. Use `podName` for a single Pod, or `pods` / `labelSelector` for workload logs. Pass the Pod's container definitions to populate the selector. `onClose` adds a close action. The viewer loads when rendered.
 
+## LogViewerPanel
+
+The shared presentation component used by `LogViewer`. It receives entries and has no Kubernetes or WebSocket dependency. Plugins that manage their own subscriptions use this component directly. It provides the same Monaco editor, ANSI colors, filtering, find, follow/pause, settings, download, and fullscreen controls. The parent must give the viewer an explicit height.
+
+```tsx
+import { LogViewerPanel } from '@kite-dev/plugin-sdk/ui'
+
+<LogViewerPanel
+  entries={entries}
+  toolbar={<SourceSelector />}
+  status={<span>3 streams ·</span>}
+  onClear={clearBuffer}
+  downloadFilename="aggregated-logs.txt"
+/>
+```
+
+Each entry is `{ id: string | number, text: string, timestamp?: number }`. Keep IDs stable and unique within the session; `text` can contain ANSI color sequences. `timestamp` is Unix time in milliseconds. The panel formats it as `yyyy-MM-dd HH:mm:ss.SSS` in the browser's local timezone. Timestamps are hidden by default; toggling them only changes the display without restarting subscriptions.
+
+Supply entries in display order and bound retained history in the caller. Filtering is reversible. Scrolling up pauses auto-follow while entries continue to arrive. When the buffer evicts older entries, the panel preserves the visible entry and its viewport offset; if that entry is removed, it stays paused at the beginning of the retained history.
+
+`toolbar` inserts controls before the filter, `status` adds footer content, and `onClear` clears the caller's buffer. `header` adds a heading, `settings` adds subscription-specific settings, and `onClose` adds a close action. `downloadFilename` defaults to `logs.txt`. `defaultTheme` defaults to `classic` and only applies when no theme preference has been saved. The panel itself does not offer Pod or container selectors.
+
+`Popover`, `PopoverTrigger`, and `PopoverContent` are also exported from `@kite-dev/plugin-sdk/ui` for compact source selectors. They use Kite's existing Radix-backed components.
+
 ## Terminal
 
 Embeds Kite's terminal for a Pod, node, or kubectl session. Pod exec uses the current cluster and requires `pods/exec` permission for the namespace.
