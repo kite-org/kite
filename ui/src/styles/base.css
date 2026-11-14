@@ -292,6 +292,10 @@ body {
   border: 1px solid var(--border);
   padding: 0.3em 0.6em;
   text-align: left;
+  /* Break long unbreakable tokens (image refs, URLs, pod names) so a single
+     cell can't force the table wider than its container. The wrapper's
+     overflow-x:auto is the fallback when there are simply too many columns. */
+  overflow-wrap: anywhere;
 }
 
 .ai-markdown th {
