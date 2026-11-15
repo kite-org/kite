@@ -18,6 +18,7 @@ E2E_OAUTH_PORT ?= 5556
 SPEC ?=
 DESKTOP_MAC_ARCH ?= $(shell go env GOARCH)
 DESKTOP_WINDOWS_ARCH ?= amd64
+DESKTOP_LINUX_ARCH ?= amd64
 DESKTOP_VERSION = $(patsubst v%,%,$(VERSION))
 
 # Version information
@@ -60,13 +61,13 @@ build: frontend backend ## Build both frontend and backend
 	@echo "✅ Build completed successfully!"
 	@echo "🚀 Run './$(BINARY_NAME)' to start the server"
 
-desktop-build: ## Build macOS and Windows desktop packages into bin/desktop
+desktop-build: ## Build macOS, Windows and Linux desktop packages into bin/desktop
 	@test "$$(uname -s)" = "Darwin" || (echo "Desktop builds currently require macOS"; exit 1)
 	@command -v makensis >/dev/null || (echo "Windows packaging requires NSIS (brew install makensis)"; exit 1)
 	$(MAKE) frontend
 	KITE_DESKTOP_VERSION="$(DESKTOP_VERSION)" GOFLAGS="-tags=desktop" go run github.com/egoist/mygo/cmd/mygo generate
 	$(MAKE) frontend
-	KITE_DESKTOP_VERSION="$(DESKTOP_VERSION)" GOFLAGS="-tags=desktop" MYGO_LDFLAGS="-X github.com/zxh326/kite/pkg/version.Version=$(VERSION) -X github.com/zxh326/kite/pkg/version.BuildDate=$(BUILD_DATE) -X github.com/zxh326/kite/pkg/version.CommitID=$(COMMIT_ID)" go run github.com/egoist/mygo/cmd/mygo build -platform darwin/$(DESKTOP_MAC_ARCH),windows/$(DESKTOP_WINDOWS_ARCH)
+	KITE_DESKTOP_VERSION="$(DESKTOP_VERSION)" GOFLAGS="-tags=desktop" MYGO_LDFLAGS="-X github.com/zxh326/kite/pkg/version.Version=$(VERSION) -X github.com/zxh326/kite/pkg/version.BuildDate=$(BUILD_DATE) -X github.com/zxh326/kite/pkg/version.CommitID=$(COMMIT_ID)" go run github.com/egoist/mygo/cmd/mygo build -platform darwin/$(DESKTOP_MAC_ARCH),windows/$(DESKTOP_WINDOWS_ARCH),linux/$(DESKTOP_LINUX_ARCH)
 	@test -f "bin/desktop/windows-$(DESKTOP_WINDOWS_ARCH)/kite-setup-$(DESKTOP_VERSION)-$(DESKTOP_WINDOWS_ARCH).exe"
 	cd "bin/desktop/windows-$(DESKTOP_WINDOWS_ARCH)" && zip -q -T "kite-$(DESKTOP_VERSION)-windows-$(DESKTOP_WINDOWS_ARCH).zip" Kite.exe ghostty-vt.dll && rm -f Kite.exe ghostty-vt.dll
 	@for dir in "bin/desktop/darwin-$(DESKTOP_MAC_ARCH)" "bin/desktop/windows-$(DESKTOP_WINDOWS_ARCH)"; do \
@@ -75,7 +76,7 @@ desktop-build: ## Build macOS and Windows desktop packages into bin/desktop
 			if [ -f "$$file" ]; then mv "$$file" "$$dir/.updates/"; fi; \
 		done; \
 	done
-	cd bin/desktop && shasum -a 256 darwin-$(DESKTOP_MAC_ARCH)/kite-$(DESKTOP_VERSION)*.dmg "windows-$(DESKTOP_WINDOWS_ARCH)/kite-setup-$(DESKTOP_VERSION)-$(DESKTOP_WINDOWS_ARCH).exe" "windows-$(DESKTOP_WINDOWS_ARCH)/kite-$(DESKTOP_VERSION)-windows-$(DESKTOP_WINDOWS_ARCH).zip" > SHA256SUMS
+	cd bin/desktop && shasum -a 256 darwin-$(DESKTOP_MAC_ARCH)/kite-$(DESKTOP_VERSION)*.dmg "windows-$(DESKTOP_WINDOWS_ARCH)/kite-setup-$(DESKTOP_VERSION)-$(DESKTOP_WINDOWS_ARCH).exe" "windows-$(DESKTOP_WINDOWS_ARCH)/kite-$(DESKTOP_VERSION)-windows-$(DESKTOP_WINDOWS_ARCH).zip" linux-$(DESKTOP_LINUX_ARCH)/kite_*_$(DESKTOP_LINUX_ARCH).deb "linux-$(DESKTOP_LINUX_ARCH)/kite-$(DESKTOP_VERSION)-linux-$(DESKTOP_LINUX_ARCH).tar.gz" "linux-$(DESKTOP_LINUX_ARCH)/install.sh" > SHA256SUMS
 
 desktop: desktop-build ## Build and open the macOS desktop prototype
 	open "bin/desktop/darwin-$(DESKTOP_MAC_ARCH)/Kite.app"

@@ -23,4 +23,8 @@ export default {
     signingIdentity: "-",
     minimumSystemVersion: "13.0",
   },
+  linux: {
+    formats: ["deb"],
+    depends: { deb: ["libayatana-appindicator3-1"] },
+  },
 };

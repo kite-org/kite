@@ -103,6 +103,24 @@ make build
 ./kite
 ```
 
+### Linux 桌面端
+
+Linux amd64 桌面包与 macOS、Windows 版本一起构建发布。
+Debian 或 Ubuntu 用户可下载 Release 中的 `kite-linux-amd64.deb` 并安装：
+
+```bash
+sudo apt install ./kite-linux-amd64.deb
+```
+
+也可以下载 `kite-<version>-linux-amd64.tar.gz` 和 `kite-linux-install.sh`，
+在同一目录执行 `sh kite-linux-install.sh`，安装到当前用户目录并支持自动更新；
+`.deb` 安装的版本通过安装新版软件包更新。运行需要 GTK 3、WebKitGTK 4.1 和
+Ayatana AppIndicator，使用 `.deb` 安装时会自动安装这些依赖。
+安装后从应用菜单打开 Kite。
+
+在 macOS 上执行 `make desktop-build`，统一构建 macOS、Windows 和 Linux 包。
+Linux 产物位于 `bin/desktop/linux-amd64/`。
+
 ### macOS 桌面端原型
 
 在 macOS 上构建并打开 MyGo 桌面应用：

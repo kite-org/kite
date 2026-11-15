@@ -103,6 +103,25 @@ make build
 ./kite
 ```
 
+### Linux desktop
+
+Linux amd64 desktop packages are built alongside the macOS and Windows releases.
+On Debian or Ubuntu, download `kite-linux-amd64.deb` from the release and install it:
+
+```bash
+sudo apt install ./kite-linux-amd64.deb
+```
+
+Alternatively, download `kite-<version>-linux-amd64.tar.gz` and
+`kite-linux-install.sh`, then run `sh kite-linux-install.sh` in their directory.
+This installs Kite for the current user and supports automatic updates; `.deb`
+installations are updated by installing a newer package. Running Kite requires
+GTK 3, WebKitGTK 4.1 and Ayatana AppIndicator; the `.deb` installs these dependencies.
+Open Kite from the applications menu.
+
+On macOS, `make desktop-build` builds macOS, Windows and Linux packages together.
+Linux output is in `bin/desktop/linux-amd64/`.
+
 ### macOS desktop prototype
 
 On macOS, build and open the MyGo desktop app:
