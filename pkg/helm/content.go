@@ -188,12 +188,17 @@ func toHelmChart(repository model.HelmRepository, generated time.Time, entry *re
 	}
 }
 
+// sortHelmChartVersions orders chart versions for the upgrade dropdown by
+// semantic version (newest first). Publish time is only a tie-breaker for the
+// rare case of identical/unparseable versions, so the dropdown follows semver
+// order rather than the index's publish timestamps (which may not match, e.g.
+// for backported patches or repackaged indexes).
 func sortHelmChartVersions(versions []helmChartVersion) {
 	sort.SliceStable(versions, func(i, j int) bool {
-		if cmp := compareTimes(versions[i].PublishedAt, versions[j].PublishedAt); cmp != 0 {
+		if cmp := compareChartVersions(versions[i].Version, versions[j].Version); cmp != 0 {
 			return cmp > 0
 		}
-		return compareChartVersions(versions[i].Version, versions[j].Version) > 0
+		return compareTimes(versions[i].PublishedAt, versions[j].PublishedAt) > 0
 	})
 }
 
