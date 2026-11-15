@@ -9,6 +9,7 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import { getResourceCatalogEntry } from '@/lib/resource-catalog'
+import { PluginIndicator } from '@/components/plugins/plugin-indicator'
 
 import { usePlugins } from './plugin-context'
 import { PluginContent, PluginView } from './plugin-view'
@@ -237,7 +238,12 @@ export function usePluginResourceTabs<T>({
             id: `plugin:${plugin.manifest.id}:tab:${tab.id}`,
             value: `plugin:${plugin.manifest.id}:tab:${tab.id}`,
             order: tab.order,
-            label: pluginLabel(tab.label, i18n.language),
+            label: (
+              <span className="inline-flex items-center gap-1.5">
+                {pluginLabel(tab.label, i18n.language)}
+                <PluginIndicator pluginId={plugin.manifest.id} />
+              </span>
+            ),
             content: (
               <PluginResourceContext.Provider
                 value={{ resource, reference: reference!, onRefresh }}
