@@ -388,10 +388,12 @@ func (h *PodHandler) Exec(c *gin.Context) {
 	stdout := &podExecOutputWriter{limit: limit}
 	stderr := &podExecOutputWriter{limit: limit}
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
+	user := c.MustGet("user").(model.User)
 	err := cs.K8sClient.ExecCommand(ctx, kube.ExecOptions{
 		Namespace:     c.Param("namespace"),
 		PodName:       c.Param("name"),
 		ContainerName: request.Container,
+		UserKey:       user.Key(),
 		Command:       request.Command,
 		Stdout:        stdout,
 		Stderr:        stderr,
