@@ -142,6 +142,9 @@ func syncKubeconfigSource(source model.KubeconfigSource, importing bool) (count 
 	for _, path := range source.Paths {
 		info, err := os.Stat(path)
 		if err != nil {
+			if source.Key == "default" && errors.Is(err, os.ErrNotExist) {
+				continue
+			}
 			return 0, false, err
 		}
 		if info.Size() == 0 {
