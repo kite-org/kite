@@ -131,6 +131,10 @@ jobs:
             os: ubuntu-latest
             platform: windows/amd64
             output: windows-amd64
+          - name: Linux
+            os: ubuntu-latest
+            platform: linux/amd64
+            output: linux-amd64
     steps:
       - name: Checkout desktop branch
         uses: actions/checkout@v5
@@ -195,9 +199,12 @@ jobs:
           mkdir -p "$stage"
           if [[ "$PLATFORM" == darwin-arm64 ]]; then
             cp "$output/kite-$version-arm64.dmg" "$stage/kite-darwin-arm64.dmg"
-          else
+          elif [[ "$PLATFORM" == windows-amd64 ]]; then
             cp "$output/kite-setup-$version-amd64.exe" "$stage/kite-windows-amd64.exe"
             (cd "$output" && zip -q -T "$stage/kite-windows-amd64.zip" Kite.exe ghostty-vt.dll)
+          else
+            cp "$output"/kite_*_amd64.deb "$stage/kite-linux-amd64.deb"
+            cp "$output/install.sh" "$stage/kite-linux-install.sh"
           fi
           cp "$output/update-$PLATFORM.json" "$output/kite-$version-$PLATFORM.tar.gz" "$stage/"
           for delta in "$output"/*.delta; do
