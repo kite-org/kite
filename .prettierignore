@@ -8,3 +8,5 @@ components.json
 index.html
 src/components/ui
 **/*.yaml
+ui/src/lib/mygo.ts
+ui/src/lib/desktoplocales.ts

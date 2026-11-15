@@ -7,3 +7,5 @@ components.json
 index.html
 src/components/ui
 *.yaml
+src/lib/mygo.ts
+src/lib/desktoplocales.ts
