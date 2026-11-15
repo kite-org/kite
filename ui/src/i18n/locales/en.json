@@ -1489,8 +1489,6 @@
     "allLines": "All",
     "previousContainer": "Previous Container",
     "filter": "Filter logs...",
-    "following": "Following",
-    "follow": "Follow logs",
     "theme": "Log theme",
     "settings": "Log settings",
     "wordWrap": "Wrap lines",

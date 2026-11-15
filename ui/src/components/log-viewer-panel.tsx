@@ -13,8 +13,6 @@ import {
   IconMaximize,
   IconMinimize,
   IconPalette,
-  IconPlayerPause,
-  IconPlayerPlay,
   IconSearch,
   IconSettings,
   IconX,
@@ -506,7 +504,7 @@ export function LogViewerPanel({
       )}
     >
       <style>{ANSI_CSS}</style>
-      <CardHeader className="px-3 py-2">
+      <CardHeader className="block px-3 py-2">
         <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center md:justify-between">
           {header}
           <div
@@ -522,33 +520,15 @@ export function LogViewerPanel({
                 header && 'md:w-48 md:flex-none md:basis-auto'
               )}
             >
-              <IconSearch className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <IconSearch className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 aria-label={t('logViewer.filter')}
                 placeholder={t('logViewer.filter')}
                 value={filterTerm}
                 onChange={(e) => setFilterTerm(e.target.value)}
-                className="pl-8 w-full pr-8"
+                className="h-8 pl-8 w-full pr-8"
               />
             </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (following) {
-                  followingRef.current = false
-                  setFollowing(false)
-                } else scrollToBottom()
-              }}
-            >
-              {following ? (
-                <IconPlayerPause className="size-4" />
-              ) : (
-                <IconPlayerPlay className="size-4" />
-              )}
-              {t(following ? 'logViewer.following' : 'logViewer.follow')}
-            </Button>
 
             {/* Quick Theme Toggle */}
             <Button
