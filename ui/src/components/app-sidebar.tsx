@@ -1,9 +1,10 @@
 import * as React from 'react'
 import { useCallback, useMemo, useState } from 'react'
 import Icon from '@/assets/icon.svg'
+import { useAuth } from '@/contexts/auth-context'
 import { useSidebarConfig } from '@/contexts/sidebar-config-context'
 import { CollapsibleContent } from '@radix-ui/react-collapsible'
-import { IconLayoutDashboard } from '@tabler/icons-react'
+import { IconLayoutDashboard, IconPuzzle } from '@tabler/icons-react'
 import { CustomResourceDefinition } from 'kubernetes-types/apiextensions/v1'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -36,6 +37,7 @@ import { VersionInfo } from './version-info'
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { t } = useTranslation()
+  const { user } = useAuth()
   const location = useLocation()
   const { isMobile, setOpenMobile } = useSidebar()
   const { config, isLoading } = useSidebarConfig()
@@ -329,6 +331,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
+            {user?.isAdmin() && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip={t('plugins.navLabel')}
+                  asChild
+                  isActive={location.pathname === '/plugins'}
+                  className="data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm"
+                >
+                  <Link to="/plugins" onClick={handleMenuItemClick}>
+                    <IconPuzzle className="text-sidebar-primary" />
+                    <span className="font-medium">{t('plugins.navLabel')}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
           </SidebarMenu>
         </SidebarGroup>
 

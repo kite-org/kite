@@ -17,11 +17,14 @@ import (
 )
 
 type InstalledPlugin struct {
-	ID       string    `json:"id"`
-	Enabled  bool      `json:"enabled"`
-	Version  string    `json:"version"`
-	Manifest *Manifest `json:"manifest,omitempty"`
-	Error    string    `json:"error,omitempty"`
+	ID             string    `json:"id"`
+	Enabled        bool      `json:"enabled"`
+	Version        string    `json:"version"`
+	Manifest       *Manifest `json:"manifest,omitempty"`
+	Error          string    `json:"error,omitempty"`
+	NPM            bool      `json:"npm,omitempty"`
+	NPMPackageName string    `json:"npmPackageName,omitempty"`
+	NPMRegistry    string    `json:"npmRegistry,omitempty"`
 }
 
 func assetBaseURL(plugin model.Plugin) string {
@@ -58,6 +61,11 @@ func ListActive(c *gin.Context) {
 func describeInstalledPlugin(record model.Plugin) InstalledPlugin {
 	manifest, err := loadInstalledPlugin(record, record.Enabled)
 	plugin := InstalledPlugin{ID: record.ID, Enabled: record.Enabled, Version: record.Version, Manifest: manifest}
+	if source := npmSourceFromURL(record.DownloadURL); source != nil {
+		plugin.NPM = true
+		plugin.NPMPackageName = source.PackageName
+		plugin.NPMRegistry = source.Registry
+	}
 	if err != nil {
 		plugin.Error = err.Error()
 	}
@@ -100,7 +108,7 @@ func Install(c *gin.Context) {
 	if strings.HasPrefix(c.ContentType(), "multipart/form-data") {
 		id, err = installUpload(c)
 	} else {
-		id, err = installFromCatalog(c)
+		id, err = installRemote(c)
 	}
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -130,14 +138,37 @@ func installUpload(c *gin.Context) (string, error) {
 	return installArchive(reader, nil, enabled)
 }
 
-func installFromCatalog(c *gin.Context) (string, error) {
+func installRemote(c *gin.Context) (string, error) {
 	request := struct {
-		ID      string `json:"id" binding:"required"`
-		Version string `json:"version" binding:"required"`
-		Enabled bool   `json:"enabled"`
+		ID          string `json:"id"`
+		Version     string `json:"version"`
+		PackageName string `json:"packageName"`
+		Registry    string `json:"registry"`
+		NPM         bool   `json:"npm"`
+		Enabled     bool   `json:"enabled"`
 	}{Enabled: true}
 	if err := c.ShouldBindJSON(&request); err != nil {
-		return "", fmt.Errorf("invalid catalog installation request: %w", err)
+		return "", fmt.Errorf("invalid plugin installation request: %w", err)
+	}
+	if request.NPM {
+		var plugin model.Plugin
+		if err := model.DB.First(&plugin, "id = ?", request.ID).Error; err != nil {
+			return "", err
+		}
+		source := npmSourceFromURL(plugin.DownloadURL)
+		if source == nil {
+			return "", fmt.Errorf("installed plugin does not have an npm download URL")
+		}
+		return installNPM(c.Request.Context(), *source, request.Version, plugin.ID, plugin.Enabled)
+	}
+	if request.PackageName != "" || request.Registry != "" {
+		if request.Version == "" {
+			request.Version = "latest"
+		}
+		return installNPM(c.Request.Context(), npmSource{PackageName: request.PackageName, Registry: request.Registry}, request.Version, "", request.Enabled)
+	}
+	if request.ID == "" || request.Version == "" {
+		return "", fmt.Errorf("plugin ID and version are required")
 	}
 	setting, err := model.GetGeneralSetting()
 	if err != nil {

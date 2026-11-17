@@ -4,7 +4,7 @@ outline: deep
 
 # Publishing Plugins
 
-Plugins are packaged as `.tar.gz` archives. Distribute them directly, host your own catalog, or publish through the official [kite-plugins](https://github.com/kite-org/kite-plugins) repository.
+Plugins are packaged as `.tar.gz` archives. Distribute them directly, publish to npm, host your own catalog, or publish through the official [kite-plugins](https://github.com/kite-org/kite-plugins) repository.
 
 ## Version Rules
 
@@ -15,6 +15,37 @@ Plugins are packaged as `.tar.gz` archives. Distribute them directly, host your 
 ## README
 
 The plugin's root `README.md` is copied into `dist/` and included in the archive. When distributed through a catalog, Kite can preview this README. Use full repository URLs for links to files that are not included in the package.
+
+## Publish to npm
+
+In your plugin project's `package.json`, remove `"private": true` and include the build output:
+
+```json
+{
+  "name": "my-plugin",
+  "version": "0.1.0",
+  "files": ["dist"],
+  "keywords": ["kite-plugin"]
+}
+```
+
+Keep the project's other fields and scripts. Build and publish to the public npm registry:
+
+```sh
+pnpm run build
+npm login --registry=https://registry.npmjs.org
+npm publish --access public --registry=https://registry.npmjs.org
+```
+
+The published package must contain `dist/plugin.json` and all assets referenced by it. Kite also accepts `plugin.json` and its assets directly at the npm package root. The npm package version must match `plugin.json`'s version. Kite downloads built assets without running npm scripts or installing dependencies.
+
+Packages with the `kite-plugin` keyword are discoverable in Kite's plugin catalog after npm indexes them. Community results appear after catalog entries; a check marks catalog-listed plugins. The keyword is not a safety or compatibility certification. Community discovery queries npmjs directly from your browser, and search filters the results locally. Installation and update downloads still run on the Kite server.
+
+In **Plugin management → Install from npm**, enter the package name and select **npmjs** or **npmmirror**. Kite installs the `latest` version and enables it automatically. Both unscoped and scoped names (`@scope/my-plugin`) are supported; the manifest's plugin ID must still follow Kite's ID rules. The current SDK derives that ID from the build project's name, so scoped npm publishing requires a separate publishing `package.json` with the scoped name and matching version, alongside the built assets.
+
+To update, increment the version, rebuild, and publish. Kite checks for npm updates when you open **Installed plugins** or click its refresh button. Click **Update** to install the displayed version while preserving the plugin's enabled state. The server identifies the package name and registry from the saved npmjs or npmmirror download URL. The browser checks each package directly against its installation registry, with independent requests and timeouts. npmmirror may take time to synchronize a newly published version.
+
+See [npm publish](https://docs.npmjs.com/cli/v11/commands/npm-publish/) for publishing options and [npmmirror](https://npmmirror.com/) for mirror details.
 
 ## Private Distribution
 
