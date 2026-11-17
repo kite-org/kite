@@ -83,6 +83,12 @@ func withArchive(reader io.Reader, expected *CatalogPlugin, consume func(string,
 	if err := extractArchive(archive, content); err != nil {
 		return err
 	}
+	for _, root := range []string{content, filepath.Join(content, "package", "dist"), filepath.Join(content, "package")} {
+		if _, err := os.Stat(filepath.Join(root, "plugin.json")); err == nil {
+			content = root
+			break
+		}
+	}
 	manifest, err := readManifest(content)
 	if err != nil {
 		return err

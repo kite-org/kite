@@ -133,7 +133,7 @@ func checkCompatibility(sdkVersion string, r Requirements) error {
 	}
 	kiteVersion, err := semver.StrictNewVersion(strings.TrimPrefix(version.Version, "v"))
 	if err == nil && kiteVersion.Prerelease() == "" && kiteVersion.Metadata() == "" && !kiteRange.Check(kiteVersion) {
-		return fmt.Errorf("plugin requires Kite %s; this Kite is %s", r.Kite, version.Version)
+		return fmt.Errorf("plugin requires Kite %s", r.Kite)
 	}
 	return nil
 }

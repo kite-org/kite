@@ -8,7 +8,18 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { Check, Puzzle, RefreshCw, Search, Upload } from 'lucide-react'
+import {
+  BadgeCheck,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Puzzle,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  Upload,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 import gt from 'semver/functions/gt'
@@ -19,15 +30,30 @@ import {
   deletePlugin,
   installPlugin,
   updatePlugin,
+  useCommunityPlugins,
   useInstalledPlugins,
+  useNPMPluginUpdates,
   usePluginCatalog,
   type CatalogPlugin,
+  type CommunityPlugin,
   type InstalledPlugin,
 } from '@/lib/api/plugins'
 import { usePageTitle } from '@/hooks/use-page-title'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -54,10 +80,12 @@ export function PluginManagementPage() {
   const tab = ['catalog', 'installed'].includes(params.get('tab') ?? '')
     ? params.get('tab')!
     : 'catalog'
+  const npmUpdates = useNPMPluginUpdates(
+    installed.data?.plugins,
+    isAdmin && tab === 'installed'
+  )
+  const community = useCommunityPlugins(isAdmin && tab === 'catalog')
   const [search, setSearch] = useState('')
-  const [selectedVersions, setSelectedVersions] = useState<
-    Record<string, string>
-  >({})
   const [catalogPagination, setCatalogPagination] = useState({
     pageIndex: 0,
     pageSize: 20,
@@ -69,6 +97,11 @@ export function PluginManagementPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [configuring, setConfiguring] = useState<string | null>(null)
   const [readmePlugin, setReadmePlugin] = useState<CatalogPlugin | null>(null)
+  const [npmOpen, setNpmOpen] = useState(false)
+  const [communityInstall, setCommunityInstall] =
+    useState<CommunityPlugin | null>(null)
+  const [packageName, setPackageName] = useState('')
+  const [registry, setRegistry] = useState<'npmjs' | 'npmmirror'>('npmjs')
   const readmeTrigger = useRef<string | null>(null)
   const upload = useRef<HTMLInputElement>(null)
   usePageTitle(t('plugins.title'))
@@ -103,43 +136,42 @@ export function PluginManagementPage() {
       ),
     [catalogVersions]
   )
-  const catalogRows = useMemo(
+  const catalogRows = useMemo<(CatalogPlugin | CommunityPlugin)[]>(
     () =>
-      entries
-        .map(
-          (plugin) =>
-            catalogVersions
-              .get(plugin.id)!
-              .find((entry) => entry.version === selectedVersions[plugin.id]) ??
-            plugin
-        )
-        .filter((plugin) =>
-          `${plugin.name} ${plugin.id} ${plugin.description ?? ''}`
-            .toLowerCase()
-            .includes(search.trim().toLowerCase())
-        ),
-    [entries, catalogVersions, selectedVersions, search]
+      [...entries, ...(community.data?.plugins ?? [])].filter((plugin) =>
+        `${'packageName' in plugin ? plugin.packageName : `${plugin.name} ${plugin.id}`} ${plugin.description ?? ''}`
+          .toLowerCase()
+          .includes(search.trim().toLowerCase())
+      ),
+    [entries, community.data, search]
   )
   const installedRows = useMemo(
     () =>
       (installed.data?.plugins ?? [])
-        .map((plugin) => ({
-          plugin,
-          manifest: plugin.manifest,
-          runtime: plugins.find((item) => item.manifest.id === plugin.id),
-          latest: entries.find(
-            (entry) =>
-              entry.id === plugin.id &&
-              !entry.error &&
-              gt(entry.version, plugin.version)
-          ),
-        }))
+        .map((plugin) => {
+          const npmUpdate = npmUpdates.updates[plugin.id]
+          const latest = plugin.npm
+            ? npmUpdate
+            : entries.find((entry) => entry.id === plugin.id)
+          return {
+            plugin,
+            manifest: plugin.manifest,
+            runtime: plugins.find((item) => item.manifest.id === plugin.id),
+            latest:
+              latest?.version &&
+              !latest.error &&
+              gt(latest.version, plugin.version)
+                ? latest.version
+                : undefined,
+            updateError: plugin.npm ? npmUpdate?.error : undefined,
+          }
+        })
         .filter(({ plugin, manifest }) =>
           `${manifest?.name ?? ''} ${plugin.id} ${manifest?.description ?? ''}`
             .toLowerCase()
             .includes(search.trim().toLowerCase())
         ),
-    [installed.data?.plugins, plugins, entries, search]
+    [installed.data?.plugins, plugins, entries, npmUpdates.updates, search]
   )
   const installFromCatalog = (
     plugin: CatalogPlugin,
@@ -154,119 +186,6 @@ export function PluginManagementPage() {
     )
   }
 
-  const catalogColumn = createColumnHelper<(typeof catalogRows)[number]>()
-  const catalogColumns = [
-    catalogColumn.display({
-      id: 'name',
-      header: t('plugins.plugin'),
-      cell: ({ row: { original: plugin } }) => (
-        <div className="min-w-48">
-          <button
-            id={`plugin-readme-${plugin.id}`}
-            type="button"
-            className="block truncate font-medium app-link"
-            aria-label={t('plugins.previewReadme', { name: plugin.name })}
-            onClick={(event) => {
-              readmeTrigger.current = event.currentTarget.id
-              setReadmePlugin(plugin)
-            }}
-          >
-            {plugin.name}
-          </button>
-          {plugin.author && (
-            <div className="truncate text-xs text-muted-foreground">
-              @{plugin.author}
-            </div>
-          )}
-        </div>
-      ),
-    }),
-    catalogColumn.display({
-      id: 'version',
-      header: t('common.fields.version'),
-      cell: ({ row: { original: plugin } }) => (
-        <Select
-          value={plugin.version}
-          disabled={action.isPending}
-          onValueChange={(version) =>
-            setSelectedVersions((previous) => ({
-              ...previous,
-              [plugin.id]: version,
-            }))
-          }
-        >
-          <SelectTrigger
-            className="w-32 tabular-nums"
-            size="sm"
-            aria-label={t('common.fields.version')}
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {catalogVersions.get(plugin.id)!.map((entry) => (
-              <SelectItem key={entry.version} value={entry.version}>
-                {entry.version}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ),
-    }),
-    catalogColumn.display({
-      id: 'description',
-      header: t('common.fields.description'),
-      cell: ({ row: { original: plugin } }) => (
-        <span
-          className="block min-w-64 whitespace-normal break-words text-left text-pretty text-sm leading-5 text-muted-foreground line-clamp-2"
-          title={plugin.description}
-        >
-          {plugin.description || '-'}
-        </span>
-      ),
-    }),
-    catalogColumn.display({
-      id: 'actions',
-      header: t('common.fields.actions'),
-      cell: ({ row: { original: plugin } }) => {
-        const existing = installed.data?.plugins.find(
-          (item) => item.id === plugin.id
-        )
-        if (existing?.version === plugin.version) {
-          return (
-            <span className="inline-flex h-8 items-center gap-1.5 text-sm text-muted-foreground">
-              <Check className="size-4" aria-hidden="true" />
-              {t('plugins.alreadyInstalled')}
-            </span>
-          )
-        }
-        return (
-          <div className="space-y-1">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={
-                action.isPending || !installed.isSuccess || !!plugin.error
-              }
-              onClick={() =>
-                action.mutate(() => installFromCatalog(plugin, existing))
-              }
-            >
-              {t(
-                existing && gt(plugin.version, existing.version)
-                  ? 'plugins.update'
-                  : 'plugins.install'
-              )}
-            </Button>
-            {plugin.error && (
-              <p className="max-w-xs whitespace-normal text-pretty text-xs text-destructive">
-                {plugin.error}
-              </p>
-            )}
-          </div>
-        )
-      },
-    }),
-  ]
   const installedColumn = createColumnHelper<(typeof installedRows)[number]>()
   const installedColumns = [
     installedColumn.display({
@@ -294,14 +213,22 @@ export function PluginManagementPage() {
       header: t('common.fields.version'),
       cell: ({
         row: {
-          original: { plugin, latest },
+          original: { plugin, latest, updateError },
         },
       }) => (
         <div className="space-y-1">
           <span className="tabular-nums">{plugin.version}</span>
           {latest && (
             <p className="text-xs tabular-nums text-muted-foreground">
-              {t('plugins.availableVersion', { version: latest.version })}
+              {t('plugins.availableVersion', { version: latest })}
+            </p>
+          )}
+          {updateError && (
+            <p
+              role="alert"
+              className="max-w-xs whitespace-normal text-xs text-destructive"
+            >
+              {t('plugins.updateCheckFailed', { error: updateError })}
             </p>
           )}
         </div>
@@ -379,7 +306,12 @@ export function PluginManagementPage() {
               variant="outline"
               disabled={action.isPending}
               onClick={() =>
-                action.mutate(() => installFromCatalog(latest, plugin))
+                action.mutate(() =>
+                  installPlugin(
+                    { id: plugin.id, version: latest, npm: plugin.npm },
+                    plugin.enabled
+                  )
+                )
               }
             >
               {t('plugins.update')}
@@ -412,16 +344,18 @@ export function PluginManagementPage() {
       ),
     }),
   ]
-  const catalogTable = useReactTable({
-    data: catalogRows,
-    columns: catalogColumns,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getRowId: (plugin) => plugin.id,
-    enableSorting: false,
-    state: { pagination: catalogPagination },
-    onPaginationChange: setCatalogPagination,
-  })
+  const catalogPageCount = Math.max(
+    1,
+    Math.ceil(catalogRows.length / catalogPagination.pageSize)
+  )
+  const catalogPageIndex = Math.min(
+    catalogPagination.pageIndex,
+    catalogPageCount - 1
+  )
+  const catalogPage = catalogRows.slice(
+    catalogPageIndex * catalogPagination.pageSize,
+    (catalogPageIndex + 1) * catalogPagination.pageSize
+  )
   const installedTable = useReactTable({
     data: installedRows,
     columns: installedColumns,
@@ -438,39 +372,40 @@ export function PluginManagementPage() {
     ? catalogRows.length === 0
     : installedRows.length === 0
   const hasFilters = Boolean(search)
-  const emptyState = isLoading ? (
-    <Skeleton className="h-72 w-full" />
-  ) : empty ? (
-    <div className="flex h-72 flex-col items-center justify-center gap-3 px-6 text-center">
-      <div className="rounded-full bg-muted/30 p-6">
-        <Puzzle className="size-12 text-muted-foreground" />
-      </div>
-      <h3 className="text-balance text-lg font-medium">
-        {t(
-          hasFilters
-            ? 'plugins.noSearchResults'
-            : isCatalog
-              ? 'plugins.emptyCatalog'
-              : 'plugins.emptyInstalled'
+  const emptyState =
+    empty && (isLoading || (isCatalog && community.isLoading)) ? (
+      <Skeleton className="h-72 w-full" />
+    ) : empty ? (
+      <div className="flex h-72 flex-col items-center justify-center gap-3 px-6 text-center">
+        <div className="rounded-full bg-muted/30 p-6">
+          <Puzzle className="size-12 text-muted-foreground" />
+        </div>
+        <h3 className="text-balance text-lg font-medium">
+          {t(
+            hasFilters
+              ? 'plugins.noSearchResults'
+              : isCatalog
+                ? 'plugins.emptyCatalog'
+                : 'plugins.emptyInstalled'
+          )}
+        </h3>
+        {hasFilters ? (
+          <Button variant="outline" onClick={() => setSearch('')}>
+            {t('plugins.clearFilters')}
+          </Button>
+        ) : isCatalog ? (
+          <Button variant="outline" asChild>
+            <Link to="/settings?tab=general">
+              {t('plugins.configureCatalog')}
+            </Link>
+          </Button>
+        ) : (
+          <Button variant="outline" onClick={() => setTab('catalog')}>
+            {t('plugins.browseCatalog')}
+          </Button>
         )}
-      </h3>
-      {hasFilters ? (
-        <Button variant="outline" onClick={() => setSearch('')}>
-          {t('plugins.clearFilters')}
-        </Button>
-      ) : isCatalog ? (
-        <Button variant="outline" asChild>
-          <Link to="/settings?tab=general">
-            {t('plugins.configureCatalog')}
-          </Link>
-        </Button>
-      ) : (
-        <Button variant="outline" onClick={() => setTab('catalog')}>
-          {t('plugins.browseCatalog')}
-        </Button>
-      )}
-    </div>
-  ) : null
+      </div>
+    ) : null
 
   if (!isAdmin) return <p>{t('plugins.adminOnly')}</p>
 
@@ -502,10 +437,23 @@ export function PluginManagementPage() {
           <Button
             variant="outline"
             size="icon"
-            disabled={catalog.isFetching || action.isPending}
-            aria-label={t('plugins.refreshCatalog')}
-            title={t('plugins.refreshCatalog')}
-            onClick={() => void catalog.refetch()}
+            disabled={
+              catalog.isFetching ||
+              community.isFetching ||
+              npmUpdates.isFetching ||
+              action.isPending
+            }
+            aria-label={t(
+              isCatalog ? 'plugins.refreshCatalog' : 'plugins.checkUpdates'
+            )}
+            title={t(
+              isCatalog ? 'plugins.refreshCatalog' : 'plugins.checkUpdates'
+            )}
+            onClick={() => {
+              void catalog.refetch()
+              if (isCatalog) void community.refetch()
+              if (!isCatalog) void npmUpdates.refetch()
+            }}
           >
             <RefreshCw className="size-4" />
           </Button>
@@ -516,7 +464,13 @@ export function PluginManagementPage() {
             <Input
               className="w-full pl-9 pr-4"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => {
+                setSearch(event.target.value)
+                setCatalogPagination((previous) => ({
+                  ...previous,
+                  pageIndex: 0,
+                }))
+              }}
               placeholder={t('plugins.search')}
               aria-label={t('plugins.search')}
             />
@@ -545,12 +499,132 @@ export function PluginManagementPage() {
             <Upload className="size-4" />
             {t('plugins.upload')}
           </Button>
+          <Dialog
+            open={npmOpen}
+            onOpenChange={(open) => {
+              if (action.isPending) return
+              action.reset()
+              setCommunityInstall(null)
+              setNpmOpen(open)
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button variant="outline" disabled={action.isPending}>
+                <Download className="size-4" />
+                {t('plugins.installFromNpm')}
+              </Button>
+            </DialogTrigger>
+            <DialogContent showCloseButton={!action.isPending}>
+              <DialogHeader>
+                <DialogTitle>{t('plugins.installFromNpm')}</DialogTitle>
+                <DialogDescription>
+                  {communityInstall
+                    ? `${communityInstall.packageName} · ${communityInstall.version}`
+                    : t('plugins.npmDescription')}
+                </DialogDescription>
+              </DialogHeader>
+              <form
+                className="space-y-4"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  if (action.isPending || !packageName.trim()) return
+                  action.mutate(async () => {
+                    await installPlugin({
+                      packageName: packageName.trim(),
+                      registry,
+                      version: communityInstall?.version,
+                    })
+                    setNpmOpen(false)
+                    setPackageName('')
+                    setCommunityInstall(null)
+                    setTab('installed')
+                  })
+                }}
+              >
+                {communityInstall && (
+                  <Alert>
+                    <ShieldAlert className="size-4" />
+                    <AlertTitle>{t('plugins.community')}</AlertTitle>
+                    <AlertDescription>
+                      {t('plugins.communityWarning')}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="npm-package-name">
+                    {t('plugins.npmPackageName')}
+                  </Label>
+                  <Input
+                    id="npm-package-name"
+                    value={packageName}
+                    onChange={(event) => setPackageName(event.target.value)}
+                    placeholder={t('plugins.npmPackagePlaceholder')}
+                    maxLength={214}
+                    autoComplete="off"
+                    spellCheck={false}
+                    disabled={action.isPending}
+                    readOnly={communityInstall !== null}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="npm-registry">
+                    {t('plugins.npmRegistry')}
+                  </Label>
+                  <Select
+                    value={registry}
+                    onValueChange={(value: 'npmjs' | 'npmmirror') =>
+                      setRegistry(value)
+                    }
+                    disabled={action.isPending}
+                  >
+                    <SelectTrigger id="npm-registry" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="npmjs">npmjs</SelectItem>
+                      <SelectItem value="npmmirror">npmmirror</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {action.error && (
+                  <p
+                    role="alert"
+                    className="break-words text-sm text-destructive"
+                  >
+                    {action.error.message}
+                  </p>
+                )}
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={action.isPending}
+                    onClick={() => setNpmOpen(false)}
+                  >
+                    {t('common.actions.cancel')}
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={action.isPending || !packageName.trim()}
+                  >
+                    {t(
+                      action.isPending ? 'plugins.working' : 'plugins.install'
+                    )}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
-      <p className="text-pretty text-xs text-muted-foreground">
-        {t('plugins.trust')}
+      <p className="flex items-start gap-2 text-pretty text-xs leading-5 text-muted-foreground">
+        {isCatalog && (
+          <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+        )}
+        {t(isCatalog ? 'plugins.catalogNotice' : 'plugins.trust')}
       </p>
-      {action.error && (
+      {action.error && !npmOpen && (
         <p role="alert" className="break-words text-sm text-destructive">
           {action.error.message}
         </p>
@@ -570,22 +644,225 @@ export function PluginManagementPage() {
           {catalog.error.message}
         </p>
       )}
+      {isCatalog && catalog.isLoading && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {t('plugins.loadingCatalog')}
+        </p>
+      )}
+      {isCatalog && community.isLoading && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {t('plugins.loadingCommunity')}
+        </p>
+      )}
+      {isCatalog && community.error && (
+        <p role="alert" className="text-sm text-destructive">
+          {t('plugins.communityLoadFailed', { error: community.error.message })}
+        </p>
+      )}
       {isCatalog && (
-        <ResourceTableView
-          table={catalogTable}
-          columnCount={catalogColumns.length}
-          isLoading={isLoading}
-          data={catalogRows}
-          fitViewportHeight
-          emptyState={emptyState}
-          hasActiveFilters={hasFilters}
-          filteredRowCount={catalogRows.length}
-          totalRowCount={entries.length}
-          searchQuery={search}
-          pagination={catalogPagination}
-          setPagination={setCatalogPagination}
-          shrinkFirstColumn={false}
-        />
+        <>
+          {emptyState || (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {catalogPage.map((plugin) => {
+                const isCommunity = 'packageName' in plugin
+                const name = isCommunity ? plugin.packageName : plugin.name
+                const author = isCommunity ? plugin.publisher : plugin.author
+                const existing = installed.data?.plugins.find((item) =>
+                  isCommunity
+                    ? item.npmPackageName === plugin.packageName
+                    : item.id === plugin.id
+                )
+                const isInstalled =
+                  existing &&
+                  (isCommunity
+                    ? !gt(plugin.version, existing.version)
+                    : existing.version === plugin.version)
+                const error = isCommunity ? undefined : plugin.error
+                return (
+                  <Card
+                    key={
+                      isCommunity
+                        ? `npm:${plugin.packageName}`
+                        : `catalog:${plugin.id}`
+                    }
+                    className="min-w-0 gap-3 rounded-lg p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          {isCommunity ? (
+                            <a
+                              href={`https://www.npmjs.com/package/${plugin.packageName}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="truncate text-sm font-medium app-link"
+                              title={name}
+                            >
+                              {name}
+                            </a>
+                          ) : (
+                            <button
+                              id={`plugin-readme-${plugin.id}`}
+                              type="button"
+                              className="truncate text-sm font-medium app-link"
+                              title={name}
+                              aria-label={t('plugins.previewReadme', { name })}
+                              onClick={(event) => {
+                                readmeTrigger.current = event.currentTarget.id
+                                setReadmePlugin(plugin)
+                              }}
+                            >
+                              {name}
+                            </button>
+                          )}
+                          {!isCommunity && (
+                            <span
+                              className="shrink-0 text-emerald-600 dark:text-emerald-400"
+                              title={t('plugins.catalogListed')}
+                            >
+                              <BadgeCheck
+                                className="size-4"
+                                aria-label={t('plugins.catalogListed')}
+                              />
+                            </span>
+                          )}
+                        </div>
+                        <p
+                          className="truncate text-xs tabular-nums text-muted-foreground"
+                          title={`${author ? `@${author}，` : ''}v${plugin.version}`}
+                        >
+                          {author && `@${author}，`}v{plugin.version}
+                        </p>
+                      </div>
+                      {isInstalled ? (
+                        <span className="inline-flex h-7 shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                          <Check className="size-3.5" aria-hidden="true" />
+                          {t('plugins.alreadyInstalled')}
+                        </span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 shrink-0 gap-1 rounded-full px-2.5 text-xs"
+                          disabled={
+                            action.isPending || !installed.isSuccess || !!error
+                          }
+                          onClick={() => {
+                            if (!isCommunity) {
+                              action.mutate(() =>
+                                installFromCatalog(plugin, existing)
+                              )
+                            } else if (existing) {
+                              action.mutate(() =>
+                                installPlugin(
+                                  {
+                                    id: existing.id,
+                                    version: plugin.version,
+                                    npm: true,
+                                  },
+                                  existing.enabled
+                                )
+                              )
+                            } else {
+                              action.reset()
+                              setCommunityInstall(plugin)
+                              setPackageName(plugin.packageName)
+                              setNpmOpen(true)
+                            }
+                          }}
+                        >
+                          <Download className="size-3.5" aria-hidden="true" />
+                          {t(
+                            existing && gt(plugin.version, existing.version)
+                              ? 'plugins.update'
+                              : 'plugins.install'
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                    <p
+                      className="min-h-10 text-pretty text-sm leading-5 text-muted-foreground line-clamp-2"
+                      title={plugin.description}
+                    >
+                      {plugin.description || '-'}
+                    </p>
+                    {error && (
+                      <p className="text-pretty text-xs text-destructive">
+                        {error}
+                      </p>
+                    )}
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+          {!emptyState && (
+            <div className="flex flex-wrap items-center justify-between gap-3 py-1 text-xs text-muted-foreground">
+              <span>
+                {t('plugins.resultCount', { count: catalogRows.length })}
+              </span>
+              <div className="flex items-center gap-3">
+                <Select
+                  value={String(catalogPagination.pageSize)}
+                  onValueChange={(value) =>
+                    setCatalogPagination({
+                      pageIndex: 0,
+                      pageSize: Number(value),
+                    })
+                  }
+                >
+                  <SelectTrigger
+                    size="sm"
+                    className="w-auto text-xs"
+                    aria-label={t('plugins.pageSize')}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[10, 20, 50, 100].map((size) => (
+                      <SelectItem key={size} value={String(size)}>
+                        {t('plugins.perPage', { count: size })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="tabular-nums">
+                  {catalogPageIndex + 1} / {catalogPageCount}
+                </span>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="size-8"
+                  aria-label={t('plugins.previousPage')}
+                  disabled={catalogPageIndex === 0}
+                  onClick={() =>
+                    setCatalogPagination((previous) => ({
+                      ...previous,
+                      pageIndex: catalogPageIndex - 1,
+                    }))
+                  }
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="size-8"
+                  aria-label={t('plugins.nextPage')}
+                  disabled={catalogPageIndex >= catalogPageCount - 1}
+                  onClick={() =>
+                    setCatalogPagination((previous) => ({
+                      ...previous,
+                      pageIndex: catalogPageIndex + 1,
+                    }))
+                  }
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
       {tab === 'installed' && (
         <ResourceTableView
