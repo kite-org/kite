@@ -1,6 +1,8 @@
 import type { PluginManifest } from '@kite-dev/plugin-sdk'
 import { validateManifest } from '@kite-dev/plugin-sdk/validation'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import valid from 'semver/functions/valid'
 
 import { apiClient } from '@/lib/api-client'
 
@@ -16,6 +18,15 @@ export interface InstalledPlugin {
   version: string
   manifest?: PluginManifest
   error?: string
+  npm?: boolean
+  npmPackageName?: string
+}
+
+export interface CommunityPlugin {
+  packageName: string
+  version: string
+  description?: string
+  publisher?: string
 }
 
 export interface CatalogPlugin {
@@ -101,6 +112,106 @@ export function usePluginCatalog(enabled: boolean) {
   })
 }
 
+export function useNPMPluginUpdates(enabled: boolean) {
+  return useQuery({
+    queryKey: ['plugins', 'npm-updates'],
+    queryFn: ({ signal }) =>
+      apiClient.get<{
+        updates: Record<string, { version?: string; error?: string }>
+      }>('/admin/plugins/npm-updates', { signal }),
+    enabled,
+    refetchOnWindowFocus: false,
+    retry: false,
+  })
+}
+
+export function useCommunityPlugins(enabled: boolean) {
+  const { t } = useTranslation()
+  return useQuery({
+    queryKey: ['plugins', 'community'],
+    queryFn: async ({ signal }) => {
+      const requestSignal = AbortSignal.any([
+        signal,
+        AbortSignal.timeout(15000),
+      ])
+      const plugins: CommunityPlugin[] = []
+      const seen = new Set<string>()
+      for (let offset = 0; ;) {
+        const params = new URLSearchParams({
+          text: 'keywords:kite-plugin',
+          size: '250',
+          from: String(offset),
+        })
+        const response = await fetch(
+          `https://registry.npmjs.org/-/v1/search?${params}`,
+          { signal: requestSignal, credentials: 'omit' }
+        )
+        if (!response.ok) {
+          throw new Error(
+            t('plugins.npmSearchFailed', { status: response.status })
+          )
+        }
+        const result: {
+          objects: {
+            package?: {
+              name?: string
+              version?: string
+              keywords?: string[]
+              description?: string
+              publisher?: { username?: string }
+            }
+          }[]
+          total: number
+        } = await response.json()
+        if (
+          !Array.isArray(result?.objects) ||
+          !Number.isSafeInteger(result.total) ||
+          result.total < 0
+        ) {
+          throw new Error(t('plugins.npmSearchInvalid'))
+        }
+        for (const object of result.objects) {
+          const pkg = object?.package
+          if (
+            !pkg ||
+            typeof pkg.name !== 'string' ||
+            pkg.name.length > 214 ||
+            !/^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/.test(
+              pkg.name
+            ) ||
+            seen.has(pkg.name) ||
+            !Array.isArray(pkg.keywords) ||
+            !pkg.keywords.includes('kite-plugin') ||
+            typeof pkg.version !== 'string' ||
+            pkg.version.length > 128 ||
+            !valid(pkg.version)
+          )
+            continue
+          seen.add(pkg.name)
+          plugins.push({
+            packageName: pkg.name,
+            version: pkg.version,
+            description:
+              typeof pkg.description === 'string' ? pkg.description : undefined,
+            publisher:
+              typeof pkg.publisher?.username === 'string'
+                ? pkg.publisher.username
+                : undefined,
+          })
+        }
+        offset += result.objects.length
+        if (result.objects.length === 0 || offset >= result.total) {
+          return { plugins }
+        }
+      }
+    },
+    enabled,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: false,
+  })
+}
+
 export function usePluginReadme(plugin: CatalogPlugin | null) {
   return useQuery({
     queryKey: ['plugins', 'readme', plugin?.id, plugin?.version],
@@ -121,7 +232,14 @@ export function usePluginReadme(plugin: CatalogPlugin | null) {
 }
 
 export function installPlugin(
-  source: File | { id: string; version: string },
+  source:
+    | File
+    | { id: string; version: string; npm?: boolean }
+    | {
+        packageName: string
+        registry: 'npmjs' | 'npmmirror'
+        version?: string
+      },
   enabled = true
 ) {
   if (source instanceof File) {
