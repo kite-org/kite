@@ -80,7 +80,10 @@ export function PluginManagementPage() {
   const tab = ['catalog', 'installed'].includes(params.get('tab') ?? '')
     ? params.get('tab')!
     : 'catalog'
-  const npmUpdates = useNPMPluginUpdates(isAdmin && tab === 'installed')
+  const npmUpdates = useNPMPluginUpdates(
+    installed.data?.plugins,
+    isAdmin && tab === 'installed'
+  )
   const community = useCommunityPlugins(isAdmin && tab === 'catalog')
   const [search, setSearch] = useState('')
   const [catalogPagination, setCatalogPagination] = useState({
@@ -146,7 +149,7 @@ export function PluginManagementPage() {
     () =>
       (installed.data?.plugins ?? [])
         .map((plugin) => {
-          const npmUpdate = npmUpdates.data?.updates[plugin.id]
+          const npmUpdate = npmUpdates.updates[plugin.id]
           const latest = plugin.npm
             ? npmUpdate
             : entries.find((entry) => entry.id === plugin.id)
@@ -168,7 +171,7 @@ export function PluginManagementPage() {
             .toLowerCase()
             .includes(search.trim().toLowerCase())
         ),
-    [installed.data?.plugins, plugins, entries, npmUpdates.data, search]
+    [installed.data?.plugins, plugins, entries, npmUpdates.updates, search]
   )
   const installFromCatalog = (
     plugin: CatalogPlugin,
@@ -370,7 +373,7 @@ export function PluginManagementPage() {
     : installedRows.length === 0
   const hasFilters = Boolean(search)
   const emptyState =
-    isLoading || (isCatalog && empty && community.isLoading) ? (
+    empty && (isLoading || (isCatalog && community.isLoading)) ? (
       <Skeleton className="h-72 w-full" />
     ) : empty ? (
       <div className="flex h-72 flex-col items-center justify-center gap-3 px-6 text-center">
@@ -636,14 +639,14 @@ export function PluginManagementPage() {
           {installed.error.message}
         </p>
       )}
-      {!isCatalog && npmUpdates.error && (
-        <p role="alert" className="text-sm text-destructive">
-          {t('plugins.updateCheckFailed', { error: npmUpdates.error.message })}
-        </p>
-      )}
       {isCatalog && catalog.error && (
         <p role="alert" className="text-sm text-destructive">
           {catalog.error.message}
+        </p>
+      )}
+      {isCatalog && catalog.isLoading && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {t('plugins.loadingCatalog')}
         </p>
       )}
       {isCatalog && community.isLoading && (

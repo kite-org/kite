@@ -1,7 +1,6 @@
 package plugins
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,7 +8,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/common"
@@ -26,6 +24,7 @@ type InstalledPlugin struct {
 	Error          string    `json:"error,omitempty"`
 	NPM            bool      `json:"npm,omitempty"`
 	NPMPackageName string    `json:"npmPackageName,omitempty"`
+	NPMRegistry    string    `json:"npmRegistry,omitempty"`
 }
 
 func assetBaseURL(plugin model.Plugin) string {
@@ -65,6 +64,7 @@ func describeInstalledPlugin(record model.Plugin) InstalledPlugin {
 	if source := npmSourceFromURL(record.DownloadURL); source != nil {
 		plugin.NPM = true
 		plugin.NPMPackageName = source.PackageName
+		plugin.NPMRegistry = source.Registry
 	}
 	if err != nil {
 		plugin.Error = err.Error()
@@ -99,35 +99,6 @@ func ListCatalog(c *gin.Context) {
 	}
 	c.Header("Cache-Control", "no-store")
 	c.JSON(http.StatusOK, gin.H{"plugins": plugins})
-}
-
-func CheckNPMUpdates(c *gin.Context) {
-	var records []model.Plugin
-	if err := model.DB.Order("id").Find(&records).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	type npmUpdate struct {
-		Version string `json:"version,omitempty"`
-		Error   string `json:"error,omitempty"`
-	}
-	updates := make(map[string]npmUpdate)
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
-	defer cancel()
-	for _, plugin := range records {
-		source := npmSourceFromURL(plugin.DownloadURL)
-		if source == nil {
-			continue
-		}
-		metadata, err := readNPMMetadata(ctx, source.PackageName, source.Registry, "latest")
-		if err != nil {
-			updates[plugin.ID] = npmUpdate{Error: err.Error()}
-			continue
-		}
-		updates[plugin.ID] = npmUpdate{Version: metadata.Version}
-	}
-	c.Header("Cache-Control", "no-store")
-	c.JSON(http.StatusOK, gin.H{"updates": updates})
 }
 
 func Install(c *gin.Context) {

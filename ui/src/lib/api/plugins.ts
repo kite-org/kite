@@ -1,6 +1,6 @@
 import type { PluginManifest } from '@kite-dev/plugin-sdk'
 import { validateManifest } from '@kite-dev/plugin-sdk/validation'
-import { useQuery } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import valid from 'semver/functions/valid'
 
@@ -20,6 +20,7 @@ export interface InstalledPlugin {
   error?: string
   npm?: boolean
   npmPackageName?: string
+  npmRegistry?: 'npmjs' | 'npmmirror'
 }
 
 export interface CommunityPlugin {
@@ -112,16 +113,69 @@ export function usePluginCatalog(enabled: boolean) {
   })
 }
 
-export function useNPMPluginUpdates(enabled: boolean) {
-  return useQuery({
-    queryKey: ['plugins', 'npm-updates'],
-    queryFn: ({ signal }) =>
-      apiClient.get<{
-        updates: Record<string, { version?: string; error?: string }>
-      }>('/admin/plugins/npm-updates', { signal }),
-    enabled,
-    refetchOnWindowFocus: false,
-    retry: false,
+export function useNPMPluginUpdates(
+  installed: InstalledPlugin[] | undefined,
+  enabled: boolean
+) {
+  const { t } = useTranslation()
+  const npmPlugins = (installed ?? []).filter((plugin) => plugin.npm)
+  return useQueries({
+    queries: npmPlugins.map((plugin) => ({
+      queryKey: [
+        'plugins',
+        'npm-updates',
+        plugin.id,
+        plugin.npmPackageName,
+        plugin.npmRegistry,
+        plugin.version,
+      ],
+      queryFn: async ({ signal }: { signal: AbortSignal }) => {
+        const registry =
+          plugin.npmRegistry === 'npmjs'
+            ? 'https://registry.npmjs.org'
+            : 'https://registry.npmmirror.com'
+        const response = await fetch(
+          `${registry}/${encodeURIComponent(plugin.npmPackageName!)}/latest`,
+          {
+            signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]),
+            credentials: 'omit',
+            cache: 'no-store',
+          }
+        )
+        if (!response.ok) {
+          throw new Error(
+            t('plugins.npmUpdateRequestFailed', {
+              registry: plugin.npmRegistry,
+              status: response.status,
+            })
+          )
+        }
+        const metadata: { name?: string; version?: string } =
+          await response.json()
+        if (
+          metadata?.name !== plugin.npmPackageName ||
+          typeof metadata.version !== 'string' ||
+          metadata.version.length > 128 ||
+          !valid(metadata.version)
+        ) {
+          throw new Error(t('plugins.npmUpdateInvalid'))
+        }
+        return metadata.version
+      },
+      enabled,
+      refetchOnWindowFocus: false,
+      retry: false,
+    })),
+    combine: (results) => ({
+      updates: Object.fromEntries(
+        results.map((result, index) => [
+          npmPlugins[index].id,
+          { version: result.data, error: result.error?.message },
+        ])
+      ),
+      isFetching: results.some((result) => result.isFetching),
+      refetch: () => Promise.all(results.map((result) => result.refetch())),
+    }),
   })
 }
 

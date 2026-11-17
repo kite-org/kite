@@ -91,7 +91,6 @@ func registerAdminRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, cm *
 
 	adminAPI.GET("/audit-logs", audit.ListAuditLogs)
 	adminAPI.GET("/plugins", plugins.ListInstalled)
-	adminAPI.GET("/plugins/npm-updates", plugins.CheckNPMUpdates)
 	adminAPI.GET("/plugin-catalog", plugins.ListCatalog)
 	adminAPI.GET("/plugin-catalog/readme", plugins.GetCatalogReadme)
 	adminAPI.POST("/plugins", plugins.Install)
