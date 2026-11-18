@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/zxh326/kite/pkg/common"
@@ -78,6 +79,7 @@ type AIConfig struct {
 	APIKey    string `yaml:"apiKey"`
 	BaseURL   string `yaml:"baseUrl"`
 	MaxTokens int    `yaml:"maxTokens"`
+	Effort    string `yaml:"effort"`
 }
 
 type RBACConfig struct {
@@ -349,7 +351,14 @@ func applyAI(cfg *AIConfig) error {
 	}
 	maxTokens := cfg.MaxTokens
 	if maxTokens <= 0 {
-		maxTokens = 16384
+		maxTokens = model.DefaultGeneralAIMaxTokensByProvider(provider)
+	}
+	effort := strings.ToLower(strings.TrimSpace(cfg.Effort))
+	if effort == "" {
+		effort = model.DefaultGeneralAIEffort
+	}
+	if !slices.Contains(model.GeneralAIEfforts, effort) {
+		return fmt.Errorf("unsupported AI effort")
 	}
 
 	_, err := model.UpdateGeneralSetting(map[string]interface{}{
@@ -359,6 +368,7 @@ func applyAI(cfg *AIConfig) error {
 		"ai_api_key":       model.SecretString(apiKey),
 		"ai_base_url":      strings.TrimSpace(cfg.BaseURL),
 		"ai_max_tokens":    maxTokens,
+		"ai_effort":        effort,
 	})
 	return err
 }
