@@ -73,6 +73,7 @@ func CreateRole(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "role name is required"})
 		return
 	}
+	WarnUnrecognizedDenyResources(role.Name, role.Resources)
 	if err := model.DB.Create(&role).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create role: " + err.Error()})
 		return
@@ -122,6 +123,7 @@ func UpdateRole(c *gin.Context) {
 	role.Resources = roleData.Resources
 	role.Verbs = roleData.Verbs
 
+	WarnUnrecognizedDenyResources(role.Name, role.Resources)
 	if err := model.DB.Save(&role).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update role: " + err.Error()})
 		return

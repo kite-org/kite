@@ -162,3 +162,16 @@ func TestLoadEnvs_BaseAlreadyHasLeadingSlash(t *testing.T) {
 		t.Fatalf("Base = %q, want %q", Base, "/kite")
 	}
 }
+
+func TestLookupResource_HelmReleaseAliases(t *testing.T) {
+	canonical := LookupResource(string(HelmReleases))
+	if canonical == nil {
+		t.Fatal("expected HelmReleases to resolve via LookupResource")
+	}
+	for _, alias := range []string{"helmrelease", "helmreleases", "hr", "HelmRelease"} {
+		got := LookupResource(alias)
+		if got != canonical {
+			t.Fatalf("LookupResource(%q) = %#v, want %#v", alias, got, canonical)
+		}
+	}
+}

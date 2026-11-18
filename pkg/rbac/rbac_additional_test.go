@@ -206,3 +206,81 @@ func TestUserHasRole(t *testing.T) {
 		t.Fatal("did not expect viewer role")
 	}
 }
+
+func TestCanAccess_ResourceAliasesAndNegations(t *testing.T) {
+	viewer := model.User{
+		Username: "viewer",
+		Roles: []common.Role{
+			{
+				Name:       "viewer",
+				Clusters:   []string{"*"},
+				Namespaces: []string{"*"},
+				Resources:  []string{"!secrets", "!configmaps", "!helmreleases", "*"},
+				Verbs:      []string{"get", "log"},
+			},
+		},
+	}
+
+	if CanAccess(viewer, string(common.HelmReleases), "get", "prod", "default") {
+		t.Fatal("expected !helmreleases deny rule to block helmrelease access")
+	}
+	if CanAccess(viewer, string(common.Secrets), "get", "prod", "default") {
+		t.Fatal("expected !secrets deny rule to block secrets access")
+	}
+	if !CanAccess(viewer, string(common.Pods), "get", "prod", "default") {
+		t.Fatal("expected wildcard allow to permit pods access")
+	}
+
+	aliasDeny := model.User{
+		Username: "alias-deny",
+		Roles: []common.Role{
+			{
+				Name:       "custom",
+				Clusters:   []string{"*"},
+				Namespaces: []string{"*"},
+				Resources:  []string{"!secret", "!cm", "!hr", "!crds", "*"},
+				Verbs:      []string{"get"},
+			},
+		},
+	}
+	for _, res := range []common.ResourceType{common.Secrets, common.ConfigMaps, common.HelmReleases, common.CRDs} {
+		if CanAccess(aliasDeny, string(res), "get", "prod", "default") {
+			t.Fatalf("expected alias deny rule to block %q", res)
+		}
+	}
+
+	aliasAllow := model.User{
+		Username: "alias-allow",
+		Roles: []common.Role{
+			{
+				Name:       "pod-reader",
+				Clusters:   []string{"*"},
+				Namespaces: []string{"default"},
+				Resources:  []string{"pod"},
+				Verbs:      []string{"get"},
+			},
+		},
+	}
+	if !CanAccess(aliasAllow, string(common.Pods), "get", "prod", "default") {
+		t.Fatal("expected singular pod allow rule to match pods")
+	}
+	if CanAccess(aliasAllow, string(common.Secrets), "get", "prod", "default") {
+		t.Fatal("did not expect pod allow rule to match secrets")
+	}
+
+	crdDeny := model.User{
+		Username: "crd-deny",
+		Roles: []common.Role{
+			{
+				Name:       "crd-custom",
+				Clusters:   []string{"*"},
+				Namespaces: []string{"*"},
+				Resources:  []string{"!pods", "*"},
+				Verbs:      []string{"get"},
+			},
+		},
+	}
+	if !CanAccess(crdDeny, "pods.custom.io", "get", "prod", "default") {
+		t.Fatal("expected !pods not to block unrelated CRD pods.custom.io")
+	}
+}

@@ -82,6 +82,39 @@ func TestHelmReleaseRBACAllNamespaces(t *testing.T) {
 	}
 }
 
+func TestHelmReleaseRBACDeniedBySingularAndPlural(t *testing.T) {
+	for _, deniedResource := range []string{"!helmrelease", "!helmreleases", "!hr"} {
+		t.Run(deniedResource, func(t *testing.T) {
+			fixture := newPodAPITestFixture(t, podAPITestConfig{
+				user: model.User{
+					Username: "viewer",
+					Roles: []common.Role{
+						{
+							Name:       "viewer",
+							Clusters:   []string{"*"},
+							Namespaces: []string{"*"},
+							Resources:  []string{"!secrets", "!configmaps", deniedResource, "*"},
+							Verbs:      []string{string(common.VerbGet), string(common.VerbLog)},
+						},
+					},
+				},
+			})
+
+			for _, path := range []string{
+				"/api/v1/helmrelease",
+				"/api/v1/helmrelease/_all",
+				"/api/v1/_clusters/cluster-a/helmrelease",
+				"/api/v1/_clusters/cluster-a/helmrelease/_all",
+			} {
+				response := performPodAPIRequest(t, fixture, http.MethodGet, path, "", nil)
+				if response.Code != http.StatusForbidden {
+					t.Fatalf("GET %s with %s returned %d, want %d; body=%s", path, deniedResource, response.Code, http.StatusForbidden, response.Body.String())
+				}
+			}
+		})
+	}
+}
+
 func helmReleaseSecret(t *testing.T, name, namespace string) corev1.Secret {
 	t.Helper()
 	releaseData, err := json.Marshal(&release.Release{
