@@ -90,6 +90,7 @@ type ResourceMeta struct {
 	Singular      string       // e.g. "pod"
 	Plural        ResourceType // e.g. "pods" — canonical form used in URLs
 	Short         []string     // e.g. ["po"]
+	Aliases       []string     // extra RBAC/lookup aliases not exposed as kubectl short names
 	Group         string       // e.g. "" (core), "apps", "batch"
 	Version       string       // e.g. "v1"
 	ClusterScoped bool
@@ -207,7 +208,7 @@ var Registry = []ResourceMeta{
 	{Kind: "HorizontalPodAutoscaler", Singular: "horizontalpodautoscaler", Plural: HorizontalPodAutoscalers, Short: []string{"hpa"}, Group: "autoscaling", Version: "v2", Searchable: true, Related: true},
 
 	// Synthetic resources
-	{Kind: "HelmRelease", Singular: "helmrelease", Plural: HelmReleases, Short: []string{"hr"}, Version: "v1"},
+	{Kind: "HelmRelease", Singular: "helmrelease", Plural: HelmReleases, Short: []string{"hr"}, Aliases: []string{"helmreleases"}, Version: "v1"},
 }
 
 // resourceIndex maps lowercase alias → *ResourceMeta for O(1) lookups.
@@ -215,7 +216,7 @@ var Registry = []ResourceMeta{
 var resourceIndex map[string]*ResourceMeta
 
 func init() {
-	resourceIndex = make(map[string]*ResourceMeta, len(Registry)*3)
+	resourceIndex = make(map[string]*ResourceMeta, len(Registry)*4)
 	for i := range Registry {
 		m := &Registry[i]
 		resourceIndex[strings.ToLower(m.Kind)] = m
@@ -223,6 +224,9 @@ func init() {
 		resourceIndex[string(m.Plural)] = m
 		for _, s := range m.Short {
 			resourceIndex[s] = m
+		}
+		for _, a := range m.Aliases {
+			resourceIndex[strings.ToLower(a)] = m
 		}
 	}
 }

@@ -377,6 +377,7 @@ func applyRBAC(cfg *RBACConfig) error {
 
 		// Upsert roles from config
 		for _, r := range cfg.Roles {
+			rbac.WarnUnrecognizedDenyResources(r.Name, r.Resources)
 			var existing model.Role
 			if err := tx.Where("name = ?", r.Name).First(&existing).Error; err == nil {
 				// Update existing role (likely a system role)
