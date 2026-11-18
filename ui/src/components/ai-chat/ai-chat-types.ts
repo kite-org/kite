@@ -39,6 +39,7 @@ export interface ChatMessage {
   role: ChatRole
   content: string
   thinking?: string
+  thinkingDurationMs?: number
   toolCallId?: string
   toolName?: string
   toolArgs?: Record<string, unknown>
