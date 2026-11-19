@@ -25,6 +25,7 @@ func TestHandleProxyRejectsInvalidKindAndUnauthorizedAccess(t *testing.T) {
 		wantStatus int
 	}{
 		{"/namespaces/default/deployments/web/proxy/health", http.StatusBadRequest},
+		{"/namespaces/default%252F..%252Fkube-system/services/web/proxy/health", http.StatusBadRequest},
 		{"/namespaces/default/pods/web/proxy/health", http.StatusForbidden},
 		{"/namespaces/default/services/web/proxy/health", http.StatusForbidden},
 	}

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zxh326/kite/pkg/common"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 )
@@ -62,7 +63,7 @@ func HandleProxy(c *gin.Context, client *K8sClient, kind, namespace, name, proxy
 }
 
 func buildProxyURL(host, kind, namespace, name, proxyPath, rawQuery string) (string, error) {
-	if strings.Contains(name, "..") {
+	if !common.IsSafePathSegment(namespace) || !common.IsSafePathSegment(name) {
 		return "", errors.New("invalid proxy path: path traversal detected")
 	}
 

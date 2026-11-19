@@ -91,6 +91,21 @@ func IsSectionManaged(section string) bool {
 	return ManagedSections[section]
 }
 
+// IsSafePathSegment reports whether s is a single Kubernetes path segment
+// without traversal, path separators, query/fragment delimiters, or residual percent-encoding.
+func IsSafePathSegment(s string) bool {
+	if s == "" || s == "." || strings.Contains(s, "..") {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		b := s[i]
+		if b <= 0x20 || b == 0x7f || b == '/' || b == '\\' || b == '%' || b == '?' || b == '#' {
+			return false
+		}
+	}
+	return true
+}
+
 func SetManagedSections(sections map[string]bool) {
 	managedMu.Lock()
 	defer managedMu.Unlock()

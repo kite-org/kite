@@ -34,8 +34,8 @@ func (h *LogsHandler) HandleLogsWebSocket(c *gin.Context) {
 		user := c.MustGet("user").(model.User)
 		namespace := c.Param("namespace")
 		podName := c.Param("podName")
-		if namespace == "" || podName == "" {
-			ws.SendErrorMessage("namespace and podName are required")
+		if !common.IsSafePathSegment(namespace) || !common.IsSafePathSegment(podName) {
+			ws.SendErrorMessage("invalid namespace or podName")
 			return
 		}
 
