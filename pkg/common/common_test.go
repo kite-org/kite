@@ -162,3 +162,29 @@ func TestLoadEnvs_BaseAlreadyHasLeadingSlash(t *testing.T) {
 		t.Fatalf("Base = %q, want %q", Base, "/kite")
 	}
 }
+
+func TestIsSafePathSegment(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{"default", true},
+		{"kube-system", true},
+		{"_all", true},
+		{"grafanadatasources.grafana.integreatly.org", true},
+		{"", false},
+		{".", false},
+		{"..", false},
+		{"default/../kube-system", false},
+		{"default%2F..%2Fkube-system", false},
+		{"default\\..\\kube-system", false},
+		{"default?x=1", false},
+		{"default#frag", false},
+		{"default\n", false},
+	}
+	for _, tt := range tests {
+		if got := IsSafePathSegment(tt.input); got != tt.want {
+			t.Errorf("IsSafePathSegment(%q) = %v, want %v", tt.input, got, tt.want)
+		}
+	}
+}

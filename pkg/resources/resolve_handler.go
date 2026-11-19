@@ -38,8 +38,8 @@ func ResolveResource(c *gin.Context) {
 	if mapping.Scope.Name() == meta.RESTScopeNameRoot {
 		namespace = common.AllNamespaces
 		scope = "Cluster"
-	} else if namespace == "" || namespace == common.AllNamespaces {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "namespace is required for namespaced resources"})
+	} else if !common.IsSafePathSegment(namespace) || namespace == common.AllNamespaces {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "valid namespace is required for namespaced resources"})
 		return
 	}
 	resource := common.HistoryResourceType(mapping.Resource.Resource, mapping.Resource.Group)

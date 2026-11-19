@@ -36,8 +36,8 @@ func (h *TerminalHandler) HandleTerminalWebSocket(c *gin.Context) {
 	podName := c.Param("podName")
 	container := c.Query("container")
 
-	if namespace == "" || podName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "namespace and podName are required"})
+	if !common.IsSafePathSegment(namespace) || !common.IsSafePathSegment(podName) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid namespace or podName"})
 		return
 	}
 

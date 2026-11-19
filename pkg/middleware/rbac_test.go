@@ -544,6 +544,47 @@ func TestRBACMiddleware(t *testing.T) {
 			roleMap:    []common.RoleMapping{{Name: "admin", Users: []string{"alice"}}},
 			wantStatus: http.StatusBadRequest,
 		},
+		{
+			name:       "single encoded namespace traversal rejected",
+			method:     http.MethodGet,
+			url:        "/api/v1/pods/default%2F..%2Fkube-system/coredns",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"no-system-reader"},
+			roleMap:    []common.RoleMapping{{Name: "no-system-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "double encoded namespace traversal rejected",
+			method:     http.MethodGet,
+			url:        "/api/v1/pods/default%252F..%252Fkube-system/coredns",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"no-system-reader"},
+			roleMap:    []common.RoleMapping{{Name: "no-system-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "encoded backslash namespace traversal rejected",
+			method:     http.MethodGet,
+			url:        "/api/v1/pods/default%5C..%5Ckube-system/coredns",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"no-system-reader"},
+			roleMap:    []common.RoleMapping{{Name: "no-system-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "events resources rejects namespace traversal in query",
+			method:     http.MethodGet,
+			url:        "/api/v1/events/resources?resource=pods&name=coredns&namespace=default%2F..%2Fkube-system",
+			route:      "/api/v1/events/resources",
+			cluster:    "prod",
+			username:   "alice",
+			roles:      []string{"events-all-reader"},
+			roleMap:    []common.RoleMapping{{Name: "events-all-reader", Users: []string{"alice"}}},
+			wantStatus: http.StatusBadRequest,
+		},
 	}
 
 	originalConfig := rbac.RBACConfig
@@ -643,5 +684,61 @@ func TestIsCrossNamespaceWatch(t *testing.T) {
 				t.Errorf("isCrossNamespaceWatch(%q) = %v, want %v", tc.path, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestRBACMiddlewareWithRawPathRoutingRejectsTraversal(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	originalConfig := rbac.RBACConfig
+	t.Cleanup(func() {
+		rbac.RBACConfig = originalConfig
+	})
+
+	rbac.RBACConfig = &common.RolesConfig{
+		Roles: []common.Role{{
+			Name:       "operator",
+			Clusters:   []string{"*"},
+			Namespaces: []string{"!kube-system", "*"},
+			Resources:  []string{"pods", "deployments"},
+			Verbs:      []string{"get", "update", "exec"},
+		}},
+		RoleMapping: []common.RoleMapping{{
+			Name:  "operator",
+			Users: []string{"alice"},
+		}},
+	}
+
+	router := gin.New()
+	ConfigureRawPathRouting(router)
+	router.Use(func(c *gin.Context) {
+		c.Set("user", model.User{Username: "alice"})
+		c.Set("cluster", &cluster.ClientSet{Name: "prod"})
+	})
+	router.Use(RBACMiddleware())
+	router.GET("/api/v1/pods/:namespace/:name/files", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+	router.PUT("/api/v1/deployments/:namespace/:name", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	for _, tc := range []struct {
+		method string
+		url    string
+		want   int
+	}{
+		{http.MethodGet, "/api/v1/pods/default/web/files", http.StatusOK},
+		{http.MethodGet, "/api/v1/pods/kube-system/coredns/files", http.StatusForbidden},
+		{http.MethodGet, "/api/v1/pods/default%2F..%2Fkube-system/coredns/files", http.StatusBadRequest},
+		{http.MethodGet, "/api/v1/pods/default%252F..%252Fkube-system/coredns/files", http.StatusBadRequest},
+		{http.MethodPut, "/api/v1/deployments/default%252F..%252Fkube-system/coredns", http.StatusBadRequest},
+	} {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(tc.method, tc.url, nil)
+		router.ServeHTTP(rec, req)
+		if rec.Code != tc.want {
+			t.Fatalf("%s %s returned %d, want %d; body=%s", tc.method, tc.url, rec.Code, tc.want, rec.Body.String())
+		}
 	}
 }

@@ -20,8 +20,16 @@ func RBACMiddleware() gin.HandlerFunc {
 		verbs := method2verb(c.Request.Method)
 		path := c.Request.URL.EscapedPath()
 		ns, resource := url2namespaceresource(path)
-		if ns == "" || resource == "" {
+		if !common.IsSafePathSegment(ns) || !common.IsSafePathSegment(resource) {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid resource URL"})
+			return
+		}
+		if paramNS := c.Param("namespace"); paramNS != "" && (!common.IsSafePathSegment(paramNS) || paramNS != ns) {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid namespace"})
+			return
+		}
+		if paramName := c.Param("name"); paramName != "" && !common.IsSafePathSegment(paramName) {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid resource name"})
 			return
 		}
 		if verbs == string(common.VerbGet) && resource == string(common.Events) &&
@@ -29,6 +37,9 @@ func RBACMiddleware() gin.HandlerFunc {
 			ns = c.Query("namespace")
 			if ns == "" {
 				ns = common.AllNamespaces
+			} else if !common.IsSafePathSegment(ns) {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid namespace"})
+				return
 			}
 			targetResource := c.Query("resource")
 			targetMeta := common.LookupResource(targetResource)

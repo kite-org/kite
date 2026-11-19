@@ -110,6 +110,26 @@ func TestBuildProxyURL(t *testing.T) {
 			rawQuery:  "",
 			wantErr:   true,
 		},
+		{
+			name:      "rejects traversal in namespace",
+			host:      "https://example.com",
+			kind:      "pods",
+			namespace: "default/../kube-system",
+			resource:  "coredns",
+			path:      "/metrics",
+			rawQuery:  "",
+			wantErr:   true,
+		},
+		{
+			name:      "rejects encoded traversal in namespace",
+			host:      "https://example.com",
+			kind:      "pods",
+			namespace: "default%2F..%2Fkube-system",
+			resource:  "coredns",
+			path:      "/metrics",
+			rawQuery:  "",
+			wantErr:   true,
+		},
 	}
 
 	for _, tt := range tests {

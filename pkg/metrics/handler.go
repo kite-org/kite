@@ -101,15 +101,13 @@ func (h *Handler) GetPodMetrics(c *gin.Context) {
 	cs := c.MustGet("cluster").(*cluster.ClientSet)
 	user := c.MustGet("user").(model.User)
 	namespace := c.Param("namespace")
-	if !rbac.CanAccess(user, string(common.Pods), string(common.VerbGet), cs.Name, namespace) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+	podName := c.Param("podName")
+	if !common.IsSafePathSegment(namespace) || !common.IsSafePathSegment(podName) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid namespace or podName"})
 		return
 	}
-
-	// Get path parameters
-	podName := c.Param("podName")
-	if namespace == "" || podName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "namespace and podName are required"})
+	if !rbac.CanAccess(user, string(common.Pods), string(common.VerbGet), cs.Name, namespace) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 

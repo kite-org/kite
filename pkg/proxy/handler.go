@@ -31,6 +31,10 @@ func (h *ProxyHandler) HandleProxy(c *gin.Context) {
 	}
 	name := c.Param("name")
 	namespace := c.Param("namespace")
+	if !common.IsSafePathSegment(namespace) || !common.IsSafePathSegment(name) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid namespace or resource name"})
+		return
+	}
 	if !rbac.CanAccess(user, kind, "get", cs.Name, namespace) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
