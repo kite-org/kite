@@ -32,14 +32,7 @@ func HandleProxy(c *gin.Context, client *K8sClient, kind, namespace, name, proxy
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create proxy request"})
 		return
 	}
-	req.Header = cloneHeader(c.Request.Header)
-	req.Header.Del("Authorization")
-	req.Header.Del("Cookie")
-	req.Header.Del("Connection")
-	req.Header.Del("Upgrade")
-	req.Header.Del("Keep-Alive")
-	req.Header.Del("Proxy-Connection")
-	req.Header.Del("Transfer-Encoding")
+	req.Header = sanitizeProxyRequestHeaders(c.Request.Header)
 
 	resp, err := httpClient.Do(req)
 
@@ -97,6 +90,23 @@ func buildProxyURL(host, kind, namespace, name, proxyPath, rawQuery string) (str
 	}
 	u.RawQuery = query.Encode()
 	return u.String(), nil
+}
+
+func sanitizeProxyRequestHeaders(h http.Header) http.Header {
+	sanitized := cloneHeader(h)
+	sanitized.Del("Authorization")
+	sanitized.Del("Cookie")
+	sanitized.Del("Connection")
+	sanitized.Del("Upgrade")
+	sanitized.Del("Keep-Alive")
+	sanitized.Del("Proxy-Connection")
+	sanitized.Del("Transfer-Encoding")
+	for k := range sanitized {
+		if strings.HasPrefix(strings.ToLower(k), "impersonate-") {
+			sanitized.Del(k)
+		}
+	}
+	return sanitized
 }
 
 func cloneHeader(h http.Header) http.Header {
