@@ -2,8 +2,12 @@ package kube
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"testing"
+
+	"github.com/gin-gonic/gin"
+	"k8s.io/client-go/rest"
 )
 
 func TestBuildProxyURL(t *testing.T) {
@@ -166,5 +170,81 @@ func TestCopyHeader(t *testing.T) {
 
 	if !reflect.DeepEqual(dst.Values("X-Test"), []string{"one", "two"}) {
 		t.Fatalf("copyHeader() copied values = %v, want %v", dst.Values("X-Test"), []string{"one", "two"})
+	}
+}
+
+func TestSanitizeProxyRequestHeaders(t *testing.T) {
+	t.Parallel()
+
+	src := http.Header{
+		"Authorization":           {"Bearer secret"},
+		"Cookie":                  {"session=abc"},
+		"Connection":              {"keep-alive"},
+		"Impersonate-User":        {"system:admin"},
+		"Impersonate-Group":       {"system:masters"},
+		"Impersonate-Uid":         {"0000"},
+		"Impersonate-Extra-Scope": {"all"},
+		"iMpErSoNaTe-user":        {"root"},
+		"Accept":                  {"application/json"},
+		"X-Custom":                {"keep"},
+	}
+
+	got := sanitizeProxyRequestHeaders(src)
+
+	for _, stripped := range []string{
+		"Authorization",
+		"Cookie",
+		"Connection",
+		"Impersonate-User",
+		"Impersonate-Group",
+		"Impersonate-Uid",
+		"Impersonate-Extra-Scope",
+		"iMpErSoNaTe-user",
+	} {
+		if values := got.Values(stripped); len(values) != 0 {
+			t.Fatalf("expected header %q to be stripped, got %v", stripped, values)
+		}
+	}
+	if got.Get("Accept") != "application/json" || got.Get("X-Custom") != "keep" {
+		t.Fatalf("unexpected preserved headers: %#v", got)
+	}
+}
+
+func TestHandleProxyStripsImpersonateHeaders(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	var received http.Header
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		received = r.Header.Clone()
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer upstream.Close()
+
+	k8sClient := &K8sClient{
+		Configuration: &rest.Config{Host: upstream.URL},
+	}
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/namespaces/default/services/web/proxy/health", nil)
+	req.Header.Set("Impersonate-User", "system:admin")
+	req.Header.Add("Impersonate-Group", "system:masters")
+	req.Header.Set("Impersonate-Extra-Role", "cluster-admin")
+	req.Header.Set("X-Forwarded-Custom", "preserved")
+	c.Request = req
+
+	HandleProxy(c, k8sClient, "services", "default", "web", "/health")
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	for k := range received {
+		if k == "Impersonate-User" || k == "Impersonate-Group" || k == "Impersonate-Extra-Role" {
+			t.Fatalf("upstream received forbidden header %q: %v", k, received.Values(k))
+		}
+	}
+	if got := received.Get("X-Forwarded-Custom"); got != "preserved" {
+		t.Fatalf("X-Forwarded-Custom = %q, want %q", got, "preserved")
 	}
 }
