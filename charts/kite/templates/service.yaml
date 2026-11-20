@@ -16,7 +16,7 @@ spec:
   ipFamilies:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  ipFamilyPolicy: {{ .Values.service.ipDualStack.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.service.ipDualStack.ipFamilyPolicy | default "PreferDualStack" }}
   {{- end }}
   ports:
     - port: {{ .Values.service.port }}
