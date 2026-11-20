@@ -102,12 +102,11 @@ export function DynamicBreadcrumb() {
       if (pathSegments[0] === 'crds') {
         if (index === 0) return '/crds'
         if (index === 1) return `/crds/${pathSegments[1]}`
-        if (index === 2) return `/crds/${pathSegments[1]}` // namespace links back to CRD list
         return undefined
       } else {
-        // Regular resources: namespace should link back to resource list
+        // Namespace segment stays plain text
         const isNamespace = pathSegments.length === 3 && index === 1
-        if (isNamespace) return `/${pathSegments[0]}`
+        if (isNamespace) return undefined
         return `/${pathSegments.slice(0, index + 1).join('/')}`
       }
     }
@@ -146,7 +145,7 @@ export function DynamicBreadcrumb() {
           <div key={index} className="flex items-center">
             {index > 0 && <BreadcrumbSeparator />}
             <BreadcrumbItem>
-              {crumb.href && index < breadcrumbs.length - 1 ? (
+              {crumb.href && crumb.href !== location.pathname ? (
                 <BreadcrumbLink asChild>
                   <Link to={crumb.href}>{crumb.label}</Link>
                 </BreadcrumbLink>
