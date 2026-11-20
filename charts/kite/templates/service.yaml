@@ -4,10 +4,7 @@ metadata:
   name: {{ include "kite.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "kite.labels" . | nindent 4 }}
-    {{- with .Values.service.labels }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
+    {{- merge (deepCopy .Values.service.labels) (include "kite.labels" . | fromYaml) | toYaml | nindent 4 }}
   {{- with .Values.service.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
