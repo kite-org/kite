@@ -407,6 +407,7 @@
   },
   "sidebar": {
     "groups": {
+      "general": "通用",
       "traffic": "流量",
       "storage": "存储",
       "config": "配置",
@@ -1537,7 +1538,6 @@
     "catalog": "插件目录",
     "community": "社区插件",
     "catalogListed": "插件目录收录",
-    "catalogNotice": "勾标识表示目录收录的插件。社区插件由社区用户开发，未经 Kite 审核，不保证安全性，请仅安装可信作者的插件。",
     "resultCount": "共 {{count}} 个插件",
     "pageSize": "每页插件数",
     "perPage": "每页 {{count}} 个",

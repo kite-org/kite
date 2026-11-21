@@ -407,6 +407,7 @@
   },
   "sidebar": {
     "groups": {
+      "general": "General",
       "traffic": "traffic",
       "storage": "storage",
       "config": "config",
@@ -1450,7 +1451,6 @@
     "catalog": "Plugin catalog",
     "community": "Community plugins",
     "catalogListed": "Listed in the plugin catalog",
-    "catalogNotice": "The check marks catalog-listed plugins. Community plugins are developed by community members; Kite does not review them or guarantee their safety. Only install plugins from authors you trust.",
     "resultCount": "{{count}} plugins",
     "pageSize": "Plugins per page",
     "perPage": "{{count}} per page",

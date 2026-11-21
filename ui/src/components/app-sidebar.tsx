@@ -3,8 +3,11 @@ import { useCallback, useMemo, useState } from 'react'
 import Icon from '@/assets/icon.svg'
 import { useAuth } from '@/contexts/auth-context'
 import { useSidebarConfig } from '@/contexts/sidebar-config-context'
+import {
+  GENERAL_GROUP_ID,
+  PLUGINS_ITEM_ID,
+} from '@/contexts/sidebar-config-defaults'
 import { CollapsibleContent } from '@radix-ui/react-collapsible'
-import { IconLayoutDashboard, IconPuzzle } from '@tabler/icons-react'
 import { CustomResourceDefinition } from 'kubernetes-types/apiextensions/v1'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -89,15 +92,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
     return { apiGroupItems: groups, availableCRDURLs: urls }
   }, [crds])
-  const isCRDItemAvailable = useCallback(
+  const isItemAvailable = useCallback(
     (item: SidebarItem) => {
+      if (item.id === PLUGINS_ITEM_ID) return !!user?.isAdmin()
       if (crds === undefined || item.type === 'link') return true
       if (item.type === 'apiGroup') {
         return apiGroupItems.has(item.apiGroup)
       }
       return availableCRDURLs.has(item.url)
     },
-    [apiGroupItems, availableCRDURLs, crds]
+    [apiGroupItems, availableCRDURLs, crds, user]
   )
 
   const pinnedItems = useMemo(() => {
@@ -106,8 +110,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       .flatMap((group) => group.items)
       .filter((item) => config.pinnedItems.includes(item.id))
       .filter((item) => !config.hiddenItems.includes(item.id))
-      .filter(isCRDItemAvailable)
-  }, [config, isCRDItemAvailable])
+      .filter(isItemAvailable)
+  }, [config, isItemAvailable])
 
   const visibleGroups = useMemo(() => {
     if (!config) return []
@@ -119,11 +123,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         items: group.items
           .filter((item) => !config.hiddenItems.includes(item.id))
           .filter((item) => !config.pinnedItems.includes(item.id))
-          .filter(isCRDItemAvailable)
+          .filter(isItemAvailable)
           .sort((a, b) => a.order - b.order),
       }))
       .filter((group) => group.items.length > 0)
-  }, [config, isCRDItemAvailable])
+  }, [config, isItemAvailable])
 
   const activeURL = useMemo(() => {
     let active = location.pathname === '/' ? '/' : undefined
@@ -248,6 +252,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     )
   }
 
+  const pinnedGroup = pinnedItems.length > 0 && (
+    <SidebarGroup>
+      <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {t('sidebar.pinned', 'Pinned')}
+      </SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>{pinnedItems.map(renderSidebarItem)}</SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  )
+
   if (isLoading || !config) {
     return (
       <Sidebar collapsible="offcanvas" {...props}>
@@ -316,80 +331,47 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                tooltip={t('nav.overview')}
-                asChild
-                isActive={isActive('/')}
-                className="transition-all duration-200 hover:bg-accent/60 active:scale-95 data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm"
-              >
-                <Link to="/" onClick={handleMenuItemClick}>
-                  <IconLayoutDashboard className="text-sidebar-primary" />
-                  <span className="font-medium">{t('nav.overview')}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            {user?.isAdmin() && (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  tooltip={t('plugins.navLabel')}
-                  asChild
-                  isActive={location.pathname === '/plugins'}
-                  className="data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-sm"
-                >
-                  <Link to="/plugins" onClick={handleMenuItemClick}>
-                    <IconPuzzle className="text-sidebar-primary" />
-                    <span className="font-medium">{t('plugins.navLabel')}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            )}
-          </SidebarMenu>
-        </SidebarGroup>
+        {visibleGroups[0]?.id !== GENERAL_GROUP_ID && pinnedGroup}
 
-        {pinnedItems.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {t('sidebar.pinned', 'Pinned')}
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>{pinnedItems.map(renderSidebarItem)}</SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-
-        {visibleGroups.map((group) => (
-          <Collapsible
-            key={group.id}
-            defaultOpen={!group.collapsed}
-            className="group/collapsible"
-          >
-            <SidebarGroup>
-              <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex items-center justify-between w-full text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors group-data-[state=open]:text-foreground">
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="truncate uppercase tracking-wide text-xs font-semibold">
-                      {group.nameKey
-                        ? t(group.nameKey, { defaultValue: group.nameKey })
-                        : ''}
+        {visibleGroups.map((group, index) =>
+          group.id === GENERAL_GROUP_ID ? (
+            <React.Fragment key={group.id}>
+              <SidebarGroup>
+                <SidebarMenu>{group.items.map(renderSidebarItem)}</SidebarMenu>
+              </SidebarGroup>
+              {index === 0 && pinnedGroup}
+            </React.Fragment>
+          ) : (
+            <Collapsible
+              key={group.id}
+              defaultOpen={!group.collapsed}
+              className="group/collapsible"
+            >
+              <SidebarGroup>
+                <SidebarGroupLabel asChild>
+                  <CollapsibleTrigger className="flex items-center justify-between w-full text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors group-data-[state=open]:text-foreground">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate uppercase tracking-wide text-xs font-semibold">
+                        {group.nameKey
+                          ? t(group.nameKey, { defaultValue: group.nameKey })
+                          : ''}
+                      </span>
+                      <PluginIndicator pluginId={group.pluginId} />
                     </span>
-                    <PluginIndicator pluginId={group.pluginId} />
-                  </span>
-                  <ChevronDown className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
-                </CollapsibleTrigger>
-              </SidebarGroupLabel>
-              <CollapsibleContent>
-                <SidebarGroupContent className="flex flex-col gap-2">
-                  <SidebarMenu>
-                    {group.items.map(renderSidebarItem)}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </SidebarGroup>
-          </Collapsible>
-        ))}
+                    <ChevronDown className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+                  </CollapsibleTrigger>
+                </SidebarGroupLabel>
+                <CollapsibleContent>
+                  <SidebarGroupContent className="flex flex-col gap-2">
+                    <SidebarMenu>
+                      {group.items.map(renderSidebarItem)}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </CollapsibleContent>
+              </SidebarGroup>
+            </Collapsible>
+          )
+        )}
       </SidebarContent>
 
       <SidebarFooter>

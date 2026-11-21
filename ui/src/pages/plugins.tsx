@@ -618,12 +618,11 @@ export function PluginManagementPage() {
           </Dialog>
         </div>
       </div>
-      <p className="flex items-start gap-2 text-pretty text-xs leading-5 text-muted-foreground">
-        {isCatalog && (
-          <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-        )}
-        {t(isCatalog ? 'plugins.catalogNotice' : 'plugins.trust')}
-      </p>
+      {!isCatalog && (
+        <p className="text-pretty text-xs leading-5 text-muted-foreground">
+          {t('plugins.trust')}
+        </p>
+      )}
       {action.error && !npmOpen && (
         <p role="alert" className="break-words text-sm text-destructive">
           {action.error.message}

@@ -1,5 +1,11 @@
 import type { ComponentType } from 'react'
-import { IconBox, type Icon, type IconProps } from '@tabler/icons-react'
+import {
+  IconBox,
+  IconLayoutDashboard,
+  IconPuzzle,
+  type Icon,
+  type IconProps,
+} from '@tabler/icons-react'
 
 import {
   DefaultMenus,
@@ -14,7 +20,11 @@ import {
   sidebarGroupOrder,
 } from '@/lib/resource-catalog'
 
-const sidebarIconMap = resourceIconMap
+const sidebarIconMap = {
+  ...resourceIconMap,
+  IconLayoutDashboard,
+  IconPuzzle,
+}
 type CatalogResource = (typeof resourceCatalog)[number]
 type StoredSidebarItem = {
   id: string
@@ -71,7 +81,44 @@ defaultMenus['sidebar.groups.application'].push({
   icon: getResourceIconComponent('IconPackage'),
 })
 
-export const SIDEBAR_CONFIG_VERSION = 5
+export const SIDEBAR_CONFIG_VERSION = 6
+
+export const GENERAL_GROUP_ID = 'sidebar-groups-general'
+export const PLUGINS_ITEM_ID = 'sidebar-plugins'
+
+const generalItems: SidebarItem[] = [
+  {
+    id: 'sidebar-overview',
+    type: 'link',
+    titleKey: 'nav.overview',
+    url: '/',
+    icon: 'IconLayoutDashboard',
+    visible: true,
+    pinned: false,
+    order: 0,
+  },
+  {
+    id: PLUGINS_ITEM_ID,
+    type: 'link',
+    titleKey: 'plugins.navLabel',
+    url: '/plugins',
+    icon: 'IconPuzzle',
+    visible: true,
+    pinned: false,
+    order: 1,
+  },
+]
+
+function generalGroup(items: SidebarItem[], order: number): SidebarGroup {
+  return {
+    id: GENERAL_GROUP_ID,
+    nameKey: 'sidebar.groups.general',
+    items,
+    visible: true,
+    collapsed: false,
+    order,
+  }
+}
 
 function getIconName(iconComponent: ComponentType<{ className?: string }>) {
   const entry = Object.entries(sidebarIconMap).find(
@@ -89,9 +136,9 @@ export function getSidebarIconComponent(
 }
 
 export function buildDefaultSidebarConfig(): SidebarConfig {
-  const groups: SidebarGroup[] = []
+  const groups: SidebarGroup[] = [generalGroup(generalItems, 0)]
   const hiddenItems: string[] = []
-  let groupOrder = 0
+  let groupOrder = 1
 
   Object.entries(defaultMenus).forEach(([groupKey, items]) => {
     const groupId = groupKey
@@ -152,9 +199,50 @@ export function migrateSidebarConfig(
         .map((item) => item.id)
     )
   )
+  const existingItemIds = new Set(
+    [
+      ...storedConfig.groups,
+      ...Object.values(storedConfig.pluginPreferences?.groups ?? {}),
+    ].flatMap((group) => (group.items ?? []).map((item) => item.id))
+  )
+  const missingGeneralItems = generalItems.filter(
+    (item) => !existingItemIds.has(item.id)
+  )
+  let groups = storedConfig.groups
+  let groupOrder = storedConfig.groupOrder
+  if (missingGeneralItems.length > 0) {
+    const general = groups.find((group) => group.id === GENERAL_GROUP_ID)
+    if (general) {
+      groups = groups.map((group) =>
+        group === general
+          ? {
+              ...group,
+              items: [
+                ...group.items,
+                ...missingGeneralItems.map((item, index) => ({
+                  ...item,
+                  order: group.items.length + index,
+                })),
+              ],
+            }
+          : group
+      )
+    } else {
+      groups = [
+        generalGroup(
+          missingGeneralItems,
+          Math.min(0, ...groups.map((group) => group.order)) - 1
+        ),
+        ...groups,
+      ]
+      groupOrder = [GENERAL_GROUP_ID, ...groupOrder]
+    }
+  }
+
   return {
     ...storedConfig,
     version: SIDEBAR_CONFIG_VERSION,
+    groupOrder,
     hiddenItems: storedConfig.hiddenItems.filter(
       (id) => !removedItemIds.has(id)
     ),
@@ -179,7 +267,7 @@ export function migrateSidebarConfig(
           ),
         }
       : undefined,
-    groups: storedConfig.groups.map((group) => ({
+    groups: groups.map((group) => ({
       ...group,
       items: group.items
         .filter((item) => !removedItemIds.has(item.id))
