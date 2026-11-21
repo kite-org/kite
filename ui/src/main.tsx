@@ -55,8 +55,7 @@ createRoot(document.getElementById('root')!).render(
           <AppearanceProvider
             defaultTheme="system"
             defaultColorTheme="clean-slate"
-            defaultFont={isDesktop ? 'system' : 'maple'}
-            defaultDisplayScale={isDesktop ? 90 : 95}
+            defaultFont="system"
           >
             <SidebarConfigProvider>
               <RouterProvider router={router} />
