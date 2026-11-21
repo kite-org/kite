@@ -17,7 +17,7 @@ type DisplayScaleProviderState = {
 }
 
 const initialState: DisplayScaleProviderState = {
-  displayScale: 95,
+  displayScale: 90,
   setDisplayScale: () => null,
 }
 
@@ -36,7 +36,7 @@ function normalizeDisplayScale(value: number) {
 
 export function DisplayScaleProvider({
   children,
-  defaultDisplayScale = 95,
+  defaultDisplayScale = 90,
   storageKey = 'vite-ui-display-scale',
   ...props
 }: DisplayScaleProviderProps) {

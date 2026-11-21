@@ -15,7 +15,7 @@ type FontProviderState = {
 }
 
 const initialState: FontProviderState = {
-  font: 'maple',
+  font: 'system',
   setFont: () => null,
 }
 
@@ -23,7 +23,7 @@ const FontProviderContext = createContext<FontProviderState>(initialState)
 
 export function FontProvider({
   children,
-  defaultFont = 'maple',
+  defaultFont = 'system',
   storageKey = 'vite-ui-font',
   ...props
 }: FontProviderProps) {
