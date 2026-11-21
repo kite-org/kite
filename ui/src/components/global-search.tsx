@@ -8,8 +8,8 @@ import {
 } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { useSidebarConfig } from '@/contexts/sidebar-config-context'
+import { PLUGINS_ITEM_ID } from '@/contexts/sidebar-config-defaults'
 import {
-  IconLayoutDashboard,
   IconMoon,
   IconServer,
   IconSettings,
@@ -150,17 +150,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
   }, [actualTheme, setTheme])
 
   const sidebarItems = useMemo<SidebarSearchItem[]>(() => {
-    const overviewTitle = t('nav.overview')
     const items: SidebarSearchItem[] = [
-      {
-        id: 'sidebar-overview',
-        title: overviewTitle,
-        url: '/',
-        Icon: IconLayoutDashboard,
-        groupLabel: undefined,
-        searchText: `${overviewTitle} overview dashboard /`.toLowerCase(),
-        isPinned: false,
-      },
       ...(user?.isAdmin()
         ? [
             {
@@ -232,7 +222,10 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
         .slice()
         .sort((a, b) => a.order - b.order)
         .forEach((item) => {
-          if (item.type === 'apiGroup') {
+          if (
+            item.type === 'apiGroup' ||
+            (item.id === PLUGINS_ITEM_ID && !user?.isAdmin())
+          ) {
             return
           }
           const title = item.titleKey
