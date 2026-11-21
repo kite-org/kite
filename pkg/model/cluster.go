@@ -7,6 +7,7 @@ type Cluster struct {
 	Config                 SecretString `json:"config" gorm:"type:text"`
 	PrometheusURL          string       `json:"prometheus_url,omitempty" gorm:"type:text"`
 	InCluster              bool         `json:"in_cluster" gorm:"type:boolean;default:false"`
+	OIDCPassthrough        bool         `json:"oidc_passthrough" gorm:"type:boolean;default:false"`
 	ClusterAgent           bool         `json:"clusterAgent" gorm:"type:boolean;default:false"`
 	ClusterAgentTokenHash  string       `json:"-" gorm:"type:varchar(64);index"`
 	ClusterAgentPublicKey  string       `json:"-" gorm:"type:varchar(64)"`

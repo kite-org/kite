@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 
@@ -17,8 +18,13 @@ type clusterClientSetProvider interface {
 	GetClientSet(string) (*cluster.ClientSet, error)
 }
 
+type idTokenProvider interface {
+	IDTokenForRequest(c *gin.Context) (string, error)
+}
+
 // ClusterMiddleware selects a cluster from the path, header, or query and injects its clients into context.
-func ClusterMiddleware(cm clusterClientSetProvider) gin.HandlerFunc {
+// For clusters with OIDC passthrough, the injected client uses the signed-in user's own ID token.
+func ClusterMiddleware(cm clusterClientSetProvider, idp idTokenProvider) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		clusterName := c.Param("cluster")
 		if clusterName == "" {
@@ -33,14 +39,24 @@ func ClusterMiddleware(cm clusterClientSetProvider) gin.HandlerFunc {
 				}
 			}
 		}
-		cluster, err := cm.GetClientSet(clusterName)
+		cs, err := cm.GetClientSet(clusterName)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			c.Abort()
 			return
 		}
-		c.Set("cluster", cluster)
-		c.Set(ClusterNameKey, cluster.Name)
+		cs, err = cs.ClientFor(func() (string, error) { return idp.IDTokenForRequest(c) })
+		if err != nil {
+			if errors.Is(err, cluster.ErrIDTokenUnavailable) {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Session expired, sign in again"})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to build user client"})
+			}
+			c.Abort()
+			return
+		}
+		c.Set("cluster", cs)
+		c.Set(ClusterNameKey, cs.Name)
 		c.Next()
 	}
 }

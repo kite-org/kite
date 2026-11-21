@@ -112,8 +112,14 @@ func (h *AuthHandler) RequireAuth() gin.HandlerFunc {
 		}
 		user.Roles = rbac.GetUserRoles(*user)
 		c.Set("user", *user)
+		c.Set("refresh_token", claims.RefreshToken)
 		c.Next()
 	}
+}
+
+// IDTokenForRequest returns a fresh Keycloak ID token for the authenticated session.
+func (h *AuthHandler) IDTokenForRequest(c *gin.Context) (string, error) {
+	return h.manager.IDTokenForRequest(c)
 }
 
 func (h *AuthHandler) RequireAdmin() gin.HandlerFunc {

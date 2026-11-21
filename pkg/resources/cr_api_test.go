@@ -123,7 +123,7 @@ func newCRAPITestFixture(t *testing.T, config crAPITestConfig) *crAPITestFixture
 		api.Group(""),
 		api.Group("/_clusters/:cluster"),
 	} {
-		group.Use(middleware.ClusterMiddleware(clientSets))
+		group.Use(middleware.ClusterMiddleware(clientSets, nil))
 		group.Use(middleware.RBACMiddleware())
 		RegisterRoutes(group)
 	}

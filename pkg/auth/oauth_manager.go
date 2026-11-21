@@ -2,21 +2,39 @@ package auth
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
+	"golang.org/x/sync/singleflight"
 	"k8s.io/klog/v2"
 )
 
 type OAuthManager struct {
-	jwtSecret string
+	jwtSecret    string
+	refreshGroup singleflight.Group
+	refreshMu    sync.Mutex
+	// refreshed holds recent refresh results keyed by the hash of the refresh token they replaced.
+	refreshed map[string]refreshResult
 }
+
+// refreshResult is reused for requests that still carry the refresh token it replaced, so
+// concurrent requests in one session do not invalidate each other.
+type refreshResult struct {
+	idToken      string
+	refreshToken string
+	expiresAt    time.Time
+}
+
+const refreshReuseWindow = time.Minute
 
 // Keep headroom for cookie name and attributes within common 4096-byte browser limits.
 const maxAuthTokenCookieValueLength = 3800
@@ -24,6 +42,7 @@ const maxAuthTokenCookieValueLength = 3800
 func NewOAuthManager() *OAuthManager {
 	return &OAuthManager{
 		jwtSecret: common.JwtSecret,
+		refreshed: map[string]refreshResult{},
 	}
 }
 
@@ -106,6 +125,80 @@ func (om *OAuthManager) GenerateJWT(user *model.User, refreshToken string) (stri
 func (om *OAuthManager) signJWT(claims Claims) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(om.jwtSecret))
+}
+
+// IDTokenForRequest exchanges the session's refresh token for a fresh ID token. The ID token is
+// returned for this request only. A rotated refresh token is written back to the session cookie.
+func (om *OAuthManager) IDTokenForRequest(c *gin.Context) (string, error) {
+	refreshToken, _ := c.Get("refresh_token")
+	rt, _ := refreshToken.(string)
+	if rt == "" {
+		return "", fmt.Errorf("session has no refresh token")
+	}
+	userValue, exists := c.Get("user")
+	user, ok := userValue.(model.User)
+	if !exists || !ok {
+		return "", fmt.Errorf("session has no user")
+	}
+	sum := sha256.Sum256([]byte(rt))
+	key := hex.EncodeToString(sum[:])
+	result, err, _ := om.refreshGroup.Do(key, func() (any, error) {
+		// Follow the rotation chain to the newest cached result, so a stale request is not sent back to a replaced token.
+		om.refreshMu.Lock()
+		current := time.Now()
+		latest, ok := om.refreshed[key]
+		latestKey := key
+		for hops := 0; ok && hops < len(om.refreshed); hops++ {
+			sum := sha256.Sum256([]byte(latest.refreshToken))
+			nextKey := hex.EncodeToString(sum[:])
+			next, found := om.refreshed[nextKey]
+			if !found || nextKey == latestKey || !current.Before(next.expiresAt) {
+				break
+			}
+			latest, latestKey = next, nextKey
+		}
+		om.refreshMu.Unlock()
+		if ok && current.Before(latest.expiresAt) {
+			return latest, nil
+		}
+		provider, err := om.GetProvider(c, user.Provider)
+		if err != nil {
+			return nil, err
+		}
+		tokenResp, err := provider.RefreshToken(rt)
+		if err != nil {
+			return nil, err
+		}
+		if tokenResp.IDToken == "" {
+			return nil, fmt.Errorf("provider returned no id_token")
+		}
+		res := refreshResult{idToken: tokenResp.IDToken, refreshToken: rt, expiresAt: time.Now().Add(refreshReuseWindow)}
+		if tokenResp.RefreshToken != "" {
+			res.refreshToken = tokenResp.RefreshToken
+		}
+		om.refreshMu.Lock()
+		now := time.Now()
+		for k, v := range om.refreshed {
+			if now.After(v.expiresAt) {
+				delete(om.refreshed, k)
+			}
+		}
+		om.refreshed[key] = res
+		om.refreshMu.Unlock()
+		return res, nil
+	})
+	if err != nil {
+		return "", err
+	}
+	res := result.(refreshResult)
+	if res.refreshToken != rt {
+		jwtToken, err := om.GenerateJWT(&user, res.refreshToken)
+		if err != nil {
+			return "", err
+		}
+		setCookieSecure(c, "auth_token", jwtToken, common.CookieExpirationSeconds)
+	}
+	return res.idToken, nil
 }
 
 func (om *OAuthManager) ValidateJWT(tokenString string) (*Claims, error) {

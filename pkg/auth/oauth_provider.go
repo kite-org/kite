@@ -40,6 +40,7 @@ type OAuthConfig struct {
 // TokenResponse represents OAuth token response with refresh token support
 type TokenResponse struct {
 	AccessToken  string `json:"access_token"`
+	IDToken      string `json:"id_token,omitempty"`
 	RefreshToken string `json:"refresh_token,omitempty"`
 	TokenType    string `json:"token_type"`
 	ExpiresIn    int64  `json:"expires_in,omitempty"`

@@ -31,6 +31,95 @@ type ClientSet struct {
 	config                  string
 	prometheusURL           string
 	clusterAgentGeneration  uint64
+	restConfig              *rest.Config
+	oidcPassthrough         bool
+
+	// sharedTransport carries connections (and the agent tunnel) for every user of this cluster.
+	sharedTransportOnce sync.Once
+	sharedTransport     http.RoundTripper
+	sharedTransportErr  error
+}
+
+// OIDCPassthrough reports whether requests to this cluster must use the user's own ID token.
+func (cs *ClientSet) OIDCPassthrough() bool {
+	return cs.oidcPassthrough
+}
+
+// ForUser returns a client that authenticates to the apiserver with the user's own ID token, so
+// Kubernetes RBAC and audit apply to that user. The base config's client credentials are dropped.
+func (cs *ClientSet) ForUser(idToken string) (*ClientSet, error) {
+	cfg := rest.CopyConfig(cs.restConfig)
+	cfg.Username, cfg.Password = "", ""
+	cfg.CertFile, cfg.KeyFile, cfg.CertData, cfg.KeyData = "", "", nil, nil
+	cfg.BearerTokenFile = ""
+	cfg.ExecProvider, cfg.AuthProvider = nil, nil
+	// The cluster-agent transport wrapper injects the agent's Authorization header; drop it so the user's token is sent.
+	cfg.WrapTransport = nil
+	cfg.BearerToken = idToken
+	cs.sharedTransportOnce.Do(func() {
+		shared := rest.CopyConfig(cs.restConfig)
+		shared.Username, shared.Password = "", ""
+		shared.CertFile, shared.KeyFile, shared.CertData, shared.KeyData = "", "", nil, nil
+		shared.BearerToken, shared.BearerTokenFile = "", ""
+		shared.ExecProvider, shared.AuthProvider = nil, nil
+		shared.WrapTransport = nil
+		shared.Impersonate = rest.ImpersonationConfig{}
+		cs.sharedTransport, cs.sharedTransportErr = rest.TransportFor(shared)
+	})
+	if cs.sharedTransportErr != nil {
+		return nil, cs.sharedTransportErr
+	}
+	// Users share one transport, so the agent tunnel dial and TLS connections are reused. The per-user
+	// token is added by the client's own wrapper on top of it.
+	cfg.Transport = cs.sharedTransport
+	cfg.TLSClientConfig = rest.TLSClientConfig{}
+	cfg.Dial = nil
+	k8sClient, err := kube.NewUserClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+	promClient := cs.PromClient
+	promURL := cs.prometheusURL
+	if promURL == "" {
+		promURL = cs.DiscoveredPrometheusURL
+	}
+	if promURL != "" && isClusterLocalURL(promURL) {
+		// Fail closed: never fall back to the shared credentials for cluster-local Prometheus.
+		transport, err := createK8sProxyTransport(cfg, promURL)
+		if err != nil {
+			return nil, err
+		}
+		promClient, err = prometheus.NewClientWithRoundTripper(promURL, transport)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &ClientSet{
+		Name:                    cs.Name,
+		Version:                 cs.Version,
+		K8sClient:               k8sClient,
+		PromClient:              promClient,
+		DiscoveredPrometheusURL: cs.DiscoveredPrometheusURL,
+		prometheusURL:           cs.prometheusURL,
+		restConfig:              cs.restConfig,
+		oidcPassthrough:         cs.oidcPassthrough,
+	}, nil
+}
+
+// ErrIDTokenUnavailable is returned by ClientFor when a passthrough cluster cannot get the user's ID token.
+var ErrIDTokenUnavailable = errors.New("ID token unavailable")
+
+// ClientFor returns the client set to use for one request. Passthrough clusters get a client that
+// authenticates with the user's own ID token, obtained from idTokenFor only for those clusters.
+func (cs *ClientSet) ClientFor(idTokenFor func() (string, error)) (*ClientSet, error) {
+	if !cs.oidcPassthrough {
+		return cs, nil
+	}
+	idToken, err := idTokenFor()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrIDTokenUnavailable, err)
+	}
+	return cs.ForUser(idToken)
 }
 
 type ClusterManager struct {
@@ -72,6 +161,7 @@ func newClientSet(name string, k8sConfig *rest.Config, prometheusURL string) (*C
 	cs := &ClientSet{
 		Name:          name,
 		prometheusURL: prometheusURL,
+		restConfig:    k8sConfig,
 	}
 	var err error
 	cs.K8sClient, err = kube.NewClient(k8sConfig)
@@ -416,6 +506,12 @@ func shouldUpdateCluster(cs *ClientSet, cluster *model.Cluster) bool {
 		return true
 	}
 
+	// OIDC passthrough change
+	if cs.oidcPassthrough != cluster.OIDCPassthrough {
+		klog.Infof("OIDC passthrough changed for cluster %s, updating", cluster.Name)
+		return true
+	}
+
 	// k8s version change
 	// TODO: Replace direct ClientSet.Discovery() call with a small DiscoveryInterface.
 	// current code depends on *kubernetes.Clientset, which is hard to mock in tests.
@@ -439,7 +535,12 @@ func buildClientSet(cluster *model.Cluster) (*ClientSet, error) {
 
 func (cm *ClusterManager) buildClientSet(cluster *model.Cluster) (*ClientSet, error) {
 	if !cluster.ClusterAgent {
-		return buildClientSet(cluster)
+		cs, err := buildClientSet(cluster)
+		if err != nil {
+			return nil, err
+		}
+		cs.oidcPassthrough = cluster.OIDCPassthrough
+		return cs, nil
 	}
 	config, generation, err := cm.clusterAgentManager.RESTConfig(cluster.ID)
 	if err != nil {
@@ -450,6 +551,7 @@ func (cm *ClusterManager) buildClientSet(cluster *model.Cluster) (*ClientSet, er
 		return nil, err
 	}
 	clientSet.clusterAgentGeneration = generation
+	clientSet.oidcPassthrough = cluster.OIDCPassthrough
 	return clientSet, nil
 }
 

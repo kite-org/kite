@@ -160,7 +160,7 @@ func newPodAPITestFixture(t *testing.T, config podAPITestConfig) *podAPITestFixt
 		api.Group(""),
 		api.Group("/_clusters/:cluster"),
 	} {
-		group.Use(middleware.ClusterMiddleware(clientSets))
+		group.Use(middleware.ClusterMiddleware(clientSets, nil))
 		group.Use(middleware.RBACMiddleware())
 		if config.registerRoutes != nil {
 			config.registerRoutes(group)
