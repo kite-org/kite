@@ -182,6 +182,7 @@ config:
   #       kind: Config
   #       ...
   #     prometheusURL: "http://prometheus:9090"
+  #     oidcPassthrough: false  # true: API calls use the signed-in user's OIDC ID token
   #     default: true
   #   - name: in-cluster
   #     inCluster: true
