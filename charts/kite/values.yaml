@@ -272,8 +272,18 @@ securityContext:
 service:
   # This sets the service type more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
   type: ClusterIP
+  annotations: {}
+  labels: {}
   # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
   port: 8080
+  # If enabled, the service will be configured to support both IPv4 and IPv6.
+  ipDualStack:
+    enabled: false
+    # ipFamilies can be one or both of "IPv4" and "IPv6"; the first entry is the primary family.
+    # Leave empty to use the cluster default order. The primary family cannot be changed on an existing Service.
+    ipFamilies: []
+    # ipFamilyPolicy can be one of "SingleStack", "PreferDualStack", or "RequireDualStack".
+    ipFamilyPolicy: "PreferDualStack"
 
 # This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
