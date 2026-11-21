@@ -55,16 +55,20 @@ func ToHelmRelease(rel *release.Release, details bool) HelmRelease {
 			AppVersion:   appVersion,
 			Icon:         chartIcon,
 			Revision:     rel.Version,
-			Values:       rel.Config,
-			Manifest:     rel.Manifest,
-			Hooks:        toHelmHooks(rel.Hooks),
 		},
 	}
-	if details && rel.Chart != nil {
-		hr.Spec.DefaultValues = rel.Chart.Values
+	if details {
+		hr.Spec.Values = rel.Config
+		hr.Spec.Manifest = rel.Manifest
+		hr.Spec.Hooks = toHelmHooks(rel.Hooks)
+		if rel.Chart != nil {
+			hr.Spec.DefaultValues = rel.Chart.Values
+		}
 	}
 	if rel.Info != nil {
-		hr.Spec.Notes = rel.Info.Notes
+		if details {
+			hr.Spec.Notes = rel.Info.Notes
+		}
 		hr.Spec.Description = rel.Info.Description
 		hr.Status.Status = rel.Info.Status.String()
 		hr.Status.FirstDeployed = helmTimePtr(rel.Info.FirstDeployed)
