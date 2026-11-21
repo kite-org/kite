@@ -17,7 +17,7 @@ func CanAccess(user model.User, resource, verb, cluster, namespace string) bool 
 	for _, role := range roles {
 		if match(role.Clusters, cluster) &&
 			match(role.Namespaces, namespace) &&
-			match(role.Resources, resource) &&
+			matchResource(role.Resources, resource) &&
 			match(role.Verbs, verb) {
 			klog.V(2).Infof("RBAC Check - User: %s, OIDC Groups: %v, Resource: %s, Verb: %s, Cluster: %s, Namespace: %s, Hit Role: %v",
 				user.Key(), user.OIDCGroups, resource, verb, cluster, namespace, role.Name)
@@ -34,7 +34,7 @@ func CanAccessAllNamespaces(user model.User, resource, verb, cluster string) boo
 	for _, role := range GetUserRoles(user) {
 		if contains(role.Namespaces, "*") &&
 			!slices.ContainsFunc(role.Namespaces, func(namespace string) bool { return strings.HasPrefix(namespace, "!") }) &&
-			match(role.Clusters, cluster) && match(role.Resources, resource) && match(role.Verbs, verb) {
+			match(role.Clusters, cluster) && matchResource(role.Resources, resource) && match(role.Verbs, verb) {
 			return true
 		}
 	}
@@ -64,7 +64,7 @@ func HasResourcePermission(user model.User, resource, verb, cluster string) bool
 	roles := GetUserRoles(user)
 	for _, role := range roles {
 		if match(role.Clusters, cluster) &&
-			match(role.Resources, resource) &&
+			matchResource(role.Resources, resource) &&
 			match(role.Verbs, verb) {
 			return true
 		}
@@ -131,6 +131,59 @@ func findRoleLocked(name string) *common.Role {
 		}
 	}
 	return nil
+}
+
+func matchResource(list []string, resource string) bool {
+	for _, pattern := range list {
+		if len(pattern) > 1 && strings.HasPrefix(pattern, "!") && matchResourcePattern(pattern[1:], resource) {
+			return false
+		}
+	}
+	for _, pattern := range list {
+		if strings.HasPrefix(pattern, "!") {
+			continue
+		}
+		if matchResourcePattern(pattern, resource) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchResourcePattern(pattern, resource string) bool {
+	if matchPattern(pattern, resource) {
+		return true
+	}
+	if strings.ContainsAny(pattern, `\^$*+?()[]{}|`) {
+		return false
+	}
+	patternMeta := common.LookupResource(pattern)
+	if patternMeta == nil {
+		return false
+	}
+	resourceMeta := common.LookupResource(resource)
+	return resourceMeta != nil && patternMeta == resourceMeta
+}
+
+// WarnUnrecognizedDenyResources logs a warning when a negated literal resource
+// entry does not resolve to any known built-in resource, CRD, or regex.
+func WarnUnrecognizedDenyResources(roleName string, resources []string) {
+	for _, r := range resources {
+		if !strings.HasPrefix(r, "!") {
+			continue
+		}
+		sub := strings.TrimSpace(r[1:])
+		if sub == "" {
+			klog.Warningf("RBAC role %q has empty deny resource entry %q", roleName, r)
+			continue
+		}
+		if strings.ContainsAny(sub, `\^$*+?()[]{}|`) || strings.Contains(sub, ".") || strings.EqualFold(sub, "prometheus") {
+			continue
+		}
+		if common.LookupResource(sub) == nil {
+			klog.Warningf("RBAC role %q has unrecognized deny resource %q; verify spelling or group-qualified CRD name", roleName, r)
+		}
+	}
 }
 
 func match(list []string, val string) bool {
