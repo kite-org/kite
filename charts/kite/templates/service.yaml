@@ -4,7 +4,11 @@ metadata:
   name: {{ include "kite.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- merge (deepCopy (.Values.service.labels | default dict)) (include "kite.labels" . | fromYaml) | toYaml | nindent 4 }}
+    {{- $labels := include "kite.labels" . | fromYaml }}
+    {{- range $key, $value := .Values.service.labels }}
+    {{- $_ := set $labels $key $value }}
+    {{- end }}
+    {{- toYaml $labels | nindent 4 }}
   {{- with .Values.service.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
