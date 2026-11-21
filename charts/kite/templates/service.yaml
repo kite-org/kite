@@ -4,9 +4,24 @@ metadata:
   name: {{ include "kite.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "kite.labels" . | nindent 4 }}
+    {{- $labels := include "kite.labels" . | fromYaml }}
+    {{- range $key, $value := .Values.service.labels }}
+    {{- $_ := set $labels $key $value }}
+    {{- end }}
+    {{- toYaml $labels | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   type: {{ .Values.service.type }}
+  {{- if (.Values.service.ipDualStack | default dict).enabled }}
+  {{- with .Values.service.ipDualStack.ipFamilies }}
+  ipFamilies:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  ipFamilyPolicy: {{ .Values.service.ipDualStack.ipFamilyPolicy | default "PreferDualStack" }}
+  {{- end }}
   ports:
     - port: {{ .Values.service.port }}
       targetPort: http
