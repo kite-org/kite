@@ -48,6 +48,8 @@ func (cs *ClientSet) ForUser(idToken string) (*ClientSet, error) {
 	cfg.CertFile, cfg.KeyFile, cfg.CertData, cfg.KeyData = "", "", nil, nil
 	cfg.BearerTokenFile = ""
 	cfg.ExecProvider, cfg.AuthProvider = nil, nil
+	// The cluster-agent transport wrapper injects the agent's Authorization header; drop it so the user's token is sent.
+	cfg.WrapTransport = nil
 	cfg.BearerToken = idToken
 	k8sClient, err := kube.NewUserClient(cfg)
 	if err != nil {
@@ -478,6 +480,12 @@ func shouldUpdateCluster(cs *ClientSet, cluster *model.Cluster) bool {
 	// prometheus URL change
 	if cs.prometheusURL != cluster.PrometheusURL {
 		klog.Infof("Prometheus URL changed for cluster %s, updating", cluster.Name)
+		return true
+	}
+
+	// OIDC passthrough change
+	if cs.oidcPassthrough != cluster.OIDCPassthrough {
+		klog.Infof("OIDC passthrough changed for cluster %s, updating", cluster.Name)
 		return true
 	}
 

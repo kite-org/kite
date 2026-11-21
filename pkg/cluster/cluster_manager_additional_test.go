@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/zxh326/kite/pkg/kube"
+	"k8s.io/client-go/kubernetes"
 )
 
 func init() {
@@ -428,6 +429,74 @@ func TestClientSetForUserUsesOwnIDToken(t *testing.T) {
 	}
 	if !userCS.OIDCPassthrough() {
 		t.Fatalf("ForUser() dropped oidcPassthrough flag")
+	}
+}
+
+func TestClientSetForUserDropsSharedTransportWrapper(t *testing.T) {
+	var gotAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"major":"1","minor":"30","gitVersion":"v1.30.0"}`))
+	}))
+	t.Cleanup(server.Close)
+
+	// Mirrors the cluster-agent wrapper, which overwrites Authorization with the agent's credential.
+	shared := &rest.Config{
+		Host: server.URL,
+		WrapTransport: func(next http.RoundTripper) http.RoundTripper {
+			return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+				req = req.Clone(req.Context())
+				req.Header.Set("Authorization", "Bearer agent-credential")
+				return next.RoundTrip(req)
+			})
+		},
+	}
+	cs := &ClientSet{Name: "agent", restConfig: shared, oidcPassthrough: true}
+
+	userCS, err := cs.ForUser("user-id-token")
+	if err != nil {
+		t.Fatalf("ForUser() error = %v", err)
+	}
+	if _, err := userCS.K8sClient.ClientSet.Discovery().ServerVersion(); err != nil {
+		t.Fatalf("ServerVersion() error = %v", err)
+	}
+	if gotAuth != "Bearer user-id-token" {
+		t.Fatalf("Authorization = %q, want %q (shared transport wrapper must not replace the user's token)", gotAuth, "Bearer user-id-token")
+	}
+}
+
+func TestShouldUpdateClusterOnOIDCPassthroughChange(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"major":"1","minor":"30","gitVersion":"v1.30.0"}`))
+	}))
+	t.Cleanup(server.Close)
+
+	clientset, err := kubernetes.NewForConfig(&rest.Config{Host: server.URL})
+	if err != nil {
+		t.Fatalf("NewForConfig() error = %v", err)
+	}
+	newClientSet := func(passthrough bool) *ClientSet {
+		return &ClientSet{
+			config:          "cfg",
+			Version:         "v1.30.0",
+			K8sClient:       &kube.K8sClient{ClientSet: clientset},
+			oidcPassthrough: passthrough,
+		}
+	}
+	cluster := &model.Cluster{Name: "c", Enable: true, Config: "cfg"}
+
+	if shouldUpdateCluster(newClientSet(false), cluster) {
+		t.Fatalf("shouldUpdateCluster() = true for unchanged cluster, want false")
+	}
+	cluster.OIDCPassthrough = true
+	if !shouldUpdateCluster(newClientSet(false), cluster) {
+		t.Fatalf("shouldUpdateCluster() = false after enabling OIDC passthrough, want true")
+	}
+	cluster.OIDCPassthrough = false
+	if !shouldUpdateCluster(newClientSet(true), cluster) {
+		t.Fatalf("shouldUpdateCluster() = false after disabling OIDC passthrough, want true")
 	}
 }
 
