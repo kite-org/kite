@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -130,7 +131,10 @@ func TestGenerateJWTStripsLargeRefreshToken(t *testing.T) {
 	}
 }
 
-func TestIDTokenForRequest(t *testing.T) {
+// newIDTokenTestEnv starts a fake token endpoint and a provider row for it. setMode selects the
+// endpoint behaviour ("ok", "rotate" or "no-id-token"); requests counts refresh calls received.
+func newIDTokenTestEnv(t *testing.T) (manager *OAuthManager, newContext func(string) (*gin.Context, *httptest.ResponseRecorder), setMode func(string), requests func() int) {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 	originalDB := model.DB
 	originalSecret := common.JwtSecret
@@ -152,7 +156,6 @@ func TestIDTokenForRequest(t *testing.T) {
 	}
 	model.DB = db
 
-	// mode selects the token endpoint behaviour: "ok", "rotate" or "no-id-token".
 	var mode string
 	var tokenRequests int
 	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -160,7 +163,7 @@ func TestIDTokenForRequest(t *testing.T) {
 		if err := r.ParseForm(); err != nil {
 			t.Errorf("ParseForm() error = %v", err)
 		}
-		if r.Form.Get("grant_type") != "refresh_token" || r.Form.Get("refresh_token") != "session-refresh" {
+		if r.Form.Get("grant_type") != "refresh_token" || !strings.HasPrefix(r.Form.Get("refresh_token"), "session-refresh") {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -188,7 +191,7 @@ func TestIDTokenForRequest(t *testing.T) {
 	}
 
 	user := model.User{Model: model.Model{ID: 7}, Username: "bob", Provider: "keycloak"}
-	newContext := func(refreshToken string) (*gin.Context, *httptest.ResponseRecorder) {
+	newContext = func(refreshToken string) (*gin.Context, *httptest.ResponseRecorder) {
 		recorder := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(recorder)
 		c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/pods", nil)
@@ -196,11 +199,17 @@ func TestIDTokenForRequest(t *testing.T) {
 		c.Set("user", user)
 		return c, recorder
 	}
-	manager := NewOAuthManager()
+	setMode = func(m string) { mode = m }
+	requests = func() int { return tokenRequests }
+	return NewOAuthManager(), newContext, setMode, requests
+}
+
+func TestIDTokenForRequest(t *testing.T) {
+	manager, newContext, setMode, requests := newIDTokenTestEnv(t)
 
 	t.Run("returns ID token and keeps cookie when refresh token is not rotated", func(t *testing.T) {
-		mode = "ok"
-		c, recorder := newContext("session-refresh")
+		setMode("ok")
+		c, recorder := newContext("session-refresh-ok")
 
 		idToken, err := manager.IDTokenForRequest(c)
 		if err != nil {
@@ -215,8 +224,8 @@ func TestIDTokenForRequest(t *testing.T) {
 	})
 
 	t.Run("writes rotated refresh token back to session cookie", func(t *testing.T) {
-		mode = "rotate"
-		c, recorder := newContext("session-refresh")
+		setMode("rotate")
+		c, recorder := newContext("session-refresh-rotate")
 
 		idToken, err := manager.IDTokenForRequest(c)
 		if err != nil {
@@ -244,24 +253,69 @@ func TestIDTokenForRequest(t *testing.T) {
 	})
 
 	t.Run("fails without calling provider when session has no refresh token", func(t *testing.T) {
-		mode = "ok"
-		before := tokenRequests
+		setMode("ok")
+		before := requests()
 		c, _ := newContext("")
 
 		if _, err := manager.IDTokenForRequest(c); err == nil {
 			t.Fatalf("IDTokenForRequest() error = nil, want error")
 		}
-		if tokenRequests != before {
-			t.Fatalf("provider called %d times for session without refresh token", tokenRequests-before)
+		if requests() != before {
+			t.Fatalf("provider called %d times for session without refresh token", requests()-before)
 		}
 	})
 
 	t.Run("fails when provider returns no ID token", func(t *testing.T) {
-		mode = "no-id-token"
-		c, _ := newContext("session-refresh")
+		setMode("no-id-token")
+		c, _ := newContext("session-refresh-no-id")
 
 		if _, err := manager.IDTokenForRequest(c); err == nil {
 			t.Fatalf("IDTokenForRequest() error = nil, want error")
+		}
+	})
+
+	t.Run("concurrent requests and stale cookies share one rotation", func(t *testing.T) {
+		setMode("rotate")
+		before := requests()
+		const concurrent = 8
+		ids := make([]string, concurrent)
+		errs := make([]error, concurrent)
+		var wg sync.WaitGroup
+		for i := 0; i < concurrent; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				c, _ := newContext("session-refresh-concurrent")
+				ids[i], errs[i] = manager.IDTokenForRequest(c)
+			}(i)
+		}
+		wg.Wait()
+		for i := range concurrent {
+			if errs[i] != nil || ids[i] != "fresh-id-token" {
+				t.Fatalf("request %d: id = %q, error = %v", i, ids[i], errs[i])
+			}
+		}
+
+		// A request still carrying the replaced refresh token gets the rotated one from the reuse window.
+		c, recorder := newContext("session-refresh-concurrent")
+		if _, err := manager.IDTokenForRequest(c); err != nil {
+			t.Fatalf("stale-cookie IDTokenForRequest() error = %v", err)
+		}
+		if requests()-before != 1 {
+			t.Fatalf("provider refreshed %d times, want 1", requests()-before)
+		}
+		var authCookie *http.Cookie
+		for _, cookie := range recorder.Result().Cookies() {
+			if cookie.Name == "auth_token" {
+				authCookie = cookie
+			}
+		}
+		if authCookie == nil {
+			t.Fatalf("stale-cookie request did not receive the rotated session cookie")
+		}
+		claims, err := manager.ValidateJWT(authCookie.Value)
+		if err != nil || claims.RefreshToken != "rotated-refresh" {
+			t.Fatalf("cookie refresh token = %q, error = %v, want %q", claims.RefreshToken, err, "rotated-refresh")
 		}
 	})
 }
