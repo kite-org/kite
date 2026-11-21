@@ -33,6 +33,11 @@ type ClientSet struct {
 	clusterAgentGeneration  uint64
 	restConfig              *rest.Config
 	oidcPassthrough         bool
+
+	// sharedTransport carries connections (and the agent tunnel) for every user of this cluster.
+	sharedTransportOnce sync.Once
+	sharedTransport     http.RoundTripper
+	sharedTransportErr  error
 }
 
 // OIDCPassthrough reports whether requests to this cluster must use the user's own ID token.
@@ -51,6 +56,24 @@ func (cs *ClientSet) ForUser(idToken string) (*ClientSet, error) {
 	// The cluster-agent transport wrapper injects the agent's Authorization header; drop it so the user's token is sent.
 	cfg.WrapTransport = nil
 	cfg.BearerToken = idToken
+	cs.sharedTransportOnce.Do(func() {
+		shared := rest.CopyConfig(cs.restConfig)
+		shared.Username, shared.Password = "", ""
+		shared.CertFile, shared.KeyFile, shared.CertData, shared.KeyData = "", "", nil, nil
+		shared.BearerToken, shared.BearerTokenFile = "", ""
+		shared.ExecProvider, shared.AuthProvider = nil, nil
+		shared.WrapTransport = nil
+		shared.Impersonate = rest.ImpersonationConfig{}
+		cs.sharedTransport, cs.sharedTransportErr = rest.TransportFor(shared)
+	})
+	if cs.sharedTransportErr != nil {
+		return nil, cs.sharedTransportErr
+	}
+	// Users share one transport, so the agent tunnel dial and TLS connections are reused. The per-user
+	// token is added by the client's own wrapper on top of it.
+	cfg.Transport = cs.sharedTransport
+	cfg.TLSClientConfig = rest.TLSClientConfig{}
+	cfg.Dial = nil
 	k8sClient, err := kube.NewUserClient(cfg)
 	if err != nil {
 		return nil, err

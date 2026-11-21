@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -497,6 +499,39 @@ func TestShouldUpdateClusterOnOIDCPassthroughChange(t *testing.T) {
 	cluster.OIDCPassthrough = false
 	if !shouldUpdateCluster(newClientSet(true), cluster) {
 		t.Fatalf("shouldUpdateCluster() = false after disabling OIDC passthrough, want true")
+	}
+}
+
+func TestClientSetForUserSharesClusterTransport(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"major":"1","minor":"30","gitVersion":"v1.30.0"}`))
+	}))
+	t.Cleanup(server.Close)
+
+	// The agent tunnel is a Dial function; every new dial is a new connection.
+	var dials atomic.Int32
+	shared := &rest.Config{
+		Host: server.URL,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			dials.Add(1)
+			var d net.Dialer
+			return d.DialContext(ctx, "tcp", server.Listener.Addr().String())
+		},
+	}
+	cs := &ClientSet{Name: "agent", restConfig: shared, oidcPassthrough: true}
+
+	for _, token := range []string{"alice-token", "bob-token"} {
+		userCS, err := cs.ForUser(token)
+		if err != nil {
+			t.Fatalf("ForUser(%q) error = %v", token, err)
+		}
+		if _, err := userCS.K8sClient.ClientSet.Discovery().ServerVersion(); err != nil {
+			t.Fatalf("ServerVersion() error = %v", err)
+		}
+	}
+	if got := dials.Load(); got != 1 {
+		t.Fatalf("agent tunnel dialled %d times for two users, want 1 (connections must be shared)", got)
 	}
 }
 
