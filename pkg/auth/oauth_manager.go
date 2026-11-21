@@ -143,11 +143,23 @@ func (om *OAuthManager) IDTokenForRequest(c *gin.Context) (string, error) {
 	sum := sha256.Sum256([]byte(rt))
 	key := hex.EncodeToString(sum[:])
 	result, err, _ := om.refreshGroup.Do(key, func() (any, error) {
+		// Follow the rotation chain to the newest cached result, so a stale request is not sent back to a replaced token.
 		om.refreshMu.Lock()
-		cached, ok := om.refreshed[key]
+		current := time.Now()
+		latest, ok := om.refreshed[key]
+		latestKey := key
+		for hops := 0; ok && hops < len(om.refreshed); hops++ {
+			sum := sha256.Sum256([]byte(latest.refreshToken))
+			nextKey := hex.EncodeToString(sum[:])
+			next, found := om.refreshed[nextKey]
+			if !found || nextKey == latestKey || !current.Before(next.expiresAt) {
+				break
+			}
+			latest, latestKey = next, nextKey
+		}
 		om.refreshMu.Unlock()
-		if ok && time.Now().Before(cached.expiresAt) {
-			return cached, nil
+		if ok && current.Before(latest.expiresAt) {
+			return latest, nil
 		}
 		provider, err := om.GetProvider(c, user.Provider)
 		if err != nil {

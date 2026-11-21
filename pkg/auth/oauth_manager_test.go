@@ -2,6 +2,7 @@ package auth
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -163,7 +164,8 @@ func newIDTokenTestEnv(t *testing.T) (manager *OAuthManager, newContext func(str
 		if err := r.ParseForm(); err != nil {
 			t.Errorf("ParseForm() error = %v", err)
 		}
-		if r.Form.Get("grant_type") != "refresh_token" || !strings.HasPrefix(r.Form.Get("refresh_token"), "session-refresh") {
+		presented := r.Form.Get("refresh_token")
+		if r.Form.Get("grant_type") != "refresh_token" || (!strings.HasPrefix(presented, "session-refresh") && !strings.HasPrefix(presented, "chain-")) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -171,6 +173,8 @@ func newIDTokenTestEnv(t *testing.T) (manager *OAuthManager, newContext func(str
 		switch mode {
 		case "rotate":
 			resp.RefreshToken = "rotated-refresh"
+		case "rotate-chain":
+			resp.RefreshToken = fmt.Sprintf("chain-%d", tokenRequests)
 		case "no-id-token":
 			resp.IDToken = ""
 		}
@@ -202,6 +206,22 @@ func newIDTokenTestEnv(t *testing.T) (manager *OAuthManager, newContext func(str
 	setMode = func(m string) { mode = m }
 	requests = func() int { return tokenRequests }
 	return NewOAuthManager(), newContext, setMode, requests
+}
+
+// sessionRefreshToken returns the refresh token carried by the auth cookie written to recorder.
+func sessionRefreshToken(t *testing.T, manager *OAuthManager, recorder *httptest.ResponseRecorder) string {
+	t.Helper()
+	for _, cookie := range recorder.Result().Cookies() {
+		if cookie.Name == "auth_token" {
+			claims, err := manager.ValidateJWT(cookie.Value)
+			if err != nil {
+				t.Fatalf("ValidateJWT() error = %v", err)
+			}
+			return claims.RefreshToken
+		}
+	}
+	t.Fatalf("no auth_token cookie written")
+	return ""
 }
 
 func TestIDTokenForRequest(t *testing.T) {
@@ -316,6 +336,34 @@ func TestIDTokenForRequest(t *testing.T) {
 		claims, err := manager.ValidateJWT(authCookie.Value)
 		if err != nil || claims.RefreshToken != "rotated-refresh" {
 			t.Fatalf("cookie refresh token = %q, error = %v, want %q", claims.RefreshToken, err, "rotated-refresh")
+		}
+	})
+
+	t.Run("stale request is given the newest token in a rotation chain", func(t *testing.T) {
+		setMode("rotate-chain")
+		// A refreshes T0 into T1; B refreshes T1 into T2.
+		ctxA, recorderA := newContext("session-refresh-chain")
+		if _, err := manager.IDTokenForRequest(ctxA); err != nil {
+			t.Fatalf("request A error = %v", err)
+		}
+		t1 := sessionRefreshToken(t, manager, recorderA)
+		ctxB, recorderB := newContext(t1)
+		if _, err := manager.IDTokenForRequest(ctxB); err != nil {
+			t.Fatalf("request B error = %v", err)
+		}
+		t2Expected := sessionRefreshToken(t, manager, recorderB)
+		before := requests()
+
+		// C still holds T0, which A replaced; it must get T2, not T1.
+		c, recorder := newContext("session-refresh-chain")
+		if _, err := manager.IDTokenForRequest(c); err != nil {
+			t.Fatalf("request C error = %v", err)
+		}
+		if requests() != before {
+			t.Fatalf("request C refreshed again; want it served from the reuse window")
+		}
+		if t2 := sessionRefreshToken(t, manager, recorder); t2 != t2Expected {
+			t.Fatalf("request C cookie refresh token = %q, want newest %q", t2, t2Expected)
 		}
 	})
 }
