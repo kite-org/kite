@@ -82,12 +82,76 @@ func TestHelmReleaseRBACAllNamespaces(t *testing.T) {
 	}
 }
 
+func TestHelmReleaseListOmitsValuesAndManifest(t *testing.T) {
+	secrets := corev1.SecretList{
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "SecretList"},
+		Items: []corev1.Secret{
+			helmReleaseSecretWithPayload(t, "app", "default", map[string]interface{}{"dbPassword": "secret"}, "apiVersion: v1\nkind: Secret\n"),
+		},
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/version":
+			_, _ = w.Write([]byte(`{"major":"1","minor":"35","gitVersion":"v1.35.0"}`))
+		case "/api/v1/secrets", "/api/v1/namespaces/default/secrets":
+			_ = json.NewEncoder(w).Encode(secrets)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	fixture := newPodAPITestFixture(t, podAPITestConfig{
+		user: model.User{
+			Username: "alice",
+			Roles: []common.Role{
+				{
+					Name:       "helm-reader",
+					Clusters:   []string{"cluster-a"},
+					Namespaces: []string{"default"},
+					Resources:  []string{string(common.HelmReleases)},
+					Verbs:      []string{string(common.VerbGet)},
+				},
+			},
+		},
+		clusterAConfig: &rest.Config{Host: server.URL},
+	})
+
+	listResp := performPodAPIRequest(t, fixture, http.MethodGet, "/api/v1/helmrelease", "", nil)
+	if listResp.Code != http.StatusOK {
+		t.Fatalf("GET /api/v1/helmrelease returned %d, want 200; body=%s", listResp.Code, listResp.Body.String())
+	}
+	list := decodePodAPIResponse[helmutil.HelmReleaseList](t, listResp)
+	if len(list.Items) != 1 {
+		t.Fatalf("expected 1 release, got %d", len(list.Items))
+	}
+	if list.Items[0].Spec.Values != nil || list.Items[0].Spec.Manifest != "" {
+		t.Fatalf("list response leaked payload: values=%#v manifest=%q", list.Items[0].Spec.Values, list.Items[0].Spec.Manifest)
+	}
+
+	getResp := performPodAPIRequest(t, fixture, http.MethodGet, "/api/v1/helmrelease/default/app", "", nil)
+	if getResp.Code != http.StatusOK {
+		t.Fatalf("GET /api/v1/helmrelease/default/app returned %d, want 200; body=%s", getResp.Code, getResp.Body.String())
+	}
+	detail := decodePodAPIResponse[helmutil.HelmRelease](t, getResp)
+	if detail.Spec.Values["dbPassword"] != "secret" || detail.Spec.Manifest == "" {
+		t.Fatalf("detail response missing expected payload: values=%#v manifest=%q", detail.Spec.Values, detail.Spec.Manifest)
+	}
+}
+
 func helmReleaseSecret(t *testing.T, name, namespace string) corev1.Secret {
+	return helmReleaseSecretWithPayload(t, name, namespace, nil, "")
+}
+
+func helmReleaseSecretWithPayload(t *testing.T, name, namespace string, config map[string]interface{}, manifest string) corev1.Secret {
 	t.Helper()
 	releaseData, err := json.Marshal(&release.Release{
 		Name:      name,
 		Namespace: namespace,
 		Version:   1,
+		Config:    config,
+		Manifest:  manifest,
 		Info:      &release.Info{Status: releasecommon.StatusDeployed},
 	})
 	if err != nil {
