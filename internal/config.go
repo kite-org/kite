@@ -33,12 +33,13 @@ type SuperUserConfig struct {
 }
 
 type ClusterConfig struct {
-	Name          string `yaml:"name"`
-	Description   string `yaml:"description"`
-	Config        string `yaml:"config"`
-	PrometheusURL string `yaml:"prometheusURL"`
-	InCluster     bool   `yaml:"inCluster"`
-	Default       bool   `yaml:"default"`
+	Name            string `yaml:"name"`
+	Description     string `yaml:"description"`
+	Config          string `yaml:"config"`
+	PrometheusURL   string `yaml:"prometheusURL"`
+	InCluster       bool   `yaml:"inCluster"`
+	OIDCPassthrough bool   `yaml:"oidcPassthrough"`
+	Default         bool   `yaml:"default"`
 }
 
 type OAuthConfig struct {
@@ -260,13 +261,14 @@ func applyClusters(clusters []ClusterConfig) error {
 
 		for _, c := range clusters {
 			cluster := &model.Cluster{
-				Name:          c.Name,
-				Description:   c.Description,
-				Config:        model.SecretString(c.Config),
-				PrometheusURL: c.PrometheusURL,
-				InCluster:     c.InCluster,
-				IsDefault:     c.Default,
-				Enable:        true,
+				Name:            c.Name,
+				Description:     c.Description,
+				Config:          model.SecretString(c.Config),
+				PrometheusURL:   c.PrometheusURL,
+				InCluster:       c.InCluster,
+				OIDCPassthrough: c.OIDCPassthrough,
+				IsDefault:       c.Default,
+				Enable:          true,
 			}
 			if err := tx.Create(cluster).Error; err != nil {
 				return err

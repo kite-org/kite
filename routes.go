@@ -158,11 +158,11 @@ func registerProtectedRoutes(r *gin.RouterGroup, authHandler *auth.AuthHandler, 
 	api.GET("/plugins/:id/settings", authHandler.RequireAuth(), plugins.GetSetting)
 	api.PUT("/plugins/:id/settings", authHandler.RequireAuth(), authHandler.RequireAdmin(), plugins.UpdateSetting)
 	defaultAPI := api.Group("")
-	defaultAPI.Use(authHandler.RequireAuth(), middleware.ClusterMiddleware(cm))
+	defaultAPI.Use(authHandler.RequireAuth(), middleware.ClusterMiddleware(cm, authHandler))
 	registerClusterProtectedRoutes(defaultAPI, helmChartsHandler)
 
 	clusterAPI := api.Group("/_clusters/:cluster")
-	clusterAPI.Use(authHandler.RequireAuth(), middleware.ClusterMiddleware(cm))
+	clusterAPI.Use(authHandler.RequireAuth(), middleware.ClusterMiddleware(cm, authHandler))
 	registerClusterProtectedRoutes(clusterAPI, helmChartsHandler)
 }
 

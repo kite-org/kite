@@ -108,6 +108,40 @@ func (om *OAuthManager) signJWT(claims Claims) (string, error) {
 	return token.SignedString([]byte(om.jwtSecret))
 }
 
+// IDTokenForRequest exchanges the session's refresh token for a fresh ID token. The ID token is
+// returned for this request only. A rotated refresh token is written back to the session cookie.
+func (om *OAuthManager) IDTokenForRequest(c *gin.Context) (string, error) {
+	refreshToken, _ := c.Get("refresh_token")
+	rt, _ := refreshToken.(string)
+	if rt == "" {
+		return "", fmt.Errorf("session has no refresh token")
+	}
+	userValue, exists := c.Get("user")
+	user, ok := userValue.(model.User)
+	if !exists || !ok {
+		return "", fmt.Errorf("session has no user")
+	}
+	provider, err := om.GetProvider(c, user.Provider)
+	if err != nil {
+		return "", err
+	}
+	tokenResp, err := provider.RefreshToken(rt)
+	if err != nil {
+		return "", err
+	}
+	if tokenResp.IDToken == "" {
+		return "", fmt.Errorf("provider returned no id_token")
+	}
+	if tokenResp.RefreshToken != "" && tokenResp.RefreshToken != rt {
+		jwtToken, err := om.GenerateJWT(&user, tokenResp.RefreshToken)
+		if err != nil {
+			return "", err
+		}
+		setCookieSecure(c, "auth_token", jwtToken, common.CookieExpirationSeconds)
+	}
+	return tokenResp.IDToken, nil
+}
+
 func (om *OAuthManager) ValidateJWT(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {

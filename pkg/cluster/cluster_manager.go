@@ -31,6 +31,70 @@ type ClientSet struct {
 	config                  string
 	prometheusURL           string
 	clusterAgentGeneration  uint64
+	restConfig              *rest.Config
+	oidcPassthrough         bool
+}
+
+// OIDCPassthrough reports whether requests to this cluster must use the user's own ID token.
+func (cs *ClientSet) OIDCPassthrough() bool {
+	return cs.oidcPassthrough
+}
+
+// ForUser returns a client that authenticates to the apiserver with the user's own ID token, so
+// Kubernetes RBAC and audit apply to that user. The base config's client credentials are dropped.
+func (cs *ClientSet) ForUser(idToken string) (*ClientSet, error) {
+	cfg := rest.CopyConfig(cs.restConfig)
+	cfg.Username, cfg.Password = "", ""
+	cfg.CertFile, cfg.KeyFile, cfg.CertData, cfg.KeyData = "", "", nil, nil
+	cfg.BearerTokenFile = ""
+	cfg.ExecProvider, cfg.AuthProvider = nil, nil
+	cfg.BearerToken = idToken
+	k8sClient, err := kube.NewUserClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+	promClient := cs.PromClient
+	promURL := cs.prometheusURL
+	if promURL == "" {
+		promURL = cs.DiscoveredPrometheusURL
+	}
+	if promURL != "" && isClusterLocalURL(promURL) {
+		// Fail closed: never fall back to the shared credentials for cluster-local Prometheus.
+		transport, err := createK8sProxyTransport(cfg, promURL)
+		if err != nil {
+			return nil, err
+		}
+		promClient, err = prometheus.NewClientWithRoundTripper(promURL, transport)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &ClientSet{
+		Name:                    cs.Name,
+		Version:                 cs.Version,
+		K8sClient:               k8sClient,
+		PromClient:              promClient,
+		DiscoveredPrometheusURL: cs.DiscoveredPrometheusURL,
+		prometheusURL:           cs.prometheusURL,
+		restConfig:              cs.restConfig,
+		oidcPassthrough:         cs.oidcPassthrough,
+	}, nil
+}
+
+// ErrIDTokenUnavailable is returned by ClientFor when a passthrough cluster cannot get the user's ID token.
+var ErrIDTokenUnavailable = errors.New("ID token unavailable")
+
+// ClientFor returns the client set to use for one request. Passthrough clusters get a client that
+// authenticates with the user's own ID token, obtained from idTokenFor only for those clusters.
+func (cs *ClientSet) ClientFor(idTokenFor func() (string, error)) (*ClientSet, error) {
+	if !cs.oidcPassthrough {
+		return cs, nil
+	}
+	idToken, err := idTokenFor()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrIDTokenUnavailable, err)
+	}
+	return cs.ForUser(idToken)
 }
 
 type ClusterManager struct {
@@ -72,6 +136,7 @@ func newClientSet(name string, k8sConfig *rest.Config, prometheusURL string) (*C
 	cs := &ClientSet{
 		Name:          name,
 		prometheusURL: prometheusURL,
+		restConfig:    k8sConfig,
 	}
 	var err error
 	cs.K8sClient, err = kube.NewClient(k8sConfig)
@@ -439,7 +504,12 @@ func buildClientSet(cluster *model.Cluster) (*ClientSet, error) {
 
 func (cm *ClusterManager) buildClientSet(cluster *model.Cluster) (*ClientSet, error) {
 	if !cluster.ClusterAgent {
-		return buildClientSet(cluster)
+		cs, err := buildClientSet(cluster)
+		if err != nil {
+			return nil, err
+		}
+		cs.oidcPassthrough = cluster.OIDCPassthrough
+		return cs, nil
 	}
 	config, generation, err := cm.clusterAgentManager.RESTConfig(cluster.ID)
 	if err != nil {
@@ -450,6 +520,7 @@ func (cm *ClusterManager) buildClientSet(cluster *model.Cluster) (*ClientSet, er
 		return nil, err
 	}
 	clientSet.clusterAgentGeneration = generation
+	clientSet.oidcPassthrough = cluster.OIDCPassthrough
 	return clientSet, nil
 }
 

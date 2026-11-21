@@ -1,14 +1,18 @@
 package cluster
 
 import (
+	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/bytedance/mockey"
+	"github.com/zxh326/kite/pkg/clusteragent"
 	"github.com/zxh326/kite/pkg/model"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -395,6 +399,142 @@ func TestBuildClientSet(t *testing.T) {
 			t.Fatalf("buildClientSet() = %#v, want cluster name %q", got, "cluster-b")
 		}
 	})
+}
+
+func TestClientSetForUserUsesOwnIDToken(t *testing.T) {
+	var gotAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"major":"1","minor":"30","gitVersion":"v1.30.0"}`))
+	}))
+	t.Cleanup(server.Close)
+
+	shared := &rest.Config{Host: server.URL, Username: "shared", Password: "shared-password"}
+	cs := &ClientSet{Name: "test", restConfig: shared, oidcPassthrough: true}
+
+	userCS, err := cs.ForUser("user-id-token")
+	if err != nil {
+		t.Fatalf("ForUser() error = %v", err)
+	}
+	if _, err := userCS.K8sClient.ClientSet.Discovery().ServerVersion(); err != nil {
+		t.Fatalf("ServerVersion() error = %v", err)
+	}
+	if gotAuth != "Bearer user-id-token" {
+		t.Fatalf("Authorization = %q, want %q", gotAuth, "Bearer user-id-token")
+	}
+	if shared.Username != "shared" || shared.Password != "shared-password" {
+		t.Fatalf("ForUser() mutated shared config: username=%q password=%q", shared.Username, shared.Password)
+	}
+	if !userCS.OIDCPassthrough() {
+		t.Fatalf("ForUser() dropped oidcPassthrough flag")
+	}
+}
+
+func TestClientForPassthroughCluster(t *testing.T) {
+	t.Run("shared cluster does not request an ID token", func(t *testing.T) {
+		cs := &ClientSet{Name: "shared"}
+		got, err := cs.ClientFor(func() (string, error) {
+			t.Fatalf("ID token requested for shared cluster")
+			return "", nil
+		})
+		if err != nil {
+			t.Fatalf("ClientFor() error = %v", err)
+		}
+		if got != cs {
+			t.Fatalf("ClientFor() = %#v, want the shared client set", got)
+		}
+	})
+
+	t.Run("missing ID token is reported as unavailable", func(t *testing.T) {
+		cs := &ClientSet{Name: "passthrough", oidcPassthrough: true}
+		_, err := cs.ClientFor(func() (string, error) {
+			return "", errors.New("no refresh token")
+		})
+		if !errors.Is(err, ErrIDTokenUnavailable) {
+			t.Fatalf("ClientFor() error = %v, want ErrIDTokenUnavailable", err)
+		}
+	})
+
+	t.Run("prometheus query uses the user's token through the apiserver proxy", func(t *testing.T) {
+		var gotPath, gotAuth string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			if strings.HasSuffix(r.URL.Path, "/query") {
+				gotPath = r.URL.Path
+				gotAuth = r.Header.Get("Authorization")
+				_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"major":"1","minor":"30","gitVersion":"v1.30.0"}`))
+		}))
+		t.Cleanup(server.Close)
+
+		shared := &rest.Config{Host: server.URL, Username: "shared", Password: "shared-password"}
+		cs := &ClientSet{
+			Name:            "passthrough",
+			restConfig:      shared,
+			prometheusURL:   "http://prometheus.monitoring.svc:9090",
+			oidcPassthrough: true,
+		}
+		userCS, err := cs.ClientFor(func() (string, error) { return "user-id-token", nil })
+		if err != nil {
+			t.Fatalf("ClientFor() error = %v", err)
+		}
+		if _, _, err := userCS.PromClient.Query(context.Background(), "up", time.Now()); err != nil {
+			t.Fatalf("Prometheus Query() error = %v", err)
+		}
+		if gotAuth != "Bearer user-id-token" {
+			t.Fatalf("Prometheus Authorization = %q, want %q (shared credentials must not be used)", gotAuth, "Bearer user-id-token")
+		}
+		wantPath := "/api/v1/namespaces/monitoring/services/http:prometheus:9090/proxy/api/v1/query"
+		if gotPath != wantPath {
+			t.Fatalf("Prometheus path = %q, want %q", gotPath, wantPath)
+		}
+	})
+}
+
+func TestBuildClientSetPropagatesOIDCPassthrough(t *testing.T) {
+	tests := []struct {
+		name         string
+		clusterAgent bool
+	}{
+		{name: "kubeconfig cluster", clusterAgent: false},
+		{name: "cluster agent cluster", clusterAgent: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fromConfigMock := mockey.Mock(createClientSetFromConfig).To(func(name, content, prometheusURL string) (*ClientSet, error) {
+				return &ClientSet{Name: name}, nil
+			}).Build()
+			defer fromConfigMock.UnPatch()
+
+			agentConfigMock := mockey.Mock((*clusteragent.Manager).RESTConfig).To(func(_ *clusteragent.Manager, _ uint) (*rest.Config, uint64, error) {
+				return &rest.Config{Host: "https://agent.invalid"}, 1, nil
+			}).Build()
+			defer agentConfigMock.UnPatch()
+
+			newClientSetMock := mockey.Mock(newClientSet).To(func(name string, _ *rest.Config, _ string) (*ClientSet, error) {
+				return &ClientSet{Name: name}, nil
+			}).Build()
+			defer newClientSetMock.UnPatch()
+
+			cm := &ClusterManager{clusterAgentManager: &clusteragent.Manager{}}
+			got, err := cm.buildClientSet(&model.Cluster{
+				Name:            "cluster",
+				Config:          model.SecretString("config-data"),
+				ClusterAgent:    tt.clusterAgent,
+				OIDCPassthrough: true,
+			})
+			if err != nil {
+				t.Fatalf("buildClientSet() error = %v", err)
+			}
+			if !got.OIDCPassthrough() {
+				t.Fatalf("buildClientSet() OIDCPassthrough() = false, want true")
+			}
+		})
+	}
 }
 
 type roundTripperFunc func(*http.Request) (*http.Response, error)

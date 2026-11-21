@@ -140,6 +140,35 @@ type K8sClient struct {
 	cancel context.CancelFunc
 }
 
+// NewUserClient creates an uncached K8sClient for one user's request. Unlike NewClient it starts no
+// informers, so it can be created per request and discarded afterwards.
+func NewUserClient(config *rest.Config) (*K8sClient, error) {
+	if config.QPS == 0 {
+		config.QPS = kubeAPIQPS()
+	}
+	if config.Burst == 0 {
+		config.Burst = kubeAPIBurst()
+	}
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	metricsClient, err := metricsclient.NewForConfig(config)
+	if err != nil {
+		klog.Warningf("failed to create metrics client: %v", err)
+	}
+	c, err := client.New(config, client.Options{Scheme: runtimeScheme})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create client: %w", err)
+	}
+	return &K8sClient{
+		Client:        c,
+		ClientSet:     clientset,
+		Configuration: config,
+		MetricsClient: metricsClient,
+	}, nil
+}
+
 // NewClient creates a K8sClient from a rest.Config
 func NewClient(config *rest.Config) (*K8sClient, error) {
 	config.UserAgent = fmt.Sprintf("kite/%s (%s/%s)", version.Version, goruntime.GOOS, goruntime.GOARCH)

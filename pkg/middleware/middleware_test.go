@@ -241,7 +241,7 @@ func TestClusterMiddlewareNoClusters(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	r := gin.New()
-	r.Use(ClusterMiddleware(&cluster.ClusterManager{}))
+	r.Use(ClusterMiddleware(&cluster.ClusterManager{}, nil))
 	r.GET("/api/v1/pods", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
