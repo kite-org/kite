@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { useSidebarConfig } from '@/contexts/sidebar-config-context'
+import { PLUGINS_ITEM_ID } from '@/contexts/sidebar-config-defaults'
 import { persistPluginPreferences } from '@/plugins/sidebar'
 import {
   ArrowDown,
@@ -494,6 +495,8 @@ export function SidebarCustomizer({
                     className={`grid gap-2 pl-4 ${group.collapsed ? 'hidden' : ''} ${!group.visible ? 'opacity-50 pointer-events-none' : ''}`}
                   >
                     {group.items.map((item, itemIndex) => {
+                      if (item.id === PLUGINS_ITEM_ID && !user?.isAdmin())
+                        return null
                       const isHidden = config.hiddenItems.includes(item.id)
                       const isPinned = config.pinnedItems.includes(item.id)
                       const isRemovable =

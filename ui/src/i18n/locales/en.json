@@ -347,6 +347,7 @@
   },
   "sidebar": {
     "groups": {
+      "general": "General",
       "traffic": "traffic",
       "storage": "storage",
       "config": "config",

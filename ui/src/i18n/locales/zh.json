@@ -347,6 +347,7 @@
   },
   "sidebar": {
     "groups": {
+      "general": "通用",
       "traffic": "流量",
       "storage": "存储",
       "config": "配置",
