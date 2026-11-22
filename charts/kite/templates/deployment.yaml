@@ -81,6 +81,21 @@ spec:
             - name: KITE_CONFIG_FILE
               value: /etc/kite/config.yaml
             {{- end }}
+            {{- if .Values.refreshCache.url }}
+            - name: REFRESH_CACHE_URL
+              value: {{ .Values.refreshCache.url | quote }}
+            {{- if .Values.refreshCache.passwordSecret.name }}
+            - name: REFRESH_CACHE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.refreshCache.passwordSecret.name }}
+                  key: {{ .Values.refreshCache.passwordSecret.key }}
+            {{- end }}
+            {{- if .Values.refreshCache.caSecret.name }}
+            - name: REFRESH_CACHE_CA_FILE
+              value: /etc/kite/refresh-cache/{{ .Values.refreshCache.caSecret.key }}
+            {{- end }}
+            {{- end }}
           {{- with .Values.extraEnvs }}
           {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -113,7 +128,17 @@ spec:
             - name: {{ include "kite.fullname" . }}-plugins
               mountPath: {{ $plugins.directory | default "/data/plugins" | quote }}
           {{- end }}
+          {{- if .Values.refreshCache.caSecret.name }}
+            - name: refresh-cache-ca
+              mountPath: /etc/kite/refresh-cache
+              readOnly: true
+          {{- end }}
       volumes:
+      {{- if .Values.refreshCache.caSecret.name }}
+        - name: refresh-cache-ca
+          secret:
+            secretName: {{ .Values.refreshCache.caSecret.name }}
+      {{- end }}
       {{- if .Values.config.enabled }}
         - name: kite-config
           secret:

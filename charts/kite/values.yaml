@@ -134,6 +134,20 @@ extraEnvs:
   # - name: "EXAMPLE_ENV"
   #   value: "example_value"
 
+# Shared cache for OIDC refresh results (Valkey or Redis). Required before running more than one
+# replica with OIDC passthrough clusters. Leave url empty for a single replica.
+refreshCache:
+  # rediss:// URL of the instance, for example rediss://valkey.kite.svc:6379/0
+  url: ""
+  # Optional Secret reference for the password (key holds the password).
+  passwordSecret:
+    name: ""
+    key: password
+  # Optional Secret reference for the CA certificate that signed the instance's TLS certificate.
+  caSecret:
+    name: ""
+    key: ca.crt
+
 # Application configuration from values
 # When enabled, the specified sections become read-only in the UI.
 # You can either provide an existing Secret containing a config.yaml key,
