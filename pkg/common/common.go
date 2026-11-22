@@ -1,6 +1,7 @@
 package common
 
 import (
+	"errors"
 	"os"
 	"strings"
 	"sync"
@@ -49,6 +50,14 @@ var (
 	AnonymousUserEnabled = false
 
 	CookieExpirationSeconds = 2 * JWTExpirationSeconds // double jwt
+
+	// RefreshCacheURL is a rediss:// address of a Valkey/Redis instance shared by Kite replicas for OIDC
+	// refresh results. Empty keeps the cache in process memory, which is only correct for one replica.
+	RefreshCacheURL      = ""
+	RefreshCachePassword = ""
+	RefreshCacheCAFile   = ""
+	// ErrSessionStoreUnavailable is returned when the refresh cache cannot be reached.
+	ErrSessionStoreUnavailable = errors.New("session store unavailable")
 
 	DisableGZIP        = true
 	EnableVersionCheck = true
@@ -138,6 +147,10 @@ func LoadEnvs() {
 		PluginDir = v
 	}
 	PluginDevURL = strings.TrimSpace(os.Getenv("PLUGIN_DEV_URL"))
+
+	RefreshCacheURL = strings.TrimSpace(os.Getenv("REFRESH_CACHE_URL"))
+	RefreshCachePassword = os.Getenv("REFRESH_CACHE_PASSWORD")
+	RefreshCacheCAFile = strings.TrimSpace(os.Getenv("REFRESH_CACHE_CA_FILE"))
 
 	if dbType := os.Getenv("DB_TYPE"); dbType != "" {
 		if dbType != "sqlite" && dbType != "mysql" && dbType != "postgres" {

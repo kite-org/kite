@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/cluster"
+	"github.com/zxh326/kite/pkg/common"
 )
 
 const (
@@ -47,9 +48,12 @@ func ClusterMiddleware(cm clusterClientSetProvider, idp idTokenProvider) gin.Han
 		}
 		cs, err = cs.ClientFor(func() (string, error) { return idp.IDTokenForRequest(c) })
 		if err != nil {
-			if errors.Is(err, cluster.ErrIDTokenUnavailable) {
+			switch {
+			case errors.Is(err, common.ErrSessionStoreUnavailable):
+				c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Session store unavailable, try again"})
+			case errors.Is(err, cluster.ErrIDTokenUnavailable):
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "Session expired, sign in again"})
-			} else {
+			default:
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to build user client"})
 			}
 			c.Abort()

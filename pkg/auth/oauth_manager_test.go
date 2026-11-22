@@ -1,16 +1,21 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
+	"github.com/redis/go-redis/v9"
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
 	"gorm.io/gorm"
@@ -164,6 +169,10 @@ func newIDTokenTestEnv(t *testing.T) (manager *OAuthManager, newContext func(str
 		if err := r.ParseForm(); err != nil {
 			t.Errorf("ParseForm() error = %v", err)
 		}
+		if mode == "slow" {
+			// Widens the window in which concurrent refreshes overlap.
+			time.Sleep(300 * time.Millisecond)
+		}
 		presented := r.Form.Get("refresh_token")
 		if r.Form.Get("grant_type") != "refresh_token" || (!strings.HasPrefix(presented, "session-refresh") && !strings.HasPrefix(presented, "chain-")) {
 			w.WriteHeader(http.StatusBadRequest)
@@ -206,6 +215,115 @@ func newIDTokenTestEnv(t *testing.T) (manager *OAuthManager, newContext func(str
 	setMode = func(m string) { mode = m }
 	requests = func() int { return tokenRequests }
 	return NewOAuthManager(), newContext, setMode, requests
+}
+
+func TestRefreshLockReleasedOnlyByOwner(t *testing.T) {
+	cache := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: cache.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+	store := &redisRefreshStore{client: client}
+	ctx := context.Background()
+
+	if acquired, err := store.acquire(ctx, "session", "owner-a", refreshLockTTL); err != nil || !acquired {
+		t.Fatalf("owner-a acquire = %v, %v; want acquired", acquired, err)
+	}
+	// owner-a's lock expires while its refresh is still running; owner-b takes over.
+	cache.FastForward(refreshLockTTL + time.Second)
+	if acquired, err := store.acquire(ctx, "session", "owner-b", refreshLockTTL); err != nil || !acquired {
+		t.Fatalf("owner-b acquire = %v, %v; want acquired after expiry", acquired, err)
+	}
+	// owner-a finishing late must not release owner-b's lock.
+	if err := store.release(ctx, "session", "owner-a"); err != nil {
+		t.Fatalf("owner-a release error = %v", err)
+	}
+	if acquired, err := store.acquire(ctx, "session", "owner-c", refreshLockTTL); err != nil || acquired {
+		t.Fatalf("owner-c acquire = %v, %v; want still held by owner-b", acquired, err)
+	}
+}
+
+func TestIDTokenForRequestAcrossReplicas(t *testing.T) {
+	manager, newContext, setMode, requests := newIDTokenTestEnv(t)
+	// Two replicas share one Valkey-compatible store and do not share memory.
+	cache := miniredis.RunT(t)
+	newReplica := func() *OAuthManager {
+		client := redis.NewClient(&redis.Options{Addr: cache.Addr()})
+		t.Cleanup(func() { _ = client.Close() })
+		return &OAuthManager{jwtSecret: manager.jwtSecret, refreshStore: &redisRefreshStore{client: client}}
+	}
+	replicas := []*OAuthManager{newReplica(), newReplica()}
+
+	t.Run("concurrent requests on both replicas refresh once", func(t *testing.T) {
+		setMode("slow")
+		before := requests()
+		const perReplica = 4
+		ids := make([]string, 0, len(replicas)*perReplica)
+		errs := make([]error, 0, len(replicas)*perReplica)
+		var mu sync.Mutex
+		var wg sync.WaitGroup
+		for _, replica := range replicas {
+			for i := 0; i < perReplica; i++ {
+				wg.Add(1)
+				go func(replica *OAuthManager) {
+					defer wg.Done()
+					c, _ := newContext("session-refresh-replicas")
+					id, err := replica.IDTokenForRequest(c)
+					mu.Lock()
+					ids, errs = append(ids, id), append(errs, err)
+					mu.Unlock()
+				}(replica)
+			}
+		}
+		wg.Wait()
+		for i := range ids {
+			if errs[i] != nil || ids[i] != "fresh-id-token" {
+				t.Fatalf("request %d: id = %q, error = %v", i, ids[i], errs[i])
+			}
+		}
+		if got := requests() - before; got != 1 {
+			t.Fatalf("provider refreshed %d times across replicas, want 1", got)
+		}
+	})
+
+	t.Run("client disconnect after refresh still stores the rotated result", func(t *testing.T) {
+		setMode("slow")
+		before := requests()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		// The client goes away while the provider call is still in flight.
+		time.AfterFunc(100*time.Millisecond, cancel)
+		c, _ := newContext("session-refresh-disconnect")
+		c.Request = c.Request.WithContext(ctx)
+
+		if _, err := replicas[0].IDTokenForRequest(c); err != nil {
+			t.Fatalf("IDTokenForRequest() error = %v, want the refresh to be stored despite the disconnect", err)
+		}
+		if got := requests() - before; got != 1 {
+			t.Fatalf("provider refreshed %d times, want 1", got)
+		}
+		// A later request with the same token is served from the stored result.
+		again, _ := newContext("session-refresh-disconnect")
+		if _, err := replicas[1].IDTokenForRequest(again); err != nil {
+			t.Fatalf("follow-up IDTokenForRequest() error = %v", err)
+		}
+		if got := requests() - before; got != 1 {
+			t.Fatalf("follow-up refreshed again (%d total); the result was not stored", got)
+		}
+	})
+
+	t.Run("cache outage fails with store-unavailable, not an auth failure", func(t *testing.T) {
+		setMode("ok")
+		before := requests()
+		cache.Close()
+		c, _ := newContext("session-refresh-outage")
+
+		_, err := replicas[0].IDTokenForRequest(c)
+		if !errors.Is(err, common.ErrSessionStoreUnavailable) {
+			t.Fatalf("IDTokenForRequest() error = %v, want ErrSessionStoreUnavailable", err)
+		}
+		if requests() != before {
+			t.Fatalf("provider called while the cache was unavailable")
+		}
+	})
 }
 
 // sessionRefreshToken returns the refresh token carried by the auth cookie written to recorder.

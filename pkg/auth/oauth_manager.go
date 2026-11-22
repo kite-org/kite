@@ -1,17 +1,24 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/redis/go-redis/v9"
 	"github.com/zxh326/kite/pkg/common"
 	"github.com/zxh326/kite/pkg/model"
 	"golang.org/x/sync/singleflight"
@@ -21,28 +28,158 @@ import (
 type OAuthManager struct {
 	jwtSecret    string
 	refreshGroup singleflight.Group
-	refreshMu    sync.Mutex
-	// refreshed holds recent refresh results keyed by the hash of the refresh token they replaced.
-	refreshed map[string]refreshResult
+	refreshStore refreshStore
 }
 
-// refreshResult is reused for requests that still carry the refresh token it replaced, so
-// concurrent requests in one session do not invalidate each other.
+// refreshResult is the outcome of one refresh. It is stored under the hash of the refresh token it
+// replaced, so requests that still carry that token are served the same result.
 type refreshResult struct {
-	idToken      string
-	refreshToken string
-	expiresAt    time.Time
+	IDToken      string `json:"id_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
-const refreshReuseWindow = time.Minute
+const (
+	refreshReuseWindow = time.Minute
+	// refreshLockTTL must outlast the leader's work: discovery and the token request each have a 10s
+	// timeout. A lock that expires early lets a second instance refresh the same token.
+	refreshLockTTL      = 30 * time.Second
+	storeWriteTimeout   = 5 * time.Second
+	refreshWaitTimeout  = 5 * time.Second
+	refreshPollInterval = 50 * time.Millisecond
+	maxRefreshChainHops = 8
+)
+
+// refreshStore shares refresh results and per-session refresh locks between Kite instances.
+type refreshStore interface {
+	get(ctx context.Context, key string) (string, bool, error)
+	set(ctx context.Context, key, value string, ttl time.Duration) error
+	// acquire takes the lock for key on behalf of owner and reports whether it was taken.
+	acquire(ctx context.Context, key, owner string, ttl time.Duration) (bool, error)
+	// release drops the lock for key only while owner still holds it.
+	release(ctx context.Context, key, owner string) error
+}
+
+type memoryRefreshStore struct {
+	mu      sync.Mutex
+	entries map[string]memoryEntry
+}
+
+type memoryEntry struct {
+	value   string
+	expires time.Time
+}
+
+func (s *memoryRefreshStore) get(_ context.Context, key string) (string, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	e, ok := s.entries[key]
+	if !ok || !time.Now().Before(e.expires) {
+		return "", false, nil
+	}
+	return e.value, true, nil
+}
+
+func (s *memoryRefreshStore) set(_ context.Context, key, value string, ttl time.Duration) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	for k, e := range s.entries {
+		if !now.Before(e.expires) {
+			delete(s.entries, k)
+		}
+	}
+	s.entries[key] = memoryEntry{value: value, expires: now.Add(ttl)}
+	return nil
+}
+
+func (s *memoryRefreshStore) acquire(_ context.Context, key, owner string, ttl time.Duration) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	lockKey := "lock:" + key
+	if e, ok := s.entries[lockKey]; ok && time.Now().Before(e.expires) {
+		return false, nil
+	}
+	s.entries[lockKey] = memoryEntry{value: owner, expires: time.Now().Add(ttl)}
+	return true, nil
+}
+
+func (s *memoryRefreshStore) release(_ context.Context, key, owner string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	lockKey := "lock:" + key
+	if e, ok := s.entries[lockKey]; ok && e.value == owner {
+		delete(s.entries, lockKey)
+	}
+	return nil
+}
+
+const redisRefreshKeyPrefix = "kite:oidc-refresh:"
+
+type redisRefreshStore struct {
+	client *redis.Client
+}
+
+func (s *redisRefreshStore) get(ctx context.Context, key string) (string, bool, error) {
+	value, err := s.client.Get(ctx, redisRefreshKeyPrefix+key).Result()
+	if errors.Is(err, redis.Nil) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return value, true, nil
+}
+
+func (s *redisRefreshStore) set(ctx context.Context, key, value string, ttl time.Duration) error {
+	return s.client.Set(ctx, redisRefreshKeyPrefix+key, value, ttl).Err()
+}
+
+func (s *redisRefreshStore) acquire(ctx context.Context, key, owner string, ttl time.Duration) (bool, error) {
+	return s.client.SetNX(ctx, redisRefreshKeyPrefix+"lock:"+key, owner, ttl).Result()
+}
+
+// releaseLockScript deletes the lock only if it still holds the caller's owner value, atomically.
+var releaseLockScript = redis.NewScript(`if redis.call("GET", KEYS[1]) == ARGV[1] then return redis.call("DEL", KEYS[1]) end return 0`)
+
+func (s *redisRefreshStore) release(ctx context.Context, key, owner string) error {
+	return releaseLockScript.Run(ctx, s.client, []string{redisRefreshKeyPrefix + "lock:" + key}, owner).Err()
+}
+
+// newRefreshStore returns the Valkey/Redis store when REFRESH_CACHE_URL is set and the in-process store
+// otherwise. A misconfigured Valkey connection stops startup rather than running without shared state.
+func newRefreshStore() refreshStore {
+	if common.RefreshCacheURL == "" {
+		return &memoryRefreshStore{entries: map[string]memoryEntry{}}
+	}
+	opts, err := redis.ParseURL(common.RefreshCacheURL)
+	if err != nil {
+		klog.Fatalf("invalid REFRESH_CACHE_URL: %v", err)
+	}
+	if !strings.HasPrefix(common.RefreshCacheURL, "rediss://") {
+		klog.Fatalf("REFRESH_CACHE_URL must use rediss:// so the connection is TLS-verified")
+	}
+	opts.Password = common.RefreshCachePassword
+	if common.RefreshCacheCAFile != "" {
+		pem, err := os.ReadFile(common.RefreshCacheCAFile)
+		if err != nil {
+			klog.Fatalf("reading REFRESH_CACHE_CA_FILE: %v", err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(pem) {
+			klog.Fatalf("REFRESH_CACHE_CA_FILE contains no certificates")
+		}
+		opts.TLSConfig.RootCAs = pool
+	}
+	return &redisRefreshStore{client: redis.NewClient(opts)}
+}
 
 // Keep headroom for cookie name and attributes within common 4096-byte browser limits.
 const maxAuthTokenCookieValueLength = 3800
 
 func NewOAuthManager() *OAuthManager {
 	return &OAuthManager{
-		jwtSecret: common.JwtSecret,
-		refreshed: map[string]refreshResult{},
+		jwtSecret:    common.JwtSecret,
+		refreshStore: newRefreshStore(),
 	}
 }
 
@@ -140,65 +277,147 @@ func (om *OAuthManager) IDTokenForRequest(c *gin.Context) (string, error) {
 	if !exists || !ok {
 		return "", fmt.Errorf("session has no user")
 	}
+	ctx := c.Request.Context()
 	sum := sha256.Sum256([]byte(rt))
 	key := hex.EncodeToString(sum[:])
 	result, err, _ := om.refreshGroup.Do(key, func() (any, error) {
-		// Follow the rotation chain to the newest cached result, so a stale request is not sent back to a replaced token.
-		om.refreshMu.Lock()
-		current := time.Now()
-		latest, ok := om.refreshed[key]
-		latestKey := key
-		for hops := 0; ok && hops < len(om.refreshed); hops++ {
-			sum := sha256.Sum256([]byte(latest.refreshToken))
-			nextKey := hex.EncodeToString(sum[:])
-			next, found := om.refreshed[nextKey]
-			if !found || nextKey == latestKey || !current.Before(next.expiresAt) {
-				break
-			}
-			latest, latestKey = next, nextKey
-		}
-		om.refreshMu.Unlock()
-		if ok && current.Before(latest.expiresAt) {
-			return latest, nil
-		}
-		provider, err := om.GetProvider(c, user.Provider)
-		if err != nil {
-			return nil, err
-		}
-		tokenResp, err := provider.RefreshToken(rt)
-		if err != nil {
-			return nil, err
-		}
-		if tokenResp.IDToken == "" {
-			return nil, fmt.Errorf("provider returned no id_token")
-		}
-		res := refreshResult{idToken: tokenResp.IDToken, refreshToken: rt, expiresAt: time.Now().Add(refreshReuseWindow)}
-		if tokenResp.RefreshToken != "" {
-			res.refreshToken = tokenResp.RefreshToken
-		}
-		om.refreshMu.Lock()
-		now := time.Now()
-		for k, v := range om.refreshed {
-			if now.After(v.expiresAt) {
-				delete(om.refreshed, k)
-			}
-		}
-		om.refreshed[key] = res
-		om.refreshMu.Unlock()
-		return res, nil
+		return om.refreshOnce(ctx, c, user, rt, key)
 	})
 	if err != nil {
 		return "", err
 	}
 	res := result.(refreshResult)
-	if res.refreshToken != rt {
-		jwtToken, err := om.GenerateJWT(&user, res.refreshToken)
+	if res.RefreshToken != rt {
+		jwtToken, err := om.GenerateJWT(&user, res.RefreshToken)
 		if err != nil {
 			return "", err
 		}
 		setCookieSecure(c, "auth_token", jwtToken, common.CookieExpirationSeconds)
 	}
-	return res.idToken, nil
+	return res.IDToken, nil
+}
+
+// refreshOnce returns the cached result for rt, or refreshes it while holding the session's refresh lock.
+func (om *OAuthManager) refreshOnce(ctx context.Context, c *gin.Context, user model.User, rt, key string) (refreshResult, error) {
+	if res, ok, err := om.latestRefresh(ctx, key); err != nil {
+		return refreshResult{}, storeUnavailable(err)
+	} else if ok {
+		return res, nil
+	}
+	ownerRaw := make([]byte, 16)
+	if _, err := rand.Read(ownerRaw); err != nil {
+		return refreshResult{}, err
+	}
+	owner := hex.EncodeToString(ownerRaw)
+	acquired, err := om.refreshStore.acquire(ctx, key, owner, refreshLockTTL)
+	if err != nil {
+		return refreshResult{}, storeUnavailable(err)
+	}
+	if !acquired {
+		return om.awaitRefresh(ctx, key)
+	}
+	// The provider has already rotated the token once it answers, so the lock release and the result
+	// write must complete even if the client has disconnected.
+	storeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), storeWriteTimeout)
+	defer cancel()
+	defer func() {
+		if err := om.refreshStore.release(storeCtx, key, owner); err != nil {
+			klog.Warningf("failed to release refresh lock: %v", err)
+		}
+	}()
+	// Another instance may have finished between our lookup and taking the lock.
+	if res, ok, err := om.latestRefresh(ctx, key); err != nil {
+		return refreshResult{}, storeUnavailable(err)
+	} else if ok {
+		return res, nil
+	}
+
+	provider, err := om.GetProvider(c, user.Provider)
+	if err != nil {
+		return refreshResult{}, err
+	}
+	tokenResp, err := provider.RefreshToken(rt)
+	if err != nil {
+		return refreshResult{}, err
+	}
+	if tokenResp.IDToken == "" {
+		return refreshResult{}, fmt.Errorf("provider returned no id_token")
+	}
+	res := refreshResult{IDToken: tokenResp.IDToken, RefreshToken: rt}
+	if tokenResp.RefreshToken != "" {
+		res.RefreshToken = tokenResp.RefreshToken
+	}
+	payload, err := json.Marshal(res)
+	if err != nil {
+		return refreshResult{}, err
+	}
+	if err := om.refreshStore.set(storeCtx, key, string(payload), refreshReuseWindow); err != nil {
+		return refreshResult{}, storeUnavailable(err)
+	}
+	return res, nil
+}
+
+// awaitRefresh waits for the instance holding the refresh lock to publish its result.
+func (om *OAuthManager) awaitRefresh(ctx context.Context, key string) (refreshResult, error) {
+	deadline := time.NewTimer(refreshWaitTimeout)
+	defer deadline.Stop()
+	ticker := time.NewTicker(refreshPollInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return refreshResult{}, storeUnavailable(ctx.Err())
+		case <-deadline.C:
+			return refreshResult{}, storeUnavailable(fmt.Errorf("timed out waiting for another instance to refresh"))
+		case <-ticker.C:
+			res, ok, err := om.latestRefresh(ctx, key)
+			if err != nil {
+				return refreshResult{}, storeUnavailable(err)
+			}
+			if ok {
+				return res, nil
+			}
+		}
+	}
+}
+
+// latestRefresh returns the newest stored result reachable from key, following the rotation chain so a
+// request holding a replaced refresh token is not given that token back.
+func (om *OAuthManager) latestRefresh(ctx context.Context, key string) (refreshResult, bool, error) {
+	raw, ok, err := om.refreshStore.get(ctx, key)
+	if err != nil || !ok {
+		return refreshResult{}, false, err
+	}
+	var res refreshResult
+	if err := json.Unmarshal([]byte(raw), &res); err != nil {
+		return refreshResult{}, false, err
+	}
+	current := key
+	for hop := 0; hop < maxRefreshChainHops; hop++ {
+		sum := sha256.Sum256([]byte(res.RefreshToken))
+		next := hex.EncodeToString(sum[:])
+		if next == current {
+			break
+		}
+		raw, ok, err := om.refreshStore.get(ctx, next)
+		if err != nil {
+			return refreshResult{}, false, err
+		}
+		if !ok {
+			break
+		}
+		var newer refreshResult
+		if err := json.Unmarshal([]byte(raw), &newer); err != nil {
+			return refreshResult{}, false, err
+		}
+		res, current = newer, next
+	}
+	return res, true, nil
+}
+
+// storeUnavailable marks a refresh-cache failure so the request is answered with 503, not 401.
+func storeUnavailable(err error) error {
+	return fmt.Errorf("%w: %w", common.ErrSessionStoreUnavailable, err)
 }
 
 func (om *OAuthManager) ValidateJWT(tokenString string) (*Claims, error) {
