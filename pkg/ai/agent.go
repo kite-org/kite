@@ -442,6 +442,13 @@ func (a *Agent) processToolBatch(
 
 			sessionID, err := agentPendingSessions.save(session)
 			if err != nil {
+				klog.Errorf("Failed to save pending session: %v", err)
+				sendEvent(AgentEvent{Type: "tool_result", Data: ToolResultEvent{ToolResult: ToolResult{
+					ToolCallID: toolCall.ID,
+					ToolName:   toolCall.Name,
+					Content:    "Failed to save pending session",
+					IsError:    true,
+				}}})
 				sendEvent(AgentEvent{Type: "error", Data: ErrorEvent{Message: "Failed to save pending session"}})
 				return session.Messages, true
 			}
@@ -470,6 +477,13 @@ func (a *Agent) processToolBatch(
 
 			sessionID, err := agentPendingSessions.save(session)
 			if err != nil {
+				klog.Errorf("Failed to save pending session: %v", err)
+				sendEvent(AgentEvent{Type: "tool_result", Data: ToolResultEvent{ToolResult: ToolResult{
+					ToolCallID: toolCall.ID,
+					ToolName:   toolCall.Name,
+					Content:    "Failed to save pending session",
+					IsError:    true,
+				}}})
 				sendEvent(AgentEvent{Type: "error", Data: ErrorEvent{Message: "Failed to save pending session"}})
 				return session.Messages, true
 			}
