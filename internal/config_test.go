@@ -74,6 +74,7 @@ const testConfigYAML = `clusters:
           name: prod
     prometheusURL: "http://prom:9090"
     default: true
+    impersonate: true
   - name: local
     inCluster: true
 
@@ -185,6 +186,9 @@ func TestLoadConfigFromFile_EndToEnd(t *testing.T) { //nolint:gocyclo // end-to-
 		if !prod.IsDefault {
 			t.Error("prod should be default")
 		}
+		if !prod.Impersonate {
+			t.Error("prod should have impersonation enabled")
+		}
 		if prod.Description != "Production cluster" {
 			t.Errorf("prod description = %q", prod.Description)
 		}
@@ -195,6 +199,9 @@ func TestLoadConfigFromFile_EndToEnd(t *testing.T) { //nolint:gocyclo // end-to-
 		}
 		if !local.InCluster {
 			t.Error("local should be inCluster")
+		}
+		if local.Impersonate {
+			t.Error("local should not have impersonation enabled by default")
 		}
 	})
 

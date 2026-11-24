@@ -623,6 +623,7 @@ export interface Cluster {
   enabled: boolean
   inCluster: boolean
   clusterAgent: boolean
+  impersonate: boolean
   clusterAgentVersion?: string
   connected: boolean
   isDefault: boolean

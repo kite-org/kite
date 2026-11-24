@@ -183,6 +183,7 @@ config:
   #       ...
   #     prometheusURL: "http://prometheus:9090"
   #     default: true
+  #     impersonate: false # send Impersonate-User/Group headers for the signed-in user
   #   - name: in-cluster
   #     inCluster: true
   #

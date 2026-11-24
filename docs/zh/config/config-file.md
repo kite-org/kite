@@ -234,16 +234,47 @@ config:
 
 ### 集群配置
 
-| 字段            | 类型    | 描述                    | 必填   |
-| --------------- | ------- | ----------------------- | ------ |
-| `name`          | string  | 唯一集群名称            | 是     |
-| `description`   | string  | 集群描述                | 否     |
-| `config`        | string  | Kubeconfig YAML 内容    | 否 *   |
-| `prometheusURL` | string  | Prometheus 端点 URL     | 否     |
-| `inCluster`     | boolean | 使用集群内服务账号      | 否     |
-| `default`       | boolean | 设为默认集群            | 否     |
+| 字段            | 类型    | 描述                       | 必填   |
+| --------------- | ------- | -------------------------- | ------ |
+| `name`          | string  | 唯一集群名称               | 是     |
+| `description`   | string  | 集群描述                   | 否     |
+| `config`        | string  | Kubeconfig YAML 内容       | 否 *   |
+| `prometheusURL` | string  | Prometheus 端点 URL        | 否     |
+| `inCluster`     | boolean | 使用集群内服务账号         | 否     |
+| `default`       | boolean | 设为默认集群               | 否     |
+| `impersonate`   | boolean | 在该集群中模拟登录用户     | 否     |
 
 \* 必须提供 `config` 或 `inCluster: true`。
+
+启用 `impersonate: true` 后，Kite 保留自身的集群凭据，并为登录用户发送 `Impersonate-User` 和 `Impersonate-Group` 请求头。API Server 会按该用户评估 Kubernetes RBAC，并在审计事件中记录模拟信息。Kite 的用户名用作被模拟用户，用户所属组通过 `Impersonate-Group` 发送。Kite 自身的 RBAC 仍会在请求到达 Kubernetes 前生效。
+
+集群凭据必须具有模拟这些用户和用户组的权限。例如，对位于 `kite` 命名空间中名为 `kite-server` 的 ServiceAccount：
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kite-impersonation
+rules:
+  - apiGroups: [""]
+    resources: ["users", "groups"]
+    verbs: ["impersonate"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kite-impersonation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kite-impersonation
+subjects:
+  - kind: ServiceAccount
+    name: kite-server
+    namespace: kite
+```
+
+尽可能使用 `resourceNames` 限制授权范围。被模拟的用户和用户组自身也需要相应的 Kubernetes RBAC 权限。
 
 ### OAuth 提供者配置
 

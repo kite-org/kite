@@ -234,16 +234,47 @@ The super user is created on first startup if it doesn't exist. On subsequent st
 
 ### Cluster Configuration
 
-| Field           | Type    | Description                     | Required |
-| --------------- | ------- | ------------------------------- | -------- |
-| `name`          | string  | Unique cluster name             | Yes      |
-| `description`   | string  | Cluster description             | No       |
-| `config`        | string  | Kubeconfig YAML content         | No *     |
-| `prometheusURL` | string  | Prometheus endpoint URL         | No       |
-| `inCluster`     | boolean | Use in-cluster service account  | No       |
-| `default`       | boolean | Set as default cluster          | No       |
+| Field           | Type    | Description                                    | Required |
+| --------------- | ------- | ---------------------------------------------- | -------- |
+| `name`          | string  | Unique cluster name                            | Yes      |
+| `description`   | string  | Cluster description                            | No       |
+| `config`        | string  | Kubeconfig YAML content                        | No *     |
+| `prometheusURL` | string  | Prometheus endpoint URL                        | No       |
+| `inCluster`     | boolean | Use in-cluster service account                 | No       |
+| `default`       | boolean | Set as default cluster                         | No       |
+| `impersonate`   | boolean | Impersonate the signed-in user on this cluster | No       |
 
 \* Either `config` or `inCluster: true` must be provided.
+
+With `impersonate: true`, Kite keeps its own cluster credentials and sends `Impersonate-User` and `Impersonate-Group` headers for the signed-in user. The apiserver evaluates Kubernetes RBAC for that user and records the impersonation in audit events. The Kite username is used as the impersonated user and the user's groups are sent as `Impersonate-Group`. Kite RBAC still applies before a request reaches Kubernetes.
+
+The cluster credential must be allowed to impersonate those users and groups. For example, for a ServiceAccount named `kite-server` in namespace `kite`:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kite-impersonation
+rules:
+  - apiGroups: [""]
+    resources: ["users", "groups"]
+    verbs: ["impersonate"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kite-impersonation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kite-impersonation
+subjects:
+  - kind: ServiceAccount
+    name: kite-server
+    namespace: kite
+```
+
+Restrict the grant with `resourceNames` where possible. The impersonated users and groups also need their own Kubernetes RBAC permissions.
 
 ### OAuth Provider Configuration
 

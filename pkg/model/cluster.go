@@ -13,6 +13,7 @@ type Cluster struct {
 	ClusterAgentPrivateKey SecretString `json:"-" gorm:"type:text"`
 	IsDefault              bool         `json:"is_default" gorm:"type:boolean;default:false"`
 	Enable                 bool         `json:"enable" gorm:"type:boolean;default:true"`
+	Impersonate            bool         `json:"impersonate" gorm:"type:boolean;default:false"`
 }
 
 func AddCluster(cluster *Cluster) error {
