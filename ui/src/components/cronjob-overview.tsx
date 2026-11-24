@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { CronJob, Job } from 'kubernetes-types/batch/v1'
-import { Event as KubernetesEvent } from 'kubernetes-types/core/v1'
+import { Container, Event as KubernetesEvent } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 
@@ -50,6 +50,7 @@ export function CronJobOverview({
   isJobsLoading,
   events,
   isEventsLoading,
+  onContainerUpdate,
 }: {
   cronjob: CronJob
   namespace: string
@@ -58,6 +59,10 @@ export function CronJobOverview({
   isJobsLoading: boolean
   events?: KubernetesEvent[]
   isEventsLoading: boolean
+  onContainerUpdate?: (
+    updatedContainer: Container,
+    init: boolean
+  ) => Promise<void> | void
 }) {
   const sortedEvents = useMemo(() => {
     return (events || []).slice().sort((a, b) => {
@@ -83,7 +88,10 @@ export function CronJobOverview({
       <div className="grid gap-3 @4xl/cronjob-overview:grid-cols-3">
         <div className="space-y-3 @4xl/cronjob-overview:col-span-2">
           <CronJobJobsCard jobs={jobs || []} isLoading={isJobsLoading} />
-          <CronJobInformationCard cronjob={cronjob} />
+          <CronJobInformationCard
+            cronjob={cronjob}
+            onContainerUpdate={onContainerUpdate}
+          />
         </div>
 
         <div className="space-y-3">
@@ -299,7 +307,16 @@ function CronJobJobRow({ job }: { job: Job }) {
   )
 }
 
-function CronJobInformationCard({ cronjob }: { cronjob: CronJob }) {
+function CronJobInformationCard({
+  cronjob,
+  onContainerUpdate,
+}: {
+  cronjob: CronJob
+  onContainerUpdate?: (
+    updatedContainer: Container,
+    init: boolean
+  ) => Promise<void> | void
+}) {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const ownerInfo = useOwnerInfo(cronjob.metadata)
@@ -358,7 +375,11 @@ function CronJobInformationCard({ cronjob }: { cronjob: CronJob }) {
               truncate={false}
               className="md:col-span-2"
             >
-              <ContainerImagesList containers={templateContainers} />
+              <ContainerImagesList
+                initContainers={initContainers}
+                containers={containers}
+                onContainerUpdate={onContainerUpdate}
+              />
             </WorkloadInfoBlock>
           </div>
 

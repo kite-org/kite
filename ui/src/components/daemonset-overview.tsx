@@ -6,7 +6,11 @@ import {
   IconTrash,
 } from '@tabler/icons-react'
 import { DaemonSet } from 'kubernetes-types/apps/v1'
-import { Event as KubernetesEvent, Pod } from 'kubernetes-types/core/v1'
+import {
+  Container,
+  Event as KubernetesEvent,
+  Pod,
+} from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 
@@ -42,6 +46,7 @@ export function DaemonSetOverview({
   isPodsLoading,
   events,
   isEventsLoading,
+  onContainerUpdate,
 }: {
   daemonset: DaemonSet
   namespace: string
@@ -50,6 +55,10 @@ export function DaemonSetOverview({
   isPodsLoading: boolean
   events?: KubernetesEvent[]
   isEventsLoading: boolean
+  onContainerUpdate?: (
+    updatedContainer: Container,
+    init: boolean
+  ) => Promise<void> | void
 }) {
   const { t } = useTranslation()
   const sortedEvents = useMemo(() => {
@@ -87,7 +96,10 @@ export function DaemonSetOverview({
             })}
             ageLabel={t('common.fields.age', { defaultValue: 'Age' })}
           />
-          <DaemonSetInformationCard daemonset={daemonset} />
+          <DaemonSetInformationCard
+            daemonset={daemonset}
+            onContainerUpdate={onContainerUpdate}
+          />
         </div>
 
         <div className="space-y-3">
@@ -175,7 +187,16 @@ function DaemonSetSummaryGrid({ daemonset }: { daemonset: DaemonSet }) {
   )
 }
 
-function DaemonSetInformationCard({ daemonset }: { daemonset: DaemonSet }) {
+function DaemonSetInformationCard({
+  daemonset,
+  onContainerUpdate,
+}: {
+  daemonset: DaemonSet
+  onContainerUpdate?: (
+    updatedContainer: Container,
+    init: boolean
+  ) => Promise<void> | void
+}) {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const ownerInfo = useOwnerInfo(daemonset.metadata)
@@ -261,7 +282,11 @@ function DaemonSetInformationCard({ daemonset }: { daemonset: DaemonSet }) {
               truncate={false}
               className="md:col-span-2"
             >
-              <ContainerImagesList containers={templateContainers} />
+              <ContainerImagesList
+                initContainers={templateSpec?.initContainers || []}
+                containers={templateSpec?.containers || []}
+                onContainerUpdate={onContainerUpdate}
+              />
             </WorkloadInfoBlock>
           </div>
 

@@ -1,6 +1,10 @@
 import { useMemo } from 'react'
 import { StatefulSet } from 'kubernetes-types/apps/v1'
-import { Event as KubernetesEvent, Pod } from 'kubernetes-types/core/v1'
+import {
+  Container,
+  Event as KubernetesEvent,
+  Pod,
+} from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 
@@ -36,6 +40,7 @@ export function StatefulSetOverview({
   isPodsLoading,
   events,
   isEventsLoading,
+  onContainerUpdate,
 }: {
   statefulset: StatefulSet
   namespace: string
@@ -44,6 +49,10 @@ export function StatefulSetOverview({
   isPodsLoading: boolean
   events?: KubernetesEvent[]
   isEventsLoading: boolean
+  onContainerUpdate?: (
+    updatedContainer: Container,
+    init: boolean
+  ) => Promise<void> | void
 }) {
   const { t } = useTranslation()
   const sortedEvents = useMemo(() => {
@@ -81,7 +90,10 @@ export function StatefulSetOverview({
             })}
             ageLabel={t('common.fields.age', { defaultValue: 'Age' })}
           />
-          <StatefulSetInformationCard statefulset={statefulset} />
+          <StatefulSetInformationCard
+            statefulset={statefulset}
+            onContainerUpdate={onContainerUpdate}
+          />
         </div>
 
         <div className="space-y-3">
@@ -171,8 +183,13 @@ function StatefulSetSummaryGrid({ statefulset }: { statefulset: StatefulSet }) {
 
 function StatefulSetInformationCard({
   statefulset,
+  onContainerUpdate,
 }: {
   statefulset: StatefulSet
+  onContainerUpdate?: (
+    updatedContainer: Container,
+    init: boolean
+  ) => Promise<void> | void
 }) {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
@@ -256,7 +273,11 @@ function StatefulSetInformationCard({
               truncate={false}
               className="md:col-span-2"
             >
-              <ContainerImagesList containers={templateContainers} />
+              <ContainerImagesList
+                initContainers={templateSpec?.initContainers || []}
+                containers={templateSpec?.containers || []}
+                onContainerUpdate={onContainerUpdate}
+              />
             </WorkloadInfoBlock>
           </div>
 

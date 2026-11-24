@@ -1,6 +1,10 @@
 import { useMemo } from 'react'
 import { Deployment } from 'kubernetes-types/apps/v1'
-import { Event as KubernetesEvent, Pod } from 'kubernetes-types/core/v1'
+import {
+  Container,
+  Event as KubernetesEvent,
+  Pod,
+} from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 
@@ -35,6 +39,7 @@ export function DeploymentOverview({
   isPodsLoading,
   events,
   isEventsLoading,
+  onContainerUpdate,
 }: {
   deployment: Deployment
   namespace: string
@@ -43,6 +48,10 @@ export function DeploymentOverview({
   isPodsLoading: boolean
   events?: KubernetesEvent[]
   isEventsLoading: boolean
+  onContainerUpdate?: (
+    updatedContainer: Container,
+    init: boolean
+  ) => Promise<void> | void
 }) {
   const { t } = useTranslation()
   const sortedEvents = useMemo(() => {
@@ -76,7 +85,10 @@ export function DeploymentOverview({
             emptyText={t('common.messages.noPods')}
             ageLabel={t('common.fields.age')}
           />
-          <DeploymentInformationCard deployment={deployment} />
+          <DeploymentInformationCard
+            deployment={deployment}
+            onContainerUpdate={onContainerUpdate}
+          />
         </div>
 
         <div className="space-y-3">
@@ -165,7 +177,16 @@ function DeploymentSummaryGrid({ deployment }: { deployment: Deployment }) {
   )
 }
 
-function DeploymentInformationCard({ deployment }: { deployment: Deployment }) {
+function DeploymentInformationCard({
+  deployment,
+  onContainerUpdate,
+}: {
+  deployment: Deployment
+  onContainerUpdate?: (
+    updatedContainer: Container,
+    init: boolean
+  ) => Promise<void> | void
+}) {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const ownerInfo = useOwnerInfo(deployment.metadata)
@@ -246,7 +267,11 @@ function DeploymentInformationCard({ deployment }: { deployment: Deployment }) {
               truncate={false}
               className="md:col-span-2"
             >
-              <ContainerImagesList containers={templateContainers} />
+              <ContainerImagesList
+                initContainers={templateSpec?.initContainers || []}
+                containers={templateSpec?.containers || []}
+                onContainerUpdate={onContainerUpdate}
+              />
             </WorkloadInfoBlock>
           </div>
 

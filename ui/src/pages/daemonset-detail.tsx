@@ -165,6 +165,7 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
               isPodsLoading={isLoadingPods}
               events={daemonsetEvents}
               isEventsLoading={isEventsLoading}
+              onContainerUpdate={handleContainerUpdate}
             />
           ) : null,
         },

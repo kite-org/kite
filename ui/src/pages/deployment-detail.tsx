@@ -307,6 +307,7 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
               isPodsLoading={isLoadingPods}
               events={deploymentEvents}
               isEventsLoading={isEventsLoading}
+              onContainerUpdate={handleContainerUpdate}
             />
           ) : null,
         },
