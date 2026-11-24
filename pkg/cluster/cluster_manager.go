@@ -65,7 +65,9 @@ func (cs *ClientSet) ClientFor(user model.User) (*ClientSet, error) {
 		shared := rest.CopyConfig(cs.restConfig)
 		shared.Username, shared.Password = "", ""
 		shared.BearerToken, shared.BearerTokenFile = "", ""
-		shared.CertFile, shared.KeyFile, shared.CertData, shared.KeyData = "", "", nil, nil
+		// Keep the cluster's TLS client certificate: it is Kite's own credential for
+		// apiservers that require client-certificate authentication and is transport-level,
+		// so it cannot be re-added per user on top of the shared transport.
 		shared.ExecProvider, shared.AuthProvider = nil, nil
 		shared.Impersonate = rest.ImpersonationConfig{}
 		cs.sharedTransport, cs.sharedTransportErr = rest.TransportFor(shared)
