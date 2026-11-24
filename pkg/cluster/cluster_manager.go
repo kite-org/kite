@@ -55,40 +55,56 @@ func (cs *ClientSet) ClientFor(user model.User) (*ClientSet, error) {
 		return nil, errors.New("cannot impersonate a user without a username")
 	}
 
-	cfg := rest.CopyConfig(cs.restConfig)
-	cfg.Impersonate = rest.ImpersonationConfig{
+	impersonate := rest.ImpersonationConfig{
 		UserName: user.Username,
 		Groups:   append([]string(nil), user.OIDCGroups...),
 	}
 
+	// Build one transport per cluster. Exec and auth-provider credentials must live here:
+	// client-go rejects their TLS certificate callback when a custom Transport is also set.
 	cs.sharedTransportOnce.Do(func() {
 		shared := rest.CopyConfig(cs.restConfig)
-		shared.Username, shared.Password = "", ""
-		shared.BearerToken, shared.BearerTokenFile = "", ""
-		// Keep the cluster's TLS client certificate: it is Kite's own credential for
-		// apiservers that require client-certificate authentication and is transport-level,
-		// so it cannot be re-added per user on top of the shared transport.
-		shared.ExecProvider, shared.AuthProvider = nil, nil
 		shared.Impersonate = rest.ImpersonationConfig{}
 		cs.sharedTransport, cs.sharedTransportErr = rest.TransportFor(shared)
 	})
 	if cs.sharedTransportErr != nil {
 		return nil, cs.sharedTransportErr
 	}
-	// The shared transport owns TLS, the agent dial and the agent's credential wrapper. Client-go
-	// applies this wrapper inside the impersonation wrapper, so mark the request as trusted to keep
-	// the headers Kite adds instead of the agent transport stripping them as client input.
-	cfg.Transport = cs.sharedTransport
-	cfg.TLSClientConfig = rest.TLSClientConfig{}
-	cfg.Dial = nil
-	cfg.WrapTransport = func(next http.RoundTripper) http.RoundTripper {
+
+	apiConfig := rest.CopyConfig(cs.restConfig)
+	apiConfig.Impersonate = impersonate
+	// The shared transport owns TLS, the agent dial and all cluster credentials. Client-go
+	// applies the agent wrapper inside this trusted marker, so impersonation headers added
+	// here survive instead of being stripped as client input.
+	apiConfig.Username, apiConfig.Password = "", ""
+	apiConfig.BearerToken, apiConfig.BearerTokenFile = "", ""
+	apiConfig.ExecProvider, apiConfig.AuthProvider = nil, nil
+	apiConfig.TLSClientConfig = rest.TLSClientConfig{}
+	apiConfig.Dial = nil
+	apiConfig.Transport = cs.sharedTransport
+	apiConfig.WrapTransport = func(next http.RoundTripper) http.RoundTripper {
 		return &trustedImpersonationRoundTripper{next: next}
 	}
 
-	k8sClient, err := kube.NewUserClient(cfg)
+	// Streaming and proxy paths read K8sClient.Configuration and build their own transport,
+	// ignoring apiConfig.Transport. Give them the original TLS/dial/credential settings while
+	// still marking impersonation headers as trusted for the agent wrapper.
+	streamConfig := rest.CopyConfig(cs.restConfig)
+	streamConfig.Impersonate = impersonate
+	streamConfig.Transport = nil
+	originalWrap := cs.restConfig.WrapTransport
+	streamConfig.WrapTransport = func(next http.RoundTripper) http.RoundTripper {
+		if originalWrap != nil {
+			next = originalWrap(next)
+		}
+		return &trustedImpersonationRoundTripper{next: next}
+	}
+
+	k8sClient, err := kube.NewUserClient(apiConfig)
 	if err != nil {
 		return nil, err
 	}
+	k8sClient.Configuration = streamConfig
 	promClient := cs.PromClient
 	promURL := cs.prometheusURL
 	if promURL == "" {
@@ -96,7 +112,7 @@ func (cs *ClientSet) ClientFor(user model.User) (*ClientSet, error) {
 	}
 	if promURL != "" && isClusterLocalURL(promURL) {
 		// Fail closed: a cluster-local Prometheus must not fall back to shared credentials.
-		transport, err := createK8sProxyTransport(cfg, promURL)
+		transport, err := createK8sProxyTransport(apiConfig, promURL)
 		if err != nil {
 			return nil, err
 		}
