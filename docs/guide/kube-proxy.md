@@ -17,5 +17,5 @@ Kite has a built-in kubectl Proxy feature that allows you to access Pods or Serv
 
 ## Notes
 
-1. If the Pod or Service you need to access is a front-end service, you may not be able to access it properly.
+1. For security, proxied responses are sandboxed into an isolated origin and cannot use your Kite session or browser storage. Web UIs that load module scripts, call APIs, or use `localStorage` will usually not work; use `kubectl port-forward` for them.
 2. Only HTTP services are supported for proxying.
