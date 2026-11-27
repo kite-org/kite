@@ -45,7 +45,23 @@ func HandleProxy(c *gin.Context, client *K8sClient, kind, namespace, name, proxy
 		_ = resp.Body.Close()
 	}()
 
-	copyHeader(c.Writer.Header(), resp.Header)
+	header := c.Writer.Header()
+	copyHeader(header, resp.Header)
+	// Upstream content is untrusted but served on Kite's origin: drop headers the
+	// browser applies to the whole origin and sandbox the document into an opaque
+	// origin so it cannot use the viewer's Kite session.
+	for k := range header {
+		if strings.HasPrefix(strings.ToLower(k), "access-control-") {
+			header.Del(k)
+		}
+	}
+	header.Del("Set-Cookie")
+	header.Del("Clear-Site-Data")
+	header.Del("Strict-Transport-Security")
+	header.Del("Service-Worker-Allowed")
+	header.Del("Content-Security-Policy-Report-Only")
+	header.Set("Content-Security-Policy", "sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads")
+	header.Set("X-Content-Type-Options", "nosniff")
 	c.Writer.WriteHeader(resp.StatusCode)
 	if _, err := io.Copy(c.Writer, resp.Body); err != nil {
 		if !errors.Is(err, context.Canceled) {
