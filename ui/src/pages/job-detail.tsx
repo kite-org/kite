@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import {
-  updateResource,
+  updateResourceFromYaml,
   useResource,
   useResourcesEvents,
   useResourcesWatch,
@@ -75,8 +75,8 @@ export function JobDetail(props: { namespace: string; name: string }) {
   )
   const volumes = useMemo(() => templateSpec?.volumes || [], [templateSpec])
 
-  const handleSaveYaml = async (content: Job) => {
-    await updateResource('jobs', name, namespace, content)
+  const handleSaveYaml = async (content: Job, original: Job) => {
+    await updateResourceFromYaml('jobs', name, namespace, original, content)
     toast.success(
       t('common.messages.yamlSaved', {
         defaultValue: 'Job YAML saved successfully',

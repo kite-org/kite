@@ -532,6 +532,38 @@ export const updateResource = async <T extends ResourceType>(
   await apiClient.put(`${endpoint}`, body)
 }
 
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+// Builds an RFC 7386 JSON merge patch turning `from` into `to`; undefined when equal.
+function createMergePatch(from: unknown, to: unknown): unknown {
+  if (!isPlainObject(from) || !isPlainObject(to)) {
+    return JSON.stringify(from) === JSON.stringify(to) ? undefined : to
+  }
+  const patch: Record<string, unknown> = {}
+  for (const key of Object.keys(from)) {
+    if (!(key in to)) patch[key] = null
+  }
+  for (const [key, value] of Object.entries(to)) {
+    const diff = createMergePatch(from[key], value)
+    if (diff !== undefined) patch[key] = diff
+  }
+  return Object.keys(patch).length > 0 ? patch : undefined
+}
+
+// Sends only the user's YAML edits, like `kubectl edit`, so concurrent writes
+// such as controller status updates don't cause resourceVersion conflicts.
+export const updateResourceFromYaml = async <T extends ResourceType>(
+  resource: T,
+  name: string,
+  namespace: string | undefined,
+  original: ResourceTypeMap[T],
+  edited: ResourceTypeMap[T]
+): Promise<void> => {
+  const endpoint = `/${resource}/${namespace || '_all'}/${name}?patchType=merge`
+  await apiClient.patch(endpoint, createMergePatch(original, edited) ?? {})
+}
+
 export const resizePod = async (
   namespace: string,
   name: string,

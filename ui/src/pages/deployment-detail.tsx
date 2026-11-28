@@ -9,6 +9,7 @@ import {
   createResource,
   patchResource,
   updateResource,
+  updateResourceFromYaml,
   useRelatedResources,
   useResource,
   useResourcesEvents,
@@ -136,8 +137,14 @@ export function DeploymentDetail(props: { namespace: string; name: string }) {
     }
   }, [deployment, refreshInterval])
 
-  const handleSaveYaml = async (content: Deployment) => {
-    await updateResource('deployments', name, namespace, content)
+  const handleSaveYaml = async (content: Deployment, original: Deployment) => {
+    await updateResourceFromYaml(
+      'deployments',
+      name,
+      namespace,
+      original,
+      content
+    )
     toast.success(t('common.messages.yamlSaved'))
     setRefreshInterval(1000)
   }

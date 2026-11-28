@@ -2,7 +2,7 @@ import { ConfigMap } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { updateResource, useResource } from '@/lib/api'
+import { updateResourceFromYaml, useResource } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { KeyValueDataViewer } from '@/components/key-value-data-viewer'
 import { ResourceOverview } from '@/components/resource-overview'
@@ -23,8 +23,14 @@ export function ConfigMapDetail(props: { namespace: string; name: string }) {
   const binaryDataCount = data ? Object.keys(data.binaryData || {}).length : 0
   const totalCount = dataCount + binaryDataCount
 
-  const handleSaveYaml = async (content: ConfigMap) => {
-    await updateResource('configmaps', name, namespace, content)
+  const handleSaveYaml = async (content: ConfigMap, original: ConfigMap) => {
+    await updateResourceFromYaml(
+      'configmaps',
+      name,
+      namespace,
+      original,
+      content
+    )
     toast.success('YAML saved successfully')
     await refetch()
   }

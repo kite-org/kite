@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 
 import {
   resizePod,
-  updateResource,
+  updateResourceFromYaml,
   useResource,
   useResourcesEvents,
 } from '@/lib/api'
@@ -98,8 +98,8 @@ export function PodDetail(props: { namespace: string; name: string }) {
     )
   }, [pod, selectedContainerName])
 
-  const handleSaveYaml = async (content: Pod) => {
-    await updateResource('pods', name, namespace, content)
+  const handleSaveYaml = async (content: Pod, original: Pod) => {
+    await updateResourceFromYaml('pods', name, namespace, original, content)
     toast.success(t('common.messages.yamlSaved'))
     await refetch()
   }

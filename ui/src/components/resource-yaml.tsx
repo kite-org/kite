@@ -18,6 +18,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAppearance } from './appearance-provider'
 import { ErrorBoundary } from './error-boundary'
 
+type Props<T> = Omit<ResourceYamlProps<T>, 'onSave'> & {
+  // original is the YAML the edit started from, so callers can send only the user's changes.
+  onSave?: (value: T, original: T) => Promise<unknown>
+}
+
 export function ResourceYaml<T>({
   value,
   title,
@@ -25,7 +30,7 @@ export function ResourceYaml<T>({
   onSave,
   className,
   fillHeight = false,
-}: ResourceYamlProps<T>) {
+}: Props<T>) {
   const { t } = useTranslation()
   const [isEditing, setIsEditing] = useState(false)
   const yamlValue = useMemo(() => yaml.dump(value, { indent: 2 }), [value])
@@ -35,6 +40,7 @@ export function ResourceYaml<T>({
   const [validationError, setValidationError] = useState<string>('')
   const { actualTheme, colorTheme } = useAppearance()
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)
+  const editBaseRef = useRef<string | null>(null)
   const validationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   )
@@ -46,7 +52,8 @@ export function ResourceYaml<T>({
   )
 
   useEffect(() => {
-    setEditorValue(yamlValue)
+    // Don't overwrite in-progress edits when the resource refreshes.
+    if (editBaseRef.current === null) setEditorValue(yamlValue)
   }, [yamlValue])
 
   useEffect(() => {
@@ -83,6 +90,7 @@ export function ResourceYaml<T>({
   }
 
   const handleEdit = () => {
+    editBaseRef.current = editorValue
     setIsEditing(true)
     setTimeout(() => {
       if (editorRef.current) {
@@ -95,7 +103,11 @@ export function ResourceYaml<T>({
     if (!isValidYaml || !onSave) return
     setIsSaving(true)
     try {
-      await onSave(yaml.load(editorValue) as T)
+      await onSave(
+        yaml.load(editorValue) as T,
+        yaml.load(editBaseRef.current ?? yamlValue) as T
+      )
+      editBaseRef.current = null
       setIsEditing(false)
     } catch (error) {
       toast.error(translateError(error, t))
@@ -105,6 +117,7 @@ export function ResourceYaml<T>({
   }
 
   const handleCancel = () => {
+    editBaseRef.current = null
     setEditorValue(yamlValue)
     setIsEditing(false)
   }

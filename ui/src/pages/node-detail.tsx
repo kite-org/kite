@@ -17,7 +17,7 @@ import {
   taintNode,
   uncordonNode,
   untaintNode,
-  updateResource,
+  updateResourceFromYaml,
   useRelatedResources,
   useResource,
   useResources,
@@ -103,8 +103,8 @@ export function NodeDetail(props: { name: string }) {
     fieldSelector: `spec.nodeName=${name}`,
   })
 
-  const handleSaveYaml = async (content: Node) => {
-    await updateResource('nodes', name, undefined, content)
+  const handleSaveYaml = async (content: Node, original: Node) => {
+    await updateResourceFromYaml('nodes', name, undefined, original, content)
     toast.success(t('common.messages.yamlSaved'))
   }
 
