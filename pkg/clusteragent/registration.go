@@ -125,6 +125,14 @@ func (credentialCaptureRoundTripper) RoundTrip(req *http.Request) (*http.Respons
 	}, nil
 }
 
+type trustedImpersonationKey struct{}
+
+// WithTrustedImpersonation marks a request whose impersonation headers were added by Kite
+// for the signed-in user, so the agent transport keeps them instead of stripping client input.
+func WithTrustedImpersonation(ctx context.Context) context.Context {
+	return context.WithValue(ctx, trustedImpersonationKey{}, true)
+}
+
 type authorizationRoundTripper struct {
 	next      http.RoundTripper
 	manager   *Manager
@@ -137,9 +145,11 @@ func (t *authorizationRoundTripper) RoundTrip(req *http.Request) (*http.Response
 	t.manager.mu.RUnlock()
 	request := req.Clone(req.Context())
 	request.Header = req.Header.Clone()
-	for name := range request.Header {
-		if strings.HasPrefix(strings.ToLower(name), "impersonate-") {
-			request.Header.Del(name)
+	if request.Context().Value(trustedImpersonationKey{}) != true {
+		for name := range request.Header {
+			if strings.HasPrefix(strings.ToLower(name), "impersonate-") {
+				request.Header.Del(name)
+			}
 		}
 	}
 	if authorization != "" {

@@ -141,8 +141,8 @@ The Cluster Agent then uses the API server and credentials from the kubeconfig's
 
 - The permissions of the Cluster Agent's ServiceAccount or kubeconfig determine what Kite can do in the cluster. If you need features like logs or terminals, grant the corresponding Kubernetes RBAC permissions as well.
 - The generated YAML binds the Cluster Agent ServiceAccount to `cluster-admin`, granting administrative privileges over the entire cluster. Confirm this meets your security requirements before deploying.
-- Kite users are still governed by Kite's own RBAC, but the identity kube-apiserver sees is the ServiceAccount or kubeconfig user used by the Cluster Agent, not the actual logged-in Kite user.
-- Cluster Agent clusters do not forward per-user Kubernetes impersonation. Kite Server removes `Impersonate-*` headers and accesses Kubernetes with the credentials registered by the Cluster Agent.
+- Kite users are still governed by Kite's own RBAC. By default, the identity kube-apiserver sees is the ServiceAccount or kubeconfig user used by the Cluster Agent, not the logged-in Kite user.
+- With `impersonate: true` on the cluster, Kite Server adds its own trusted `Impersonate-User` and `Impersonate-Group` headers for the signed-in user. The Cluster Agent preserves those headers but still strips client-supplied `Impersonate-*`. Kubernetes RBAC is evaluated for that user, and audit events record the impersonation. The agent credential must have `impersonate` permission on users and groups; the generated `cluster-admin` binding already grants it.
 
 ### Network and Availability
 

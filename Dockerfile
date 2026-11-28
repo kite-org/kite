@@ -4,7 +4,7 @@ WORKDIR /app/ui
 
 COPY ui/package.json ui/pnpm-lock.yaml ./
 
-RUN npm install -g pnpm && \
+RUN npm install -g pnpm@10.18.3 && \
     pnpm install --frozen-lockfile
 
 COPY ui/ ./

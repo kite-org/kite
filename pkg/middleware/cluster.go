@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zxh326/kite/pkg/cluster"
+	"github.com/zxh326/kite/pkg/model"
 )
 
 const (
@@ -33,14 +34,34 @@ func ClusterMiddleware(cm clusterClientSetProvider) gin.HandlerFunc {
 				}
 			}
 		}
-		cluster, err := cm.GetClientSet(clusterName)
+		cs, err := cm.GetClientSet(clusterName)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			c.Abort()
 			return
 		}
-		c.Set("cluster", cluster)
-		c.Set(ClusterNameKey, cluster.Name)
+		if cs.ImpersonationEnabled() {
+			value, exists := c.Get("user")
+			if !exists {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required for impersonation"})
+				c.Abort()
+				return
+			}
+			user, ok := value.(model.User)
+			if !ok {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user for impersonation"})
+				c.Abort()
+				return
+			}
+			cs, err = cs.ClientFor(user)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				c.Abort()
+				return
+			}
+		}
+		c.Set("cluster", cs)
+		c.Set(ClusterNameKey, cs.Name)
 		c.Next()
 	}
 }

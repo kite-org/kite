@@ -231,6 +231,37 @@ func NewClient(config *rest.Config) (*K8sClient, error) {
 	}, nil
 }
 
+// NewUserClient creates an uncached K8sClient for a single impersonated request. Sharing the
+// cached client would let one user's informer cache answer another user's reads.
+func NewUserClient(config *rest.Config) (*K8sClient, error) {
+	if config.QPS == 0 {
+		config.QPS = kubeAPIQPS()
+	}
+	if config.Burst == 0 {
+		config.Burst = kubeAPIBurst()
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	metricsClient, err := metricsclient.NewForConfig(config)
+	if err != nil {
+		klog.Warningf("failed to create metrics client: %v", err)
+	}
+	c, err := client.New(config, client.Options{Scheme: runtimeScheme})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create client: %w", err)
+	}
+	return &K8sClient{
+		Client:        c,
+		ClientSet:     clientset,
+		Configuration: config,
+		MetricsClient: metricsClient,
+		cancel:        func() {},
+	}, nil
+}
+
 func (c *K8sClient) Stop(name string) {
 	klog.Infof("Stopping K8s client for %s", name)
 	c.cancel()

@@ -990,6 +990,8 @@
       "prometheusUrlPlaceholder": "https://prometheus.example.com",
       "clusterAgentDescription": "Create the cluster first, then run the generated command inside the target cluster.",
       "enabled": "Enabled",
+      "impersonate": "Impersonate Signed-in User",
+      "impersonateDescription": "Apply Kubernetes RBAC and audit to the signed-in user. The cluster must allow Kite to impersonate users and groups.",
       "isDefault": "Set as Default"
     }
   },

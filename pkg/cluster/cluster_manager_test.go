@@ -90,6 +90,20 @@ func Test_shouldUpdateCluster(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "impersonation setting change, need update",
+			args: args{
+				cs: &ClientSet{
+					Name:    "test",
+					Version: "v1.34.0",
+					K8sClient: &kube.K8sClient{
+						ClientSet: &kubernetes.Clientset{},
+					},
+				},
+				cluster: &model.Cluster{Name: "test", Enable: true, Impersonate: true},
+			},
+			want: true,
+		},
+		{
 			name: "prometheus url change, need update",
 			args: args{
 				cs: &ClientSet{

@@ -141,8 +141,8 @@ kite cluster-agent \
 
 - Cluster Agent 的 ServiceAccount 或 kubeconfig 权限决定 Kite 能够在集群中执行哪些操作。若需要使用日志、终端等功能，应同时授予对应的 Kubernetes RBAC 权限。
 - 当前生成的 YAML 会把 Cluster Agent ServiceAccount 绑定到 `cluster-admin`，拥有整个集群的管理权限。部署前应确认这符合你的安全要求。
-- Kite 用户仍受 Kite 自身 RBAC 控制，但 kube-apiserver 看到的请求身份是 Cluster Agent 使用的 ServiceAccount 或 kubeconfig 用户，而不是实际的 Kite 登录用户。
-- Cluster Agent 集群不会转发用户级 Kubernetes Impersonation。Kite Server 会移除 `Impersonate-*` 请求头，并使用 Cluster Agent 注册的凭据访问 Kubernetes。
+- Kite 用户仍受 Kite 自身 RBAC 控制。默认情况下，kube-apiserver 看到的身份是 Cluster Agent 使用的 ServiceAccount 或 kubeconfig 用户，而不是实际的 Kite 登录用户。
+- 在集群上启用 `impersonate: true` 后，Kite Server 会为登录用户添加受信任的 `Impersonate-User` 和 `Impersonate-Group` 请求头。Cluster Agent 会保留这些请求头，但仍会移除客户端自带的 `Impersonate-*`。Kubernetes RBAC 会按该用户评估，审计事件会记录模拟信息。Cluster Agent 凭据需要对 users 和 groups 具备 `impersonate` 权限；生成的 `cluster-admin` 绑定已包含该权限。
 
 ### 网络与可用性
 

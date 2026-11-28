@@ -21,6 +21,7 @@ export interface ClusterCreateRequest {
   inCluster?: boolean
   clusterAgent?: boolean
   isDefault?: boolean
+  impersonate?: boolean
 }
 
 export interface ClusterUpdateRequest extends ClusterCreateRequest {

@@ -25,7 +25,7 @@ func TestClusterConfigurationLifecyclePreservesSecretsAndDefault(t *testing.T) {
 	router.PUT("/clusters/:id", manager.UpdateCluster)
 	router.DELETE("/clusters/:id", manager.DeleteCluster)
 
-	create := performClusterRequest(router, http.MethodPost, "/clusters", `{"name":"primary","description":"main","config":"secret-kubeconfig","isDefault":true}`)
+	create := performClusterRequest(router, http.MethodPost, "/clusters", `{"name":"primary","description":"main","config":"secret-kubeconfig","isDefault":true,"impersonate":true}`)
 	if create.Code != http.StatusCreated {
 		t.Fatalf("create status = %d, want %d: %s", create.Code, http.StatusCreated, create.Body.String())
 	}
@@ -33,11 +33,11 @@ func TestClusterConfigurationLifecyclePreservesSecretsAndDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loading created cluster: %v", err)
 	}
-	if !primary.IsDefault || !primary.Enable || string(primary.Config) != "secret-kubeconfig" {
+	if !primary.IsDefault || !primary.Enable || !primary.Impersonate || string(primary.Config) != "secret-kubeconfig" {
 		t.Fatalf("created cluster = %#v", primary)
 	}
 
-	updateBody := `{"name":"renamed","description":"updated","config":"","prometheusURL":"https://prom.example.com","isDefault":true,"enabled":true}`
+	updateBody := `{"name":"renamed","description":"updated","config":"","prometheusURL":"https://prom.example.com","isDefault":true,"enabled":true,"impersonate":false}`
 	update := performClusterRequest(router, http.MethodPut, fmt.Sprintf("/clusters/%d", primary.ID), updateBody)
 	if update.Code != http.StatusOK {
 		t.Fatalf("update status = %d, want %d: %s", update.Code, http.StatusOK, update.Body.String())
@@ -46,7 +46,7 @@ func TestClusterConfigurationLifecyclePreservesSecretsAndDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loading updated cluster: %v", err)
 	}
-	if updated.Name != "renamed" || updated.Description != "updated" || updated.PrometheusURL != "https://prom.example.com" {
+	if updated.Name != "renamed" || updated.Description != "updated" || updated.PrometheusURL != "https://prom.example.com" || updated.Impersonate {
 		t.Fatalf("updated cluster = %#v", updated)
 	}
 	if string(updated.Config) != "secret-kubeconfig" {
@@ -64,7 +64,7 @@ func TestClusterConfigurationLifecyclePreservesSecretsAndDefault(t *testing.T) {
 	if err := json.Unmarshal(list.Body.Bytes(), &listed); err != nil {
 		t.Fatalf("decoding list response: %v", err)
 	}
-	if len(listed) != 1 || listed[0]["config"] != "" || listed[0]["version"] != "v1.36.2" {
+	if len(listed) != 1 || listed[0]["config"] != "" || listed[0]["version"] != "v1.36.2" || listed[0]["impersonate"] != false {
 		t.Fatalf("listed clusters = %#v", listed)
 	}
 	if strings.Contains(list.Body.String(), "secret-kubeconfig") {

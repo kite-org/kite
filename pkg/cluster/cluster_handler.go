@@ -89,6 +89,7 @@ func (cm *ClusterManager) GetClusterList(c *gin.Context) {
 			"connected":     cluster.ClusterAgent && cm.clusterAgentManager.Connected(cluster.ID),
 			"isDefault":     cluster.IsDefault,
 			"prometheusURL": cluster.PrometheusURL,
+			"impersonate":   cluster.Impersonate,
 			"config":        "",
 		}
 		if cluster.ClusterAgent {
@@ -122,6 +123,7 @@ func (cm *ClusterManager) CreateCluster(c *gin.Context) {
 		InCluster     bool   `json:"inCluster"`
 		ClusterAgent  bool   `json:"clusterAgent"`
 		IsDefault     bool   `json:"isDefault"`
+		Impersonate   bool   `json:"impersonate"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -184,6 +186,7 @@ func (cm *ClusterManager) CreateCluster(c *gin.Context) {
 		ClusterAgentPrivateKey: model.SecretString(clusterAgentPrivateKey),
 		IsDefault:              req.IsDefault,
 		Enable:                 true,
+		Impersonate:            req.Impersonate,
 	}
 
 	if err := model.AddCluster(cluster); err != nil {
@@ -228,6 +231,7 @@ func (cm *ClusterManager) UpdateCluster(c *gin.Context) {
 		InCluster     bool   `json:"inCluster"`
 		IsDefault     bool   `json:"isDefault"`
 		Enabled       bool   `json:"enabled"`
+		Impersonate   bool   `json:"impersonate"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -262,6 +266,7 @@ func (cm *ClusterManager) UpdateCluster(c *gin.Context) {
 		"in_cluster":     req.InCluster,
 		"is_default":     req.IsDefault,
 		"enable":         req.Enabled,
+		"impersonate":    req.Impersonate,
 	}
 
 	if req.Name != "" && req.Name != cluster.Name {

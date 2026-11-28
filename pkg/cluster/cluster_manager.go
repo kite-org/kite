@@ -31,6 +31,115 @@ type ClientSet struct {
 	config                  string
 	prometheusURL           string
 	clusterAgentGeneration  uint64
+	restConfig              *rest.Config
+	impersonate             bool
+
+	// sharedTransport holds the cluster's TLS connections and agent tunnel for all impersonated users.
+	sharedTransportOnce sync.Once
+	sharedTransport     http.RoundTripper
+	sharedTransportErr  error
+}
+
+// ImpersonationEnabled reports whether requests to this cluster impersonate the signed-in user.
+func (cs *ClientSet) ImpersonationEnabled() bool {
+	return cs.impersonate
+}
+
+// ClientFor returns the client set for one request. Impersonating clusters keep Kite's cluster
+// credentials but add the signed-in user's identity as Kubernetes impersonation headers.
+func (cs *ClientSet) ClientFor(user model.User) (*ClientSet, error) {
+	if !cs.impersonate {
+		return cs, nil
+	}
+	if user.Username == "" {
+		return nil, errors.New("cannot impersonate a user without a username")
+	}
+
+	impersonate := rest.ImpersonationConfig{
+		UserName: user.Username,
+		Groups:   append([]string(nil), user.OIDCGroups...),
+	}
+
+	// Build one transport per cluster. Exec and auth-provider credentials must live here:
+	// client-go rejects their TLS certificate callback when a custom Transport is also set.
+	cs.sharedTransportOnce.Do(func() {
+		shared := rest.CopyConfig(cs.restConfig)
+		shared.Impersonate = rest.ImpersonationConfig{}
+		cs.sharedTransport, cs.sharedTransportErr = rest.TransportFor(shared)
+	})
+	if cs.sharedTransportErr != nil {
+		return nil, cs.sharedTransportErr
+	}
+
+	apiConfig := rest.CopyConfig(cs.restConfig)
+	apiConfig.Impersonate = impersonate
+	// The shared transport owns TLS, the agent dial and all cluster credentials. Client-go
+	// applies the agent wrapper inside this trusted marker, so impersonation headers added
+	// here survive instead of being stripped as client input.
+	apiConfig.Username, apiConfig.Password = "", ""
+	apiConfig.BearerToken, apiConfig.BearerTokenFile = "", ""
+	apiConfig.ExecProvider, apiConfig.AuthProvider = nil, nil
+	apiConfig.TLSClientConfig = rest.TLSClientConfig{}
+	apiConfig.Dial = nil
+	apiConfig.Transport = cs.sharedTransport
+	apiConfig.WrapTransport = func(next http.RoundTripper) http.RoundTripper {
+		return &trustedImpersonationRoundTripper{next: next}
+	}
+
+	// Streaming and proxy paths read K8sClient.Configuration and build their own transport,
+	// ignoring apiConfig.Transport. Give them the original TLS/dial/credential settings while
+	// still marking impersonation headers as trusted for the agent wrapper.
+	streamConfig := rest.CopyConfig(cs.restConfig)
+	streamConfig.Impersonate = impersonate
+	streamConfig.Transport = nil
+	originalWrap := cs.restConfig.WrapTransport
+	streamConfig.WrapTransport = func(next http.RoundTripper) http.RoundTripper {
+		if originalWrap != nil {
+			next = originalWrap(next)
+		}
+		return &trustedImpersonationRoundTripper{next: next}
+	}
+
+	k8sClient, err := kube.NewUserClient(apiConfig)
+	if err != nil {
+		return nil, err
+	}
+	k8sClient.Configuration = streamConfig
+	promClient := cs.PromClient
+	promURL := cs.prometheusURL
+	if promURL == "" {
+		promURL = cs.DiscoveredPrometheusURL
+	}
+	if promURL != "" && isClusterLocalURL(promURL) {
+		// Fail closed: a cluster-local Prometheus must not fall back to shared credentials.
+		transport, err := createK8sProxyTransport(apiConfig, promURL)
+		if err != nil {
+			return nil, err
+		}
+		promClient, err = prometheus.NewClientWithRoundTripper(promURL, transport)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &ClientSet{
+		Name:                    cs.Name,
+		Version:                 cs.Version,
+		K8sClient:               k8sClient,
+		PromClient:              promClient,
+		DiscoveredPrometheusURL: cs.DiscoveredPrometheusURL,
+		config:                  cs.config,
+		prometheusURL:           cs.prometheusURL,
+		restConfig:              cs.restConfig,
+		impersonate:             true,
+	}, nil
+}
+
+type trustedImpersonationRoundTripper struct {
+	next http.RoundTripper
+}
+
+func (t *trustedImpersonationRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return t.next.RoundTrip(req.WithContext(clusteragent.WithTrustedImpersonation(req.Context())))
 }
 
 type ClusterManager struct {
@@ -68,10 +177,22 @@ func createClientSetFromConfig(name, content, prometheusURL string) (*ClientSet,
 	return cs, nil
 }
 
+// NewClientSet creates a client set for a cluster connection. When impersonate is set, requests
+// through this cluster are made as the signed-in user using Kubernetes impersonation headers.
+func NewClientSet(name string, k8sConfig *rest.Config, prometheusURL string, impersonate bool) (*ClientSet, error) {
+	cs, err := newClientSet(name, k8sConfig, prometheusURL)
+	if err != nil {
+		return nil, err
+	}
+	cs.impersonate = impersonate
+	return cs, nil
+}
+
 func newClientSet(name string, k8sConfig *rest.Config, prometheusURL string) (*ClientSet, error) {
 	cs := &ClientSet{
 		Name:          name,
 		prometheusURL: prometheusURL,
+		restConfig:    k8sConfig,
 	}
 	var err error
 	cs.K8sClient, err = kube.NewClient(k8sConfig)
@@ -410,6 +531,12 @@ func shouldUpdateCluster(cs *ClientSet, cluster *model.Cluster) bool {
 		return true
 	}
 
+	// impersonation setting change
+	if cs.impersonate != cluster.Impersonate {
+		klog.Infof("Impersonation setting changed for cluster %s, updating", cluster.Name)
+		return true
+	}
+
 	// prometheus URL change
 	if cs.prometheusURL != cluster.PrometheusURL {
 		klog.Infof("Prometheus URL changed for cluster %s, updating", cluster.Name)
@@ -431,10 +558,18 @@ func shouldUpdateCluster(cs *ClientSet, cluster *model.Cluster) bool {
 }
 
 func buildClientSet(cluster *model.Cluster) (*ClientSet, error) {
+	var cs *ClientSet
+	var err error
 	if cluster.InCluster {
-		return createClientSetInCluster(cluster.Name, cluster.PrometheusURL)
+		cs, err = createClientSetInCluster(cluster.Name, cluster.PrometheusURL)
+	} else {
+		cs, err = createClientSetFromConfig(cluster.Name, string(cluster.Config), cluster.PrometheusURL)
 	}
-	return createClientSetFromConfig(cluster.Name, string(cluster.Config), cluster.PrometheusURL)
+	if err != nil {
+		return nil, err
+	}
+	cs.impersonate = cluster.Impersonate
+	return cs, nil
 }
 
 func (cm *ClusterManager) buildClientSet(cluster *model.Cluster) (*ClientSet, error) {
@@ -445,7 +580,7 @@ func (cm *ClusterManager) buildClientSet(cluster *model.Cluster) (*ClientSet, er
 	if err != nil {
 		return nil, err
 	}
-	clientSet, err := newClientSet(cluster.Name, config, cluster.PrometheusURL)
+	clientSet, err := NewClientSet(cluster.Name, config, cluster.PrometheusURL, cluster.Impersonate)
 	if err != nil {
 		return nil, err
 	}

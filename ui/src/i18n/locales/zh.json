@@ -1001,6 +1001,8 @@
       "prometheusUrlPlaceholder": "https://prometheus.example.com",
       "clusterAgentDescription": "先创建集群，然后在目标集群内运行生成的命令。",
       "enabled": "启用",
+      "impersonate": "模拟登录用户",
+      "impersonateDescription": "使 Kubernetes RBAC 和审计记录以登录用户身份生效。集群必须允许 Kite 模拟用户和用户组。",
       "isDefault": "设为默认"
     }
   },

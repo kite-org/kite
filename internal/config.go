@@ -39,6 +39,7 @@ type ClusterConfig struct {
 	PrometheusURL string `yaml:"prometheusURL"`
 	InCluster     bool   `yaml:"inCluster"`
 	Default       bool   `yaml:"default"`
+	Impersonate   bool   `yaml:"impersonate"`
 }
 
 type OAuthConfig struct {
@@ -267,6 +268,7 @@ func applyClusters(clusters []ClusterConfig) error {
 				InCluster:     c.InCluster,
 				IsDefault:     c.Default,
 				Enable:        true,
+				Impersonate:   c.Impersonate,
 			}
 			if err := tx.Create(cluster).Error; err != nil {
 				return err

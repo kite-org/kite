@@ -41,6 +41,7 @@ function createClusterFormData(cluster?: Cluster | null) {
     isDefault: cluster?.isDefault ?? false,
     inCluster: cluster?.inCluster ?? false,
     clusterAgent: cluster?.clusterAgent ?? false,
+    impersonate: cluster?.impersonate ?? false,
   }
 }
 
@@ -232,6 +233,31 @@ function ClusterDialogContent({
               id="cluster-enabled"
               checked={formData.enabled}
               onCheckedChange={(checked) => handleChange('enabled', checked)}
+            />
+          </div>
+
+          {/* Impersonation */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label htmlFor="cluster-impersonate">
+                {t(
+                  'clusterManagement.dialog.impersonate',
+                  'Impersonate Signed-in User'
+                )}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t(
+                  'clusterManagement.dialog.impersonateDescription',
+                  'Apply Kubernetes RBAC and audit to the signed-in user. The cluster must allow Kite to impersonate users and groups.'
+                )}
+              </p>
+            </div>
+            <Switch
+              id="cluster-impersonate"
+              checked={formData.impersonate}
+              onCheckedChange={(checked) =>
+                handleChange('impersonate', checked)
+              }
             />
           </div>
 
