@@ -135,7 +135,7 @@ func (h *NodeTerminalHandler) createNodeAgent(ctx context.Context, cs *cluster.C
 					Stdin:           true,
 					StdinOnce:       true,
 					TTY:             true,
-					Command:         []string{"/bin/sh", "-c", "chroot /host || (exec /bin/zsh || exec /bin/bash || exec /bin/sh)"},
+					Command:         []string{"/bin/sh", "-c", "for shell in /bin/sh /bin/bash /usr/bin/bash /bin/ash /bin/zsh /usr/bin/zsh; do if [ -x \"/host${shell}\" ]; then exec chroot /host \"${shell}\"; fi; done; echo \"No host shell found; using container shell with host root mounted at /host\"; cd /host || cd /; exec /bin/sh"},
 					SecurityContext: &corev1.SecurityContext{
 						Privileged: &[]bool{true}[0],
 					},

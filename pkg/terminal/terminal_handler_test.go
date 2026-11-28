@@ -124,6 +124,9 @@ func TestTerminalAgentsUseExpectedSecurityConfigurationAndCleanupScope(t *testin
 	if len(container.VolumeMounts) != 1 || container.VolumeMounts[0].MountPath != "/host" {
 		t.Fatalf("node agent host mount = %#v", container.VolumeMounts)
 	}
+	if len(container.Command) != 3 || !strings.Contains(container.Command[2], "exec chroot /host") || !strings.Contains(container.Command[2], "exec /bin/sh") || strings.Contains(container.Command[2], "chroot /host ||") {
+		t.Fatalf("node agent command = %#v", container.Command)
+	}
 
 	kubectlHandler := &KubectlTerminalHandler{}
 	if err := kubectlHandler.ensureAdminServiceAccount(ctx, clientSet); err != nil {
