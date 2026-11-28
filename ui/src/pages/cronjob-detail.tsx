@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import {
   createResource,
   updateResource,
+  updateResourceFromYaml,
   useResource,
   useResources,
   useResourcesEvents,
@@ -153,8 +154,8 @@ export function CronJobDetail(props: { namespace: string; name: string }) {
     await Promise.all([refetchCronJob(), refetchJobs()])
   }
 
-  const handleSaveYaml = async (content: CronJob) => {
-    await updateResource('cronjobs', name, namespace, content)
+  const handleSaveYaml = async (content: CronJob, original: CronJob) => {
+    await updateResourceFromYaml('cronjobs', name, namespace, original, content)
     toast.success('CronJob YAML saved successfully')
     await refetchCronJob()
   }

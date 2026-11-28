@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import {
-  updateResource,
+  updateResourceFromYaml,
   useResource,
   useResources,
   useResourcesEvents,
@@ -64,8 +64,8 @@ export function ServiceDetail(props: { name: string; namespace?: string }) {
     ])
   }
 
-  const handleSaveYaml = async (content: Service) => {
-    await updateResource('services', name, namespace, content)
+  const handleSaveYaml = async (content: Service, original: Service) => {
+    await updateResourceFromYaml('services', name, namespace, original, content)
     toast.success(t('common.messages.yamlSaved'))
     await handleRefresh()
   }

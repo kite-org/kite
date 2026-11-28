@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 
 import {
   updateResource,
+  updateResourceFromYaml,
   useResource,
   useResourcesEvents,
   useResourcesWatch,
@@ -86,8 +87,17 @@ export function StatefulSetDetail(props: { namespace: string; name: string }) {
     }
   }, [statefulset, refreshInterval])
 
-  const handleSaveYaml = async (content: StatefulSet) => {
-    await updateResource('statefulsets', name, namespace, content)
+  const handleSaveYaml = async (
+    content: StatefulSet,
+    original: StatefulSet
+  ) => {
+    await updateResourceFromYaml(
+      'statefulsets',
+      name,
+      namespace,
+      original,
+      content
+    )
     toast.success('StatefulSet YAML saved successfully')
     setRefreshInterval(1000)
   }

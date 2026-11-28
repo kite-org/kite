@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { ResourceType, ResourceTypeMap } from '@/types/api'
-import { updateResource, useResource } from '@/lib/api'
+import { updateResourceFromYaml, useResource } from '@/lib/api'
 import { EventTable } from '@/components/event-table'
 import { RelatedResourcesTable } from '@/components/related-resource-table'
 import { ResourceHistoryTable } from '@/components/resource-history-table'
@@ -27,8 +27,17 @@ export function SimpleResourceDetail<T extends ResourceType>(props: {
 
   const resourceLabel = getResourceLabel(resourceType)
 
-  const handleSaveYaml = async (content: ResourceTypeMap[T]) => {
-    await updateResource(resourceType, name, namespace, content)
+  const handleSaveYaml = async (
+    content: ResourceTypeMap[T],
+    original: ResourceTypeMap[T]
+  ) => {
+    await updateResourceFromYaml(
+      resourceType,
+      name,
+      namespace,
+      original,
+      content
+    )
     await refetch()
   }
 

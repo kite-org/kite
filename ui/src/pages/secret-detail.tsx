@@ -3,7 +3,7 @@ import { Secret } from 'kubernetes-types/core/v1'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { updateResource, useResource } from '@/lib/api'
+import { updateResourceFromYaml, useResource } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EventTable } from '@/components/event-table'
@@ -56,8 +56,8 @@ export function SecretDetail(props: { namespace: string; name: string }) {
       )
     : 0
 
-  const handleSaveYaml = async (content: Secret) => {
-    await updateResource('secrets', name, namespace, content)
+  const handleSaveYaml = async (content: Secret, original: Secret) => {
+    await updateResourceFromYaml('secrets', name, namespace, original, content)
     toast.success('YAML saved successfully')
     await refetch()
   }

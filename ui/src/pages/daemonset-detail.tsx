@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 
 import {
   updateResource,
+  updateResourceFromYaml,
   useResource,
   useResourcesEvents,
   useResourcesWatch,
@@ -75,8 +76,14 @@ export function DaemonSetDetail(props: { namespace: string; name: string }) {
   const { data: daemonsetEvents, isLoading: isEventsLoading } =
     useResourcesEvents('daemonsets', name, namespace)
 
-  const handleSaveYaml = async (content: DaemonSet) => {
-    await updateResource('daemonsets', name, namespace, content)
+  const handleSaveYaml = async (content: DaemonSet, original: DaemonSet) => {
+    await updateResourceFromYaml(
+      'daemonsets',
+      name,
+      namespace,
+      original,
+      content
+    )
     toast.success('DaemonSet YAML saved successfully')
     setRefreshInterval(1000)
     await refetch()
