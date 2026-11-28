@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import {
+  AIEffort,
   GeneralSettingUpdateRequest,
   updateGeneralSetting,
   useGeneralSetting,
@@ -33,6 +34,21 @@ import { Textarea } from '@/components/ui/textarea'
 
 const DEFAULT_MODEL = 'gpt-4o-mini'
 const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-5-5'
+// Mirrors DefaultGeneralOpenAIMaxTokens / DefaultGeneralAnthropicMaxTokens in
+// pkg/model/general_setting.go. The default must fit the provider's default
+// model output ceiling: gpt-4o-mini caps at 16384, current Claude models reach
+// 128K and spend part of the budget on thinking tokens.
+const DEFAULT_OPENAI_MAX_TOKENS = 8192
+const DEFAULT_ANTHROPIC_MAX_TOKENS = 64000
+const defaultMaxTokensForProvider = (provider: 'openai' | 'anthropic') =>
+  provider === 'anthropic'
+    ? DEFAULT_ANTHROPIC_MAX_TOKENS
+    : DEFAULT_OPENAI_MAX_TOKENS
+// Mirrors DefaultGeneralAIEffort / GeneralAIEfforts in the same Go file. Effort
+// is the depth knob on current Claude models — budget_tokens was removed — and
+// xhigh is the recommended level for agentic work.
+const DEFAULT_AI_EFFORT: AIEffort = 'xhigh'
+const AI_EFFORTS: AIEffort[] = ['low', 'medium', 'high', 'xhigh', 'max']
 const DEFAULT_KUBECTL_IMAGE = 'zzde/kubectl:latest'
 const DEFAULT_NODE_TERMINAL_IMAGE = 'busybox:latest'
 const DEFAULT_CLUSTER_AGENT_IMAGE = 'ghcr.io/kite-org/kite:latest'
@@ -45,6 +61,7 @@ interface GeneralSettingsFormData {
   aiApiKeyConfigured: boolean
   aiBaseUrl: string
   aiMaxTokens: number
+  aiEffort: AIEffort
   kubectlEnabled: boolean
   kubectlImage: string
   nodeTerminalImage: string
@@ -67,7 +84,8 @@ export function GeneralManagement() {
     aiApiKey: '',
     aiApiKeyConfigured: false,
     aiBaseUrl: '',
-    aiMaxTokens: 16384,
+    aiMaxTokens: DEFAULT_OPENAI_MAX_TOKENS,
+    aiEffort: DEFAULT_AI_EFFORT,
     kubectlEnabled: true,
     kubectlImage: DEFAULT_KUBECTL_IMAGE,
     nodeTerminalImage: DEFAULT_NODE_TERMINAL_IMAGE,
@@ -87,7 +105,10 @@ export function GeneralManagement() {
       aiApiKey: '',
       aiApiKeyConfigured: data.aiApiKeyConfigured ?? false,
       aiBaseUrl: data.aiBaseUrl || '',
-      aiMaxTokens: data.aiMaxTokens || 16384,
+      aiMaxTokens:
+        data.aiMaxTokens ||
+        defaultMaxTokensForProvider(data.aiProvider || 'openai'),
+      aiEffort: data.aiEffort || DEFAULT_AI_EFFORT,
       kubectlEnabled: data.kubectlEnabled ?? true,
       kubectlImage: data.kubectlImage || DEFAULT_KUBECTL_IMAGE,
       nodeTerminalImage: data.nodeTerminalImage || DEFAULT_NODE_TERMINAL_IMAGE,
@@ -184,7 +205,9 @@ export function GeneralManagement() {
       payload.aiProvider = formData.aiProvider
       payload.aiModel = formData.aiModel.trim() || defaultModel
       payload.aiBaseUrl = formData.aiBaseUrl.trim()
-      payload.aiMaxTokens = formData.aiMaxTokens || 16384
+      payload.aiMaxTokens =
+        formData.aiMaxTokens || defaultMaxTokensForProvider(formData.aiProvider)
+      payload.aiEffort = formData.aiEffort
       if (formData.aiApiKey.trim()) {
         payload.aiApiKey = formData.aiApiKey.trim()
       }
@@ -352,17 +375,62 @@ export function GeneralManagement() {
                   disabled={isAIManaged}
                   type="number"
                   min="1"
-                  max="128000"
-                  value={formData.aiMaxTokens}
+                  value={formData.aiMaxTokens || ''}
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      aiMaxTokens: parseInt(e.target.value) || 16384,
+                      // Keep an empty field empty. Substituting the default here
+                      // makes the box jump while the user is still typing, so the
+                      // fallback is applied on save instead.
+                      aiMaxTokens: parseInt(e.target.value) || 0,
                     }))
                   }
-                  placeholder="16384"
+                  placeholder={String(
+                    defaultMaxTokensForProvider(formData.aiProvider)
+                  )}
                 />
+                <p className="text-muted-foreground text-xs">
+                  {t(
+                    'generalManagement.aiAgent.form.maxTokensHint',
+                    'Ceiling on a single response. On Claude models thinking and answer share this budget, so a small value truncates the answer.'
+                  )}
+                </p>
               </div>
+
+              {formData.aiProvider === 'anthropic' && (
+                <div className="space-y-2">
+                  <Label htmlFor="general-ai-effort">
+                    {t(
+                      'generalManagement.aiAgent.form.effort',
+                      'Reasoning Effort'
+                    )}
+                  </Label>
+                  <Select
+                    disabled={isAIManaged}
+                    value={formData.aiEffort}
+                    onValueChange={(value: AIEffort) =>
+                      setFormData((prev) => ({ ...prev, aiEffort: value }))
+                    }
+                  >
+                    <SelectTrigger id="general-ai-effort">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AI_EFFORTS.map((effort) => (
+                        <SelectItem key={effort} value={effort}>
+                          {effort}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-muted-foreground text-xs">
+                    {t(
+                      'generalManagement.aiAgent.form.effortHint',
+                      'How much the model reasons and how many tools it uses. Higher costs more tokens; xhigh suits cluster troubleshooting.'
+                    )}
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
