@@ -288,9 +288,10 @@ config:
 | `model`     | string  | 模型名称                                        | `gpt-4o-mini` / `claude-sonnet-5-5` |
 | `apiKey`    | string  | API Key；启用时必填，支持 `${ENV_VAR}` 占位符     |                                   |
 | `baseUrl`   | string  | 自定义 API 地址                                 | 提供者的默认地址                  |
-| `maxTokens` | integer | 最大输出 Token 数                               | `16384`                           |
+| `maxTokens` | integer | 最大输出 Token 数                               | `8192` / `64000`                  |
+| `effort`    | string  | 仅 Anthropic：`low`、`medium`、`high`、`xhigh` 或 `max` | `xhigh`                   |
 
-默认模型随提供者变化。`ai` 部分管理全部 AI 字段，省略的字段使用默认值或空值。API Key 在数据库中加密存储。
+默认模型和 `maxTokens` 随提供者变化。`ai` 部分管理全部 AI 字段，省略的字段使用默认值或空值。API Key 在数据库中加密存储。
 
 AI 设置沿用现有配置文件的自动重载机制，并在 UI 中变为只读。其他通用设置仍可编辑。使用 Helm 内联配置时，将这些字段放在 `config.ai` 下。
 
