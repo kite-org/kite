@@ -41,6 +41,7 @@ export function ResourceYaml<T>({
   const { actualTheme, colorTheme } = useAppearance()
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)
   const editBaseRef = useRef<string | null>(null)
+  const latestYamlRef = useRef(yamlValue)
   const validationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   )
@@ -52,13 +53,17 @@ export function ResourceYaml<T>({
   )
 
   useEffect(() => {
+    latestYamlRef.current = yamlValue
     // Don't overwrite in-progress edits when the resource refreshes.
     if (editBaseRef.current === null) setEditorValue(yamlValue)
   }, [yamlValue])
 
   useEffect(() => {
     try {
-      yaml.load(editorValue)
+      const parsed = yaml.load(editorValue)
+      if (typeof parsed !== 'object' || parsed === null) {
+        throw new Error(t('common.messages.invalidYaml', 'Invalid YAML'))
+      }
       setIsValidYaml(true)
       setValidationError('')
     } catch (error) {
@@ -102,12 +107,17 @@ export function ResourceYaml<T>({
   const handleSave = async () => {
     if (!isValidYaml || !onSave) return
     setIsSaving(true)
+    const yamlBeforeSave = latestYamlRef.current
     try {
       await onSave(
         yaml.load(editorValue) as T,
         yaml.load(editBaseRef.current ?? yamlValue) as T
       )
       editBaseRef.current = null
+      // Show data refetched during onSave, which the sync effect skipped while editing.
+      if (latestYamlRef.current !== yamlBeforeSave) {
+        setEditorValue(latestYamlRef.current)
+      }
       setIsEditing(false)
     } catch (error) {
       toast.error(translateError(error, t))

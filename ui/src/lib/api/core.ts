@@ -532,8 +532,12 @@ export const updateResource = async <T extends ResourceType>(
   await apiClient.put(`${endpoint}`, body)
 }
 
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
+// Excludes arrays and Dates (js-yaml parses unquoted timestamps as Date).
+const isPlainObject = (value: unknown): value is Record<string, unknown> => {
+  if (typeof value !== 'object' || value === null) return false
+  const proto = Object.getPrototypeOf(value)
+  return proto === Object.prototype || proto === null
+}
 
 // Builds an RFC 7386 JSON merge patch turning `from` into `to`; undefined when equal.
 function createMergePatch(from: unknown, to: unknown): unknown {
